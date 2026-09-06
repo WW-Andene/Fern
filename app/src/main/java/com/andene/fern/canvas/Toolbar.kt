@@ -40,13 +40,13 @@ fun Toolbar(state: CanvasState, modifier: Modifier = Modifier) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
         ) {
             for (color in palette) {
                 val selected = state.activeColor == color
                 Surface(
                     modifier = Modifier
-                        .size(28.dp)
+                        .size(32.dp)
                         .clickable { state.activeColor = color }
                         .then(
                             if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
