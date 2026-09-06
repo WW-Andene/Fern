@@ -273,39 +273,61 @@ If a request explicitly scopes a feature down ("just the color swatches, no pick
 
 Discipline: **design-token systems**, the standard mechanism (used across major design systems, e.g. Material Design, Salesforce Lightning) for enforcing a single source of truth for spacing, sizing, and typography scales, ensuring pixel-accurate consistency across a UI.
 
-This template defaults to the **8-point grid system** — the dominant real-world spacing standard, used across Material Design (Google), Carbon (IBM), Polaris (Shopify), and most professional design systems — rather than an arbitrary invented scale. Swap it only if the project's platform mandates a different base unit (see the Android/`dp` note below); keep the same enforcement structure either way.
+> Define a single numeric scale for the project. This template uses "PerfectSuite" as an example instance — swap in the project's own scale if different, but keep the same enforcement structure below.
 
-Every numeric spacing/sizing dimension in the app — width, height, padding, margin, gap, icon size, border-radius input — **must** be a multiple of the base unit, **4**, with **8** preferred wherever the value is large enough to use it:
+Every numeric dimension in the app — font-size, width, height, padding, margin, gap, icon size, border-radius input, anything measured in px — **must** resolve to one of the scale's defined values. Example scale organized in three tiers per power-of-2 octave — `[Primary]`, `(Secondary)`, `{Tertiary}`:
 
 ```
-4  8  12  16  24  32  40  48  64  80  96  128
+[1]
+[2]  (3)
+[4]  (6)
+[8]  (12)  {14}
+[16] (24)  {30}
+[32] (48)  {62}
+[64] (96)  {126}
+[128] (192) {254}
+[256] (384) {510}
+[512] (768) {1022}
+[1024]
 ```
 
-(4 fills small gaps — icon padding, border widths, hairline gaps; 8 and its multiples cover everything else. This is the standard "4/8 spacing scale" documented across the design systems named above.) No other number is permitted. This applies to existing code as well as new code — when an off-scale value is touched, correct it to the nearest scale value as part of that change rather than leaving it.
-
-Font sizes follow a **modular type scale** — a geometric progression from a base size by a fixed ratio, the standard typographic technique for a coherent hierarchy (see any of the well-known ratios: Minor Third 1.2, Major Third 1.25, Perfect Fourth 1.333). Pick one ratio for the project and derive every font size from it rather than choosing sizes ad hoc; most UI frameworks' own default type scales (Material Type Scale, Tailwind's default font-size scale) are already built this way — prefer the platform's own scale over hand-rolling one.
+No other number is permitted. This applies to existing code as well as new code — when an off-scale value is touched, correct it to the nearest scale value as part of that change rather than leaving it.
 
 **Before setting any dimension:**
-- Never assume a default utility class is compliant — verify its computed px/dp value against the defined scale. A framework's default spacing/typography scale will usually already comply (most professional frameworks use 4/8-based spacing internally) but confirm rather than assume.
-- If a token (`--font-*`, `--size-*`, `--space-*`, a design-system's own spacing tokens, etc.) already resolves to a scale value, use it — this is the token layer doing its job.
+- Never assume a default utility class is compliant — verify its computed px value against the defined scale. A framework's default spacing/typography scale will often not map cleanly onto a project's own token system.
+- If a token (`--font-*`, `--size-*`, `--space-*`, etc.) already resolves to a scale value, use it — this is the token layer doing its job.
 - If the nearest existing token is off-scale, either correct the token (when the change should propagate to every usage) or apply an explicit, scoped override for just that element (when the change is local only).
-- **Platform exception:** on Android, use `dp` (density-independent pixels) as the unit the 4/8 grid applies to, and take font sizes from the platform's own Material 3 type scale (`MaterialTheme.typography.*`) rather than raw `sp` literals — this is Android's own established convention, not a deviation from the rule.
 
 ### 7.1 Rounding priority (tie-breaking)
 
-When correcting an off-scale value, round to the nearest multiple of 4. On an exact tie (e.g. `10` is equidistant between `8` and `12`), round up to the larger value — simplest, most common tie-break convention, and one a linter can check unambiguously.
+When correcting an off-scale value, round to the mathematically nearest scale value. When two candidates are **equidistant**, resolve the tie by a defined priority order. Example, for the PerfectSuite scale above — **Nearest beats Primary beats Secondary beats Tertiary**:
 
-### 7.2 Larger spacing values
+- **`[Primary]`** (base 2): `1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024`
+- **`(Secondary)`** (base 2 intermediate — the midpoint between two consecutive primaries): `3, 6, 12, 24, 48, 96, 192, 384, 768`
+- **`{Tertiary}`** (base 2 additional — sum of the primary steps below the next primary, e.g. `8+4+2=14`, `16+8+4+2=30`): `14, 30, 62, 126, 254, 510, 1022`
 
-Above roughly 64, prefer the standard doubling steps (`64, 80, 96, 128, 160, 192, 256`) over an arbitrary multiple of 4, so large gaps read as intentional layout rhythm rather than incidental math.
+Worked examples:
+- `10` → tie between `8` (primary) and `12` (secondary), both distance 2 → primary wins → **8**
+- `13` → tie between `12` (secondary) and `14` (tertiary), both distance 1 → secondary wins → **12**
+- `15` → tie between `14` (tertiary) and `16` (primary), both distance 1 → primary wins → **16**
+- `11` → `12` is distance 1, `8` is distance 3 → not a tie, nearest wins → **12**
+- `17` → `16` is distance 1, `24` is distance 7 → not a tie, nearest wins → **16**
+
+This can and will collapse previously-distinct values onto the same scale number (e.g. two font sizes both rounding to `12`) — that is an accepted outcome of strict scale compliance, not a bug to work around by picking a different rounding.
+
+### 7.2 Exception — values above the first primary-doubling threshold
+
+For a value greater than the scale's second primary step (e.g. `16` in the example scale), do not snap to the single nearest scale number. Instead: take the nearest `[Primary]` at or below the value, then add another `[Primary]` on top to close the remaining gap as tightly as possible.
+
+- Example (PerfectSuite scale): `150` → nearest primary at/below is `128`; `128 + 16 = 144` is the closest reachable primary+primary sum → **144**.
 
 ### 7.3 Corner radius
 
-Use the design system's own shape/radius tokens where the platform provides them (e.g. Material 3's `small`/`medium`/`large`/`extraLarge` shape scale) rather than a hand-computed radius. Where no such token set exists, define one small fixed set for the whole project (e.g. `4, 8, 16, 9999` for "sharp / soft / rounded / pill") and round any candidate radius to the nearest of those, per §7.1's tie-break rule — never a one-off radius picked to look right locally.
+Define a formula relating radius to a component's own dimensions, e.g. `radius = 0.24 × the element's height`, then round to the nearest scale value (apply the tie-break priority in §7.1).
 
 ### 7.4 Aspect ratios — preferred, not mandatory
 
-Default to the standard photographic/UI ratios rather than an arbitrary crop: `1:1` (avatars, thumbnails), `4:3` and `3:2` (general imagery), `16:9` (video/wide banners). Not a hard constraint — apply engineering judgment rather than forcing a mismatch — but a deliberate choice from this list, not an incidental crop.
+Define a short priority list of preferred aspect ratios to reach for — not a hard constraint; apply engineering judgment rather than forcing a mismatch. Example: `3:2`, `4:3`, `5:4`, `3:1` (the last reserved for wide/short bars).
 
 ### 7.5 Design objectives behind the design-token system
 
