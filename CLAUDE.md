@@ -36,11 +36,7 @@ List each such skill/playbook here with the file or command that invokes it and 
 
 | Skill/playbook | Location | Invoke when |
 |---|---|---|
-| *(e.g. a broad app-wide audit)* | *(its file/command)* | *(the trigger conditions that should call it, stated concretely enough that "I should have run this" is checkable after the fact)* |
-| *(e.g. a code-quality-specific audit)* | | |
-| *(e.g. a structural-reorganization procedure)* | | |
-| *(e.g. a visual/aesthetic-specific audit)* | | |
-| *(e.g. a scope/ambiguity-resolution procedure)* | | |
+| *(none defined yet)* | — | This project has no repo-specific skill or playbook yet. Add a row here the first time one is adopted (e.g. a release checklist, a gesture-regression checklist) rather than leaving this table permanently empty. |
 
 **How this interacts with the rest of this document:**
 - Any maintenance cadence defined elsewhere in this document (e.g. §4's "every ~50 commits") is a *floor*, not the only trigger — a listed skill should run sooner whenever its specific trigger condition is hit mid-task.
@@ -83,32 +79,35 @@ The rest of this section makes that mandate concrete: where a new file or folder
 
 Every codebase should be organized by **purpose**, not by file type. Before creating anything, classify what you're building against a table like this one and place it in the matching existing directory — never guess, and never default to wherever feels adjacent to the thing you're already touching. Fill in the left column with this project's actual purpose categories and the right column with its actual directories; keep the row for tests and fixtures, which almost every project needs:
 
+Package root: `com.andene.fern` under `app/src/main/java/com/andene/fern/`. This is a small, single-module Android/Kotlin/Jetpack Compose app — the taxonomy below is package-by-feature, not the `src/core|features|hooks` layout of the generic template above (that layout doesn't map onto Android/Compose conventions).
+
 | Purpose | Location |
 |---|---|
-| *(e.g. app-wide singleton services with no UI)* | *(e.g. `src/core/`)* |
-| *(e.g. a self-contained product feature's components and logic)* | *(e.g. `src/features/<feature>/`)* |
-| *(e.g. reusable hooks/composables)* | *(e.g. `src/hooks/`)* |
-| *(e.g. UI/constants/utilities reused across more than one feature)* | *(e.g. `src/shared/`)* |
-| *(e.g. generic, framework-agnostic utility functions)* | *(e.g. `src/utils/`)* |
-| Every automated test | Wherever this project's testing convention places them (colocated with source, or centralized — pick one and apply it everywhere) |
-| Golden/reference fixtures a test compares against | A dedicated fixtures directory beside the tests |
+| App entry point / top-level activity wiring (composing features together, nothing else) | `app/src/main/java/com/andene/fern/` (root package — currently just `MainActivity.kt`) |
+| The infinite-canvas drawing feature: camera/viewport state, world-space geometry, gesture handling, rendering, and its own UI (toolbar) | `app/src/main/java/com/andene/fern/canvas/` |
+| App-wide singleton services with no UI (e.g. future persistence, export) | `app/src/main/java/com/andene/fern/core/` — **does not exist yet**; create it the first time such a service is actually added, not preemptively (§5.2) |
+| UI/constants/utilities reused across more than one feature package | `app/src/main/java/com/andene/fern/shared/` — **does not exist yet**; create it the first time a second feature needs something `canvas/` currently owns, promoting the reused piece out at that point (§4.4) |
+| Android resources (drawables, mipmaps, themes, string/color values) | `app/src/main/res/`, using Android's own subdirectory convention (`drawable/`, `mipmap-*/`, `values/`) |
+| Every automated unit test | `app/src/test/java/com/andene/fern/`, mirroring the package of the code under test (e.g. a test for `canvas/CanvasState.kt` lives at `app/src/test/java/com/andene/fern/canvas/CanvasStateTest.kt`) |
+| Instrumented/UI tests that need an Android device or emulator | `app/src/androidTest/java/com/andene/fern/`, same mirrored-package rule |
+| Golden/reference fixtures a test compares against | A `fixtures/` subpackage beside the tests that use them (e.g. `app/src/test/java/com/andene/fern/canvas/fixtures/`) |
 
 **Decision procedure, in order:**
 1. Does an existing directory already match this artifact's purpose by the table above? Use it.
-2. Is it a genuinely new *kind* of purpose the table doesn't cover (not just a new instance of an existing kind)? Then creating a new top-level directory is itself a structural decision — flag it and get confirmation before creating it (per the general hygiene mandate above), rather than deciding unilaterally.
+2. Is it a genuinely new *kind* of purpose the table doesn't cover (not just a new instance of an existing kind — e.g. a second feature alongside `canvas/`, or the first thing that actually belongs in `core/`/`shared/`)? Then creating a new top-level directory is itself a structural decision — flag it and get confirmation before creating it (per the general hygiene mandate above), rather than deciding unilaterally.
 3. Never create a "misc," "helpers," "common," or "stuff" catch-all directory. If something doesn't fit the existing taxonomy, that is a signal to ask, not to invent a dumping ground.
 
 ### 4.2 Naming conventions — how a new file is named
 
-Naming is not a stylistic afterthought; a misleading or inconsistent name is a hygiene violation on the same footing as a misplaced file. Define, and then hold to, an explicit convention per artifact type this project has — for example:
+Naming is not a stylistic afterthought; a misleading or inconsistent name is a hygiene violation on the same footing as a misplaced file. This project's conventions:
 
-- **UI components:** a consistent casing convention, named after the component/export itself.
-- **Hooks/composables:** a consistent prefix (`use`, or the framework's equivalent), named after the state/behavior they encapsulate.
-- **Plain modules:** named after the single responsibility of the module, not after the ticket, task, or person that produced it.
-- **Domain entities with a stable identifier** (e.g. per-item configuration files keyed to a real-world id): the identifier's canonical spelling and casing, used identically everywhere it appears — never a second spelling for the same entity.
-- **Tests:** a name that makes the test's subject identifiable without opening the file.
-- **Fixtures:** named after their subject, living beside/under the tests that use them, never inline-duplicated elsewhere.
-- **Localized variants of the same data:** the exact same base name as the source-language file, distinguished only by a locale suffix, in the same directory.
+- **Kotlin files:** PascalCase, matching the single public class/object/interface the file declares (e.g. `CanvasState.kt` declares `CanvasState`). A file holding only top-level functions (no single declared type) is named after the one cohesive responsibility those functions share — never left as a generic `Utils.kt`/`Helpers.kt`.
+- **Composables:** PascalCase function name matching what it renders (`DrawingCanvas`, `Toolbar`), per standard Compose convention. One primary, screen/feature-level composable per file where practical; small private composables extracted for readability stay in the same file as the composable that owns them.
+- **Packages:** all-lowercase, no underscores, named after the feature/purpose they group (`canvas`, and — once they exist — `core`, `shared`), matching §4.1.
+- **Plain classes/state holders:** named after the single responsibility of the module (`CanvasState`, `WorldPoint`), never after the ticket, task, or person that produced them.
+- **Tests:** `<SubjectUnderTest>Test.kt`, so the subject is identifiable without opening the file (e.g. `CanvasStateTest.kt`).
+- **Fixtures:** named after their subject, living under a `fixtures/` package beside the tests that use them, never inline-duplicated elsewhere.
+- **Android resource files** (`res/values/*.xml`, drawables): lowercase_with_underscores, per Android's own resource-naming requirement (resource names cannot use other casings).
 
 ### 4.3 Persistent documentation — where it lives, and what "persistent" means
 
@@ -127,15 +126,16 @@ This is the rule that exists specifically to stop notes, logs, and one-off summa
 
 ### 4.4 Module boundaries — allowed dependency directions
 
-A directory taxonomy only holds if files placed correctly are also only *importing* from directories they're allowed to depend on. Without this, a low-level module can end up importing from a feature, two features can couple to each other directly, and the whole taxonomy in §4.1 becomes decorative. Define an explicit, layered dependency graph for this project, bottom-up — for example:
+A directory taxonomy only holds if files placed correctly are also only *importing* from directories they're allowed to depend on. Without this, a low-level module can end up importing from a feature, two features can couple to each other directly, and the whole taxonomy in §4.1 becomes decorative. This project's layered dependency graph, bottom-up:
 
 ```
-utils/  →  (depends on nothing else in the source tree)
-core/, data/  →  utils/
-hooks/, providers/  →  core/, data/, utils/
-shared/  →  hooks/, providers/, core/, data/, utils/
-features/<feature>/  →  shared/, hooks/, providers/, core/, data/, utils/
+core/     →  (depends on nothing else in the source tree)
+shared/   →  core/
+canvas/ (and any future feature package)  →  shared/, core/
+com.andene.fern (root — MainActivity)  →  canvas/, shared/, core/
 ```
+
+`core/` and `shared/` don't exist yet (per §4.1) — this graph is the standing rule for the day something is promoted into them, not a justification for creating them now.
 
 Concretely:
 - **A lower layer never imports from a higher one.** If a lower-layer module seems to need something from a higher layer, that's a sign the shared piece belongs in the lower layer instead — move it down, don't import up.
@@ -245,61 +245,30 @@ If a request explicitly scopes a feature down ("just the color swatches, no pick
 
 Discipline: **design-token systems**, the standard mechanism (used across major design systems, e.g. Material Design, Salesforce Lightning) for enforcing a single source of truth for spacing, sizing, and typography scales, ensuring pixel-accurate consistency across a UI.
 
-> Define a single numeric scale for the project. This template uses "PerfectSuite" as an example instance — swap in the project's own scale if different, but keep the same enforcement structure below.
+This project uses Android's own established spacing and type-scale conventions as its token system, rather than the generic power-of-2 example scale — Material Design's 4dp baseline grid and type scale are themselves a real, established design-token standard, and reinventing a parallel scale on top of them would just create two competing sources of truth.
 
-Every numeric dimension in the app — font-size, width, height, padding, margin, gap, icon size, border-radius input, anything measured in px — **must** resolve to one of the scale's defined values. Example scale organized in three tiers per power-of-2 octave — `[Primary]`, `(Secondary)`, `{Tertiary}`:
-
-```
-[1]
-[2]  (3)
-[4]  (6)
-[8]  (12)  {14}
-[16] (24)  {30}
-[32] (48)  {62}
-[64] (96)  {126}
-[128] (192) {254}
-[256] (384) {510}
-[512] (768) {1022}
-[1024]
-```
-
-No other number is permitted. This applies to existing code as well as new code — when an off-scale value is touched, correct it to the nearest scale value as part of that change rather than leaving it.
+Every numeric dimension in the app — padding, margin, gap, icon size, stroke width defaults, corner radius input, anything measured in `dp` — **must** be a multiple of **4dp**. Every text size **must** come from `MaterialTheme.typography.*` (Material 3's defined type scale), never a raw hardcoded `sp` value. No other raw dimension is permitted in Compose code. This applies to existing code as well as new code — when an off-scale value is touched, correct it to the nearest compliant value as part of that change rather than leaving it.
 
 **Before setting any dimension:**
-- Never assume a default utility class is compliant — verify its computed px value against the defined scale. A framework's default spacing/typography scale will often not map cleanly onto a project's own token system.
-- If a token (`--font-*`, `--size-*`, `--space-*`, etc.) already resolves to a scale value, use it — this is the token layer doing its job.
-- If the nearest existing token is off-scale, either correct the token (when the change should propagate to every usage) or apply an explicit, scoped override for just that element (when the change is local only).
+- Never hardcode a raw `.dp` literal that isn't a multiple of 4 — verify it against the grid before committing it.
+- Never hardcode a raw `.sp` literal — use a `MaterialTheme.typography` style (or extend the app's typography definition if a genuinely new text role is needed), so every text size stays governed by one place.
+- If an existing Material default (e.g. a default `IconButton` touch target) already resolves to a 4dp-grid value, use it as-is — this is the token layer doing its job, not something to override for its own sake.
 
 ### 7.1 Rounding priority (tie-breaking)
 
-When correcting an off-scale value, round to the mathematically nearest scale value. When two candidates are **equidistant**, resolve the tie by a defined priority order. Example, for the PerfectSuite scale above — **Nearest beats Primary beats Secondary beats Tertiary**:
+When correcting an off-scale `dp` value, round to the nearest multiple of 4; on an exact tie (e.g. `10` is equidistant between `8` and `12`), round up.
 
-- **`[Primary]`** (base 2): `1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024`
-- **`(Secondary)`** (base 2 intermediate — the midpoint between two consecutive primaries): `3, 6, 12, 24, 48, 96, 192, 384, 768`
-- **`{Tertiary}`** (base 2 additional — sum of the primary steps below the next primary, e.g. `8+4+2=14`, `16+8+4+2=30`): `14, 30, 62, 126, 254, 510, 1022`
+### 7.2 Larger spacing values
 
-Worked examples:
-- `10` → tie between `8` (primary) and `12` (secondary), both distance 2 → primary wins → **8**
-- `13` → tie between `12` (secondary) and `14` (tertiary), both distance 1 → secondary wins → **12**
-- `15` → tie between `14` (tertiary) and `16` (primary), both distance 1 → primary wins → **16**
-- `11` → `12` is distance 1, `8` is distance 3 → not a tie, nearest wins → **12**
-- `17` → `16` is distance 1, `24` is distance 7 → not a tie, nearest wins → **16**
-
-This can and will collapse previously-distinct values onto the same scale number (e.g. two font sizes both rounding to `12`) — that is an accepted outcome of strict scale compliance, not a bug to work around by picking a different rounding.
-
-### 7.2 Exception — values above the first primary-doubling threshold
-
-For a value greater than the scale's second primary step (e.g. `16` in the example scale), do not snap to the single nearest scale number. Instead: take the nearest `[Primary]` at or below the value, then add another `[Primary]` on top to close the remaining gap as tightly as possible.
-
-- Example (PerfectSuite scale): `150` → nearest primary at/below is `128`; `128 + 16 = 144` is the closest reachable primary+primary sum → **144**.
+For values above 64dp, prefer the standard Material spacing steps (`64, 80, 96, 128`) over an arbitrary multiple of 4, so large gaps stay recognizable as intentional layout rhythm rather than incidental math.
 
 ### 7.3 Corner radius
 
-Define a formula relating radius to a component's own dimensions, e.g. `radius = 0.24 × the element's height`, then round to the nearest scale value (apply the tie-break priority in §7.1).
+Use Material 3's shape scale (`MaterialTheme.shapes.small/medium/large/extraLarge`) rather than a hand-computed radius — this is already how `Toolbar.kt` sets its container shape (`MaterialTheme.shapes.large`). A one-off radius is only justified when no shape token fits, and must still land on a multiple of 4dp.
 
 ### 7.4 Aspect ratios — preferred, not mandatory
 
-Define a short priority list of preferred aspect ratios to reach for — not a hard constraint; apply engineering judgment rather than forcing a mismatch. Example: `3:2`, `4:3`, `5:4`, `3:1` (the last reserved for wide/short bars).
+Not currently applicable: this app's primary surface is a single freeform, fullscreen canvas with no fixed-aspect-ratio elements. Toolbar/icon elements use Material's intrinsic sizing rather than an explicit aspect ratio. Revisit this section if a future feature (e.g. an export preview, a thumbnail grid) introduces fixed-ratio image/card elements.
 
 ### 7.5 Design objectives behind the design-token system
 
@@ -309,4 +278,9 @@ Standardization · coherency · consistency · pixel-accurate precision · symme
 
 ## 8. Project-Specific Standards
 
-Use this section to record any reference proportions, component precedents, or exceptions unique to this project (e.g. header/navbar reference dimensions, known off-scale tokens not yet fixed, other standing exceptions). Keep such content isolated here so it stays easy to identify and to strip out when reusing this document as a template for a different project.
+- **App identity:** package `com.andene.fern`, Kotlin + Jetpack Compose, single-module (`app/`), no multi-module split yet — don't introduce one speculatively (§5.2); revisit only if `core/`/`shared/` genuinely outgrow living inside `app/`.
+- **SDK targets:** `minSdk 26`, `targetSdk`/`compileSdk 34` (`app/build.gradle.kts`) — a change to these is a structural decision (affects the whole app's device support), flag it per §1.6 rather than bumping it as a side effect of an unrelated change.
+- **Known off-scale/placeholder values not yet fixed** (tracked here per §7, not silently left undocumented):
+  - `Toolbar.kt`'s color palette (`palette` list) is a fixed set of 5 hardcoded hex colors chosen for the MVP, not yet run through a real design/token pass — acceptable for now, but a design-system pass should revisit it rather than treating it as final.
+  - `CanvasState.MIN_SCALE`/`MAX_SCALE` (`1e-250`/`1e250`) and `REBASE_THRESHOLD` (`65536.0`) are deliberate engineering constants (documented in-code) for the floating-origin zoom/pan system, not design tokens — §7 doesn't apply to them.
+- **Standing exceptions:** none currently designated. Add a path + scope + condition here if the project owner ever marks a file off-limits to routine maintenance/audits.
