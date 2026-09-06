@@ -81,34 +81,52 @@ The rest of this section makes that mandate concrete: where a new file or folder
 
 ### 4.1 Directory taxonomy — where a new file goes
 
-Every codebase should be organized by **purpose**, not by file type. Before creating anything, classify what you're building against a table like this one and place it in the matching existing directory — never guess, and never default to wherever feels adjacent to the thing you're already touching. Fill in the left column with this project's actual purpose categories and the right column with its actual directories; keep the row for tests and fixtures, which almost every project needs:
+Every codebase should be organized by **purpose**, not by file type. There are two dominant, well-established conventions in professional software engineering for what "purpose" means structurally — pick the one that fits the project's shape (or the one the project already follows) and apply it consistently; do not mix both in the same codebase.
 
-| Purpose | Location |
+**Convention A — Layered / Clean Architecture** (Robert C. Martin's *Clean Architecture*; also called Onion or Hexagonal Architecture). Organizes by how far a piece of code sits from business rules vs. the outside world. Standard layer names used industry-wide:
+
+| Layer | Purpose | Typical directory |
+|---|---|---|
+| Domain / entities | Core business rules and data structures, with zero dependencies on anything else in the codebase | `domain/`, `entities/`, `core/` |
+| Use cases / application | Application-specific business logic that orchestrates the domain | `usecases/`, `application/`, `services/` |
+| Interface adapters | Translates between use cases and the outside world (controllers, presenters, view models, repositories' interfaces) | `adapters/`, `controllers/`, `viewmodels/` |
+| Frameworks & drivers | The outermost layer: UI, database, web framework, external APIs — the most replaceable, most volatile code | `ui/`, `infrastructure/`, `data/`, `api/` |
+| Every automated test | Mirroring the package/module of the code under test, colocated or centralized (pick one convention and apply it everywhere) | `tests/`, or colocated `*.test.*`/`*Test.*` files |
+| Golden/reference fixtures a test compares against | A dedicated `fixtures/` directory beside the tests that use them | `fixtures/` |
+
+**Convention B — Feature-based / package-by-feature** (the dominant convention in modern frontend and mobile codebases — React, Vue, Android/Kotlin, Flutter communities all converge on this). Organizes by product feature first, with a thin shared layer underneath:
+
+| Purpose | Typical directory |
 |---|---|
-| *(e.g. app-wide singleton services with no UI)* | *(e.g. `src/core/`)* |
-| *(e.g. a self-contained product feature's components and logic)* | *(e.g. `src/features/<feature>/`)* |
-| *(e.g. reusable hooks/composables)* | *(e.g. `src/hooks/`)* |
-| *(e.g. UI/constants/utilities reused across more than one feature)* | *(e.g. `src/shared/`)* |
-| *(e.g. generic, framework-agnostic utility functions)* | *(e.g. `src/utils/`)* |
-| Every automated test | Wherever this project's testing convention places them (colocated with source, or centralized — pick one and apply it everywhere) |
-| Golden/reference fixtures a test compares against | A dedicated fixtures directory beside the tests |
+| App-wide singleton services with no UI (auth, networking, persistence) | `core/` |
+| Code reused across more than one feature (shared UI components, utilities, constants) | `shared/` or `common/` |
+| A self-contained product feature's own components/screens and logic | `features/<feature>/` |
+| Generic, framework-agnostic utility functions with no app-specific knowledge | `utils/` |
+| Every automated test | Mirroring the package of the code under test |
+| Golden/reference fixtures a test compares against | A dedicated `fixtures/` directory beside the tests |
 
 **Decision procedure, in order:**
-1. Does an existing directory already match this artifact's purpose by the table above? Use it.
-2. Is it a genuinely new *kind* of purpose the table doesn't cover (not just a new instance of an existing kind)? Then creating a new top-level directory is itself a structural decision — flag it and get confirmation before creating it (per the general hygiene mandate above), rather than deciding unilaterally.
-3. Never create a "misc," "helpers," "common," or "stuff" catch-all directory. If something doesn't fit the existing taxonomy, that is a signal to ask, not to invent a dumping ground.
+1. If the project already has an established convention (check for existing `domain/`/`usecases/` vs. `features/`/`shared/` directories before adding anything), follow it — do not introduce the other convention alongside it.
+2. If starting fresh: Convention A suits systems with substantial, framework-independent business logic (backends, domain-heavy services); Convention B suits UI-heavy apps organized around discrete user-facing features (most frontend/mobile apps). State which was chosen and why.
+3. Does an existing directory already match this artifact's purpose? Use it.
+4. Is it a genuinely new *kind* of purpose neither table covers (not just a new instance of an existing kind)? Creating a new top-level directory is itself a structural decision — flag it and get confirmation before creating it, rather than deciding unilaterally.
+5. Never create a "misc," "helpers," "common," or "stuff" catch-all directory. If something doesn't fit the taxonomy, that is a signal to ask, not to invent a dumping ground.
 
 ### 4.2 Naming conventions — how a new file is named
 
-Naming is not a stylistic afterthought; a misleading or inconsistent name is a hygiene violation on the same footing as a misplaced file. Define, and then hold to, an explicit convention per artifact type this project has — for example:
+Naming is not a stylistic afterthought; a misleading or inconsistent name is a hygiene violation on the same footing as a misplaced file. Use the ecosystem's own established convention rather than inventing one — mixing conventions within one language/ecosystem is itself a violation:
 
-- **UI components:** a consistent casing convention, named after the component/export itself.
-- **Hooks/composables:** a consistent prefix (`use`, or the framework's equivalent), named after the state/behavior they encapsulate.
-- **Plain modules:** named after the single responsibility of the module, not after the ticket, task, or person that produced it.
+- **JavaScript/TypeScript:** `camelCase` for variables/functions, `PascalCase` for classes/components/types, `UPPER_SNAKE_CASE` for true constants. File names: `PascalCase.tsx` for a file whose default export is a component; `camelCase.ts` for a plain module; some style guides (e.g. Angular's) instead use `kebab-case.component.ts` — pick one per the framework's own convention, not ad hoc.
+- **Python:** `snake_case` for variables/functions/modules/files, `PascalCase` for classes, `UPPER_SNAKE_CASE` for constants (PEP 8 — the language's own official style guide).
+- **Kotlin/Java:** `PascalCase` for classes/interfaces/objects (one public type per file, file named identically to it), `camelCase` for functions/properties/variables, `UPPER_SNAKE_CASE` for `const val`/`static final` constants.
+- **Swift:** `PascalCase` for types, `camelCase` for everything else — per Apple's official Swift API Design Guidelines.
+- **Hooks/composables** (React/Vue): a consistent prefix (`use`, per the framework's own convention), named after the state/behavior they encapsulate.
+- **Plain modules:** named after the single responsibility of the module, not after the ticket, task, or person that produced it — never a generic `utils.ts`/`helpers.py`/`Misc.kt`.
 - **Domain entities with a stable identifier** (e.g. per-item configuration files keyed to a real-world id): the identifier's canonical spelling and casing, used identically everywhere it appears — never a second spelling for the same entity.
-- **Tests:** a name that makes the test's subject identifiable without opening the file.
+- **Tests:** `<Subject>.test.ts` / `test_<subject>.py` / `<Subject>Test.kt` — whichever suffix/prefix convention the language's own test tooling expects — so the subject is identifiable without opening the file.
 - **Fixtures:** named after their subject, living beside/under the tests that use them, never inline-duplicated elsewhere.
-- **Localized variants of the same data:** the exact same base name as the source-language file, distinguished only by a locale suffix, in the same directory.
+- **Localized variants of the same data:** the exact same base name as the source-language file, distinguished only by a locale suffix (e.g. ISO 639-1 codes: `strings.en.json`, `strings.fr.json`), in the same directory.
+- **Git branches:** `<type>/<short-description>` where `<type>` matches the Conventional Commits types in §9 (e.g. `feat/inline-editing`, `fix/null-pointer-on-empty-list`) — a widely adopted convention, not a project-specific invention.
 
 ### 4.3 Persistent documentation — where it lives, and what "persistent" means
 
@@ -127,21 +145,31 @@ This is the rule that exists specifically to stop notes, logs, and one-off summa
 
 ### 4.4 Module boundaries — allowed dependency directions
 
-A directory taxonomy only holds if files placed correctly are also only *importing* from directories they're allowed to depend on. Without this, a low-level module can end up importing from a feature, two features can couple to each other directly, and the whole taxonomy in §4.1 becomes decorative. Define an explicit, layered dependency graph for this project, bottom-up — for example:
+A directory taxonomy only holds if files placed correctly are also only *importing* from directories they're allowed to depend on. Without this, a low-level module can end up importing from a feature, two features can couple to each other directly, and the whole taxonomy in §4.1 becomes decorative. This is governed by the **Dependency Rule** (Robert C. Martin, *Clean Architecture*): source code dependencies can only point *inward*, toward higher-level policy — an inner layer must never know anything about an outer one.
+
+If following **Convention A** (§4.1), the rule maps directly onto the layer table:
 
 ```
-utils/  →  (depends on nothing else in the source tree)
-core/, data/  →  utils/
-hooks/, providers/  →  core/, data/, utils/
-shared/  →  hooks/, providers/, core/, data/, utils/
-features/<feature>/  →  shared/, hooks/, providers/, core/, data/, utils/
+domain/           →  (depends on nothing else in the source tree)
+usecases/         →  domain/
+adapters/         →  usecases/, domain/
+ui/, infrastructure/, data/  →  adapters/, usecases/, domain/
 ```
 
-Concretely:
+If following **Convention B**, the equivalent shape is:
+
+```
+utils/    →  (depends on nothing else in the source tree)
+core/     →  utils/
+shared/   →  core/, utils/
+features/<feature>/  →  shared/, core/, utils/
+```
+
+Concretely, under either convention:
 - **A lower layer never imports from a higher one.** If a lower-layer module seems to need something from a higher layer, that's a sign the shared piece belongs in the lower layer instead — move it down, don't import up.
-- **The cross-feature-reuse layer (`shared/` or equivalent) never imports from a specific feature.** The moment it depends on one feature, it is no longer shared — either the code isn't actually generic and belongs in that feature, or the feature-specific part must be extracted out first.
+- **The cross-feature-reuse layer (`shared/`/`adapters/` or equivalent) never imports from a specific feature.** The moment it depends on one feature, it is no longer shared — either the code isn't actually generic and belongs in that feature, or the feature-specific part must be extracted out first.
 - **One feature never imports another feature's internals directly.** Cross-feature reuse goes through the shared layer, promoting the reused piece there first.
-- **A subsystem's internals stay internal to it.** Code outside a subsystem interacts with it through its published entry points (e.g. a barrel/index file), not by reaching into files it doesn't own.
+- **A subsystem's internals stay internal to it.** Code outside a subsystem interacts with it through its published entry points (e.g. a barrel/index file, a public interface), not by reaching into files it doesn't own — this is the standard **information hiding** principle (Parnas).
 
 When in doubt about which layer a file belongs to, its allowed imports are the answer: a module that needs to import from a feature cannot live in a lower layer, no matter how "core" its purpose feels.
 
@@ -245,61 +273,39 @@ If a request explicitly scopes a feature down ("just the color swatches, no pick
 
 Discipline: **design-token systems**, the standard mechanism (used across major design systems, e.g. Material Design, Salesforce Lightning) for enforcing a single source of truth for spacing, sizing, and typography scales, ensuring pixel-accurate consistency across a UI.
 
-> Define a single numeric scale for the project. This template uses "PerfectSuite" as an example instance — swap in the project's own scale if different, but keep the same enforcement structure below.
+This template defaults to the **8-point grid system** — the dominant real-world spacing standard, used across Material Design (Google), Carbon (IBM), Polaris (Shopify), and most professional design systems — rather than an arbitrary invented scale. Swap it only if the project's platform mandates a different base unit (see the Android/`dp` note below); keep the same enforcement structure either way.
 
-Every numeric dimension in the app — font-size, width, height, padding, margin, gap, icon size, border-radius input, anything measured in px — **must** resolve to one of the scale's defined values. Example scale organized in three tiers per power-of-2 octave — `[Primary]`, `(Secondary)`, `{Tertiary}`:
+Every numeric spacing/sizing dimension in the app — width, height, padding, margin, gap, icon size, border-radius input — **must** be a multiple of the base unit, **4**, with **8** preferred wherever the value is large enough to use it:
 
 ```
-[1]
-[2]  (3)
-[4]  (6)
-[8]  (12)  {14}
-[16] (24)  {30}
-[32] (48)  {62}
-[64] (96)  {126}
-[128] (192) {254}
-[256] (384) {510}
-[512] (768) {1022}
-[1024]
+4  8  12  16  24  32  40  48  64  80  96  128
 ```
 
-No other number is permitted. This applies to existing code as well as new code — when an off-scale value is touched, correct it to the nearest scale value as part of that change rather than leaving it.
+(4 fills small gaps — icon padding, border widths, hairline gaps; 8 and its multiples cover everything else. This is the standard "4/8 spacing scale" documented across the design systems named above.) No other number is permitted. This applies to existing code as well as new code — when an off-scale value is touched, correct it to the nearest scale value as part of that change rather than leaving it.
+
+Font sizes follow a **modular type scale** — a geometric progression from a base size by a fixed ratio, the standard typographic technique for a coherent hierarchy (see any of the well-known ratios: Minor Third 1.2, Major Third 1.25, Perfect Fourth 1.333). Pick one ratio for the project and derive every font size from it rather than choosing sizes ad hoc; most UI frameworks' own default type scales (Material Type Scale, Tailwind's default font-size scale) are already built this way — prefer the platform's own scale over hand-rolling one.
 
 **Before setting any dimension:**
-- Never assume a default utility class is compliant — verify its computed px value against the defined scale. A framework's default spacing/typography scale will often not map cleanly onto a project's own token system.
-- If a token (`--font-*`, `--size-*`, `--space-*`, etc.) already resolves to a scale value, use it — this is the token layer doing its job.
+- Never assume a default utility class is compliant — verify its computed px/dp value against the defined scale. A framework's default spacing/typography scale will usually already comply (most professional frameworks use 4/8-based spacing internally) but confirm rather than assume.
+- If a token (`--font-*`, `--size-*`, `--space-*`, a design-system's own spacing tokens, etc.) already resolves to a scale value, use it — this is the token layer doing its job.
 - If the nearest existing token is off-scale, either correct the token (when the change should propagate to every usage) or apply an explicit, scoped override for just that element (when the change is local only).
+- **Platform exception:** on Android, use `dp` (density-independent pixels) as the unit the 4/8 grid applies to, and take font sizes from the platform's own Material 3 type scale (`MaterialTheme.typography.*`) rather than raw `sp` literals — this is Android's own established convention, not a deviation from the rule.
 
 ### 7.1 Rounding priority (tie-breaking)
 
-When correcting an off-scale value, round to the mathematically nearest scale value. When two candidates are **equidistant**, resolve the tie by a defined priority order. Example, for the PerfectSuite scale above — **Nearest beats Primary beats Secondary beats Tertiary**:
+When correcting an off-scale value, round to the nearest multiple of 4. On an exact tie (e.g. `10` is equidistant between `8` and `12`), round up to the larger value — simplest, most common tie-break convention, and one a linter can check unambiguously.
 
-- **`[Primary]`** (base 2): `1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024`
-- **`(Secondary)`** (base 2 intermediate — the midpoint between two consecutive primaries): `3, 6, 12, 24, 48, 96, 192, 384, 768`
-- **`{Tertiary}`** (base 2 additional — sum of the primary steps below the next primary, e.g. `8+4+2=14`, `16+8+4+2=30`): `14, 30, 62, 126, 254, 510, 1022`
+### 7.2 Larger spacing values
 
-Worked examples:
-- `10` → tie between `8` (primary) and `12` (secondary), both distance 2 → primary wins → **8**
-- `13` → tie between `12` (secondary) and `14` (tertiary), both distance 1 → secondary wins → **12**
-- `15` → tie between `14` (tertiary) and `16` (primary), both distance 1 → primary wins → **16**
-- `11` → `12` is distance 1, `8` is distance 3 → not a tie, nearest wins → **12**
-- `17` → `16` is distance 1, `24` is distance 7 → not a tie, nearest wins → **16**
-
-This can and will collapse previously-distinct values onto the same scale number (e.g. two font sizes both rounding to `12`) — that is an accepted outcome of strict scale compliance, not a bug to work around by picking a different rounding.
-
-### 7.2 Exception — values above the first primary-doubling threshold
-
-For a value greater than the scale's second primary step (e.g. `16` in the example scale), do not snap to the single nearest scale number. Instead: take the nearest `[Primary]` at or below the value, then add another `[Primary]` on top to close the remaining gap as tightly as possible.
-
-- Example (PerfectSuite scale): `150` → nearest primary at/below is `128`; `128 + 16 = 144` is the closest reachable primary+primary sum → **144**.
+Above roughly 64, prefer the standard doubling steps (`64, 80, 96, 128, 160, 192, 256`) over an arbitrary multiple of 4, so large gaps read as intentional layout rhythm rather than incidental math.
 
 ### 7.3 Corner radius
 
-Define a formula relating radius to a component's own dimensions, e.g. `radius = 0.24 × the element's height`, then round to the nearest scale value (apply the tie-break priority in §7.1).
+Use the design system's own shape/radius tokens where the platform provides them (e.g. Material 3's `small`/`medium`/`large`/`extraLarge` shape scale) rather than a hand-computed radius. Where no such token set exists, define one small fixed set for the whole project (e.g. `4, 8, 16, 9999` for "sharp / soft / rounded / pill") and round any candidate radius to the nearest of those, per §7.1's tie-break rule — never a one-off radius picked to look right locally.
 
 ### 7.4 Aspect ratios — preferred, not mandatory
 
-Define a short priority list of preferred aspect ratios to reach for — not a hard constraint; apply engineering judgment rather than forcing a mismatch. Example: `3:2`, `4:3`, `5:4`, `3:1` (the last reserved for wide/short bars).
+Default to the standard photographic/UI ratios rather than an arbitrary crop: `1:1` (avatars, thumbnails), `4:3` and `3:2` (general imagery), `16:9` (video/wide banners). Not a hard constraint — apply engineering judgment rather than forcing a mismatch — but a deliberate choice from this list, not an incidental crop.
 
 ### 7.5 Design objectives behind the design-token system
 
@@ -307,6 +313,17 @@ Standardization · coherency · consistency · pixel-accurate precision · symme
 
 ---
 
-## 8. Project-Specific Standards
+## 8. Versioning & Commit Conventions
 
-Use this section to record any reference proportions, component precedents, or exceptions unique to this project (e.g. header/navbar reference dimensions, known off-scale tokens not yet fixed, other standing exceptions). Keep such content isolated here so it stays easy to identify and to strip out when reusing this document as a template for a different project.
+Discipline: **release management and change traceability** — the two most widely adopted real-world standards for this are used here rather than an invented scheme, so tooling (changelog generators, release automation) works out of the box.
+
+1. **Commit messages follow Conventional Commits** (`https://www.conventionalcommits.org`): `<type>[optional scope]: <description>`, e.g. `fix(canvas): correct stroke width scaling at high zoom`. Standard types: `feat` (new capability), `fix` (bug fix), `refactor` (no behavior change), `docs`, `test`, `chore`, `perf`, `build`, `ci`. A breaking change is marked with `!` after the type/scope (`feat(api)!: ...`) or a `BREAKING CHANGE:` footer.
+2. **Releases follow Semantic Versioning** (SemVer, `https://semver.org`): `MAJOR.MINOR.PATCH`. Increment `MAJOR` for a breaking change, `MINOR` for a backward-compatible new feature, `PATCH` for a backward-compatible fix. Pre-1.0.0 (`0.x.y`) signals the public API/behavior is not yet considered stable and may still break on a `MINOR` bump — move to `1.0.0` deliberately, when that stability commitment is actually intended.
+3. **A CHANGELOG, if the project keeps one, follows Keep a Changelog** (`https://keepachangelog.com`): grouped under `Added`/`Changed`/`Deprecated`/`Removed`/`Fixed`/`Security`, newest release first, with an `[Unreleased]` section at the top for work not yet cut into a release.
+4. **Branching model:** default to **trunk-based development** (short-lived branches off the main trunk, merged frequently, per §5's atomic-commit discipline) unless the project has an established reason to run a heavier model (e.g. Git Flow's `develop`/`release`/`hotfix` branches for a project with scheduled, versioned releases rather than continuous deployment) — state which model applies here in §9 rather than leaving it ambiguous.
+
+---
+
+## 9. Project-Specific Standards
+
+Use this section to record any reference proportions, component precedents, or exceptions unique to this project (e.g. header/navbar reference dimensions, known off-scale tokens not yet fixed, which branching model from §8.4 this project actually uses, other standing exceptions). Keep such content isolated here so it stays easy to identify and to strip out when reusing this document as a template for a different project.
