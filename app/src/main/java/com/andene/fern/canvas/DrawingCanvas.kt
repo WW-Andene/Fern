@@ -76,7 +76,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                     state.panByScreenDelta(panDelta)
                                 }
                                 if (prevSpan > 0.001f && span > 0.001f) {
-                                    val factor = span / prevSpan
+                                    val factor = (span / prevSpan).toDouble()
                                     state.zoomAround(centroid, screenCenter, factor)
                                 }
                                 prevCentroid = centroid
@@ -97,7 +97,9 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
             if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
             val points = stroke.points
             if (points.isEmpty()) continue
-            val widthScreen = (stroke.widthWorld * state.scale).coerceAtLeast(1f)
+            val rawWidthScreen = stroke.widthWorld * state.scale
+            if (!rawWidthScreen.isFinite()) continue
+            val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
             if (points.size == 1) {
                 val p = state.worldToScreen(points[0], screenCenter)
                 drawCircle(stroke.color, radius = widthScreen / 2f, center = p)
