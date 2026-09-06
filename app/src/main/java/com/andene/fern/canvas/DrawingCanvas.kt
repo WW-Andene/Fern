@@ -94,6 +94,10 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
         val bottomRightWorld = state.screenToWorld(Offset(size.width, size.height), screenCenter)
 
         for (stroke in state.strokes) {
+            // Reading revision here (and only here) is what subscribes this draw phase to
+            // the stroke's mutations, so a redraw is triggered as each new point is added
+            // mid-stroke rather than waiting for an unrelated pan/zoom to happen to redraw.
+            stroke.revision
             if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
             val points = stroke.points
             if (points.isEmpty()) continue
