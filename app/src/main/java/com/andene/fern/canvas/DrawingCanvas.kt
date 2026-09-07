@@ -8,7 +8,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStyle
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -127,18 +129,32 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
             if (points.size == 1) {
                 val p = state.worldToScreen(points[0], screenCenter)
                 drawCircle(stroke.color, radius = widthScreen / 2f, center = p)
+            } else if (points.size == 2) {
+                // Not enough points for the midpoint construction below to add anything.
+                val a = state.worldToScreen(points[0], screenCenter)
+                val b = state.worldToScreen(points[1], screenCenter)
+                drawLine(color = stroke.color, start = a, end = b, strokeWidth = widthScreen, cap = StrokeCap.Round)
             } else {
-                for (i in 0 until points.size - 1) {
-                    val a = state.worldToScreen(points[i], screenCenter)
-                    val b = state.worldToScreen(points[i + 1], screenCenter)
-                    drawLine(
-                        color = stroke.color,
-                        start = a,
-                        end = b,
-                        strokeWidth = widthScreen,
-                        cap = StrokeCap.Round,
-                    )
+                // Smooths the raw point-to-point path via quadratic Bezier segments through
+                // successive midpoints, using each raw point as the curve's control point -
+                // the standard technique for turning faceted freehand input into a smooth
+                // line without resampling or spline math.
+                val screenPoints = points.map { state.worldToScreen(it, screenCenter) }
+                val path = Path()
+                path.moveTo(screenPoints[0].x, screenPoints[0].y)
+                for (i in 1 until screenPoints.size - 1) {
+                    val current = screenPoints[i]
+                    val next = screenPoints[i + 1]
+                    val midX = (current.x + next.x) / 2f
+                    val midY = (current.y + next.y) / 2f
+                    path.quadraticBezierTo(current.x, current.y, midX, midY)
                 }
+                path.lineTo(screenPoints.last().x, screenPoints.last().y)
+                drawPath(
+                    path = path,
+                    color = stroke.color,
+                    style = DrawStyle(width = widthScreen, cap = StrokeCap.Round, join = StrokeJoin.Round),
+                )
             }
         }
 
