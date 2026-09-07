@@ -32,6 +32,7 @@ import com.andene.fern.canvas.CanvasStorage
 import com.andene.fern.canvas.DocumentMeta
 import com.andene.fern.canvas.DocumentsDialog
 import com.andene.fern.canvas.DrawingCanvas
+import com.andene.fern.canvas.Minimap
 import com.andene.fern.canvas.Toolbar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -118,6 +119,13 @@ class MainActivity : ComponentActivity() {
                                 .padding(WindowInsets.systemBars.asPaddingValues())
                                 .padding(top = 12.dp),
                             onOpenDocuments = { showDocumentsDialog = true },
+                        )
+                        Minimap(
+                            state = canvasState,
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(WindowInsets.systemBars.asPaddingValues())
+                                .padding(12.dp),
                         )
                     }
 

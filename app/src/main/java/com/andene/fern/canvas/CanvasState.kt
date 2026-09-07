@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import kotlin.math.abs
 
@@ -66,6 +67,14 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
 
     var scale by mutableDoubleStateOf(1.0)
         private set
+
+    /**
+     * The drawing surface's current on-screen size in pixels, kept up to date by
+     * [DrawingCanvas] every frame. Lets [zoomToFit] and the minimap compute what the
+     * viewport covers without every caller having to thread the Canvas size through
+     * themselves.
+     */
+    var viewportSize by mutableStateOf(Size.Zero)
 
     val strokes = mutableStateListOf<Stroke>()
 
@@ -286,6 +295,38 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
     fun resetView() {
         panWorld = WorldPoint.Zero
         scale = 1.0
+    }
+
+    /** The combined bounding box of every stroke, or null if the canvas is empty. */
+    fun contentBounds(): Pair<WorldPoint, WorldPoint>? {
+        if (strokes.isEmpty()) return null
+        val minX = strokes.minOf { it.minX }
+        val minY = strokes.minOf { it.minY }
+        val maxX = strokes.maxOf { it.maxX }
+        val maxY = strokes.maxOf { it.maxY }
+        return WorldPoint(minX, minY) to WorldPoint(maxX, maxY)
+    }
+
+    /** Recenters the camera on [world] without changing zoom. */
+    fun panTo(world: WorldPoint) {
+        panWorld = world
+        rebaseIfNeeded()
+    }
+
+    /** Frames all content in the current viewport, with a margin. No-op on an empty canvas. */
+    fun zoomToFit() {
+        val bounds = contentBounds() ?: return
+        val viewport = viewportSize
+        if (viewport.width <= 0f || viewport.height <= 0f) return
+        val (min, max) = bounds
+        val contentWidth = (max.x - min.x).coerceAtLeast(1e-6)
+        val contentHeight = (max.y - min.y).coerceAtLeast(1e-6)
+        // 0.8 margin: content fills 80% of the viewport, leaving breathing room at the edges.
+        val fitScaleX = viewport.width.toDouble() * 0.8 / contentWidth
+        val fitScaleY = viewport.height.toDouble() * 0.8 / contentHeight
+        scale = minOf(fitScaleX, fitScaleY).coerceIn(MIN_SCALE, MAX_SCALE)
+        panWorld = WorldPoint((min.x + max.x) / 2.0, (min.y + max.y) / 2.0)
+        rebaseIfNeeded()
     }
 
     /**

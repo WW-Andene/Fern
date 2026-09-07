@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FormatSize
@@ -134,6 +135,9 @@ fun Toolbar(state: CanvasState, modifier: Modifier = Modifier, onOpenDocuments: 
                 }
                 IconButton(onClick = { state.resetView() }) {
                     Icon(Icons.Filled.ZoomOutMap, contentDescription = "Reset view")
+                }
+                IconButton(onClick = { state.zoomToFit() }) {
+                    Icon(Icons.Filled.CenterFocusStrong, contentDescription = "Zoom to fit content")
                 }
                 IconButton(onClick = onOpenDocuments) {
                     Icon(Icons.Filled.Description, contentDescription = "Documents")

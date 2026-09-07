@@ -111,6 +111,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                 }
             }
     ) {
+        state.viewportSize = size
         val screenCenter = Offset(size.width / 2f, size.height / 2f)
         val topLeftWorld = state.screenToWorld(Offset.Zero, screenCenter)
         val bottomRightWorld = state.screenToWorld(Offset(size.width, size.height), screenCenter)
