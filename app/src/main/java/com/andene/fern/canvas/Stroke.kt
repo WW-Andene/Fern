@@ -35,6 +35,8 @@ class Stroke(
     val color: Color,
     widthWorld: Double,
     val penType: PenType = PenType.MARKER,
+    /** True for a FILL-tool result: a solid polygon (drawn with [DrawingCanvas]'s fill path, not stroked) rather than an outline. */
+    val filled: Boolean = false,
 ) {
     /** Mutable so a SELECT-tool scale gesture can resize the stroke proportionally with its geometry. */
     var widthWorld: Double = widthWorld
@@ -165,7 +167,7 @@ class Stroke(
         }
         if (!anyRemoved) return null
         return runs.filter { it.size >= 2 }.map { run ->
-            val piece = Stroke(color, widthWorld, penType)
+            val piece = Stroke(color, widthWorld, penType, filled)
             for (index in run) piece.addPoint(points[index], pressures[index], tilts[index], orientations[index])
             piece
         }

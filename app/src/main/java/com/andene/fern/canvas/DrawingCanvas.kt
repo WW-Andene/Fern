@@ -77,6 +77,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                             Tool.PEN -> state.endStroke()
                             Tool.ERASER -> state.endErase()
                             Tool.SHAPE -> state.endShape()
+                            Tool.FILL -> {} // one-shot on pointer-down, nothing to end
                             Tool.SELECT -> when (selectionGestureKind) {
                                 SelectionGestureKind.SCALE -> state.endScaleSelection()
                                 SelectionGestureKind.ROTATE -> state.endRotateSelection()
@@ -121,6 +122,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                     Tool.PEN -> state.beginStroke(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
                                     Tool.ERASER -> state.beginErase(world)
                                     Tool.SHAPE -> state.beginShape(world)
+                                    Tool.FILL -> state.fillAt(world)
                                     Tool.SELECT -> {
                                         val handles = selectionHandles(state, screenCenter)
                                         selectionGestureKind = when {
@@ -148,6 +150,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                         Tool.PEN -> state.extendStroke(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
                                         Tool.ERASER -> state.continueErase(world)
                                         Tool.SHAPE -> state.continueShape(world)
+                                        Tool.FILL -> {} // one-shot; ignore drag
                                         Tool.SELECT -> when (selectionGestureKind) {
                                             SelectionGestureKind.SCALE -> state.continueScaleSelection(world)
                                             SelectionGestureKind.ROTATE -> state.continueRotateSelection(world)
@@ -199,10 +202,18 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
             if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
             val points = stroke.points
             if (points.isEmpty()) continue
+            val screenPoints = points.map { state.worldToScreen(it, screenCenter) }
+            if (stroke.filled) {
+                val path = Path()
+                path.moveTo(screenPoints[0].x, screenPoints[0].y)
+                for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
+                path.close()
+                drawPath(path = path, color = stroke.color)
+                continue
+            }
             val rawWidthScreen = stroke.widthWorld * state.scale
             if (!rawWidthScreen.isFinite()) continue
             val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
-            val screenPoints = points.map { state.worldToScreen(it, screenCenter) }
             drawStroke(stroke, screenPoints, widthScreen)
         }
 

@@ -14,7 +14,7 @@ import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
 
-enum class Tool { PEN, ERASER, SELECT, SHAPE }
+enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL }
 
 /**
  * Camera + document model for the infinite canvas.
@@ -63,6 +63,10 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
         // world units by the same scale-dependent logic as pen width, so the eraser covers
         // a consistent on-screen area regardless of zoom level.
         private const val ERASER_RADIUS_SCREEN = 24.0
+
+        // How close (in screen pixels) a stroke's start/end points must be to count as a
+        // "closed" shape for the FILL tool - same scale-dependent conversion as the eraser.
+        private const val FILL_CLOSE_TOLERANCE_SCREEN = 24.0
     }
 
     // World-space point currently at the center of the screen.
@@ -211,6 +215,44 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
     }
 
     /**
+     * FILL tool: tapping inside a closed stroke fills its interior with [activeColor]. Since
+     * this is a vector canvas (no pixel grid), "fill" means inserting a new filled-polygon
+     * stroke using that boundary's exact points, positioned just beneath it in draw order so
+     * the boundary's own outline still shows on top - not a raster flood fill, which
+     * wouldn't make sense on an infinite canvas with no fixed resolution.
+     *
+     * Only strokes whose first and last point are close together (a "closed enough" loop) are
+     * eligible; among all that actually contain [worldPoint], the smallest by area wins, so
+     * tapping inside a small shape drawn inside a larger one fills the small one, matching
+     * real fill-tool expectations. No-op if nothing qualifies.
+     */
+    fun fillAt(worldPoint: WorldPoint) {
+        redoStack.clear()
+        clearSelectionState()
+        val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
+        var bestIndex = -1
+        var bestArea = Double.POSITIVE_INFINITY
+        for (index in strokes.indices) {
+            val stroke = strokes[index]
+            if (stroke.filled) continue
+            val points = stroke.points
+            if (!isClosedLoop(points, closeTolerance)) continue
+            if (!polygonContains(points, worldPoint)) continue
+            val area = polygonArea(points)
+            if (area < bestArea) {
+                bestArea = area
+                bestIndex = index
+            }
+        }
+        if (bestIndex == -1) return
+        val boundary = strokes[bestIndex]
+        val fillStroke = Stroke(activeColor, 0.0, PenType.MARKER, filled = true)
+        for (point in boundary.points) fillStroke.addPoint(point)
+        strokes.add(bestIndex, fillStroke)
+        onChanged(strokes.toList())
+    }
+
+    /**
      * SELECT tool, pointer-down: starts moving the current selection if [worldPoint] falls
      * inside its combined bounds, otherwise starts a new marquee drag (replacing any
      * existing selection once the marquee is released).
@@ -355,7 +397,7 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
         if (selection.isEmpty()) return
         val nudge = WorldPoint(20.0 / scale.coerceAtLeast(1e-300), 20.0 / scale.coerceAtLeast(1e-300))
         val duplicates = selection.map { original ->
-            val copy = Stroke(original.color, original.widthWorld, original.penType)
+            val copy = Stroke(original.color, original.widthWorld, original.penType, original.filled)
             for (point in original.points) copy.addPoint(point + nudge)
             copy
         }

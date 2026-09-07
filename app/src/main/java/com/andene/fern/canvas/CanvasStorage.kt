@@ -186,6 +186,7 @@ object CanvasStorage {
             strokeJson.put("color", stroke.color.toArgb())
             strokeJson.put("width", stroke.widthWorld)
             strokeJson.put("penType", stroke.penType.name)
+            strokeJson.put("filled", stroke.filled)
             val pointsJson = JSONArray()
             for (index in stroke.points.indices) {
                 val point = stroke.points[index]
@@ -213,7 +214,8 @@ object CanvasStorage {
             // Older saved documents predate PenType and have no "penType" key - default to
             // MARKER (the type those strokes were always rendered as before this existed).
             val penType = PenType.valueOf(strokeJson.optString("penType", PenType.MARKER.name))
-            val stroke = Stroke(color, width, penType)
+            val filled = strokeJson.optBoolean("filled", false)
+            val stroke = Stroke(color, width, penType, filled)
             val pointsJson = strokeJson.getJSONArray("points")
             for (j in 0 until pointsJson.length()) {
                 val pointJson = pointsJson.getJSONObject(j)

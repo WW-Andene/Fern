@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Highlight
@@ -177,6 +178,16 @@ fun Toolbar(
                         Icons.Filled.FormatSize,
                         contentDescription = "Brush size",
                         tint = if (showWidthSlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                    )
+                }
+                IconButton(onClick = {
+                    state.activeTool = if (state.activeTool == Tool.FILL) Tool.PEN else Tool.FILL
+                }) {
+                    Icon(
+                        Icons.Filled.FormatColorFill,
+                        contentDescription = "Fill",
+                        tint = if (state.activeTool == Tool.FILL) MaterialTheme.colorScheme.primary
+                        else LocalContentColor.current,
                     )
                 }
                 if (state.activeTool == Tool.SELECT) {
