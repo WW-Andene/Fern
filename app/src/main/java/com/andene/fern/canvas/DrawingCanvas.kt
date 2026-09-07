@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStyle
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.input.pointer.positionChanged
 import kotlin.math.abs
@@ -69,10 +70,45 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                     var prevCentroid = Offset.Zero
                     var prevSpan = 0f
                     var selectionGestureKind = SelectionGestureKind.OTHER
+                    var wasStylusActive = false
+
+                    fun endActiveDrawAction() {
+                        when (state.activeTool) {
+                            Tool.PEN -> state.endStroke()
+                            Tool.ERASER -> state.endErase()
+                            Tool.SELECT -> when (selectionGestureKind) {
+                                SelectionGestureKind.SCALE -> state.endScaleSelection()
+                                SelectionGestureKind.ROTATE -> state.endRotateSelection()
+                                SelectionGestureKind.OTHER -> state.endSelectGesture()
+                            }
+                        }
+                    }
 
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Main)
-                        val pointers = event.changes.filter { it.pressed }
+                        val allPressed = event.changes.filter { it.pressed }
+                        // Palm rejection: once a stylus is down, ignore finger pointers
+                        // entirely (a resting palm reads as ordinary touch input) rather
+                        // than letting them register as a second drawing/navigation
+                        // pointer. Consumed so nothing else treats them as unhandled.
+                        val stylusActive = allPressed.any { it.type == PointerType.Stylus }
+                        val pointers = if (stylusActive) {
+                            val (kept, rejected) = allPressed.partition { it.type != PointerType.Touch }
+                            rejected.forEach { it.consume() }
+                            kept
+                        } else {
+                            allPressed
+                        }
+
+                        if (wasStylusActive && !stylusActive) {
+                            // Stylus just lifted; any remaining fingers (previously
+                            // rejected) must start a fresh gesture, not silently continue
+                            // whatever the stylus was doing.
+                            if (mode == Mode.DRAW) endActiveDrawAction()
+                            mode = Mode.NONE
+                        }
+                        wasStylusActive = stylusActive
+
                         val count = pointers.size
                         if (count == 0) break
 
@@ -119,17 +155,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                             }
                             pointers[0].consume()
                         } else {
-                            if (mode == Mode.DRAW) {
-                                when (state.activeTool) {
-                                    Tool.PEN -> state.endStroke()
-                                    Tool.ERASER -> state.endErase()
-                                    Tool.SELECT -> when (selectionGestureKind) {
-                                        SelectionGestureKind.SCALE -> state.endScaleSelection()
-                                        SelectionGestureKind.ROTATE -> state.endRotateSelection()
-                                        SelectionGestureKind.OTHER -> state.endSelectGesture()
-                                    }
-                                }
-                            }
+                            if (mode == Mode.DRAW) endActiveDrawAction()
                             val centroid = pointers.fold(Offset.Zero) { acc, c -> acc + c.position } / count.toFloat()
                             val span = pointers.fold(0f) { acc, c -> acc + hypot((c.position.x - centroid.x), (c.position.y - centroid.y)) } / count.toFloat()
 
@@ -153,17 +179,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                             pointers.forEach { it.consume() }
                         }
                     }
-                    if (mode == Mode.DRAW) {
-                        when (state.activeTool) {
-                            Tool.PEN -> state.endStroke()
-                            Tool.ERASER -> state.endErase()
-                            Tool.SELECT -> when (selectionGestureKind) {
-                                SelectionGestureKind.SCALE -> state.endScaleSelection()
-                                SelectionGestureKind.ROTATE -> state.endRotateSelection()
-                                SelectionGestureKind.OTHER -> state.endSelectGesture()
-                            }
-                        }
-                    }
+                    if (mode == Mode.DRAW) endActiveDrawAction()
                 }
             }
     ) {
