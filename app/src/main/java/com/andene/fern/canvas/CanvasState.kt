@@ -14,7 +14,7 @@ import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
 
-enum class Tool { PEN, ERASER, SELECT }
+enum class Tool { PEN, ERASER, SELECT, SHAPE }
 
 /**
  * Camera + document model for the infinite canvas.
@@ -86,6 +86,13 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
     var activeWidthWorld by mutableDoubleStateOf(4.0)
     var activeTool by mutableStateOf(Tool.PEN)
     var activePenType by mutableStateOf(PenType.MARKER)
+    var activeShapeKind by mutableStateOf(ShapeKind.LINE)
+
+    /** The shape currently being dragged out (SHAPE tool), (start, snappedEnd) in world space. Null when none is in progress. */
+    var shapePreview: Pair<WorldPoint, WorldPoint>? by mutableStateOf(null)
+        private set
+
+    private var shapeStart = WorldPoint.Zero
 
     /** Currently selected strokes (SELECT tool). Empty when nothing is selected. */
     val selection = mutableStateListOf<Stroke>()
@@ -177,6 +184,30 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
             strokes.removeAt(index)
             strokes.addAll(index, pieces)
         }
+    }
+
+    fun beginShape(worldPoint: WorldPoint) {
+        redoStack.clear()
+        clearSelectionState()
+        shapeStart = worldPoint
+        shapePreview = worldPoint to worldPoint
+    }
+
+    fun continueShape(worldPoint: WorldPoint) {
+        if (shapePreview == null) return
+        shapePreview = shapeStart to snappedShapeEnd(activeShapeKind, shapeStart, worldPoint)
+    }
+
+    /** Commits the current shape preview as a new stroke. No-op if there was no actual drag (a zero-size shape). */
+    fun endShape() {
+        val preview = shapePreview ?: return
+        shapePreview = null
+        val (start, end) = preview
+        if (start == end) return
+        val stroke = Stroke(activeColor, activeWidthWorld / scale.coerceAtLeast(1e-300), activePenType)
+        for (point in generateShapePoints(activeShapeKind, start, end)) stroke.addPoint(point)
+        strokes.add(stroke)
+        onChanged(strokes.toList())
     }
 
     /**

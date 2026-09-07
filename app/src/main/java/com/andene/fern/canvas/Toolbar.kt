@@ -23,9 +23,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.CenterFocusStrong
+import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Description
@@ -35,6 +38,7 @@ import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.runtime.Composable
@@ -70,6 +74,7 @@ fun Toolbar(
     var showWidthSlider by remember { mutableStateOf(false) }
     var showColorPicker by remember { mutableStateOf(false) }
     var showPenTypeMenu by remember { mutableStateOf(false) }
+    var showShapeKindMenu by remember { mutableStateOf(false) }
 
     Surface(
         modifier = modifier,
@@ -140,6 +145,32 @@ fun Toolbar(
                         tint = if (state.activeTool == Tool.SELECT) MaterialTheme.colorScheme.primary
                         else LocalContentColor.current,
                     )
+                }
+                Box {
+                    IconButton(onClick = {
+                        if (state.activeTool == Tool.SHAPE) showShapeKindMenu = true
+                        else state.activeTool = Tool.SHAPE
+                    }) {
+                        Icon(
+                            shapeKindIcon(state.activeShapeKind),
+                            contentDescription = "Shape: ${shapeKindLabel(state.activeShapeKind)}",
+                            tint = if (state.activeTool == Tool.SHAPE) MaterialTheme.colorScheme.primary
+                            else LocalContentColor.current,
+                        )
+                    }
+                    DropdownMenu(expanded = showShapeKindMenu, onDismissRequest = { showShapeKindMenu = false }) {
+                        for (kind in ShapeKind.entries) {
+                            DropdownMenuItem(
+                                text = { Text(shapeKindLabel(kind)) },
+                                leadingIcon = { Icon(shapeKindIcon(kind), contentDescription = null) },
+                                onClick = {
+                                    state.activeShapeKind = kind
+                                    state.activeTool = Tool.SHAPE
+                                    showShapeKindMenu = false
+                                },
+                            )
+                        }
+                    }
                 }
                 IconButton(onClick = { showWidthSlider = !showWidthSlider }) {
                     Icon(
@@ -217,4 +248,18 @@ private fun penTypeLabel(penType: PenType) = when (penType) {
     PenType.PENCIL -> "Pencil"
     PenType.HIGHLIGHTER -> "Highlighter"
     PenType.CALLIGRAPHY -> "Calligraphy"
+}
+
+private fun shapeKindIcon(kind: ShapeKind) = when (kind) {
+    ShapeKind.LINE -> Icons.Filled.Remove
+    ShapeKind.RECTANGLE -> Icons.Filled.CropSquare
+    ShapeKind.ELLIPSE -> Icons.Filled.Circle
+    ShapeKind.ARROW -> Icons.AutoMirrored.Filled.ArrowForward
+}
+
+private fun shapeKindLabel(kind: ShapeKind) = when (kind) {
+    ShapeKind.LINE -> "Line"
+    ShapeKind.RECTANGLE -> "Rectangle"
+    ShapeKind.ELLIPSE -> "Ellipse"
+    ShapeKind.ARROW -> "Arrow"
 }

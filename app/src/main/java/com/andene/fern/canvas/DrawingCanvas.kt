@@ -76,6 +76,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                         when (state.activeTool) {
                             Tool.PEN -> state.endStroke()
                             Tool.ERASER -> state.endErase()
+                            Tool.SHAPE -> state.endShape()
                             Tool.SELECT -> when (selectionGestureKind) {
                                 SelectionGestureKind.SCALE -> state.endScaleSelection()
                                 SelectionGestureKind.ROTATE -> state.endRotateSelection()
@@ -119,6 +120,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                 when (state.activeTool) {
                                     Tool.PEN -> state.beginStroke(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
                                     Tool.ERASER -> state.beginErase(world)
+                                    Tool.SHAPE -> state.beginShape(world)
                                     Tool.SELECT -> {
                                         val handles = selectionHandles(state, screenCenter)
                                         selectionGestureKind = when {
@@ -145,6 +147,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                     when (state.activeTool) {
                                         Tool.PEN -> state.extendStroke(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
                                         Tool.ERASER -> state.continueErase(world)
+                                        Tool.SHAPE -> state.continueShape(world)
                                         Tool.SELECT -> when (selectionGestureKind) {
                                             SelectionGestureKind.SCALE -> state.continueScaleSelection(world)
                                             SelectionGestureKind.ROTATE -> state.continueRotateSelection(world)
@@ -222,6 +225,16 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
             val size = Size(abs(b.x - a.x), abs(b.y - a.y))
             drawRect(color = MARQUEE_FILL_COLOR, topLeft = topLeft, size = size)
             drawRect(color = MARQUEE_BORDER_COLOR, topLeft = topLeft, size = size, style = DrawStyle(width = 2f))
+        }
+
+        state.shapePreview?.let { (start, end) ->
+            val screenPoints = generateShapePoints(state.activeShapeKind, start, end).map { state.worldToScreen(it, screenCenter) }
+            val rawWidthScreen = state.activeWidthWorld
+            val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
+            val path = Path()
+            path.moveTo(screenPoints[0].x, screenPoints[0].y)
+            for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
+            drawPath(path = path, color = state.activeColor, style = DrawStyle(width = widthScreen, cap = StrokeCap.Round, join = StrokeJoin.Round))
         }
 
         if (state.activeTool == Tool.SELECT) {
