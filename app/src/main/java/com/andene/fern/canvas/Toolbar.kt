@@ -35,6 +35,8 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.Image
@@ -68,6 +70,10 @@ private val palette = listOf(
 private const val MIN_WIDTH_SCREEN = 1f
 private const val MAX_WIDTH_SCREEN = 32f
 
+// A fully transparent stroke would be pointless and indistinguishable from "nothing drawn" -
+// this floor keeps the lightest setting still faintly visible.
+private const val MIN_OPACITY = 0.1f
+
 @Composable
 fun Toolbar(
     state: CanvasState,
@@ -80,6 +86,8 @@ fun Toolbar(
     var showColorPicker by remember { mutableStateOf(false) }
     var showPenTypeMenu by remember { mutableStateOf(false) }
     var showShapeKindMenu by remember { mutableStateOf(false) }
+    var showOpacitySlider by remember { mutableStateOf(false) }
+    var showBlendModeMenu by remember { mutableStateOf(false) }
 
     Surface(
         modifier = modifier,
@@ -184,6 +192,34 @@ fun Toolbar(
                         tint = if (showWidthSlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
                 }
+                IconButton(onClick = { showOpacitySlider = !showOpacitySlider }) {
+                    Icon(
+                        Icons.Filled.Opacity,
+                        contentDescription = "Stroke opacity",
+                        tint = if (showOpacitySlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                    )
+                }
+                Box {
+                    IconButton(onClick = { showBlendModeMenu = true }) {
+                        Icon(
+                            Icons.Filled.Layers,
+                            contentDescription = "Blend mode: ${blendModeLabel(state.activeBlendMode)}",
+                            tint = if (state.activeBlendMode != StrokeBlendMode.NORMAL) MaterialTheme.colorScheme.primary
+                            else LocalContentColor.current,
+                        )
+                    }
+                    DropdownMenu(expanded = showBlendModeMenu, onDismissRequest = { showBlendModeMenu = false }) {
+                        for (mode in StrokeBlendMode.entries) {
+                            DropdownMenuItem(
+                                text = { Text(blendModeLabel(mode)) },
+                                onClick = {
+                                    state.activeBlendMode = mode
+                                    showBlendModeMenu = false
+                                },
+                            )
+                        }
+                    }
+                }
                 IconButton(onClick = {
                     state.activeTool = if (state.activeTool == Tool.FILL) Tool.PEN else Tool.FILL
                 }) {
@@ -259,6 +295,16 @@ fun Toolbar(
                         .width(192.dp),
                 )
             }
+            if (showOpacitySlider) {
+                Slider(
+                    value = state.activeOpacity.toFloat(),
+                    onValueChange = { state.activeOpacity = it.toDouble() },
+                    valueRange = MIN_OPACITY..1f,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .width(192.dp),
+                )
+            }
         }
     }
 
@@ -301,4 +347,10 @@ private fun shapeKindLabel(kind: ShapeKind) = when (kind) {
     ShapeKind.RECTANGLE -> "Rectangle"
     ShapeKind.ELLIPSE -> "Ellipse"
     ShapeKind.ARROW -> "Arrow"
+}
+
+private fun blendModeLabel(mode: StrokeBlendMode) = when (mode) {
+    StrokeBlendMode.NORMAL -> "Normal"
+    StrokeBlendMode.MULTIPLY -> "Multiply"
+    StrokeBlendMode.SCREEN -> "Screen"
 }

@@ -11,6 +11,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
@@ -263,7 +264,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
             val rawWidthScreen = stroke.widthWorld * state.scale
             if (!rawWidthScreen.isFinite()) continue
             val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
-            drawStroke(stroke, screenPoints, widthScreen)
+            drawStroke(stroke, screenPoints, widthScreen, stroke.blendMode.toComposeBlendMode())
         }
 
         for (item in state.textItems) {
@@ -379,9 +380,9 @@ private fun widthFactorAt(stroke: Stroke, index: Int): Float {
  * per-segment instead (like calligraphy) so the width can vary along its length. Calligraphy
  * always needs per-segment width, so it's built entirely differently regardless.
  */
-private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, baseWidthScreen: Float) {
+private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, baseWidthScreen: Float, blendMode: BlendMode) {
     if (stroke.penType == PenType.CALLIGRAPHY) {
-        drawCalligraphyStroke(stroke, screenPoints, baseWidthScreen)
+        drawCalligraphyStroke(stroke, screenPoints, baseWidthScreen, blendMode)
         return
     }
     val style = penStyle(stroke.penType, stroke.color, baseWidthScreen)
@@ -389,18 +390,19 @@ private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, bas
         for (i in 0 until screenPoints.size - 1) {
             val factor = (widthFactorAt(stroke, i) + widthFactorAt(stroke, i + 1)) / 2f
             val width = (style.widthScreen * factor).coerceAtLeast(1f)
-            drawLine(color = style.color, start = screenPoints[i], end = screenPoints[i + 1], strokeWidth = width, cap = style.cap)
+            drawLine(color = style.color, start = screenPoints[i], end = screenPoints[i + 1], strokeWidth = width, cap = style.cap, blendMode = blendMode)
         }
         return
     }
     when (screenPoints.size) {
-        1 -> drawCircle(style.color, radius = style.widthScreen / 2f, center = screenPoints[0])
+        1 -> drawCircle(style.color, radius = style.widthScreen / 2f, center = screenPoints[0], blendMode = blendMode)
         2 -> drawLine(
             color = style.color,
             start = screenPoints[0],
             end = screenPoints[1],
             strokeWidth = style.widthScreen,
             cap = style.cap,
+            blendMode = blendMode,
         )
         else -> {
             val path = Path()
@@ -415,9 +417,17 @@ private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, bas
                 path = path,
                 color = style.color,
                 style = DrawStyle(width = style.widthScreen, cap = style.cap, join = StrokeJoin.Round),
+                blendMode = blendMode,
             )
         }
     }
+}
+
+/** Maps this app's persisted [StrokeBlendMode] to the Compose [BlendMode] actually used for drawing. */
+private fun StrokeBlendMode.toComposeBlendMode(): BlendMode = when (this) {
+    StrokeBlendMode.NORMAL -> BlendMode.SrcOver
+    StrokeBlendMode.MULTIPLY -> BlendMode.Multiply
+    StrokeBlendMode.SCREEN -> BlendMode.Screen
 }
 
 private data class PenStyle(val color: Color, val widthScreen: Float, val cap: StrokeCap)
@@ -451,9 +461,9 @@ private fun penStyle(penType: PenType, baseColor: Color, baseWidthScreen: Float)
  * pointing along +X, matching `atan2`) with a quarter-turn offset - approximate, and unverified
  * against real stylus hardware.
  */
-private fun DrawScope.drawCalligraphyStroke(stroke: Stroke, screenPoints: List<Offset>, baseWidthScreen: Float) {
+private fun DrawScope.drawCalligraphyStroke(stroke: Stroke, screenPoints: List<Offset>, baseWidthScreen: Float, blendMode: BlendMode) {
     if (screenPoints.size < 2) {
-        if (screenPoints.size == 1) drawCircle(stroke.color, radius = baseWidthScreen / 2f, center = screenPoints[0])
+        if (screenPoints.size == 1) drawCircle(stroke.color, radius = baseWidthScreen / 2f, center = screenPoints[0], blendMode = blendMode)
         return
     }
     val avgTilt = if (stroke.tilts.isEmpty()) 0f else stroke.tilts.average().toFloat()
@@ -471,7 +481,7 @@ private fun DrawScope.drawCalligraphyStroke(stroke: Stroke, screenPoints: List<O
         val pressureFactor = ((stroke.pressures.getOrElse(i) { 1f } + stroke.pressures.getOrElse(i + 1) { 1f }) / 2f).coerceIn(0.1f, 1f)
         val widthFactor = (0.25f + 0.75f * abs(sin(angle - nibAngle))) * pressureFactor
         val width = (baseWidthScreen * widthFactor).coerceAtLeast(1f)
-        drawLine(color = stroke.color, start = a, end = b, strokeWidth = width, cap = StrokeCap.Round)
+        drawLine(color = stroke.color, start = a, end = b, strokeWidth = width, cap = StrokeCap.Round, blendMode = blendMode)
     }
 }
 

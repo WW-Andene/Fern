@@ -287,6 +287,7 @@ object CanvasStorage {
             strokeJson.put("width", stroke.widthWorld)
             strokeJson.put("penType", stroke.penType.name)
             strokeJson.put("filled", stroke.filled)
+            strokeJson.put("blendMode", stroke.blendMode.name)
             val pointsJson = JSONArray()
             for (index in stroke.points.indices) {
                 val point = stroke.points[index]
@@ -315,7 +316,10 @@ object CanvasStorage {
             // MARKER (the type those strokes were always rendered as before this existed).
             val penType = PenType.valueOf(strokeJson.optString("penType", PenType.MARKER.name))
             val filled = strokeJson.optBoolean("filled", false)
-            val stroke = Stroke(color, width, penType, filled)
+            // Older saved documents predate blend modes - default to NORMAL (how every
+            // stroke was always composited before this existed).
+            val blendMode = StrokeBlendMode.valueOf(strokeJson.optString("blendMode", StrokeBlendMode.NORMAL.name))
+            val stroke = Stroke(color, width, penType, filled, blendMode)
             val pointsJson = strokeJson.getJSONArray("points")
             for (j in 0 until pointsJson.length()) {
                 val pointJson = pointsJson.getJSONObject(j)

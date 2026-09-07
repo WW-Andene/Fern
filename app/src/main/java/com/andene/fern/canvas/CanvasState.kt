@@ -111,6 +111,12 @@ class CanvasState(
     var activeShapeKind by mutableStateOf(ShapeKind.LINE)
     var activeTextSizeWorld by mutableDoubleStateOf(24.0)
 
+    /** Opacity (0..1) applied to new strokes' color at creation time - baked into the stored color's alpha, not a separate live-editable property, matching how width/pen type are also fixed once a stroke is drawn. */
+    var activeOpacity by mutableDoubleStateOf(1.0)
+
+    /** Blend mode applied to new strokes - see [StrokeBlendMode]. */
+    var activeBlendMode by mutableStateOf(StrokeBlendMode.NORMAL)
+
     /** The shape currently being dragged out (SHAPE tool), (start, snappedEnd) in world space. Null when none is in progress. */
     var shapePreview: Pair<WorldPoint, WorldPoint>? by mutableStateOf(null)
         private set
@@ -191,7 +197,12 @@ class CanvasState(
     fun beginStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
         redoStack.clear() // drawing something new invalidates redo history, standard editor semantics
         clearSelectionState() // avoid a stale selection referencing strokes another tool is about to change
-        val stroke = Stroke(activeColor, activeWidthWorld / scale.coerceAtLeast(1e-300), activePenType)
+        val stroke = Stroke(
+            activeColor.copy(alpha = activeColor.alpha * activeOpacity.toFloat()),
+            activeWidthWorld / scale.coerceAtLeast(1e-300),
+            activePenType,
+            blendMode = activeBlendMode,
+        )
         stroke.addPoint(snappedToActiveGuide(worldPoint), pressure, tilt, orientation)
         currentStroke = stroke
         strokes.add(stroke)
@@ -282,7 +293,12 @@ class CanvasState(
         shapePreview = null
         val (start, end) = preview
         if (start == end) return
-        val stroke = Stroke(activeColor, activeWidthWorld / scale.coerceAtLeast(1e-300), activePenType)
+        val stroke = Stroke(
+            activeColor.copy(alpha = activeColor.alpha * activeOpacity.toFloat()),
+            activeWidthWorld / scale.coerceAtLeast(1e-300),
+            activePenType,
+            blendMode = activeBlendMode,
+        )
         for (point in generateShapePoints(activeShapeKind, start, end)) stroke.addPoint(point)
         strokes.add(stroke)
         onChanged(strokes.toList())
@@ -606,7 +622,7 @@ class CanvasState(
         if (selection.isEmpty()) return
         val nudge = WorldPoint(20.0 / scale.coerceAtLeast(1e-300), 20.0 / scale.coerceAtLeast(1e-300))
         val duplicates = selection.map { original ->
-            val copy = Stroke(original.color, original.widthWorld, original.penType, original.filled)
+            val copy = Stroke(original.color, original.widthWorld, original.penType, original.filled, original.blendMode)
             for (point in original.points) copy.addPoint(point + nudge)
             copy
         }

@@ -18,6 +18,16 @@ import androidx.compose.ui.graphics.Color
 enum class PenType { MARKER, PENCIL, HIGHLIGHTER, CALLIGRAPHY }
 
 /**
+ * How a stroke composites with whatever is already drawn beneath it, mirroring the standard
+ * blend-mode vocabulary found in raster paint tools:
+ * - [NORMAL]: draws over what's beneath, the default.
+ * - [MULTIPLY]: darkens what's beneath, letting strokes underneath still show through -
+ *   useful for shading/highlighting over existing ink.
+ * - [SCREEN]: lightens what's beneath - the inverse of multiply.
+ */
+enum class StrokeBlendMode { NORMAL, MULTIPLY, SCREEN }
+
+/**
  * A single freehand stroke, stored entirely in world space (i.e. independent of
  * the current pan/zoom). Points are appended live while the user is drawing.
  *
@@ -37,6 +47,8 @@ class Stroke(
     val penType: PenType = PenType.MARKER,
     /** True for a FILL-tool result: a solid polygon (drawn with [DrawingCanvas]'s fill path, not stroked) rather than an outline. */
     val filled: Boolean = false,
+    /** How this stroke composites with content beneath it - see [StrokeBlendMode]. */
+    val blendMode: StrokeBlendMode = StrokeBlendMode.NORMAL,
 ) {
     /** Mutable so a SELECT-tool scale gesture can resize the stroke proportionally with its geometry. */
     var widthWorld: Double = widthWorld
@@ -167,7 +179,7 @@ class Stroke(
         }
         if (!anyRemoved) return null
         return runs.filter { it.size >= 2 }.map { run ->
-            val piece = Stroke(color, widthWorld, penType, filled)
+            val piece = Stroke(color, widthWorld, penType, filled, blendMode)
             for (index in run) piece.addPoint(points[index], pressures[index], tilts[index], orientations[index])
             piece
         }
