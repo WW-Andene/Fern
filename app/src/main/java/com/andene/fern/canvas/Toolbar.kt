@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.Gesture
+import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Palette
@@ -88,6 +89,8 @@ fun Toolbar(
     var showShapeKindMenu by remember { mutableStateOf(false) }
     var showOpacitySlider by remember { mutableStateOf(false) }
     var showBlendModeMenu by remember { mutableStateOf(false) }
+    var showBackgroundStyleMenu by remember { mutableStateOf(false) }
+    var showBackgroundColorPicker by remember { mutableStateOf(false) }
 
     Surface(
         modifier = modifier,
@@ -273,6 +276,29 @@ fun Toolbar(
                 IconButton(onClick = onInsertImage) {
                     Icon(Icons.Filled.Image, contentDescription = "Insert image")
                 }
+                Box {
+                    IconButton(onClick = { showBackgroundStyleMenu = true }) {
+                        Icon(Icons.Filled.GridOn, contentDescription = "Background: ${backgroundStyleLabel(state.backgroundStyle)}")
+                    }
+                    DropdownMenu(expanded = showBackgroundStyleMenu, onDismissRequest = { showBackgroundStyleMenu = false }) {
+                        for (style in BackgroundStyle.entries) {
+                            DropdownMenuItem(
+                                text = { Text(backgroundStyleLabel(style)) },
+                                onClick = {
+                                    state.setBackground(state.backgroundColor, style)
+                                    showBackgroundStyleMenu = false
+                                },
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text("Background color…") },
+                            onClick = {
+                                showBackgroundStyleMenu = false
+                                showBackgroundColorPicker = true
+                            },
+                        )
+                    }
+                }
                 IconButton(onClick = {
                     state.toggleRuler()
                     state.activeTool = if (state.rulerActive) Tool.RULER
@@ -319,6 +345,17 @@ fun Toolbar(
             },
         )
     }
+
+    if (showBackgroundColorPicker) {
+        ColorPickerDialog(
+            initialColor = state.backgroundColor,
+            onDismiss = { showBackgroundColorPicker = false },
+            onColorSelected = { color ->
+                state.setBackground(color, state.backgroundStyle)
+                showBackgroundColorPicker = false
+            },
+        )
+    }
 }
 
 private fun penTypeIcon(penType: PenType) = when (penType) {
@@ -353,4 +390,11 @@ private fun blendModeLabel(mode: StrokeBlendMode) = when (mode) {
     StrokeBlendMode.NORMAL -> "Normal"
     StrokeBlendMode.MULTIPLY -> "Multiply"
     StrokeBlendMode.SCREEN -> "Screen"
+}
+
+private fun backgroundStyleLabel(style: BackgroundStyle) = when (style) {
+    BackgroundStyle.PLAIN -> "Plain"
+    BackgroundStyle.GRID -> "Grid"
+    BackgroundStyle.DOT -> "Dot grid"
+    BackgroundStyle.RULED -> "Ruled"
 }

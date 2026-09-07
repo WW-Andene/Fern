@@ -51,11 +51,15 @@ enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER }
  *   edited, or removed - the text-item equivalent of [onChanged], since text edits are their
  *   own independent unit of persisted state.
  * @param onImageChanged the [imageItems] equivalent of [onTextChanged].
+ * @param onBackgroundChanged invoked with the new (color, style) whenever [setBackground] is
+ *   called - the background's equivalent of [onChanged], since it's also per-document
+ *   persisted state.
  */
 class CanvasState(
     private val onChanged: (List<Stroke>) -> Unit = {},
     private val onTextChanged: (List<TextItem>) -> Unit = {},
     private val onImageChanged: (List<ImageItem>) -> Unit = {},
+    private val onBackgroundChanged: (Color, BackgroundStyle) -> Unit = { _, _ -> },
 ) {
     companion object {
         // Effectively unbounded: leaves ~250 orders of magnitude of headroom on both sides
@@ -134,6 +138,27 @@ class CanvasState(
 
     /** Every placed image on the canvas. */
     val imageItems = mutableStateListOf<ImageItem>()
+
+    /** This document's page background color, matching the default canvas backdrop until changed. */
+    var backgroundColor by mutableStateOf(Color(0xFFF7F5F0))
+        private set
+
+    /** This document's page pattern - see [BackgroundStyle]. */
+    var backgroundStyle by mutableStateOf(BackgroundStyle.PLAIN)
+        private set
+
+    /** Sets the document's background color/style and persists the change via [onBackgroundChanged]. */
+    fun setBackground(color: Color, style: BackgroundStyle) {
+        backgroundColor = color
+        backgroundStyle = style
+        onBackgroundChanged(color, style)
+    }
+
+    /** Replaces the background with [color]/[style] without persisting (e.g. loading a document). */
+    fun loadBackground(color: Color, style: BackgroundStyle) {
+        backgroundColor = color
+        backgroundStyle = style
+    }
 
     /**
      * The ruler guide's two endpoints in world space, or null if never placed. Visible and

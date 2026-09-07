@@ -40,6 +40,10 @@ object CanvasStorage {
     private const val LEGACY_FILE_NAME = "canvas.json" // pre-multi-document single canvas file
     private const val DEFAULT_DOCUMENT_NAME = "My Canvas"
 
+    // Matches the canvas backdrop's original hardcoded color, so an existing document with no
+    // background file yet (created before this feature existed) looks exactly as it always has.
+    private val DEFAULT_BACKGROUND_COLOR = Color(0xFFF7F5F0)
+
     fun listDocuments(context: Context): List<DocumentMeta> {
         migrateLegacyIfNeeded(context)
         val index = readIndex(context)
@@ -84,6 +88,7 @@ object CanvasStorage {
         pinsFile(context, id).delete()
         textItemsFile(context, id).delete()
         imageItemsFile(context, id).delete()
+        backgroundFile(context, id).delete()
         // Deliberately not deleting files under images/: they're shared/immutable and may
         // still be referenced by a duplicate of this document. Accepted tradeoff - orphaned
         // image files from a deleted, non-duplicated document are left behind rather than
@@ -95,10 +100,12 @@ object CanvasStorage {
         val strokes = load(context, id)
         val textItems = loadTextItems(context, id)
         val imageItems = loadImageItems(context, id)
+        val (backgroundColor, backgroundStyle) = loadBackground(context, id)
         val meta = createDocument(context, newName)
         save(context, meta.id, strokes)
         saveTextItems(context, meta.id, textItems)
         saveImageItems(context, meta.id, imageItems)
+        saveBackground(context, meta.id, backgroundColor, backgroundStyle)
         return meta
     }
 
@@ -213,6 +220,24 @@ object CanvasStorage {
         return items
     }
 
+    /** A document's page background, or the app-wide default if it never set one. */
+    fun loadBackground(context: Context, documentId: String): Pair<Color, BackgroundStyle> {
+        val file = backgroundFile(context, documentId)
+        if (!file.exists()) return DEFAULT_BACKGROUND_COLOR to BackgroundStyle.PLAIN
+        val root = JSONObject(file.readText())
+        val color = Color(root.getInt("color"))
+        val style = BackgroundStyle.valueOf(root.optString("style", BackgroundStyle.PLAIN.name))
+        return color to style
+    }
+
+    fun saveBackground(context: Context, documentId: String, color: Color, style: BackgroundStyle) {
+        val root = JSONObject().apply {
+            put("color", color.toArgb())
+            put("style", style.name)
+        }
+        backgroundFile(context, documentId).writeText(root.toString())
+    }
+
     fun saveImageItems(context: Context, documentId: String, items: List<ImageItem>) {
         val root = JSONArray()
         for (item in items) {
@@ -278,6 +303,8 @@ object CanvasStorage {
     private fun textItemsFile(context: Context, documentId: String) = File(context.filesDir, "text_$documentId.json")
 
     private fun imageItemsFile(context: Context, documentId: String) = File(context.filesDir, "images_$documentId.json")
+
+    private fun backgroundFile(context: Context, documentId: String) = File(context.filesDir, "background_$documentId.json")
 
     private fun saveStrokesFile(context: Context, documentId: String, strokes: List<Stroke>) {
         val root = JSONArray()

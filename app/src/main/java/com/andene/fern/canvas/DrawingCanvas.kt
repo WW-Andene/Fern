@@ -218,6 +218,9 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
         val topLeftWorld = state.screenToWorld(Offset.Zero, screenCenter)
         val bottomRightWorld = state.screenToWorld(Offset(size.width, size.height), screenCenter)
 
+        drawRect(color = state.backgroundColor, topLeft = Offset.Zero, size = size)
+        drawBackgroundPattern(state, screenCenter, topLeftWorld, bottomRightWorld)
+
         // Drawn first (behind strokes/text), matching the common "insert a reference image,
         // draw over it" workflow.
         for (item in state.imageItems) {
@@ -340,6 +343,70 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
         )
     }
 }
+
+/**
+ * Draws the document's page pattern ([BackgroundStyle]) within the visible world-space rect
+ * only, at a fixed world-unit spacing so the pattern is a genuine property of the infinite
+ * page (it pans/zooms with the content) rather than a fixed screen-space overlay. A no-op for
+ * [BackgroundStyle.PLAIN].
+ */
+private fun DrawScope.drawBackgroundPattern(state: CanvasState, screenCenter: Offset, topLeftWorld: WorldPoint, bottomRightWorld: WorldPoint) {
+    if (state.backgroundStyle == BackgroundStyle.PLAIN) return
+    val spacing = BACKGROUND_PATTERN_SPACING_WORLD
+    // At extreme zoom-out the visible world rect can span an enormous range - drawing every
+    // line/dot in it would be both invisible (sub-pixel spacing) and prohibitively slow, so
+    // skip the pattern entirely past this line-count ceiling, same as how a real sheet of
+    // grid paper's lines merge into a blur if you back away far enough.
+    val columnCount = (bottomRightWorld.x - topLeftWorld.x) / spacing
+    val rowCount = (bottomRightWorld.y - topLeftWorld.y) / spacing
+    if (!columnCount.isFinite() || !rowCount.isFinite() || columnCount > MAX_BACKGROUND_PATTERN_LINES || rowCount > MAX_BACKGROUND_PATTERN_LINES) return
+    val startX = kotlin.math.floor(topLeftWorld.x / spacing) * spacing
+    val startY = kotlin.math.floor(topLeftWorld.y / spacing) * spacing
+    val lineColor = BACKGROUND_PATTERN_COLOR
+    when (state.backgroundStyle) {
+        BackgroundStyle.GRID -> {
+            var x = startX
+            while (x <= bottomRightWorld.x) {
+                val screenX = state.worldToScreen(WorldPoint(x, 0.0), screenCenter).x
+                drawLine(color = lineColor, start = Offset(screenX, 0f), end = Offset(screenX, size.height), strokeWidth = 1f)
+                x += spacing
+            }
+            var y = startY
+            while (y <= bottomRightWorld.y) {
+                val screenY = state.worldToScreen(WorldPoint(0.0, y), screenCenter).y
+                drawLine(color = lineColor, start = Offset(0f, screenY), end = Offset(size.width, screenY), strokeWidth = 1f)
+                y += spacing
+            }
+        }
+        BackgroundStyle.DOT -> {
+            var y = startY
+            while (y <= bottomRightWorld.y) {
+                var x = startX
+                while (x <= bottomRightWorld.x) {
+                    val screenPoint = state.worldToScreen(WorldPoint(x, y), screenCenter)
+                    drawCircle(color = lineColor, radius = 2f, center = screenPoint)
+                    x += spacing
+                }
+                y += spacing
+            }
+        }
+        BackgroundStyle.RULED -> {
+            var y = startY
+            while (y <= bottomRightWorld.y) {
+                val screenY = state.worldToScreen(WorldPoint(0.0, y), screenCenter).y
+                drawLine(color = lineColor, start = Offset(0f, screenY), end = Offset(size.width, screenY), strokeWidth = 1f)
+                y += spacing
+            }
+        }
+        BackgroundStyle.PLAIN -> {} // handled by the early return above
+    }
+}
+
+// World-unit spacing between pattern lines/dots - the page pattern's own fixed "grain",
+// independent of stroke width or any other scale-dependent value in this app.
+private const val BACKGROUND_PATTERN_SPACING_WORLD = 40.0
+private const val MAX_BACKGROUND_PATTERN_LINES = 500.0
+private val BACKGROUND_PATTERN_COLOR = Color(0xFFD8D3C8)
 
 /** Mutable holder for the most recent raw-MotionEvent pressure/tilt/orientation of pointer 0. */
 private class StylusSample {

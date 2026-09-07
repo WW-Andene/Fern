@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.andene.fern.canvas.BackgroundStyle
 import com.andene.fern.canvas.CanvasState
 import com.andene.fern.canvas.CanvasStorage
 import com.andene.fern.canvas.DocumentMeta
@@ -88,6 +89,7 @@ class MainActivity : ComponentActivity() {
                             // saved directly rather than debounced like stroke autosave.
                             onTextChanged = { snapshot -> CanvasStorage.saveTextItems(context, currentDocumentId, snapshot) },
                             onImageChanged = { snapshot -> CanvasStorage.saveImageItems(context, currentDocumentId, snapshot) },
+                            onBackgroundChanged = { color, style -> CanvasStorage.saveBackground(context, currentDocumentId, color, style) },
                         )
                     }
 
@@ -142,6 +144,8 @@ class MainActivity : ComponentActivity() {
                         canvasState.loadStrokes(CanvasStorage.load(context, documentId))
                         canvasState.loadTextItems(CanvasStorage.loadTextItems(context, documentId))
                         canvasState.loadImageItems(CanvasStorage.loadImageItems(context, documentId))
+                        val (backgroundColor, backgroundStyle) = CanvasStorage.loadBackground(context, documentId)
+                        canvasState.loadBackground(backgroundColor, backgroundStyle)
                         pins = CanvasStorage.listPins(context, documentId)
                     }
 
@@ -156,6 +160,8 @@ class MainActivity : ComponentActivity() {
                         canvasState.loadStrokes(withContext(Dispatchers.IO) { CanvasStorage.load(context, current.id) })
                         canvasState.loadTextItems(withContext(Dispatchers.IO) { CanvasStorage.loadTextItems(context, current.id) })
                         canvasState.loadImageItems(withContext(Dispatchers.IO) { CanvasStorage.loadImageItems(context, current.id) })
+                        val (backgroundColor, backgroundStyle) = withContext(Dispatchers.IO) { CanvasStorage.loadBackground(context, current.id) }
+                        canvasState.loadBackground(backgroundColor, backgroundStyle)
                         refreshPins()
                     }
 
