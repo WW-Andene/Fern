@@ -16,7 +16,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -73,6 +76,24 @@ fun Toolbar(state: CanvasState, modifier: Modifier = Modifier) {
                     else LocalContentColor.current,
                 )
             }
+            IconButton(onClick = {
+                state.activeTool = if (state.activeTool == Tool.SELECT) Tool.PEN else Tool.SELECT
+            }) {
+                Icon(
+                    Icons.Filled.SelectAll,
+                    contentDescription = "Select",
+                    tint = if (state.activeTool == Tool.SELECT) MaterialTheme.colorScheme.primary
+                    else LocalContentColor.current,
+                )
+            }
+            if (state.activeTool == Tool.SELECT) {
+                IconButton(onClick = { state.duplicateSelection() }) {
+                    Icon(Icons.Filled.ContentCopy, contentDescription = "Duplicate selection")
+                }
+                IconButton(onClick = { state.deleteSelection() }) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Delete selection")
+                }
+            }
 
             IconButton(onClick = { state.undo() }) {
                 Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo")
@@ -81,7 +102,7 @@ fun Toolbar(state: CanvasState, modifier: Modifier = Modifier) {
                 Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo")
             }
             IconButton(onClick = { state.clear() }) {
-                Icon(Icons.Filled.Delete, contentDescription = "Clear all")
+                Icon(Icons.Filled.DeleteSweep, contentDescription = "Clear all")
             }
             IconButton(onClick = { state.resetView() }) {
                 Icon(Icons.Filled.ZoomOutMap, contentDescription = "Reset view")

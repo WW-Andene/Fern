@@ -9,7 +9,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import kotlin.math.abs
 
-enum class Tool { PEN, ERASER }
+enum class Tool { PEN, ERASER, SELECT }
 
 /**
  * Camera + document model for the infinite canvas.
@@ -73,6 +73,18 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
     var activeWidthWorld by mutableDoubleStateOf(4.0)
     var activeTool by mutableStateOf(Tool.PEN)
 
+    /** Currently selected strokes (SELECT tool). Empty when nothing is selected. */
+    val selection = mutableStateListOf<Stroke>()
+
+    // The marquee rectangle currently being dragged out (SELECT tool), in world space, as
+    // (dragStart, currentPoint) - not yet normalized into a left/top/right/bottom rect,
+    // since the drag can go in any direction. Null when no marquee is in progress.
+    var marqueeRect: Pair<WorldPoint, WorldPoint>? by mutableStateOf(null)
+        private set
+
+    private var isMovingSelection = false
+    private var lastDragPoint: WorldPoint? = null
+
     private var currentStroke: Stroke? = null
 
     // Strokes popped by undo, in the order they can be redone (last popped, first redone).
@@ -97,6 +109,7 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
 
     fun beginStroke(worldPoint: WorldPoint) {
         redoStack.clear() // drawing something new invalidates redo history, standard editor semantics
+        selection.clear() // avoid a stale selection referencing strokes another tool is about to change
         val stroke = Stroke(activeColor, activeWidthWorld / scale.coerceAtLeast(1e-300))
         stroke.addPoint(worldPoint)
         currentStroke = stroke
@@ -119,6 +132,7 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
 
     fun beginErase(worldPoint: WorldPoint) {
         redoStack.clear()
+        selection.clear() // avoid a stale selection referencing strokes this erase is about to split/remove
         eraseAt(worldPoint)
     }
 
@@ -142,8 +156,87 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
         }
     }
 
+    /**
+     * SELECT tool, pointer-down: starts moving the current selection if [worldPoint] falls
+     * inside its combined bounds, otherwise starts a new marquee drag (replacing any
+     * existing selection once the marquee is released).
+     */
+    fun beginSelectGesture(worldPoint: WorldPoint) {
+        redoStack.clear()
+        if (selection.isNotEmpty() && pointInsideSelectionBounds(worldPoint)) {
+            isMovingSelection = true
+            lastDragPoint = worldPoint
+        } else {
+            isMovingSelection = false
+            selection.clear()
+            marqueeRect = worldPoint to worldPoint
+        }
+    }
+
+    fun continueSelectGesture(worldPoint: WorldPoint) {
+        if (isMovingSelection) {
+            val last = lastDragPoint ?: return
+            val delta = worldPoint - last
+            for (stroke in selection) stroke.shiftBy(WorldPoint(-delta.x, -delta.y))
+            lastDragPoint = worldPoint
+        } else {
+            val start = marqueeRect?.first ?: return
+            marqueeRect = start to worldPoint
+        }
+    }
+
+    fun endSelectGesture() {
+        if (isMovingSelection) {
+            isMovingSelection = false
+            lastDragPoint = null
+            onChanged(strokes.toList())
+            return
+        }
+        val rect = marqueeRect
+        marqueeRect = null
+        if (rect == null) return
+        val (start, end) = rect
+        val left = minOf(start.x, end.x)
+        val right = maxOf(start.x, end.x)
+        val top = minOf(start.y, end.y)
+        val bottom = maxOf(start.y, end.y)
+        selection.addAll(strokes.filter { it.intersects(left, top, right, bottom) })
+    }
+
+    /** Deletes every currently selected stroke. */
+    fun deleteSelection() {
+        if (selection.isEmpty()) return
+        strokes.removeAll(selection.toSet())
+        selection.clear()
+        onChanged(strokes.toList())
+    }
+
+    /** Duplicates every currently selected stroke, offset slightly so the copy is visible, and selects the copies. */
+    fun duplicateSelection() {
+        if (selection.isEmpty()) return
+        val nudge = WorldPoint(20.0 / scale.coerceAtLeast(1e-300), 20.0 / scale.coerceAtLeast(1e-300))
+        val duplicates = selection.map { original ->
+            val copy = Stroke(original.color, original.widthWorld)
+            for (point in original.points) copy.addPoint(point + nudge)
+            copy
+        }
+        strokes.addAll(duplicates)
+        selection.clear()
+        selection.addAll(duplicates)
+        onChanged(strokes.toList())
+    }
+
+    private fun pointInsideSelectionBounds(point: WorldPoint): Boolean {
+        val left = selection.minOf { it.minX }
+        val right = selection.maxOf { it.maxX }
+        val top = selection.minOf { it.minY }
+        val bottom = selection.maxOf { it.maxY }
+        return point.x in left..right && point.y in top..bottom
+    }
+
     fun undo() {
         if (strokes.isNotEmpty()) {
+            selection.clear()
             redoStack.add(strokes.removeAt(strokes.size - 1))
             onChanged(strokes.toList())
         }
@@ -151,6 +244,7 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
 
     fun redo() {
         if (redoStack.isNotEmpty()) {
+            selection.clear()
             strokes.add(redoStack.removeAt(redoStack.size - 1))
             onChanged(strokes.toList())
         }
@@ -160,12 +254,14 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
     fun loadStrokes(loaded: List<Stroke>) {
         strokes.clear()
         redoStack.clear()
+        selection.clear()
         strokes.addAll(loaded)
     }
 
     fun clear() {
         strokes.clear()
         redoStack.clear()
+        selection.clear()
         onChanged(strokes.toList())
     }
 

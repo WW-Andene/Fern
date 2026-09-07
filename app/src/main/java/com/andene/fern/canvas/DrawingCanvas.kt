@@ -6,7 +6,10 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke as DrawStyle
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
@@ -50,6 +53,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                 when (state.activeTool) {
                                     Tool.PEN -> state.beginStroke(world)
                                     Tool.ERASER -> state.beginErase(world)
+                                    Tool.SELECT -> state.beginSelectGesture(world)
                                 }
                                 mode = Mode.DRAW
                             } else {
@@ -59,6 +63,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                     when (state.activeTool) {
                                         Tool.PEN -> state.extendStroke(world)
                                         Tool.ERASER -> state.continueErase(world)
+                                        Tool.SELECT -> state.continueSelectGesture(world)
                                     }
                                 }
                             }
@@ -68,6 +73,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                 when (state.activeTool) {
                                     Tool.PEN -> state.endStroke()
                                     Tool.ERASER -> state.endErase()
+                                    Tool.SELECT -> state.endSelectGesture()
                                 }
                             }
                             val centroid = pointers.fold(Offset.Zero) { acc, c -> acc + c.position } / count.toFloat()
@@ -97,6 +103,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                         when (state.activeTool) {
                             Tool.PEN -> state.endStroke()
                             Tool.ERASER -> state.endErase()
+                            Tool.SELECT -> state.endSelectGesture()
                         }
                     }
                 }
@@ -134,7 +141,32 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                 }
             }
         }
+
+        for (stroke in state.selection) {
+            stroke.revision // subscribe so a moved selection redraws its highlight live
+            val topLeft = state.worldToScreen(WorldPoint(stroke.minX, stroke.minY), screenCenter)
+            val bottomRight = state.worldToScreen(WorldPoint(stroke.maxX, stroke.maxY), screenCenter)
+            drawRect(
+                color = SELECTION_HIGHLIGHT_COLOR,
+                topLeft = topLeft,
+                size = Size(bottomRight.x - topLeft.x, bottomRight.y - topLeft.y),
+                style = DrawStyle(width = 2f),
+            )
+        }
+
+        state.marqueeRect?.let { (start, end) ->
+            val a = state.worldToScreen(start, screenCenter)
+            val b = state.worldToScreen(end, screenCenter)
+            val topLeft = Offset(minOf(a.x, b.x), minOf(a.y, b.y))
+            val size = Size(kotlin.math.abs(b.x - a.x), kotlin.math.abs(b.y - a.y))
+            drawRect(color = MARQUEE_FILL_COLOR, topLeft = topLeft, size = size)
+            drawRect(color = MARQUEE_BORDER_COLOR, topLeft = topLeft, size = size, style = DrawStyle(width = 2f))
+        }
     }
 }
+
+private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
+private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
+private val MARQUEE_FILL_COLOR = Color(0x1A1E88E5)
 
 private enum class Mode { NONE, DRAW, NAVIGATE }
