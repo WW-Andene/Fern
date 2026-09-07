@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.runtime.Composable
@@ -51,6 +52,7 @@ private const val MAX_WIDTH_SCREEN = 32f
 @Composable
 fun Toolbar(state: CanvasState, modifier: Modifier = Modifier) {
     var showWidthSlider by remember { mutableStateOf(false) }
+    var showColorPicker by remember { mutableStateOf(false) }
 
     Surface(
         modifier = modifier,
@@ -79,6 +81,9 @@ fun Toolbar(state: CanvasState, modifier: Modifier = Modifier) {
                         shape = CircleShape,
                         color = color,
                     ) {}
+                }
+                IconButton(onClick = { showColorPicker = true }) {
+                    Icon(Icons.Filled.Palette, contentDescription = "Custom color")
                 }
 
                 IconButton(onClick = {
@@ -141,5 +146,17 @@ fun Toolbar(state: CanvasState, modifier: Modifier = Modifier) {
                 )
             }
         }
+    }
+
+    if (showColorPicker) {
+        ColorPickerDialog(
+            initialColor = state.activeColor,
+            onDismiss = { showColorPicker = false },
+            onColorSelected = { color ->
+                state.activeColor = color
+                state.activeTool = Tool.PEN
+                showColorPicker = false
+            },
+        )
     }
 }
