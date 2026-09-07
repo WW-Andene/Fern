@@ -42,6 +42,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                     var mode = Mode.NONE
                     var prevCentroid = Offset.Zero
                     var prevSpan = 0f
+                    var selectionGestureKind = SelectionGestureKind.OTHER
 
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Main)
@@ -51,11 +52,28 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
 
                         if (count == 1) {
                             if (mode != Mode.DRAW) {
-                                val world = state.screenToWorld(pointers[0].position, screenCenter)
+                                val downPos = pointers[0].position
+                                val world = state.screenToWorld(downPos, screenCenter)
                                 when (state.activeTool) {
                                     Tool.PEN -> state.beginStroke(world)
                                     Tool.ERASER -> state.beginErase(world)
-                                    Tool.SELECT -> state.beginSelectGesture(world)
+                                    Tool.SELECT -> {
+                                        val handles = selectionHandles(state, screenCenter)
+                                        selectionGestureKind = when {
+                                            handles != null && (downPos - handles.scaleHandle).getDistance() <= HANDLE_HIT_RADIUS_SCREEN -> {
+                                                state.beginScaleSelection(world)
+                                                SelectionGestureKind.SCALE
+                                            }
+                                            handles != null && (downPos - handles.rotateHandle).getDistance() <= HANDLE_HIT_RADIUS_SCREEN -> {
+                                                state.beginRotateSelection(world)
+                                                SelectionGestureKind.ROTATE
+                                            }
+                                            else -> {
+                                                state.beginSelectGesture(world)
+                                                SelectionGestureKind.OTHER
+                                            }
+                                        }
+                                    }
                                 }
                                 mode = Mode.DRAW
                             } else {
@@ -65,7 +83,11 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                     when (state.activeTool) {
                                         Tool.PEN -> state.extendStroke(world)
                                         Tool.ERASER -> state.continueErase(world)
-                                        Tool.SELECT -> state.continueSelectGesture(world)
+                                        Tool.SELECT -> when (selectionGestureKind) {
+                                            SelectionGestureKind.SCALE -> state.continueScaleSelection(world)
+                                            SelectionGestureKind.ROTATE -> state.continueRotateSelection(world)
+                                            SelectionGestureKind.OTHER -> state.continueSelectGesture(world)
+                                        }
                                     }
                                 }
                             }
@@ -75,7 +97,11 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                 when (state.activeTool) {
                                     Tool.PEN -> state.endStroke()
                                     Tool.ERASER -> state.endErase()
-                                    Tool.SELECT -> state.endSelectGesture()
+                                    Tool.SELECT -> when (selectionGestureKind) {
+                                        SelectionGestureKind.SCALE -> state.endScaleSelection()
+                                        SelectionGestureKind.ROTATE -> state.endRotateSelection()
+                                        SelectionGestureKind.OTHER -> state.endSelectGesture()
+                                    }
                                 }
                             }
                             val centroid = pointers.fold(Offset.Zero) { acc, c -> acc + c.position } / count.toFloat()
@@ -105,7 +131,11 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                         when (state.activeTool) {
                             Tool.PEN -> state.endStroke()
                             Tool.ERASER -> state.endErase()
-                            Tool.SELECT -> state.endSelectGesture()
+                            Tool.SELECT -> when (selectionGestureKind) {
+                                SelectionGestureKind.SCALE -> state.endScaleSelection()
+                                SelectionGestureKind.ROTATE -> state.endRotateSelection()
+                                SelectionGestureKind.OTHER -> state.endSelectGesture()
+                            }
                         }
                     }
                 }
@@ -179,11 +209,39 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
             drawRect(color = MARQUEE_FILL_COLOR, topLeft = topLeft, size = size)
             drawRect(color = MARQUEE_BORDER_COLOR, topLeft = topLeft, size = size, style = DrawStyle(width = 2f))
         }
+
+        if (state.activeTool == Tool.SELECT) {
+            selectionHandles(state, screenCenter)?.let { handles ->
+                drawLine(color = HANDLE_COLOR, start = handles.topCenter, end = handles.rotateHandle, strokeWidth = 2f)
+                drawCircle(color = HANDLE_COLOR, radius = 8f, center = handles.scaleHandle)
+                drawCircle(color = Color.White, radius = 4f, center = handles.scaleHandle)
+                drawCircle(color = HANDLE_COLOR, radius = 8f, center = handles.rotateHandle)
+                drawCircle(color = Color.White, radius = 4f, center = handles.rotateHandle)
+            }
+        }
     }
 }
+
+/** The selection's scale handle (bottom-right corner) and rotate handle (above top-center), in screen space. */
+private data class SelectionHandles(val scaleHandle: Offset, val rotateHandle: Offset, val topCenter: Offset)
+
+private fun selectionHandles(state: CanvasState, screenCenter: Offset): SelectionHandles? {
+    val bounds = state.selectionBounds() ?: return null
+    val (min, max) = bounds
+    val scaleHandle = state.worldToScreen(max, screenCenter)
+    val topCenter = state.worldToScreen(WorldPoint((min.x + max.x) / 2.0, min.y), screenCenter)
+    val rotateHandle = Offset(topCenter.x, topCenter.y - ROTATE_HANDLE_OFFSET_SCREEN)
+    return SelectionHandles(scaleHandle, rotateHandle, topCenter)
+}
+
+// Both on the §7 scale (Primary tier).
+private const val HANDLE_HIT_RADIUS_SCREEN = 16f
+private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
 private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_FILL_COLOR = Color(0x1A1E88E5)
+private val HANDLE_COLOR = Color(0xFF1E88E5)
 
 private enum class Mode { NONE, DRAW, NAVIGATE }
+private enum class SelectionGestureKind { SCALE, ROTATE, OTHER }

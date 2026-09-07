@@ -9,6 +9,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.sin
 
 enum class Tool { PEN, ERASER, SELECT }
 
@@ -94,6 +98,15 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
     private var isMovingSelection = false
     private var lastDragPoint: WorldPoint? = null
 
+    // Scale/rotate gesture state. Both apply their transform fresh each frame from a
+    // snapshot of each selected stroke's points taken at gesture start (gestureSnapshot),
+    // rather than accumulating incremental deltas - which would drift over a long drag.
+    private var gestureAnchor = WorldPoint.Zero // scale: opposite corner; rotate: pivot (centroid)
+    private var gestureStartDistance = 0.0 // scale only
+    private var gestureStartAngle = 0.0 // rotate only
+    private var gestureSnapshot: Map<Stroke, List<WorldPoint>> = emptyMap()
+    private var gestureSnapshotWidths: Map<Stroke, Double> = emptyMap()
+
     private var currentStroke: Stroke? = null
 
     // Strokes popped by undo, in the order they can be redone (last popped, first redone).
@@ -118,7 +131,7 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
 
     fun beginStroke(worldPoint: WorldPoint) {
         redoStack.clear() // drawing something new invalidates redo history, standard editor semantics
-        selection.clear() // avoid a stale selection referencing strokes another tool is about to change
+        clearSelectionState() // avoid a stale selection referencing strokes another tool is about to change
         val stroke = Stroke(activeColor, activeWidthWorld / scale.coerceAtLeast(1e-300))
         stroke.addPoint(worldPoint)
         currentStroke = stroke
@@ -141,7 +154,7 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
 
     fun beginErase(worldPoint: WorldPoint) {
         redoStack.clear()
-        selection.clear() // avoid a stale selection referencing strokes this erase is about to split/remove
+        clearSelectionState() // avoid a stale selection referencing strokes this erase is about to split/remove
         eraseAt(worldPoint)
     }
 
@@ -212,6 +225,91 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
         selection.addAll(strokes.filter { it.intersects(left, top, right, bottom) })
     }
 
+    /** The current selection's combined bounding box, or null if nothing is selected. */
+    fun selectionBounds(): Pair<WorldPoint, WorldPoint>? {
+        if (selection.isEmpty()) return null
+        val left = selection.minOf { it.minX }
+        val right = selection.maxOf { it.maxX }
+        val top = selection.minOf { it.minY }
+        val bottom = selection.maxOf { it.maxY }
+        return WorldPoint(left, top) to WorldPoint(right, bottom)
+    }
+
+    /**
+     * Starts a uniform scale of the selection, anchored at the bounding box's top-left
+     * corner (the corner opposite the bottom-right handle the caller hit-tested against) -
+     * so dragging that handle resizes the selection the way dragging an image's corner
+     * handle does, rather than scaling in place and drifting the selection's position.
+     * No-op if nothing is selected.
+     */
+    fun beginScaleSelection(worldPoint: WorldPoint) {
+        val bounds = selectionBounds() ?: return
+        gestureAnchor = bounds.first
+        gestureStartDistance = hypot(worldPoint.x - gestureAnchor.x, worldPoint.y - gestureAnchor.y).coerceAtLeast(1e-9)
+        gestureSnapshot = selection.associateWith { it.points.toList() }
+        gestureSnapshotWidths = selection.associateWith { it.widthWorld }
+    }
+
+    fun continueScaleSelection(worldPoint: WorldPoint) {
+        if (gestureSnapshot.isEmpty()) return
+        val distance = hypot(worldPoint.x - gestureAnchor.x, worldPoint.y - gestureAnchor.y).coerceAtLeast(1e-9)
+        val factor = distance / gestureStartDistance
+        for ((stroke, originalPoints) in gestureSnapshot) {
+            stroke.setPoints(
+                originalPoints.map { point ->
+                    WorldPoint(
+                        gestureAnchor.x + (point.x - gestureAnchor.x) * factor,
+                        gestureAnchor.y + (point.y - gestureAnchor.y) * factor,
+                    )
+                }
+            )
+            gestureSnapshotWidths[stroke]?.let { stroke.setWidth(it * factor) }
+        }
+    }
+
+    fun endScaleSelection() {
+        gestureSnapshot = emptyMap()
+        gestureSnapshotWidths = emptyMap()
+        onChanged(strokes.toList())
+    }
+
+    /**
+     * Starts rotating the selection around its bounding box's center. No-op if nothing is
+     * selected.
+     */
+    fun beginRotateSelection(worldPoint: WorldPoint) {
+        val bounds = selectionBounds() ?: return
+        val (min, max) = bounds
+        gestureAnchor = WorldPoint((min.x + max.x) / 2.0, (min.y + max.y) / 2.0)
+        gestureStartAngle = atan2(worldPoint.y - gestureAnchor.y, worldPoint.x - gestureAnchor.x)
+        gestureSnapshot = selection.associateWith { it.points.toList() }
+    }
+
+    fun continueRotateSelection(worldPoint: WorldPoint) {
+        if (gestureSnapshot.isEmpty()) return
+        val currentAngle = atan2(worldPoint.y - gestureAnchor.y, worldPoint.x - gestureAnchor.x)
+        val delta = currentAngle - gestureStartAngle
+        val cosDelta = cos(delta)
+        val sinDelta = sin(delta)
+        for ((stroke, originalPoints) in gestureSnapshot) {
+            stroke.setPoints(
+                originalPoints.map { point ->
+                    val dx = point.x - gestureAnchor.x
+                    val dy = point.y - gestureAnchor.y
+                    WorldPoint(
+                        gestureAnchor.x + dx * cosDelta - dy * sinDelta,
+                        gestureAnchor.y + dx * sinDelta + dy * cosDelta,
+                    )
+                }
+            )
+        }
+    }
+
+    fun endRotateSelection() {
+        gestureSnapshot = emptyMap()
+        onChanged(strokes.toList())
+    }
+
     /** Deletes every currently selected stroke. */
     fun deleteSelection() {
         if (selection.isEmpty()) return
@@ -235,17 +333,21 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
         onChanged(strokes.toList())
     }
 
+    /** Clears the selection and any in-progress scale/rotate snapshot together, so neither can outlive the strokes it references. */
+    private fun clearSelectionState() {
+        selection.clear()
+        gestureSnapshot = emptyMap()
+        gestureSnapshotWidths = emptyMap()
+    }
+
     private fun pointInsideSelectionBounds(point: WorldPoint): Boolean {
-        val left = selection.minOf { it.minX }
-        val right = selection.maxOf { it.maxX }
-        val top = selection.minOf { it.minY }
-        val bottom = selection.maxOf { it.maxY }
-        return point.x in left..right && point.y in top..bottom
+        val (min, max) = selectionBounds() ?: return false
+        return point.x in min.x..max.x && point.y in min.y..max.y
     }
 
     fun undo() {
         if (strokes.isNotEmpty()) {
-            selection.clear()
+            clearSelectionState()
             redoStack.add(strokes.removeAt(strokes.size - 1))
             onChanged(strokes.toList())
         }
@@ -253,7 +355,7 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
 
     fun redo() {
         if (redoStack.isNotEmpty()) {
-            selection.clear()
+            clearSelectionState()
             strokes.add(redoStack.removeAt(redoStack.size - 1))
             onChanged(strokes.toList())
         }
@@ -263,14 +365,14 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
     fun loadStrokes(loaded: List<Stroke>) {
         strokes.clear()
         redoStack.clear()
-        selection.clear()
+        clearSelectionState()
         strokes.addAll(loaded)
     }
 
     fun clear() {
         strokes.clear()
         redoStack.clear()
-        selection.clear()
+        clearSelectionState()
         onChanged(strokes.toList())
     }
 

@@ -15,8 +15,12 @@ import androidx.compose.ui.graphics.Color
  */
 class Stroke(
     val color: Color,
-    val widthWorld: Double,
+    widthWorld: Double,
 ) {
+    /** Mutable so a SELECT-tool scale gesture can resize the stroke proportionally with its geometry. */
+    var widthWorld: Double = widthWorld
+        private set
+
     private val _points = mutableListOf<WorldPoint>()
     val points: List<WorldPoint> get() = _points
 
@@ -61,6 +65,34 @@ class Stroke(
         }
         minX -= offset.x; maxX -= offset.x
         minY -= offset.y; maxY -= offset.y
+        revision++
+    }
+
+    /**
+     * Replaces every point wholesale and recomputes the bounding box, for a SELECT-tool
+     * scale/rotate gesture (which recomputes each point fresh from a snapshot taken at
+     * gesture start, rather than accumulating incremental deltas frame to frame - avoiding
+     * drift over a long drag).
+     */
+    fun setPoints(newPoints: List<WorldPoint>) {
+        _points.clear()
+        _points.addAll(newPoints)
+        minX = Double.POSITIVE_INFINITY
+        minY = Double.POSITIVE_INFINITY
+        maxX = Double.NEGATIVE_INFINITY
+        maxY = Double.NEGATIVE_INFINITY
+        for (point in newPoints) {
+            if (point.x < minX) minX = point.x
+            if (point.y < minY) minY = point.y
+            if (point.x > maxX) maxX = point.x
+            if (point.y > maxY) maxY = point.y
+        }
+        revision++
+    }
+
+    /** Sets this stroke's width directly, for a SELECT-tool scale gesture. */
+    fun setWidth(newWidth: Double) {
+        widthWorld = newWidth
         revision++
     }
 
