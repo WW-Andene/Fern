@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.runtime.Composable
@@ -235,6 +236,17 @@ fun Toolbar(
                 }
                 IconButton(onClick = onInsertImage) {
                     Icon(Icons.Filled.Image, contentDescription = "Insert image")
+                }
+                IconButton(onClick = {
+                    state.toggleRuler()
+                    state.activeTool = if (state.rulerActive) Tool.RULER
+                    else if (state.activeTool == Tool.RULER) Tool.PEN else state.activeTool
+                }) {
+                    Icon(
+                        Icons.Filled.Straighten,
+                        contentDescription = "Ruler guide",
+                        tint = if (state.rulerActive) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                    )
                 }
             }
             if (showWidthSlider) {

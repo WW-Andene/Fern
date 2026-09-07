@@ -15,7 +15,7 @@ import kotlin.math.hypot
 import kotlin.math.sin
 import java.util.UUID
 
-enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT }
+enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER }
 
 /**
  * Camera + document model for the infinite canvas.
@@ -76,6 +76,15 @@ class CanvasState(
         // How close (in screen pixels) a stroke's start/end points must be to count as a
         // "closed" shape for the FILL tool - same scale-dependent conversion as the eraser.
         private const val FILL_CLOSE_TOLERANCE_SCREEN = 24.0
+
+        // How close (in screen pixels) a touch must land on the ruler's endpoint to grab it
+        // for resizing, rather than translating the whole guide - same scale-dependent
+        // conversion as the eraser/fill tolerances above.
+        private const val RULER_HANDLE_RADIUS_SCREEN = 24.0
+
+        // Default ruler length when first placed: half a screen-width on each side of the tap,
+        // in screen pixels (Secondary tier on the §7 scale), converted to world units.
+        private const val RULER_DEFAULT_HALF_LENGTH_SCREEN = 300.0
     }
 
     // World-space point currently at the center of the screen.
@@ -119,6 +128,22 @@ class CanvasState(
 
     /** Every placed image on the canvas. */
     val imageItems = mutableStateListOf<ImageItem>()
+
+    /**
+     * The ruler guide's two endpoints in world space, or null if never placed. Visible and
+     * draggable only while [rulerActive]; a real drafting ruler stays on the page and can be
+     * put away, so toggling it off hides it without discarding its position.
+     */
+    var rulerLine: Pair<WorldPoint, WorldPoint>? by mutableStateOf(null)
+        private set
+
+    /** Whether the ruler guide is currently placed/visible and snapping pen strokes to it. */
+    var rulerActive by mutableStateOf(false)
+        private set
+
+    private enum class RulerDragMode { NONE, START, END, TRANSLATE }
+    private var rulerDragMode = RulerDragMode.NONE
+    private var rulerDragLast = WorldPoint.Zero
 
     /** Currently selected strokes (SELECT tool). Empty when nothing is selected. */
     val selection = mutableStateListOf<Stroke>()
@@ -167,13 +192,29 @@ class CanvasState(
         redoStack.clear() // drawing something new invalidates redo history, standard editor semantics
         clearSelectionState() // avoid a stale selection referencing strokes another tool is about to change
         val stroke = Stroke(activeColor, activeWidthWorld / scale.coerceAtLeast(1e-300), activePenType)
-        stroke.addPoint(worldPoint, pressure, tilt, orientation)
+        stroke.addPoint(snappedToActiveGuide(worldPoint), pressure, tilt, orientation)
         currentStroke = stroke
         strokes.add(stroke)
     }
 
     fun extendStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
-        currentStroke?.addPoint(worldPoint, pressure, tilt, orientation)
+        currentStroke?.addPoint(snappedToActiveGuide(worldPoint), pressure, tilt, orientation)
+    }
+
+    /**
+     * Projects [point] onto the ruler guide's infinite line when it's active and placed,
+     * otherwise returns [point] unchanged. Lets pen strokes drawn against the ruler come out
+     * perfectly straight along it, the way tracing along a physical ruler's edge works.
+     */
+    private fun snappedToActiveGuide(point: WorldPoint): WorldPoint {
+        if (!rulerActive) return point
+        val (start, end) = rulerLine ?: return point
+        val dx = end.x - start.x
+        val dy = end.y - start.y
+        val lengthSq = dx * dx + dy * dy
+        if (lengthSq < 1e-12) return point
+        val t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSq
+        return WorldPoint(start.x + t * dx, start.y + t * dy)
     }
 
     fun endStroke() {
@@ -367,6 +408,57 @@ class CanvasState(
     fun loadImageItems(loaded: List<ImageItem>) {
         imageItems.clear()
         imageItems.addAll(loaded)
+    }
+
+    /**
+     * Toggles the ruler guide on/off. The first time it's turned on with no prior position, it
+     * appears as a horizontal line through the current viewport center - after that, toggling
+     * off and back on restores wherever it was left, matching a physical ruler you set aside
+     * rather than one that resets each time you pick it up.
+     */
+    fun toggleRuler() {
+        rulerActive = !rulerActive
+        if (rulerActive && rulerLine == null) {
+            val halfLength = RULER_DEFAULT_HALF_LENGTH_SCREEN / scale.coerceAtLeast(1e-300)
+            rulerLine = WorldPoint(panWorld.x - halfLength, panWorld.y) to WorldPoint(panWorld.x + halfLength, panWorld.y)
+        }
+    }
+
+    private val rulerHandleRadiusWorld: Double
+        get() = RULER_HANDLE_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
+
+    /**
+     * RULER tool, pointer-down: grabs whichever endpoint [worldPoint] landed near (to resize/
+     * re-angle the guide), or starts translating the whole line otherwise. No-op if the ruler
+     * isn't placed.
+     */
+    fun beginRulerGesture(worldPoint: WorldPoint) {
+        val (start, end) = rulerLine ?: return
+        val handleRadius = rulerHandleRadiusWorld
+        rulerDragMode = when {
+            hypot(worldPoint.x - start.x, worldPoint.y - start.y) <= handleRadius -> RulerDragMode.START
+            hypot(worldPoint.x - end.x, worldPoint.y - end.y) <= handleRadius -> RulerDragMode.END
+            else -> RulerDragMode.TRANSLATE
+        }
+        rulerDragLast = worldPoint
+    }
+
+    fun continueRulerGesture(worldPoint: WorldPoint) {
+        val (start, end) = rulerLine ?: return
+        when (rulerDragMode) {
+            RulerDragMode.START -> rulerLine = worldPoint to end
+            RulerDragMode.END -> rulerLine = start to worldPoint
+            RulerDragMode.TRANSLATE -> {
+                val delta = worldPoint - rulerDragLast
+                rulerLine = (start + delta) to (end + delta)
+                rulerDragLast = worldPoint
+            }
+            RulerDragMode.NONE -> {}
+        }
+    }
+
+    fun endRulerGesture() {
+        rulerDragMode = RulerDragMode.NONE
     }
 
     /**

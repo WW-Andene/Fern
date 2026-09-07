@@ -96,6 +96,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                             Tool.SHAPE -> state.endShape()
                             Tool.FILL -> {} // one-shot on pointer-down, nothing to end
                             Tool.TEXT -> {} // one-shot on pointer-down, nothing to end
+                            Tool.RULER -> state.endRulerGesture()
                             Tool.SELECT -> when (selectionGestureKind) {
                                 SelectionGestureKind.SCALE -> state.endScaleSelection()
                                 SelectionGestureKind.ROTATE -> state.endRotateSelection()
@@ -142,6 +143,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                     Tool.SHAPE -> state.beginShape(world)
                                     Tool.FILL -> state.fillAt(world)
                                     Tool.TEXT -> state.beginTextEdit(world)
+                                    Tool.RULER -> state.beginRulerGesture(world)
                                     Tool.SELECT -> {
                                         val handles = selectionHandles(state, screenCenter)
                                         selectionGestureKind = when {
@@ -171,6 +173,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                         Tool.SHAPE -> state.continueShape(world)
                                         Tool.FILL -> {} // one-shot; ignore drag
                                         Tool.TEXT -> {} // one-shot; ignore drag
+                                        Tool.RULER -> state.continueRulerGesture(world)
                                         Tool.SELECT -> when (selectionGestureKind) {
                                             SelectionGestureKind.SCALE -> state.continueScaleSelection(world)
                                             SelectionGestureKind.ROTATE -> state.continueRotateSelection(world)
@@ -310,6 +313,20 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                 drawCircle(color = Color.White, radius = 4f, center = handles.scaleHandle)
                 drawCircle(color = HANDLE_COLOR, radius = 8f, center = handles.rotateHandle)
                 drawCircle(color = Color.White, radius = 4f, center = handles.rotateHandle)
+            }
+        }
+
+        if (state.rulerActive) {
+            state.rulerLine?.let { (start, end) ->
+                val startScreen = state.worldToScreen(start, screenCenter)
+                val endScreen = state.worldToScreen(end, screenCenter)
+                drawLine(color = RULER_COLOR, start = startScreen, end = endScreen, strokeWidth = 4f)
+                if (state.activeTool == Tool.RULER) {
+                    drawCircle(color = RULER_COLOR, radius = 10f, center = startScreen)
+                    drawCircle(color = Color.White, radius = 5f, center = startScreen)
+                    drawCircle(color = RULER_COLOR, radius = 10f, center = endScreen)
+                    drawCircle(color = Color.White, radius = 5f, center = endScreen)
+                }
             }
         }
     }
@@ -480,6 +497,7 @@ private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_FILL_COLOR = Color(0x1A1E88E5)
 private val HANDLE_COLOR = Color(0xFF1E88E5)
+private val RULER_COLOR = Color(0xFFFB8C00)
 
 private enum class Mode { NONE, DRAW, NAVIGATE }
 private enum class SelectionGestureKind { SCALE, ROTATE, OTHER }
