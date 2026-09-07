@@ -35,8 +35,12 @@ import kotlin.math.abs
  * below that ceiling purely to avoid float overflow/underflow at the very last
  * Double->Float conversion when actually drawing to screen — for any human drawing task
  * this is indistinguishable from literally infinite zoom.
+ *
+ * @param onChanged invoked with a snapshot of [strokes] after every completed mutation
+ *   (a finished stroke, an undo, a clear) — not on every point mid-stroke. Intended for
+ *   driving autosave; the caller decides how/when to actually persist the snapshot.
  */
-class CanvasState {
+class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
     companion object {
         // Effectively unbounded: leaves ~250 orders of magnitude of headroom on both sides
         // of Double's range purely as a safety margin, not a meaningful practical limit.
@@ -92,10 +96,14 @@ class CanvasState {
     fun endStroke() {
         currentStroke = null
         rebaseIfNeeded()
+        onChanged(strokes.toList())
     }
 
     fun undo() {
-        if (strokes.isNotEmpty()) strokes.removeAt(strokes.size - 1)
+        if (strokes.isNotEmpty()) {
+            strokes.removeAt(strokes.size - 1)
+            onChanged(strokes.toList())
+        }
     }
 
     /** Replaces all strokes with [loaded] (e.g. from [CanvasStorage.load] on app start). */
@@ -106,6 +114,7 @@ class CanvasState {
 
     fun clear() {
         strokes.clear()
+        onChanged(strokes.toList())
     }
 
     /** Pan by a screen-space delta (drag). Only call while no stroke is in progress. */
