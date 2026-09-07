@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.runtime.Composable
@@ -52,7 +53,12 @@ private const val MIN_WIDTH_SCREEN = 1f
 private const val MAX_WIDTH_SCREEN = 32f
 
 @Composable
-fun Toolbar(state: CanvasState, modifier: Modifier = Modifier, onOpenDocuments: () -> Unit = {}) {
+fun Toolbar(
+    state: CanvasState,
+    modifier: Modifier = Modifier,
+    onOpenDocuments: () -> Unit = {},
+    onOpenPins: () -> Unit = {},
+) {
     var showWidthSlider by remember { mutableStateOf(false) }
     var showColorPicker by remember { mutableStateOf(false) }
 
@@ -141,6 +147,9 @@ fun Toolbar(state: CanvasState, modifier: Modifier = Modifier, onOpenDocuments: 
                 }
                 IconButton(onClick = onOpenDocuments) {
                     Icon(Icons.Filled.Description, contentDescription = "Documents")
+                }
+                IconButton(onClick = onOpenPins) {
+                    Icon(Icons.Filled.PushPin, contentDescription = "Pins")
                 }
             }
             if (showWidthSlider) {

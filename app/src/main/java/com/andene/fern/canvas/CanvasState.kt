@@ -313,6 +313,13 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
         rebaseIfNeeded()
     }
 
+    /** Jumps the camera to [world] at [targetScale] (e.g. restoring a saved pin). */
+    fun jumpTo(world: WorldPoint, targetScale: Double) {
+        scale = targetScale.coerceIn(MIN_SCALE, MAX_SCALE)
+        panWorld = world
+        rebaseIfNeeded()
+    }
+
     /** Frames all content in the current viewport, with a margin. No-op on an empty canvas. */
     fun zoomToFit() {
         val bounds = contentBounds() ?: return

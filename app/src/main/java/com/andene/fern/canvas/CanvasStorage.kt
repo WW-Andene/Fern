@@ -15,6 +15,15 @@ data class DocumentMeta(
     val lastModified: Long,
 )
 
+/** A named, jumpable camera position within one document. */
+data class PinMeta(
+    val id: String,
+    val name: String,
+    val x: Double,
+    val y: Double,
+    val scale: Double,
+)
+
 /**
  * Persists canvas documents to local app storage as JSON: an index file listing every
  * document's metadata, plus one strokes file per document (`canvas_<id>.json`).
@@ -69,6 +78,7 @@ object CanvasStorage {
         }
         writeIndex(context, kept)
         strokesFile(context, id).delete()
+        pinsFile(context, id).delete()
     }
 
     /** Creates a new document with a copy of [id]'s strokes, named [newName]. */
@@ -95,6 +105,42 @@ object CanvasStorage {
         val target = strokesFile(context, documentId)
         if (!target.exists()) return emptyList()
         return parseStrokes(target.readText())
+    }
+
+    fun listPins(context: Context, documentId: String): List<PinMeta> {
+        val file = pinsFile(context, documentId)
+        if (!file.exists()) return emptyList()
+        val root = JSONArray(file.readText())
+        val pins = mutableListOf<PinMeta>()
+        for (i in 0 until root.length()) {
+            val entry = root.getJSONObject(i)
+            pins.add(
+                PinMeta(
+                    id = entry.getString("id"),
+                    name = entry.getString("name"),
+                    x = entry.getDouble("x"),
+                    y = entry.getDouble("y"),
+                    scale = entry.getDouble("scale"),
+                )
+            )
+        }
+        return pins
+    }
+
+    fun savePins(context: Context, documentId: String, pins: List<PinMeta>) {
+        val root = JSONArray()
+        for (pin in pins) {
+            root.put(
+                JSONObject().apply {
+                    put("id", pin.id)
+                    put("name", pin.name)
+                    put("x", pin.x)
+                    put("y", pin.y)
+                    put("scale", pin.scale)
+                }
+            )
+        }
+        pinsFile(context, documentId).writeText(root.toString())
     }
 
     /**
@@ -130,6 +176,8 @@ object CanvasStorage {
     }
 
     private fun strokesFile(context: Context, documentId: String) = File(context.filesDir, "canvas_$documentId.json")
+
+    private fun pinsFile(context: Context, documentId: String) = File(context.filesDir, "pins_$documentId.json")
 
     private fun saveStrokesFile(context: Context, documentId: String, strokes: List<Stroke>) {
         val root = JSONArray()

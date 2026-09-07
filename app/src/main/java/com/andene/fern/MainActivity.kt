@@ -33,7 +33,11 @@ import com.andene.fern.canvas.DocumentMeta
 import com.andene.fern.canvas.DocumentsDialog
 import com.andene.fern.canvas.DrawingCanvas
 import com.andene.fern.canvas.Minimap
+import com.andene.fern.canvas.PinMeta
+import com.andene.fern.canvas.PinsDialog
 import com.andene.fern.canvas.Toolbar
+import com.andene.fern.canvas.WorldPoint
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -55,6 +59,8 @@ class MainActivity : ComponentActivity() {
                     var currentDocumentId by remember { mutableStateOf("") }
                     var documents by remember { mutableStateOf(emptyList<DocumentMeta>()) }
                     var showDocumentsDialog by remember { mutableStateOf(false) }
+                    var pins by remember { mutableStateOf(emptyList<PinMeta>()) }
+                    var showPinsDialog by remember { mutableStateOf(false) }
 
                     // Debounced: a completed stroke/undo/clear schedules a save ~500ms out,
                     // cancelling any still-pending one, so a burst of quick actions coalesces
@@ -78,11 +84,16 @@ class MainActivity : ComponentActivity() {
                         documents = withContext(Dispatchers.IO) { CanvasStorage.listDocuments(context) }
                     }
 
+                    suspend fun refreshPins() {
+                        pins = withContext(Dispatchers.IO) { CanvasStorage.listPins(context, currentDocumentId) }
+                    }
+
                     fun switchToDocument(documentId: String) {
                         autosaveJob?.cancel()
                         CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList())
                         currentDocumentId = documentId
                         canvasState.loadStrokes(CanvasStorage.load(context, documentId))
+                        pins = CanvasStorage.listPins(context, documentId)
                     }
 
                     LaunchedEffect(Unit) {
@@ -94,6 +105,7 @@ class MainActivity : ComponentActivity() {
                         }
                         currentDocumentId = current.id
                         canvasState.loadStrokes(withContext(Dispatchers.IO) { CanvasStorage.load(context, current.id) })
+                        refreshPins()
                     }
 
                     // Saved synchronously on ON_STOP: the write is small (JSON of the current
@@ -119,6 +131,7 @@ class MainActivity : ComponentActivity() {
                                 .padding(WindowInsets.systemBars.asPaddingValues())
                                 .padding(top = 12.dp),
                             onOpenDocuments = { showDocumentsDialog = true },
+                            onOpenPins = { showPinsDialog = true },
                         )
                         Minimap(
                             state = canvasState,
@@ -166,6 +179,34 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onDismiss = { showDocumentsDialog = false },
+                        )
+                    }
+
+                    if (showPinsDialog) {
+                        PinsDialog(
+                            pins = pins,
+                            onJump = { pin ->
+                                canvasState.jumpTo(WorldPoint(pin.x, pin.y), pin.scale)
+                                showPinsDialog = false
+                            },
+                            onDelete = { pin ->
+                                val updated = pins.filter { it.id != pin.id }
+                                CanvasStorage.savePins(context, currentDocumentId, updated)
+                                pins = updated
+                            },
+                            onCreate = { name ->
+                                val newPin = PinMeta(
+                                    id = UUID.randomUUID().toString(),
+                                    name = name,
+                                    x = canvasState.panWorld.x,
+                                    y = canvasState.panWorld.y,
+                                    scale = canvasState.scale,
+                                )
+                                val updated = pins + newPin
+                                CanvasStorage.savePins(context, currentDocumentId, updated)
+                                pins = updated
+                            },
+                            onDismiss = { showPinsDialog = false },
                         )
                     }
                 }
