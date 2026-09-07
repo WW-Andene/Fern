@@ -50,10 +50,12 @@ enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT }
  * @param onTextChanged invoked with a snapshot of [textItems] whenever a label is added,
  *   edited, or removed - the text-item equivalent of [onChanged], since text edits are their
  *   own independent unit of persisted state.
+ * @param onImageChanged the [imageItems] equivalent of [onTextChanged].
  */
 class CanvasState(
     private val onChanged: (List<Stroke>) -> Unit = {},
     private val onTextChanged: (List<TextItem>) -> Unit = {},
+    private val onImageChanged: (List<ImageItem>) -> Unit = {},
 ) {
     companion object {
         // Effectively unbounded: leaves ~250 orders of magnitude of headroom on both sides
@@ -114,6 +116,9 @@ class CanvasState(
 
     var pendingTextEdit: PendingTextEdit? by mutableStateOf(null)
         private set
+
+    /** Every placed image on the canvas. */
+    val imageItems = mutableStateListOf<ImageItem>()
 
     /** Currently selected strokes (SELECT tool). Empty when nothing is selected. */
     val selection = mutableStateListOf<Stroke>()
@@ -193,10 +198,21 @@ class CanvasState(
 
     fun endErase() {
         onChanged(strokes.toList())
+        onImageChanged(imageItems.toList())
     }
 
+    /**
+     * Erases at [point]: strokes are split like normal (see [Stroke.eraseNear]); an image is
+     * removed outright if [point] falls within its bounds (images aren't vector geometry, so
+     * there's no equivalent of partially erasing one - full removal is the whole baseline for
+     * now; see the TEXT tool's similar move/resize deferral).
+     */
     private fun eraseAt(point: WorldPoint) {
         val radius = eraserRadiusWorld
+        imageItems.removeAll { image ->
+            point.x >= image.position.x && point.x <= image.position.x + image.widthWorld &&
+                point.y >= image.position.y && point.y <= image.position.y + image.heightWorld
+        }
         for (stroke in strokes.toList()) {
             if (!stroke.intersects(point.x - radius, point.y - radius, point.x + radius, point.y + radius)) continue
             val pieces = stroke.eraseNear(point, radius) ?: continue
@@ -336,6 +352,21 @@ class CanvasState(
     fun loadTextItems(loaded: List<TextItem>) {
         textItems.clear()
         textItems.addAll(loaded)
+    }
+
+    /**
+     * Places a newly-inserted image (already decoded and saved to disk by the caller - see
+     * `MainActivity`'s photo-picker flow) at [position], sized to [widthWorld] x [heightWorld].
+     */
+    fun addImage(fileName: String, position: WorldPoint, widthWorld: Double, heightWorld: Double) {
+        imageItems.add(ImageItem(UUID.randomUUID().toString(), fileName, position, widthWorld, heightWorld))
+        onImageChanged(imageItems.toList())
+    }
+
+    /** Replaces every image item with [loaded] (e.g. from [CanvasStorage.loadImageItems] on document load/switch). */
+    fun loadImageItems(loaded: List<ImageItem>) {
+        imageItems.clear()
+        imageItems.addAll(loaded)
     }
 
     /**
@@ -536,6 +567,8 @@ class CanvasState(
         onChanged(strokes.toList())
         textItems.clear()
         onTextChanged(textItems.toList())
+        imageItems.clear()
+        onImageChanged(imageItems.toList())
     }
 
     /** Pan by a screen-space delta (drag). Only call while no stroke is in progress. */

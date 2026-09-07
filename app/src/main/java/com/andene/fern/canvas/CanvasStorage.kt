@@ -24,6 +24,9 @@ data class PinMeta(
     val scale: Double,
 )
 
+/** Where a document's placed images live and how their metadata is named. */
+private const val IMAGES_DIR_NAME = "images"
+
 /**
  * Persists canvas documents to local app storage as JSON: an index file listing every
  * document's metadata, plus one strokes file per document (`canvas_<id>.json`).
@@ -80,15 +83,22 @@ object CanvasStorage {
         strokesFile(context, id).delete()
         pinsFile(context, id).delete()
         textItemsFile(context, id).delete()
+        imageItemsFile(context, id).delete()
+        // Deliberately not deleting files under images/: they're shared/immutable and may
+        // still be referenced by a duplicate of this document. Accepted tradeoff - orphaned
+        // image files from a deleted, non-duplicated document are left behind rather than
+        // adding reference counting.
     }
 
-    /** Creates a new document with a copy of [id]'s strokes and text items, named [newName]. */
+    /** Creates a new document with a copy of [id]'s strokes, text items, and image references, named [newName]. */
     fun duplicateDocument(context: Context, id: String, newName: String): DocumentMeta {
         val strokes = load(context, id)
         val textItems = loadTextItems(context, id)
+        val imageItems = loadImageItems(context, id)
         val meta = createDocument(context, newName)
         save(context, meta.id, strokes)
         saveTextItems(context, meta.id, textItems)
+        saveImageItems(context, meta.id, imageItems)
         return meta
     }
 
@@ -183,6 +193,52 @@ object CanvasStorage {
         textItemsFile(context, documentId).writeText(root.toString())
     }
 
+    fun loadImageItems(context: Context, documentId: String): List<ImageItem> {
+        val file = imageItemsFile(context, documentId)
+        if (!file.exists()) return emptyList()
+        val root = JSONArray(file.readText())
+        val items = mutableListOf<ImageItem>()
+        for (i in 0 until root.length()) {
+            val entry = root.getJSONObject(i)
+            items.add(
+                ImageItem(
+                    id = entry.getString("id"),
+                    fileName = entry.getString("fileName"),
+                    position = WorldPoint(entry.getDouble("x"), entry.getDouble("y")),
+                    widthWorld = entry.getDouble("width"),
+                    heightWorld = entry.getDouble("height"),
+                )
+            )
+        }
+        return items
+    }
+
+    fun saveImageItems(context: Context, documentId: String, items: List<ImageItem>) {
+        val root = JSONArray()
+        for (item in items) {
+            root.put(
+                JSONObject().apply {
+                    put("id", item.id)
+                    put("fileName", item.fileName)
+                    put("x", item.position.x)
+                    put("y", item.position.y)
+                    put("width", item.widthWorld)
+                    put("height", item.heightWorld)
+                }
+            )
+        }
+        imageItemsFile(context, documentId).writeText(root.toString())
+    }
+
+    /** Directory holding decoded copies of every inserted image, shared across all documents and keyed by id-derived file name. */
+    fun imagesDir(context: Context): File {
+        val dir = File(context.filesDir, IMAGES_DIR_NAME)
+        if (!dir.exists()) dir.mkdirs()
+        return dir
+    }
+
+    fun imageFile(context: Context, fileName: String): File = File(imagesDir(context), fileName)
+
     /**
      * One-time upgrade from the pre-multi-document single `canvas.json` file: wraps its
      * content as a document named "My Canvas" so existing saved work isn't lost, then removes
@@ -220,6 +276,8 @@ object CanvasStorage {
     private fun pinsFile(context: Context, documentId: String) = File(context.filesDir, "pins_$documentId.json")
 
     private fun textItemsFile(context: Context, documentId: String) = File(context.filesDir, "text_$documentId.json")
+
+    private fun imageItemsFile(context: Context, documentId: String) = File(context.filesDir, "images_$documentId.json")
 
     private fun saveStrokesFile(context: Context, documentId: String, strokes: List<Stroke>) {
         val root = JSONArray()

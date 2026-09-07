@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Highlight
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Remove
@@ -72,6 +73,7 @@ fun Toolbar(
     modifier: Modifier = Modifier,
     onOpenDocuments: () -> Unit = {},
     onOpenPins: () -> Unit = {},
+    onInsertImage: () -> Unit = {},
 ) {
     var showWidthSlider by remember { mutableStateOf(false) }
     var showColorPicker by remember { mutableStateOf(false) }
@@ -230,6 +232,9 @@ fun Toolbar(
                 }
                 IconButton(onClick = onOpenPins) {
                     Icon(Icons.Filled.PushPin, contentDescription = "Pins")
+                }
+                IconButton(onClick = onInsertImage) {
+                    Icon(Icons.Filled.Image, contentDescription = "Insert image")
                 }
             }
             if (showWidthSlider) {

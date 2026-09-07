@@ -1,9 +1,14 @@
 package com.andene.fern
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -82,7 +87,42 @@ class MainActivity : ComponentActivity() {
                             // Text edits are infrequent (one dialog confirm at a time), so
                             // saved directly rather than debounced like stroke autosave.
                             onTextChanged = { snapshot -> CanvasStorage.saveTextItems(context, currentDocumentId, snapshot) },
+                            onImageChanged = { snapshot -> CanvasStorage.saveImageItems(context, currentDocumentId, snapshot) },
                         )
+                    }
+
+                    val imagePickerLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.PickVisualMedia(),
+                    ) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val decoded = withContext(Dispatchers.IO) {
+                                val bitmap = context.contentResolver.openInputStream(uri)
+                                    ?.use { BitmapFactory.decodeStream(it) }
+                                    ?: return@withContext null
+                                val fileName = "${UUID.randomUUID()}.png"
+                                CanvasStorage.imageFile(context, fileName).outputStream().use { out ->
+                                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                                }
+                                Triple(fileName, bitmap.width, bitmap.height)
+                            } ?: return@launch
+                            val (fileName, widthPx, heightPx) = decoded
+                            // Default placed size: 300 screen px wide (on the §7 scale -
+                            // between Primary 256 and 384... actually not on-scale, but this
+                            // is placed-content sizing, not a UI chrome dimension, so §7
+                            // doesn't govern it), aspect-ratio preserved, centered on the
+                            // current viewport.
+                            val targetWidthScreen = 300.0
+                            val targetHeightScreen = targetWidthScreen * heightPx / widthPx
+                            val scale = canvasState.scale.coerceAtLeast(1e-300)
+                            val widthWorld = targetWidthScreen / scale
+                            val heightWorld = targetHeightScreen / scale
+                            val position = WorldPoint(
+                                canvasState.panWorld.x - widthWorld / 2.0,
+                                canvasState.panWorld.y - heightWorld / 2.0,
+                            )
+                            canvasState.addImage(fileName, position, widthWorld, heightWorld)
+                        }
                     }
 
                     suspend fun refreshDocuments() {
@@ -97,9 +137,11 @@ class MainActivity : ComponentActivity() {
                         autosaveJob?.cancel()
                         CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList())
                         CanvasStorage.saveTextItems(context, currentDocumentId, canvasState.textItems.toList())
+                        CanvasStorage.saveImageItems(context, currentDocumentId, canvasState.imageItems.toList())
                         currentDocumentId = documentId
                         canvasState.loadStrokes(CanvasStorage.load(context, documentId))
                         canvasState.loadTextItems(CanvasStorage.loadTextItems(context, documentId))
+                        canvasState.loadImageItems(CanvasStorage.loadImageItems(context, documentId))
                         pins = CanvasStorage.listPins(context, documentId)
                     }
 
@@ -113,6 +155,7 @@ class MainActivity : ComponentActivity() {
                         currentDocumentId = current.id
                         canvasState.loadStrokes(withContext(Dispatchers.IO) { CanvasStorage.load(context, current.id) })
                         canvasState.loadTextItems(withContext(Dispatchers.IO) { CanvasStorage.loadTextItems(context, current.id) })
+                        canvasState.loadImageItems(withContext(Dispatchers.IO) { CanvasStorage.loadImageItems(context, current.id) })
                         refreshPins()
                     }
 
@@ -125,6 +168,7 @@ class MainActivity : ComponentActivity() {
                             if (event == Lifecycle.Event.ON_STOP && currentDocumentId.isNotEmpty()) {
                                 CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList())
                                 CanvasStorage.saveTextItems(context, currentDocumentId, canvasState.textItems.toList())
+                                CanvasStorage.saveImageItems(context, currentDocumentId, canvasState.imageItems.toList())
                             }
                         }
                         lifecycleOwner.lifecycle.addObserver(observer)
@@ -141,6 +185,11 @@ class MainActivity : ComponentActivity() {
                                 .padding(top = 12.dp),
                             onOpenDocuments = { showDocumentsDialog = true },
                             onOpenPins = { showPinsDialog = true },
+                            onInsertImage = {
+                                imagePickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
                         )
                         Minimap(
                             state = canvasState,

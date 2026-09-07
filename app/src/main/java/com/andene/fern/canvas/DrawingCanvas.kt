@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import android.graphics.BitmapFactory
 import android.view.MotionEvent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -11,9 +12,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStyle
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -21,13 +24,17 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.hypot
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
@@ -55,6 +62,10 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
     val stylusSample = remember { StylusSample() }
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
+    val context = LocalContext.current
+    // Decoded lazily and cached by file name: re-decoding from disk every frame would be
+    // wasteful, and images never change once placed (a new image is a new ImageItem/file).
+    val imageBitmapCache = remember { mutableMapOf<String, ImageBitmap>() }
 
     Canvas(
         modifier = modifier
@@ -202,6 +213,32 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
         val screenCenter = Offset(size.width / 2f, size.height / 2f)
         val topLeftWorld = state.screenToWorld(Offset.Zero, screenCenter)
         val bottomRightWorld = state.screenToWorld(Offset(size.width, size.height), screenCenter)
+
+        // Drawn first (behind strokes/text), matching the common "insert a reference image,
+        // draw over it" workflow.
+        for (item in state.imageItems) {
+            var bitmap = imageBitmapCache[item.fileName]
+            if (bitmap == null) {
+                val file = CanvasStorage.imageFile(context, item.fileName)
+                val decoded = BitmapFactory.decodeFile(file.absolutePath)
+                if (decoded == null) continue
+                bitmap = decoded.asImageBitmap()
+                imageBitmapCache[item.fileName] = bitmap
+            }
+            val topLeft = state.worldToScreen(item.position, screenCenter)
+            val bottomRight = state.worldToScreen(
+                WorldPoint(item.position.x + item.widthWorld, item.position.y + item.heightWorld),
+                screenCenter,
+            )
+            val widthPx = (bottomRight.x - topLeft.x).roundToInt()
+            val heightPx = (bottomRight.y - topLeft.y).roundToInt()
+            if (widthPx <= 0 || heightPx <= 0) continue
+            drawImage(
+                image = bitmap,
+                dstOffset = IntOffset(topLeft.x.roundToInt(), topLeft.y.roundToInt()),
+                dstSize = IntSize(widthPx, heightPx),
+            )
+        }
 
         for (stroke in state.strokes) {
             // Reading revision here (and only here) is what subscribes this draw phase to
