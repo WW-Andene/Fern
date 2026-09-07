@@ -12,7 +12,8 @@ import androidx.compose.ui.graphics.Color
  * - [PENCIL]: thinner and slightly translucent.
  * - [HIGHLIGHTER]: wide and strongly translucent, with flat (square) caps.
  * - [CALLIGRAPHY]: width varies along the stroke based on drawing direction relative to a
- *   fixed nib angle, simulating a flat calligraphy nib.
+ *   nib angle (a real stylus's tilt orientation when available, otherwise a fixed 45°),
+ *   simulating a flat calligraphy nib.
  */
 enum class PenType { MARKER, PENCIL, HIGHLIGHTER, CALLIGRAPHY }
 
@@ -23,6 +24,12 @@ enum class PenType { MARKER, PENCIL, HIGHLIGHTER, CALLIGRAPHY }
  * All coordinates are Double, and get shifted in place whenever [CanvasState] rebases
  * its floating origin — see the class doc there for why that's what makes pan/zoom
  * effectively unbounded.
+ *
+ * Each point also carries stylus [pressures]/[tilts]/[orientations] (parallel arrays,
+ * same length and index correspondence as [points]) captured from the raw `MotionEvent`
+ * at draw time - see `DrawingCanvas`'s `pointerInteropFilter` side-channel. Finger input (or
+ * any non-stylus tool) reports pressure 1.0 and tilt 0.0, which is indistinguishable from
+ * "no data" and renders exactly as before pressure/tilt support existed.
  */
 class Stroke(
     val color: Color,
@@ -35,6 +42,16 @@ class Stroke(
 
     private val _points = mutableListOf<WorldPoint>()
     val points: List<WorldPoint> get() = _points
+
+    // Parallel to _points: pressure (0..1, 1.0 = no pressure data), tilt (radians, 0 =
+    // perpendicular to the screen / no tilt data), and orientation (radians, the compass
+    // direction the stylus is tilted toward) at the moment each point was captured.
+    private val _pressures = mutableListOf<Float>()
+    val pressures: List<Float> get() = _pressures
+    private val _tilts = mutableListOf<Float>()
+    val tilts: List<Float> get() = _tilts
+    private val _orientations = mutableListOf<Float>()
+    val orientations: List<Float> get() = _orientations
 
     /**
      * Bumped on every mutation ([addPoint], [shiftBy]). [_points] itself is a plain
@@ -54,8 +71,11 @@ class Stroke(
     var maxX: Double = Double.NEGATIVE_INFINITY; private set
     var maxY: Double = Double.NEGATIVE_INFINITY; private set
 
-    fun addPoint(point: WorldPoint) {
+    fun addPoint(point: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
         _points.add(point)
+        _pressures.add(pressure)
+        _tilts.add(tilt)
+        _orientations.add(orientation)
         if (point.x < minX) minX = point.x
         if (point.y < minY) minY = point.y
         if (point.x > maxX) maxX = point.x
@@ -84,7 +104,9 @@ class Stroke(
      * Replaces every point wholesale and recomputes the bounding box, for a SELECT-tool
      * scale/rotate gesture (which recomputes each point fresh from a snapshot taken at
      * gesture start, rather than accumulating incremental deltas frame to frame - avoiding
-     * drift over a long drag).
+     * drift over a long drag). [newPoints] must be the same length as the current [points]
+     * (a transform moves points, it never adds/removes them), so [pressures]/[tilts]/
+     * [orientations] stay correctly paired by index without needing to be passed in too.
      */
     fun setPoints(newPoints: List<WorldPoint>) {
         _points.clear()
@@ -110,10 +132,11 @@ class Stroke(
 
     /**
      * Erases the part of this stroke within [radius] of [center]: every point that falls
-     * inside the circle is removed, and the remaining points are split back into separate
-     * pieces wherever a removal broke the stroke's continuity (each piece keeps this
-     * stroke's color/width). A run left with only a single surviving point is dropped
-     * rather than kept as a degenerate one-point piece.
+     * inside the circle is removed, and the remaining points (with their pressure/tilt/
+     * orientation) are split back into separate pieces wherever a removal broke the
+     * stroke's continuity (each piece keeps this stroke's color/width/pen type). A run left
+     * with only a single surviving point is dropped rather than kept as a degenerate
+     * one-point piece.
      *
      * Returns null if no point was inside the radius (caller leaves the original stroke
      * untouched), otherwise the list of surviving pieces — which is empty if erasing
@@ -122,9 +145,10 @@ class Stroke(
     fun eraseNear(center: WorldPoint, radius: Double): List<Stroke>? {
         val radiusSq = radius * radius
         var anyRemoved = false
-        val runs = mutableListOf<MutableList<WorldPoint>>()
-        var current: MutableList<WorldPoint>? = null
-        for (point in points) {
+        val runs = mutableListOf<MutableList<Int>>() // indices into _points/_pressures/_tilts/_orientations
+        var current: MutableList<Int>? = null
+        for (index in points.indices) {
+            val point = points[index]
             val dx = point.x - center.x
             val dy = point.y - center.y
             val inside = dx * dx + dy * dy <= radiusSq
@@ -132,17 +156,17 @@ class Stroke(
                 anyRemoved = true
                 current = null
             } else {
-                val run = current ?: mutableListOf<WorldPoint>().also {
+                val run = current ?: mutableListOf<Int>().also {
                     current = it
                     runs.add(it)
                 }
-                run.add(point)
+                run.add(index)
             }
         }
         if (!anyRemoved) return null
         return runs.filter { it.size >= 2 }.map { run ->
             val piece = Stroke(color, widthWorld, penType)
-            for (point in run) piece.addPoint(point)
+            for (index in run) piece.addPoint(points[index], pressures[index], tilts[index], orientations[index])
             piece
         }
     }

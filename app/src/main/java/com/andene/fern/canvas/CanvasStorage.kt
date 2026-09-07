@@ -187,10 +187,14 @@ object CanvasStorage {
             strokeJson.put("width", stroke.widthWorld)
             strokeJson.put("penType", stroke.penType.name)
             val pointsJson = JSONArray()
-            for (point in stroke.points) {
+            for (index in stroke.points.indices) {
+                val point = stroke.points[index]
                 val pointJson = JSONObject()
                 pointJson.put("x", point.x)
                 pointJson.put("y", point.y)
+                pointJson.put("pressure", stroke.pressures[index])
+                pointJson.put("tilt", stroke.tilts[index])
+                pointJson.put("orientation", stroke.orientations[index])
                 pointsJson.put(pointJson)
             }
             strokeJson.put("points", pointsJson)
@@ -213,7 +217,13 @@ object CanvasStorage {
             val pointsJson = strokeJson.getJSONArray("points")
             for (j in 0 until pointsJson.length()) {
                 val pointJson = pointsJson.getJSONObject(j)
-                stroke.addPoint(WorldPoint(pointJson.getDouble("x"), pointJson.getDouble("y")))
+                stroke.addPoint(
+                    point = WorldPoint(pointJson.getDouble("x"), pointJson.getDouble("y")),
+                    // Older saved points predate pressure/tilt/orientation - default to "no data".
+                    pressure = pointJson.optDouble("pressure", 1.0).toFloat(),
+                    tilt = pointJson.optDouble("tilt", 0.0).toFloat(),
+                    orientation = pointJson.optDouble("orientation", 0.0).toFloat(),
+                )
             }
             strokes.add(stroke)
         }

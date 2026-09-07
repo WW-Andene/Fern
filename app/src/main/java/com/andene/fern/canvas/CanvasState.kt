@@ -130,17 +130,17 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
         )
     }
 
-    fun beginStroke(worldPoint: WorldPoint) {
+    fun beginStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
         redoStack.clear() // drawing something new invalidates redo history, standard editor semantics
         clearSelectionState() // avoid a stale selection referencing strokes another tool is about to change
         val stroke = Stroke(activeColor, activeWidthWorld / scale.coerceAtLeast(1e-300), activePenType)
-        stroke.addPoint(worldPoint)
+        stroke.addPoint(worldPoint, pressure, tilt, orientation)
         currentStroke = stroke
         strokes.add(stroke)
     }
 
-    fun extendStroke(worldPoint: WorldPoint) {
-        currentStroke?.addPoint(worldPoint)
+    fun extendStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
+        currentStroke?.addPoint(worldPoint, pressure, tilt, orientation)
     }
 
     fun endStroke() {

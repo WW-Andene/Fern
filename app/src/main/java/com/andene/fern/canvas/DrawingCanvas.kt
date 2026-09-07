@@ -1,9 +1,12 @@
 package com.andene.fern.canvas
 
+import android.view.MotionEvent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -15,6 +18,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStyle
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.input.pointer.positionChanged
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -34,10 +38,28 @@ import kotlin.math.sin
  * frame, so the number of on-screen strokes stays bounded no matter how much content has
  * accumulated elsewhere on the infinite sheet.
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
+    // Side-channel for stylus pressure/tilt/orientation: Compose's own pointer-input APIs
+    // (used below, unchanged) don't expose tilt at all, and pressure only patchily, so this
+    // observes the raw MotionEvent directly. It never consumes the event (always returns
+    // false), so the existing gesture handling below still sees and processes every touch
+    // exactly as before - this only adds a way to read pressure/tilt for pointer 0 at the
+    // moment each point is captured. Untested against real stylus hardware.
+    val stylusSample = remember { StylusSample() }
+
     Canvas(
         modifier = modifier
+            .pointerInteropFilter { event ->
+                if (event.pointerCount > 0) {
+                    val isStylus = event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
+                    stylusSample.pressure = event.getPressure(0)
+                    stylusSample.tilt = if (isStylus) event.getAxisValue(MotionEvent.AXIS_TILT, 0) else 0f
+                    stylusSample.orientation = if (isStylus) event.getOrientation(0) else 0f
+                }
+                false
+            }
             .pointerInput(state) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
@@ -59,7 +81,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                 val downPos = pointers[0].position
                                 val world = state.screenToWorld(downPos, screenCenter)
                                 when (state.activeTool) {
-                                    Tool.PEN -> state.beginStroke(world)
+                                    Tool.PEN -> state.beginStroke(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
                                     Tool.ERASER -> state.beginErase(world)
                                     Tool.SELECT -> {
                                         val handles = selectionHandles(state, screenCenter)
@@ -85,7 +107,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                 if (change.positionChanged()) {
                                     val world = state.screenToWorld(change.position, screenCenter)
                                     when (state.activeTool) {
-                                        Tool.PEN -> state.extendStroke(world)
+                                        Tool.PEN -> state.extendStroke(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
                                         Tool.ERASER -> state.continueErase(world)
                                         Tool.SELECT -> when (selectionGestureKind) {
                                             SelectionGestureKind.SCALE -> state.continueScaleSelection(world)
@@ -198,19 +220,59 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
     }
 }
 
+/** Mutable holder for the most recent raw-MotionEvent pressure/tilt/orientation of pointer 0. */
+private class StylusSample {
+    var pressure = 1f
+    var tilt = 0f
+    var orientation = 0f
+}
+
+/**
+ * True if this stroke actually has stylus data worth rendering: finger input (or a saved
+ * stroke from before pressure/tilt existed) reports a uniform pressure of 1.0 and zero tilt
+ * at every point, which is indistinguishable from "no data" - in that case, rendering must
+ * fall back to the plain smoothed path so ordinary finger-drawn strokes look exactly as they
+ * always have.
+ */
+private fun hasStylusVariation(stroke: Stroke): Boolean {
+    val minPressure = stroke.pressures.minOrNull() ?: 1f
+    val maxPressure = stroke.pressures.maxOrNull() ?: 1f
+    val maxTilt = stroke.tilts.maxOrNull() ?: 0f
+    return (maxPressure - minPressure) > 0.05f || maxTilt > 0.05f
+}
+
+/** Pressure/tilt combined into a single multiplier on the base stroke width at one point. */
+private fun widthFactorAt(stroke: Stroke, index: Int): Float {
+    val pressure = stroke.pressures.getOrElse(index) { 1f }.coerceIn(0.1f, 1f)
+    val tilt = stroke.tilts.getOrElse(index) { 0f }
+    // More tilt lays down more ink, like a real pen/marker tipped over - up to 80% wider at
+    // maximum tilt (~90°, a stylus flat against the screen).
+    val tiltFactor = 1f + (tilt / (Math.PI.toFloat() / 2f)).coerceIn(0f, 1f) * 0.8f
+    return pressure * tiltFactor
+}
+
 /**
  * Renders one stroke's already screen-space points, styled per [Stroke.penType]. Marker,
  * pencil, and highlighter share the same smoothed-path construction (quadratic Beziers
- * through successive midpoints - see the class doc) with a different color/width/cap;
- * calligraphy needs per-segment width, so it's built entirely differently (a single Path
- * can't vary its stroke width along its length).
+ * through successive midpoints - see the class doc) with a different color/width/cap, unless
+ * the stroke actually carries stylus pressure/tilt data, in which case it's rendered
+ * per-segment instead (like calligraphy) so the width can vary along its length. Calligraphy
+ * always needs per-segment width, so it's built entirely differently regardless.
  */
 private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, baseWidthScreen: Float) {
     if (stroke.penType == PenType.CALLIGRAPHY) {
-        drawCalligraphyStroke(stroke.color, screenPoints, baseWidthScreen)
+        drawCalligraphyStroke(stroke, screenPoints, baseWidthScreen)
         return
     }
     val style = penStyle(stroke.penType, stroke.color, baseWidthScreen)
+    if (screenPoints.size >= 2 && hasStylusVariation(stroke)) {
+        for (i in 0 until screenPoints.size - 1) {
+            val factor = (widthFactorAt(stroke, i) + widthFactorAt(stroke, i + 1)) / 2f
+            val width = (style.widthScreen * factor).coerceAtLeast(1f)
+            drawLine(color = style.color, start = screenPoints[i], end = screenPoints[i + 1], strokeWidth = width, cap = style.cap)
+        }
+        return
+    }
     when (screenPoints.size) {
         1 -> drawCircle(style.color, radius = style.widthScreen / 2f, center = screenPoints[0])
         2 -> drawLine(
@@ -256,24 +318,40 @@ private fun penStyle(penType: PenType, baseColor: Color, baseWidthScreen: Float)
 }
 
 /**
- * Simulates a flat calligraphy nib held at a fixed [CALLIGRAPHY_NIB_ANGLE]: each segment's
- * width depends on how that segment's direction relates to the nib angle - widest when
- * drawing across the nib's edge (perpendicular to it), thinnest when drawing along it. Drawn
- * as separate line segments rather than one smoothed path, since a single Path/Stroke style
- * can't vary width along its length.
+ * Simulates a flat calligraphy nib: each segment's width depends on how that segment's
+ * direction relates to the nib's angle - widest when drawing across the nib's edge
+ * (perpendicular to it), thinnest when drawing along it. Drawn as separate line segments
+ * rather than one smoothed path, since a single Path/Stroke style can't vary width along its
+ * length.
+ *
+ * Uses the stylus's actual tilt orientation as the nib angle when real tilt data is present
+ * (a genuinely tilt-responsive nib), falling back to a fixed 45° for finger input or a
+ * stylus held upright. `MotionEvent.getOrientation()`'s convention (0 = tilted toward the
+ * top of the device, increasing clockwise) is converted to this file's angle convention (0 =
+ * pointing along +X, matching `atan2`) with a quarter-turn offset - approximate, and unverified
+ * against real stylus hardware.
  */
-private fun DrawScope.drawCalligraphyStroke(color: Color, screenPoints: List<Offset>, baseWidthScreen: Float) {
+private fun DrawScope.drawCalligraphyStroke(stroke: Stroke, screenPoints: List<Offset>, baseWidthScreen: Float) {
     if (screenPoints.size < 2) {
-        if (screenPoints.size == 1) drawCircle(color, radius = baseWidthScreen / 2f, center = screenPoints[0])
+        if (screenPoints.size == 1) drawCircle(stroke.color, radius = baseWidthScreen / 2f, center = screenPoints[0])
         return
     }
+    val avgTilt = if (stroke.tilts.isEmpty()) 0f else stroke.tilts.average().toFloat()
+    val useRealNibAngle = avgTilt > 0.1f
     for (i in 0 until screenPoints.size - 1) {
         val a = screenPoints[i]
         val b = screenPoints[i + 1]
         val angle = atan2(b.y - a.y, b.x - a.x)
-        val widthFactor = 0.25f + 0.75f * abs(sin(angle - CALLIGRAPHY_NIB_ANGLE))
+        val nibAngle = if (useRealNibAngle) {
+            val orientation = (stroke.orientations.getOrNull(i) ?: stroke.orientations.getOrElse(0) { CALLIGRAPHY_NIB_ANGLE })
+            orientation + (Math.PI.toFloat() / 2f)
+        } else {
+            CALLIGRAPHY_NIB_ANGLE
+        }
+        val pressureFactor = ((stroke.pressures.getOrElse(i) { 1f } + stroke.pressures.getOrElse(i + 1) { 1f }) / 2f).coerceIn(0.1f, 1f)
+        val widthFactor = (0.25f + 0.75f * abs(sin(angle - nibAngle))) * pressureFactor
         val width = (baseWidthScreen * widthFactor).coerceAtLeast(1f)
-        drawLine(color = color, start = a, end = b, strokeWidth = width, cap = StrokeCap.Round)
+        drawLine(color = stroke.color, start = a, end = b, strokeWidth = width, cap = StrokeCap.Round)
     }
 }
 
