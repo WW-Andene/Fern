@@ -70,14 +70,19 @@ class MainActivity : ComponentActivity() {
                     // captured at creation), so it always saves to whichever document is
                     // actually open, even after switching documents.
                     val canvasState = remember {
-                        CanvasState(onChanged = { snapshot ->
-                            autosaveJob?.cancel()
-                            val documentId = currentDocumentId
-                            autosaveJob = coroutineScope.launch {
-                                delay(500)
-                                withContext(Dispatchers.IO) { CanvasStorage.save(context, documentId, snapshot) }
-                            }
-                        })
+                        CanvasState(
+                            onChanged = { snapshot ->
+                                autosaveJob?.cancel()
+                                val documentId = currentDocumentId
+                                autosaveJob = coroutineScope.launch {
+                                    delay(500)
+                                    withContext(Dispatchers.IO) { CanvasStorage.save(context, documentId, snapshot) }
+                                }
+                            },
+                            // Text edits are infrequent (one dialog confirm at a time), so
+                            // saved directly rather than debounced like stroke autosave.
+                            onTextChanged = { snapshot -> CanvasStorage.saveTextItems(context, currentDocumentId, snapshot) },
+                        )
                     }
 
                     suspend fun refreshDocuments() {
@@ -91,8 +96,10 @@ class MainActivity : ComponentActivity() {
                     fun switchToDocument(documentId: String) {
                         autosaveJob?.cancel()
                         CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList())
+                        CanvasStorage.saveTextItems(context, currentDocumentId, canvasState.textItems.toList())
                         currentDocumentId = documentId
                         canvasState.loadStrokes(CanvasStorage.load(context, documentId))
+                        canvasState.loadTextItems(CanvasStorage.loadTextItems(context, documentId))
                         pins = CanvasStorage.listPins(context, documentId)
                     }
 
@@ -105,6 +112,7 @@ class MainActivity : ComponentActivity() {
                         }
                         currentDocumentId = current.id
                         canvasState.loadStrokes(withContext(Dispatchers.IO) { CanvasStorage.load(context, current.id) })
+                        canvasState.loadTextItems(withContext(Dispatchers.IO) { CanvasStorage.loadTextItems(context, current.id) })
                         refreshPins()
                     }
 
@@ -116,6 +124,7 @@ class MainActivity : ComponentActivity() {
                         val observer = LifecycleEventObserver { _, event ->
                             if (event == Lifecycle.Event.ON_STOP && currentDocumentId.isNotEmpty()) {
                                 CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList())
+                                CanvasStorage.saveTextItems(context, currentDocumentId, canvasState.textItems.toList())
                             }
                         }
                         lifecycleOwner.lifecycle.addObserver(observer)

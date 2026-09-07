@@ -13,8 +13,9 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
+import java.util.UUID
 
-enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL }
+enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT }
 
 /**
  * Camera + document model for the infinite canvas.
@@ -46,8 +47,14 @@ enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL }
  * @param onChanged invoked with a snapshot of [strokes] after every completed mutation
  *   (a finished stroke, an undo, a clear) — not on every point mid-stroke. Intended for
  *   driving autosave; the caller decides how/when to actually persist the snapshot.
+ * @param onTextChanged invoked with a snapshot of [textItems] whenever a label is added,
+ *   edited, or removed - the text-item equivalent of [onChanged], since text edits are their
+ *   own independent unit of persisted state.
  */
-class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
+class CanvasState(
+    private val onChanged: (List<Stroke>) -> Unit = {},
+    private val onTextChanged: (List<TextItem>) -> Unit = {},
+) {
     companion object {
         // Effectively unbounded: leaves ~250 orders of magnitude of headroom on both sides
         // of Double's range purely as a safety margin, not a meaningful practical limit.
@@ -91,12 +98,22 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
     var activeTool by mutableStateOf(Tool.PEN)
     var activePenType by mutableStateOf(PenType.MARKER)
     var activeShapeKind by mutableStateOf(ShapeKind.LINE)
+    var activeTextSizeWorld by mutableDoubleStateOf(24.0)
 
     /** The shape currently being dragged out (SHAPE tool), (start, snappedEnd) in world space. Null when none is in progress. */
     var shapePreview: Pair<WorldPoint, WorldPoint>? by mutableStateOf(null)
         private set
 
     private var shapeStart = WorldPoint.Zero
+
+    /** Every text label placed on the canvas. */
+    val textItems = mutableStateListOf<TextItem>()
+
+    /** A tap with the TEXT tool that's waiting on the entry dialog: which item (if any, by id) is being edited, and where a new one would go. */
+    data class PendingTextEdit(val id: String?, val worldPoint: WorldPoint, val initialText: String)
+
+    var pendingTextEdit: PendingTextEdit? by mutableStateOf(null)
+        private set
 
     /** Currently selected strokes (SELECT tool). Empty when nothing is selected. */
     val selection = mutableStateListOf<Stroke>()
@@ -250,6 +267,75 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
         for (point in boundary.points) fillStroke.addPoint(point)
         strokes.add(bestIndex, fillStroke)
         onChanged(strokes.toList())
+    }
+
+    /**
+     * TEXT tool, pointer-down: opens [pendingTextEdit] for the entry dialog to act on -
+     * editing whatever label already sits at [worldPoint] (per [findTextItemAt]), or a fresh
+     * one to be placed there.
+     */
+    fun beginTextEdit(worldPoint: WorldPoint) {
+        val existing = findTextItemAt(worldPoint)
+        pendingTextEdit = if (existing != null) {
+            PendingTextEdit(existing.id, existing.position, existing.text)
+        } else {
+            PendingTextEdit(null, worldPoint, "")
+        }
+    }
+
+    /**
+     * Applies the entry dialog's result: blank text deletes the label being edited (a no-op
+     * if this was a fresh placement), otherwise creates a new label or updates the edited
+     * one's text in place.
+     */
+    fun confirmTextEdit(text: String) {
+        val pending = pendingTextEdit ?: return
+        pendingTextEdit = null
+        if (text.isBlank()) {
+            if (pending.id != null && textItems.removeAll { it.id == pending.id }) {
+                onTextChanged(textItems.toList())
+            }
+            return
+        }
+        val existingIndex = pending.id?.let { id -> textItems.indexOfFirst { it.id == id } } ?: -1
+        if (existingIndex != -1) {
+            textItems[existingIndex] = textItems[existingIndex].copy(text = text)
+        } else {
+            textItems.add(
+                TextItem(
+                    id = UUID.randomUUID().toString(),
+                    text = text,
+                    position = pending.worldPoint,
+                    fontSizeWorld = activeTextSizeWorld / scale.coerceAtLeast(1e-300),
+                    color = activeColor,
+                )
+            )
+        }
+        onTextChanged(textItems.toList())
+    }
+
+    fun cancelTextEdit() {
+        pendingTextEdit = null
+    }
+
+    /** Finds the topmost text label whose approximate bounding box contains [worldPoint], or null. */
+    private fun findTextItemAt(worldPoint: WorldPoint): TextItem? {
+        for (item in textItems.asReversed()) {
+            val width = item.text.length * item.fontSizeWorld * 0.55
+            val height = item.fontSizeWorld * 1.3
+            if (worldPoint.x in item.position.x..(item.position.x + width) &&
+                worldPoint.y in item.position.y..(item.position.y + height)
+            ) {
+                return item
+            }
+        }
+        return null
+    }
+
+    /** Replaces every text item with [loaded] (e.g. from [CanvasStorage.loadTextItems] on document load/switch). */
+    fun loadTextItems(loaded: List<TextItem>) {
+        textItems.clear()
+        textItems.addAll(loaded)
     }
 
     /**
@@ -448,6 +534,8 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
         redoStack.clear()
         clearSelectionState()
         onChanged(strokes.toList())
+        textItems.clear()
+        onTextChanged(textItems.toList())
     }
 
     /** Pan by a screen-space delta (drag). Only call while no stroke is in progress. */

@@ -21,6 +21,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.hypot
@@ -49,6 +53,8 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
     // exactly as before - this only adds a way to read pressure/tilt for pointer 0 at the
     // moment each point is captured. Untested against real stylus hardware.
     val stylusSample = remember { StylusSample() }
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
 
     Canvas(
         modifier = modifier
@@ -78,6 +84,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                             Tool.ERASER -> state.endErase()
                             Tool.SHAPE -> state.endShape()
                             Tool.FILL -> {} // one-shot on pointer-down, nothing to end
+                            Tool.TEXT -> {} // one-shot on pointer-down, nothing to end
                             Tool.SELECT -> when (selectionGestureKind) {
                                 SelectionGestureKind.SCALE -> state.endScaleSelection()
                                 SelectionGestureKind.ROTATE -> state.endRotateSelection()
@@ -123,6 +130,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                     Tool.ERASER -> state.beginErase(world)
                                     Tool.SHAPE -> state.beginShape(world)
                                     Tool.FILL -> state.fillAt(world)
+                                    Tool.TEXT -> state.beginTextEdit(world)
                                     Tool.SELECT -> {
                                         val handles = selectionHandles(state, screenCenter)
                                         selectionGestureKind = when {
@@ -151,6 +159,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                         Tool.ERASER -> state.continueErase(world)
                                         Tool.SHAPE -> state.continueShape(world)
                                         Tool.FILL -> {} // one-shot; ignore drag
+                                        Tool.TEXT -> {} // one-shot; ignore drag
                                         Tool.SELECT -> when (selectionGestureKind) {
                                             SelectionGestureKind.SCALE -> state.continueScaleSelection(world)
                                             SelectionGestureKind.ROTATE -> state.continueRotateSelection(world)
@@ -217,6 +226,15 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
             drawStroke(stroke, screenPoints, widthScreen)
         }
 
+        for (item in state.textItems) {
+            val screenPos = state.worldToScreen(item.position, screenCenter)
+            val fontSizePx = (item.fontSizeWorld * state.scale)
+            if (!fontSizePx.isFinite() || fontSizePx <= 0.0) continue
+            val fontSizeSp = with(density) { fontSizePx.toFloat().toSp() }
+            val layout = textMeasurer.measure(text = item.text, style = TextStyle(color = item.color, fontSize = fontSizeSp))
+            drawText(textLayoutResult = layout, topLeft = screenPos)
+        }
+
         for (stroke in state.selection) {
             stroke.revision // subscribe so a moved selection redraws its highlight live
             val topLeft = state.worldToScreen(WorldPoint(stroke.minX, stroke.minY), screenCenter)
@@ -257,6 +275,14 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                 drawCircle(color = Color.White, radius = 4f, center = handles.rotateHandle)
             }
         }
+    }
+
+    state.pendingTextEdit?.let { pending ->
+        TextEditDialog(
+            initialText = pending.initialText,
+            onConfirm = { text -> state.confirmTextEdit(text) },
+            onDismiss = { state.cancelTextEdit() },
+        )
     }
 }
 

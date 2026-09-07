@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -187,6 +188,16 @@ fun Toolbar(
                         Icons.Filled.FormatColorFill,
                         contentDescription = "Fill",
                         tint = if (state.activeTool == Tool.FILL) MaterialTheme.colorScheme.primary
+                        else LocalContentColor.current,
+                    )
+                }
+                IconButton(onClick = {
+                    state.activeTool = if (state.activeTool == Tool.TEXT) Tool.PEN else Tool.TEXT
+                }) {
+                    Icon(
+                        Icons.Filled.TextFields,
+                        contentDescription = "Text",
+                        tint = if (state.activeTool == Tool.TEXT) MaterialTheme.colorScheme.primary
                         else LocalContentColor.current,
                     )
                 }

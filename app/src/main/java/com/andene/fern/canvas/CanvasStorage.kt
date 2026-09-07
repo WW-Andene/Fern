@@ -79,13 +79,16 @@ object CanvasStorage {
         writeIndex(context, kept)
         strokesFile(context, id).delete()
         pinsFile(context, id).delete()
+        textItemsFile(context, id).delete()
     }
 
-    /** Creates a new document with a copy of [id]'s strokes, named [newName]. */
+    /** Creates a new document with a copy of [id]'s strokes and text items, named [newName]. */
     fun duplicateDocument(context: Context, id: String, newName: String): DocumentMeta {
         val strokes = load(context, id)
+        val textItems = loadTextItems(context, id)
         val meta = createDocument(context, newName)
         save(context, meta.id, strokes)
+        saveTextItems(context, meta.id, textItems)
         return meta
     }
 
@@ -143,6 +146,43 @@ object CanvasStorage {
         pinsFile(context, documentId).writeText(root.toString())
     }
 
+    fun loadTextItems(context: Context, documentId: String): List<TextItem> {
+        val file = textItemsFile(context, documentId)
+        if (!file.exists()) return emptyList()
+        val root = JSONArray(file.readText())
+        val items = mutableListOf<TextItem>()
+        for (i in 0 until root.length()) {
+            val entry = root.getJSONObject(i)
+            items.add(
+                TextItem(
+                    id = entry.getString("id"),
+                    text = entry.getString("text"),
+                    position = WorldPoint(entry.getDouble("x"), entry.getDouble("y")),
+                    fontSizeWorld = entry.getDouble("fontSize"),
+                    color = Color(entry.getInt("color")),
+                )
+            )
+        }
+        return items
+    }
+
+    fun saveTextItems(context: Context, documentId: String, items: List<TextItem>) {
+        val root = JSONArray()
+        for (item in items) {
+            root.put(
+                JSONObject().apply {
+                    put("id", item.id)
+                    put("text", item.text)
+                    put("x", item.position.x)
+                    put("y", item.position.y)
+                    put("fontSize", item.fontSizeWorld)
+                    put("color", item.color.toArgb())
+                }
+            )
+        }
+        textItemsFile(context, documentId).writeText(root.toString())
+    }
+
     /**
      * One-time upgrade from the pre-multi-document single `canvas.json` file: wraps its
      * content as a document named "My Canvas" so existing saved work isn't lost, then removes
@@ -178,6 +218,8 @@ object CanvasStorage {
     private fun strokesFile(context: Context, documentId: String) = File(context.filesDir, "canvas_$documentId.json")
 
     private fun pinsFile(context: Context, documentId: String) = File(context.filesDir, "pins_$documentId.json")
+
+    private fun textItemsFile(context: Context, documentId: String) = File(context.filesDir, "text_$documentId.json")
 
     private fun saveStrokesFile(context: Context, documentId: String, strokes: List<Stroke>) {
         val root = JSONArray()
