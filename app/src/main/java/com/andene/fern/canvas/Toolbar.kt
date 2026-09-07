@@ -12,6 +12,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ZoomOutMap
@@ -59,6 +60,9 @@ fun Toolbar(state: CanvasState, modifier: Modifier = Modifier) {
 
             IconButton(onClick = { state.undo() }) {
                 Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo")
+            }
+            IconButton(onClick = { state.redo() }) {
+                Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo")
             }
             IconButton(onClick = { state.clear() }) {
                 Icon(Icons.Filled.Delete, contentDescription = "Clear all")

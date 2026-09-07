@@ -67,6 +67,11 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
 
     private var currentStroke: Stroke? = null
 
+    // Strokes popped by undo, in the order they can be redone (last popped, first redone).
+    // Not exposed as Compose state: nothing currently renders redo-availability, so this
+    // doesn't need to trigger recomposition on its own (§5.2 - no speculative UI hooks).
+    private val redoStack = mutableListOf<Stroke>()
+
     fun worldToScreen(world: WorldPoint, screenCenter: Offset): Offset {
         val relative = world - panWorld
         return Offset(
@@ -83,6 +88,7 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
     }
 
     fun beginStroke(worldPoint: WorldPoint) {
+        redoStack.clear() // drawing something new invalidates redo history, standard editor semantics
         val stroke = Stroke(activeColor, activeWidthWorld / scale.coerceAtLeast(1e-300))
         stroke.addPoint(worldPoint)
         currentStroke = stroke
@@ -101,7 +107,14 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
 
     fun undo() {
         if (strokes.isNotEmpty()) {
-            strokes.removeAt(strokes.size - 1)
+            redoStack.add(strokes.removeAt(strokes.size - 1))
+            onChanged(strokes.toList())
+        }
+    }
+
+    fun redo() {
+        if (redoStack.isNotEmpty()) {
+            strokes.add(redoStack.removeAt(redoStack.size - 1))
             onChanged(strokes.toList())
         }
     }
@@ -109,11 +122,13 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
     /** Replaces all strokes with [loaded] (e.g. from [CanvasStorage.load] on app start). */
     fun loadStrokes(loaded: List<Stroke>) {
         strokes.clear()
+        redoStack.clear()
         strokes.addAll(loaded)
     }
 
     fun clear() {
         strokes.clear()
+        redoStack.clear()
         onChanged(strokes.toList())
     }
 
