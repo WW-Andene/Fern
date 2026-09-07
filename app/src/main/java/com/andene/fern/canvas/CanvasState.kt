@@ -98,6 +98,12 @@ class CanvasState {
         if (strokes.isNotEmpty()) strokes.removeAt(strokes.size - 1)
     }
 
+    /** Replaces all strokes with [loaded] (e.g. from [CanvasStorage.load] on app start). */
+    fun loadStrokes(loaded: List<Stroke>) {
+        strokes.clear()
+        strokes.addAll(loaded)
+    }
+
     fun clear() {
         strokes.clear()
     }

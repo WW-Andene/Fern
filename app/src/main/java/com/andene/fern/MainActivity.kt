@@ -9,17 +9,26 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.andene.fern.canvas.CanvasState
+import com.andene.fern.canvas.CanvasStorage
 import com.andene.fern.canvas.DrawingCanvas
 import com.andene.fern.canvas.Toolbar
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,7 +37,29 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(color = Color(0xFFF7F5F0)) {
+                    val context = LocalContext.current
+                    val lifecycleOwner = LocalLifecycleOwner.current
                     val canvasState = remember { CanvasState() }
+
+                    LaunchedEffect(Unit) {
+                        val loaded = withContext(Dispatchers.IO) { CanvasStorage.load(context) }
+                        canvasState.loadStrokes(loaded)
+                    }
+
+                    // Saved synchronously on ON_STOP: the write is small (JSON of the current
+                    // strokes) and this is the one point we're guaranteed to still be alive to
+                    // do it, unlike a background coroutine that could be cancelled alongside
+                    // the composition tearing down.
+                    DisposableEffect(lifecycleOwner) {
+                        val observer = LifecycleEventObserver { _, event ->
+                            if (event == Lifecycle.Event.ON_STOP) {
+                                CanvasStorage.save(context, canvasState.strokes.toList())
+                            }
+                        }
+                        lifecycleOwner.lifecycle.addObserver(observer)
+                        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                    }
+
                     Box(modifier = Modifier.fillMaxSize()) {
                         DrawingCanvas(state = canvasState, modifier = Modifier.fillMaxSize())
                         Toolbar(
