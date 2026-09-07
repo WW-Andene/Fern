@@ -9,6 +9,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import kotlin.math.abs
 
+enum class Tool { PEN, ERASER }
+
 /**
  * Camera + document model for the infinite canvas.
  *
@@ -51,6 +53,11 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
         // re-anchor. Large enough that rebasing is rare (not a per-frame cost), small
         // enough that precision near the origin never meaningfully degrades.
         private const val REBASE_THRESHOLD = 65536.0
+
+        // Eraser radius in screen pixels (on the §7 scale - Secondary tier), converted to
+        // world units by the same scale-dependent logic as pen width, so the eraser covers
+        // a consistent on-screen area regardless of zoom level.
+        private const val ERASER_RADIUS_SCREEN = 24.0
     }
 
     // World-space point currently at the center of the screen.
@@ -64,6 +71,7 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
 
     var activeColor by mutableStateOf(Color(0xFF1B1B1B))
     var activeWidthWorld by mutableDoubleStateOf(4.0)
+    var activeTool by mutableStateOf(Tool.PEN)
 
     private var currentStroke: Stroke? = null
 
@@ -103,6 +111,35 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
         currentStroke = null
         rebaseIfNeeded()
         onChanged(strokes.toList())
+    }
+
+    /** World-space radius of the eraser at the current zoom level. */
+    private val eraserRadiusWorld: Double
+        get() = ERASER_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
+
+    fun beginErase(worldPoint: WorldPoint) {
+        redoStack.clear()
+        eraseAt(worldPoint)
+    }
+
+    fun continueErase(worldPoint: WorldPoint) {
+        eraseAt(worldPoint)
+    }
+
+    fun endErase() {
+        onChanged(strokes.toList())
+    }
+
+    private fun eraseAt(point: WorldPoint) {
+        val radius = eraserRadiusWorld
+        for (stroke in strokes.toList()) {
+            if (!stroke.intersects(point.x - radius, point.y - radius, point.x + radius, point.y + radius)) continue
+            val pieces = stroke.eraseNear(point, radius) ?: continue
+            val index = strokes.indexOf(stroke)
+            if (index == -1) continue
+            strokes.removeAt(index)
+            strokes.addAll(index, pieces)
+        }
     }
 
     fun undo() {

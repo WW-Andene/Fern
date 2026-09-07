@@ -63,4 +63,43 @@ class Stroke(
         minY -= offset.y; maxY -= offset.y
         revision++
     }
+
+    /**
+     * Erases the part of this stroke within [radius] of [center]: every point that falls
+     * inside the circle is removed, and the remaining points are split back into separate
+     * pieces wherever a removal broke the stroke's continuity (each piece keeps this
+     * stroke's color/width). A run left with only a single surviving point is dropped
+     * rather than kept as a degenerate one-point piece.
+     *
+     * Returns null if no point was inside the radius (caller leaves the original stroke
+     * untouched), otherwise the list of surviving pieces — which is empty if erasing
+     * removed the stroke entirely.
+     */
+    fun eraseNear(center: WorldPoint, radius: Double): List<Stroke>? {
+        val radiusSq = radius * radius
+        var anyRemoved = false
+        val runs = mutableListOf<MutableList<WorldPoint>>()
+        var current: MutableList<WorldPoint>? = null
+        for (point in points) {
+            val dx = point.x - center.x
+            val dy = point.y - center.y
+            val inside = dx * dx + dy * dy <= radiusSq
+            if (inside) {
+                anyRemoved = true
+                current = null
+            } else {
+                val run = current ?: mutableListOf<WorldPoint>().also {
+                    current = it
+                    runs.add(it)
+                }
+                run.add(point)
+            }
+        }
+        if (!anyRemoved) return null
+        return runs.filter { it.size >= 2 }.map { run ->
+            val piece = Stroke(color, widthWorld)
+            for (point in run) piece.addPoint(point)
+            piece
+        }
+    }
 }

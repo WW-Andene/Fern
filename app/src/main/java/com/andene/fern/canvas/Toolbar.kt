@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Delete
@@ -44,11 +46,14 @@ fun Toolbar(state: CanvasState, modifier: Modifier = Modifier) {
             horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
         ) {
             for (color in palette) {
-                val selected = state.activeColor == color
+                val selected = state.activeTool == Tool.PEN && state.activeColor == color
                 Surface(
                     modifier = Modifier
                         .size(32.dp)
-                        .clickable { state.activeColor = color }
+                        .clickable {
+                            state.activeColor = color
+                            state.activeTool = Tool.PEN // picking a color implies "draw", per §6 baseline expectations
+                        }
                         .then(
                             if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
                             else Modifier
@@ -56,6 +61,17 @@ fun Toolbar(state: CanvasState, modifier: Modifier = Modifier) {
                     shape = CircleShape,
                     color = color,
                 ) {}
+            }
+
+            IconButton(onClick = {
+                state.activeTool = if (state.activeTool == Tool.ERASER) Tool.PEN else Tool.ERASER
+            }) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Backspace,
+                    contentDescription = "Eraser",
+                    tint = if (state.activeTool == Tool.ERASER) MaterialTheme.colorScheme.primary
+                    else LocalContentColor.current,
+                )
             }
 
             IconButton(onClick = { state.undo() }) {

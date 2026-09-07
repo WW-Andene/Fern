@@ -46,21 +46,29 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
 
                         if (count == 1) {
                             if (mode != Mode.DRAW) {
-                                if (mode == Mode.NAVIGATE) state.endStroke() // safety, no-op
                                 val world = state.screenToWorld(pointers[0].position, screenCenter)
-                                state.beginStroke(world)
+                                when (state.activeTool) {
+                                    Tool.PEN -> state.beginStroke(world)
+                                    Tool.ERASER -> state.beginErase(world)
+                                }
                                 mode = Mode.DRAW
                             } else {
                                 val change = pointers[0]
                                 if (change.positionChanged()) {
                                     val world = state.screenToWorld(change.position, screenCenter)
-                                    state.extendStroke(world)
+                                    when (state.activeTool) {
+                                        Tool.PEN -> state.extendStroke(world)
+                                        Tool.ERASER -> state.continueErase(world)
+                                    }
                                 }
                             }
                             pointers[0].consume()
                         } else {
                             if (mode == Mode.DRAW) {
-                                state.endStroke()
+                                when (state.activeTool) {
+                                    Tool.PEN -> state.endStroke()
+                                    Tool.ERASER -> state.endErase()
+                                }
                             }
                             val centroid = pointers.fold(Offset.Zero) { acc, c -> acc + c.position } / count.toFloat()
                             val span = pointers.fold(0f) { acc, c -> acc + hypot((c.position.x - centroid.x), (c.position.y - centroid.y)) } / count.toFloat()
@@ -85,7 +93,12 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                             pointers.forEach { it.consume() }
                         }
                     }
-                    if (mode == Mode.DRAW) state.endStroke()
+                    if (mode == Mode.DRAW) {
+                        when (state.activeTool) {
+                            Tool.PEN -> state.endStroke()
+                            Tool.ERASER -> state.endErase()
+                        }
+                    }
                 }
             }
     ) {
