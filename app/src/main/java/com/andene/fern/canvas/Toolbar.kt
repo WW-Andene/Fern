@@ -3,28 +3,36 @@ package com.andene.fern.canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.filled.Gesture
+import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.SelectAll
@@ -61,6 +69,7 @@ fun Toolbar(
 ) {
     var showWidthSlider by remember { mutableStateOf(false) }
     var showColorPicker by remember { mutableStateOf(false) }
+    var showPenTypeMenu by remember { mutableStateOf(false) }
 
     Surface(
         modifier = modifier,
@@ -92,6 +101,24 @@ fun Toolbar(
                 }
                 IconButton(onClick = { showColorPicker = true }) {
                     Icon(Icons.Filled.Palette, contentDescription = "Custom color")
+                }
+                Box {
+                    IconButton(onClick = { showPenTypeMenu = true }) {
+                        Icon(penTypeIcon(state.activePenType), contentDescription = "Pen type: ${penTypeLabel(state.activePenType)}")
+                    }
+                    DropdownMenu(expanded = showPenTypeMenu, onDismissRequest = { showPenTypeMenu = false }) {
+                        for (type in PenType.entries) {
+                            DropdownMenuItem(
+                                text = { Text(penTypeLabel(type)) },
+                                leadingIcon = { Icon(penTypeIcon(type), contentDescription = null) },
+                                onClick = {
+                                    state.activePenType = type
+                                    state.activeTool = Tool.PEN
+                                    showPenTypeMenu = false
+                                },
+                            )
+                        }
+                    }
                 }
 
                 IconButton(onClick = {
@@ -176,4 +203,18 @@ fun Toolbar(
             },
         )
     }
+}
+
+private fun penTypeIcon(penType: PenType) = when (penType) {
+    PenType.MARKER -> Icons.Filled.Brush
+    PenType.PENCIL -> Icons.Filled.Edit
+    PenType.HIGHLIGHTER -> Icons.Filled.Highlight
+    PenType.CALLIGRAPHY -> Icons.Filled.Gesture
+}
+
+private fun penTypeLabel(penType: PenType) = when (penType) {
+    PenType.MARKER -> "Marker"
+    PenType.PENCIL -> "Pencil"
+    PenType.HIGHLIGHTER -> "Highlighter"
+    PenType.CALLIGRAPHY -> "Calligraphy"
 }

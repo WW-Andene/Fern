@@ -85,6 +85,7 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
     var activeColor by mutableStateOf(Color(0xFF1B1B1B))
     var activeWidthWorld by mutableDoubleStateOf(4.0)
     var activeTool by mutableStateOf(Tool.PEN)
+    var activePenType by mutableStateOf(PenType.MARKER)
 
     /** Currently selected strokes (SELECT tool). Empty when nothing is selected. */
     val selection = mutableStateListOf<Stroke>()
@@ -132,7 +133,7 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
     fun beginStroke(worldPoint: WorldPoint) {
         redoStack.clear() // drawing something new invalidates redo history, standard editor semantics
         clearSelectionState() // avoid a stale selection referencing strokes another tool is about to change
-        val stroke = Stroke(activeColor, activeWidthWorld / scale.coerceAtLeast(1e-300))
+        val stroke = Stroke(activeColor, activeWidthWorld / scale.coerceAtLeast(1e-300), activePenType)
         stroke.addPoint(worldPoint)
         currentStroke = stroke
         strokes.add(stroke)
@@ -323,7 +324,7 @@ class CanvasState(private val onChanged: (List<Stroke>) -> Unit = {}) {
         if (selection.isEmpty()) return
         val nudge = WorldPoint(20.0 / scale.coerceAtLeast(1e-300), 20.0 / scale.coerceAtLeast(1e-300))
         val duplicates = selection.map { original ->
-            val copy = Stroke(original.color, original.widthWorld)
+            val copy = Stroke(original.color, original.widthWorld, original.penType)
             for (point in original.points) copy.addPoint(point + nudge)
             copy
         }

@@ -6,6 +6,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 
 /**
+ * How a stroke's points are rendered. Each is a genuinely different visual treatment
+ * (see `DrawingCanvas`'s render loop), not just a label on the same line style:
+ * - [MARKER]: solid, full opacity, round caps - the default.
+ * - [PENCIL]: thinner and slightly translucent.
+ * - [HIGHLIGHTER]: wide and strongly translucent, with flat (square) caps.
+ * - [CALLIGRAPHY]: width varies along the stroke based on drawing direction relative to a
+ *   fixed nib angle, simulating a flat calligraphy nib.
+ */
+enum class PenType { MARKER, PENCIL, HIGHLIGHTER, CALLIGRAPHY }
+
+/**
  * A single freehand stroke, stored entirely in world space (i.e. independent of
  * the current pan/zoom). Points are appended live while the user is drawing.
  *
@@ -16,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 class Stroke(
     val color: Color,
     widthWorld: Double,
+    val penType: PenType = PenType.MARKER,
 ) {
     /** Mutable so a SELECT-tool scale gesture can resize the stroke proportionally with its geometry. */
     var widthWorld: Double = widthWorld
@@ -129,7 +141,7 @@ class Stroke(
         }
         if (!anyRemoved) return null
         return runs.filter { it.size >= 2 }.map { run ->
-            val piece = Stroke(color, widthWorld)
+            val piece = Stroke(color, widthWorld, penType)
             for (point in run) piece.addPoint(point)
             piece
         }

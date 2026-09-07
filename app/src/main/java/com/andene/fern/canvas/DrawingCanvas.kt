@@ -11,11 +11,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStyle
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
+import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.hypot
+import kotlin.math.sin
 
 /**
  * The infinite drawing surface.
@@ -157,36 +161,8 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
             val rawWidthScreen = stroke.widthWorld * state.scale
             if (!rawWidthScreen.isFinite()) continue
             val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
-            if (points.size == 1) {
-                val p = state.worldToScreen(points[0], screenCenter)
-                drawCircle(stroke.color, radius = widthScreen / 2f, center = p)
-            } else if (points.size == 2) {
-                // Not enough points for the midpoint construction below to add anything.
-                val a = state.worldToScreen(points[0], screenCenter)
-                val b = state.worldToScreen(points[1], screenCenter)
-                drawLine(color = stroke.color, start = a, end = b, strokeWidth = widthScreen, cap = StrokeCap.Round)
-            } else {
-                // Smooths the raw point-to-point path via quadratic Bezier segments through
-                // successive midpoints, using each raw point as the curve's control point -
-                // the standard technique for turning faceted freehand input into a smooth
-                // line without resampling or spline math.
-                val screenPoints = points.map { state.worldToScreen(it, screenCenter) }
-                val path = Path()
-                path.moveTo(screenPoints[0].x, screenPoints[0].y)
-                for (i in 1 until screenPoints.size - 1) {
-                    val current = screenPoints[i]
-                    val next = screenPoints[i + 1]
-                    val midX = (current.x + next.x) / 2f
-                    val midY = (current.y + next.y) / 2f
-                    path.quadraticBezierTo(current.x, current.y, midX, midY)
-                }
-                path.lineTo(screenPoints.last().x, screenPoints.last().y)
-                drawPath(
-                    path = path,
-                    color = stroke.color,
-                    style = DrawStyle(width = widthScreen, cap = StrokeCap.Round, join = StrokeJoin.Round),
-                )
-            }
+            val screenPoints = points.map { state.worldToScreen(it, screenCenter) }
+            drawStroke(stroke, screenPoints, widthScreen)
         }
 
         for (stroke in state.selection) {
@@ -205,7 +181,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
             val a = state.worldToScreen(start, screenCenter)
             val b = state.worldToScreen(end, screenCenter)
             val topLeft = Offset(minOf(a.x, b.x), minOf(a.y, b.y))
-            val size = Size(kotlin.math.abs(b.x - a.x), kotlin.math.abs(b.y - a.y))
+            val size = Size(abs(b.x - a.x), abs(b.y - a.y))
             drawRect(color = MARQUEE_FILL_COLOR, topLeft = topLeft, size = size)
             drawRect(color = MARQUEE_BORDER_COLOR, topLeft = topLeft, size = size, style = DrawStyle(width = 2f))
         }
@@ -221,6 +197,87 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
         }
     }
 }
+
+/**
+ * Renders one stroke's already screen-space points, styled per [Stroke.penType]. Marker,
+ * pencil, and highlighter share the same smoothed-path construction (quadratic Beziers
+ * through successive midpoints - see the class doc) with a different color/width/cap;
+ * calligraphy needs per-segment width, so it's built entirely differently (a single Path
+ * can't vary its stroke width along its length).
+ */
+private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, baseWidthScreen: Float) {
+    if (stroke.penType == PenType.CALLIGRAPHY) {
+        drawCalligraphyStroke(stroke.color, screenPoints, baseWidthScreen)
+        return
+    }
+    val style = penStyle(stroke.penType, stroke.color, baseWidthScreen)
+    when (screenPoints.size) {
+        1 -> drawCircle(style.color, radius = style.widthScreen / 2f, center = screenPoints[0])
+        2 -> drawLine(
+            color = style.color,
+            start = screenPoints[0],
+            end = screenPoints[1],
+            strokeWidth = style.widthScreen,
+            cap = style.cap,
+        )
+        else -> {
+            val path = Path()
+            path.moveTo(screenPoints[0].x, screenPoints[0].y)
+            for (i in 1 until screenPoints.size - 1) {
+                val current = screenPoints[i]
+                val next = screenPoints[i + 1]
+                path.quadraticBezierTo(current.x, current.y, (current.x + next.x) / 2f, (current.y + next.y) / 2f)
+            }
+            path.lineTo(screenPoints.last().x, screenPoints.last().y)
+            drawPath(
+                path = path,
+                color = style.color,
+                style = DrawStyle(width = style.widthScreen, cap = style.cap, join = StrokeJoin.Round),
+            )
+        }
+    }
+}
+
+private data class PenStyle(val color: Color, val widthScreen: Float, val cap: StrokeCap)
+
+private fun penStyle(penType: PenType, baseColor: Color, baseWidthScreen: Float): PenStyle = when (penType) {
+    PenType.MARKER -> PenStyle(baseColor, baseWidthScreen, StrokeCap.Round)
+    PenType.PENCIL -> PenStyle(
+        color = baseColor.copy(alpha = baseColor.alpha * 0.85f),
+        widthScreen = (baseWidthScreen * 0.6f).coerceAtLeast(1f),
+        cap = StrokeCap.Round,
+    )
+    PenType.HIGHLIGHTER -> PenStyle(
+        color = baseColor.copy(alpha = baseColor.alpha * 0.35f),
+        widthScreen = baseWidthScreen * 3f,
+        cap = StrokeCap.Square,
+    )
+    PenType.CALLIGRAPHY -> PenStyle(baseColor, baseWidthScreen, StrokeCap.Round) // unused: drawCalligraphyStroke handles it
+}
+
+/**
+ * Simulates a flat calligraphy nib held at a fixed [CALLIGRAPHY_NIB_ANGLE]: each segment's
+ * width depends on how that segment's direction relates to the nib angle - widest when
+ * drawing across the nib's edge (perpendicular to it), thinnest when drawing along it. Drawn
+ * as separate line segments rather than one smoothed path, since a single Path/Stroke style
+ * can't vary width along its length.
+ */
+private fun DrawScope.drawCalligraphyStroke(color: Color, screenPoints: List<Offset>, baseWidthScreen: Float) {
+    if (screenPoints.size < 2) {
+        if (screenPoints.size == 1) drawCircle(color, radius = baseWidthScreen / 2f, center = screenPoints[0])
+        return
+    }
+    for (i in 0 until screenPoints.size - 1) {
+        val a = screenPoints[i]
+        val b = screenPoints[i + 1]
+        val angle = atan2(b.y - a.y, b.x - a.x)
+        val widthFactor = 0.25f + 0.75f * abs(sin(angle - CALLIGRAPHY_NIB_ANGLE))
+        val width = (baseWidthScreen * widthFactor).coerceAtLeast(1f)
+        drawLine(color = color, start = a, end = b, strokeWidth = width, cap = StrokeCap.Round)
+    }
+}
+
+private const val CALLIGRAPHY_NIB_ANGLE = (Math.PI / 4).toFloat() // 45°, a standard calligraphy nib angle
 
 /** The selection's scale handle (bottom-right corner) and rotate handle (above top-center), in screen space. */
 private data class SelectionHandles(val scaleHandle: Offset, val rotateHandle: Offset, val topCenter: Offset)
