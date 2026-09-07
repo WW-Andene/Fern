@@ -29,6 +29,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.andene.fern.canvas.CanvasState
 import com.andene.fern.canvas.CanvasStorage
+import com.andene.fern.canvas.DocumentMeta
+import com.andene.fern.canvas.DocumentsDialog
 import com.andene.fern.canvas.DrawingCanvas
 import com.andene.fern.canvas.Toolbar
 import kotlinx.coroutines.Dispatchers
@@ -49,24 +51,48 @@ class MainActivity : ComponentActivity() {
                     val coroutineScope = rememberCoroutineScope()
                     var autosaveJob by remember { mutableStateOf<Job?>(null) }
 
+                    var currentDocumentId by remember { mutableStateOf("") }
+                    var documents by remember { mutableStateOf(emptyList<DocumentMeta>()) }
+                    var showDocumentsDialog by remember { mutableStateOf(false) }
+
                     // Debounced: a completed stroke/undo/clear schedules a save ~500ms out,
                     // cancelling any still-pending one, so a burst of quick actions coalesces
                     // into one write instead of one per action. This is a safety net for a
                     // hard kill/crash mid-session; the ON_STOP save below is the primary path
-                    // for a normal backgrounding.
+                    // for a normal backgrounding. Reads currentDocumentId at call time (not
+                    // captured at creation), so it always saves to whichever document is
+                    // actually open, even after switching documents.
                     val canvasState = remember {
                         CanvasState(onChanged = { snapshot ->
                             autosaveJob?.cancel()
+                            val documentId = currentDocumentId
                             autosaveJob = coroutineScope.launch {
                                 delay(500)
-                                withContext(Dispatchers.IO) { CanvasStorage.save(context, snapshot) }
+                                withContext(Dispatchers.IO) { CanvasStorage.save(context, documentId, snapshot) }
                             }
                         })
                     }
 
+                    suspend fun refreshDocuments() {
+                        documents = withContext(Dispatchers.IO) { CanvasStorage.listDocuments(context) }
+                    }
+
+                    fun switchToDocument(documentId: String) {
+                        autosaveJob?.cancel()
+                        CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList())
+                        currentDocumentId = documentId
+                        canvasState.loadStrokes(CanvasStorage.load(context, documentId))
+                    }
+
                     LaunchedEffect(Unit) {
-                        val loaded = withContext(Dispatchers.IO) { CanvasStorage.load(context) }
-                        canvasState.loadStrokes(loaded)
+                        refreshDocuments()
+                        var current = documents.firstOrNull()
+                        if (current == null) {
+                            current = withContext(Dispatchers.IO) { CanvasStorage.createDocument(context, "My Canvas") }
+                            refreshDocuments()
+                        }
+                        currentDocumentId = current.id
+                        canvasState.loadStrokes(withContext(Dispatchers.IO) { CanvasStorage.load(context, current.id) })
                     }
 
                     // Saved synchronously on ON_STOP: the write is small (JSON of the current
@@ -75,8 +101,8 @@ class MainActivity : ComponentActivity() {
                     // the composition tearing down.
                     DisposableEffect(lifecycleOwner) {
                         val observer = LifecycleEventObserver { _, event ->
-                            if (event == Lifecycle.Event.ON_STOP) {
-                                CanvasStorage.save(context, canvasState.strokes.toList())
+                            if (event == Lifecycle.Event.ON_STOP && currentDocumentId.isNotEmpty()) {
+                                CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList())
                             }
                         }
                         lifecycleOwner.lifecycle.addObserver(observer)
@@ -91,6 +117,47 @@ class MainActivity : ComponentActivity() {
                                 .align(Alignment.TopCenter)
                                 .padding(WindowInsets.systemBars.asPaddingValues())
                                 .padding(top = 12.dp),
+                            onOpenDocuments = { showDocumentsDialog = true },
+                        )
+                    }
+
+                    if (showDocumentsDialog) {
+                        DocumentsDialog(
+                            documents = documents,
+                            currentDocumentId = currentDocumentId,
+                            onSelect = { doc ->
+                                switchToDocument(doc.id)
+                                showDocumentsDialog = false
+                            },
+                            onRename = { doc, newName ->
+                                CanvasStorage.renameDocument(context, doc.id, newName)
+                                coroutineScope.launch { refreshDocuments() }
+                            },
+                            onDuplicate = { doc ->
+                                CanvasStorage.duplicateDocument(context, doc.id, "${doc.name} copy")
+                                coroutineScope.launch { refreshDocuments() }
+                            },
+                            onDelete = { doc ->
+                                val wasCurrent = doc.id == currentDocumentId
+                                CanvasStorage.deleteDocument(context, doc.id)
+                                coroutineScope.launch {
+                                    refreshDocuments()
+                                    if (wasCurrent) {
+                                        documents.firstOrNull()?.let { switchToDocument(it.id) }
+                                    }
+                                }
+                            },
+                            onCreateNew = {
+                                coroutineScope.launch {
+                                    val created = withContext(Dispatchers.IO) {
+                                        CanvasStorage.createDocument(context, "Untitled")
+                                    }
+                                    refreshDocuments()
+                                    switchToDocument(created.id)
+                                    showDocumentsDialog = false
+                                }
+                            },
+                            onDismiss = { showDocumentsDialog = false },
                         )
                     }
                 }
