@@ -788,6 +788,23 @@ class CanvasState(
     }
 
     /** Deletes every currently selected stroke. */
+    /** Redraws every selected stroke in the current colour and opacity; the selection stays on the recoloured strokes. */
+    fun recolorSelection() {
+        if (selection.isEmpty()) return
+        recordHistory()
+        val newColor = activeColor.copy(alpha = activeColor.alpha * activeOpacity.toFloat())
+        val replaced = selection.toList().map { old ->
+            val recolored = old.withColor(newColor)
+            val index = strokes.indexOf(old)
+            if (index != -1) strokes[index] = recolored
+            recolored
+        }
+        clearSelectionState()
+        selection.addAll(replaced)
+        rememberActiveColor()
+        onChanged(strokes.toList())
+    }
+
     fun deleteSelection() {
         if (selection.isEmpty()) return
         recordHistory()

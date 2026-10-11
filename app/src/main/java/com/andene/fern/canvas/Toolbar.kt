@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FormatColorFill
+import androidx.compose.material.icons.filled.FormatPaint
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Opacity
@@ -292,6 +293,9 @@ fun Toolbar(
                             if (state.lassoSelect) Icons.Filled.Gesture else Icons.Filled.HighlightAlt,
                             contentDescription = if (state.lassoSelect) "Lasso select (tap for rectangle)" else "Rectangle select (tap for lasso)",
                         )
+                    }
+                    IconButton(onClick = { state.recolorSelection() }) {
+                        Icon(Icons.Filled.FormatPaint, contentDescription = "Apply current colour to selection")
                     }
                     IconButton(onClick = { state.duplicateSelection() }) {
                         Icon(Icons.Filled.ContentCopy, contentDescription = "Duplicate selection")
