@@ -1,11 +1,14 @@
 package com.andene.fern.canvas
 
 import android.content.Context
+import android.util.AtomicFile
+import android.util.Log
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.FileNotFoundException
 import java.util.UUID
 
 /** Metadata for one saved document, without loading its (potentially large) stroke data. */
@@ -123,14 +126,12 @@ object CanvasStorage {
 
     fun load(context: Context, documentId: String): List<Stroke> {
         val target = strokesFile(context, documentId)
-        if (!target.exists()) return emptyList()
-        return parseStrokes(target.readText())
+        return readStored(target, ::parseStrokes) ?: emptyList()
     }
 
     fun listPins(context: Context, documentId: String): List<PinMeta> {
         val file = pinsFile(context, documentId)
-        if (!file.exists()) return emptyList()
-        val root = JSONArray(file.readText())
+        val root = readStored(file) { JSONArray(it) } ?: return emptyList()
         val pins = mutableListOf<PinMeta>()
         for (i in 0 until root.length()) {
             val entry = root.getJSONObject(i)
@@ -160,13 +161,12 @@ object CanvasStorage {
                 }
             )
         }
-        pinsFile(context, documentId).writeText(root.toString())
+        writeAtomically(pinsFile(context, documentId), root.toString())
     }
 
     fun loadTextItems(context: Context, documentId: String): List<TextItem> {
         val file = textItemsFile(context, documentId)
-        if (!file.exists()) return emptyList()
-        val root = JSONArray(file.readText())
+        val root = readStored(file) { JSONArray(it) } ?: return emptyList()
         val items = mutableListOf<TextItem>()
         for (i in 0 until root.length()) {
             val entry = root.getJSONObject(i)
@@ -197,13 +197,12 @@ object CanvasStorage {
                 }
             )
         }
-        textItemsFile(context, documentId).writeText(root.toString())
+        writeAtomically(textItemsFile(context, documentId), root.toString())
     }
 
     fun loadImageItems(context: Context, documentId: String): List<ImageItem> {
         val file = imageItemsFile(context, documentId)
-        if (!file.exists()) return emptyList()
-        val root = JSONArray(file.readText())
+        val root = readStored(file) { JSONArray(it) } ?: return emptyList()
         val items = mutableListOf<ImageItem>()
         for (i in 0 until root.length()) {
             val entry = root.getJSONObject(i)
@@ -223,8 +222,7 @@ object CanvasStorage {
     /** A document's page background, or the app-wide default if it never set one. */
     fun loadBackground(context: Context, documentId: String): Pair<Color, BackgroundStyle> {
         val file = backgroundFile(context, documentId)
-        if (!file.exists()) return DEFAULT_BACKGROUND_COLOR to BackgroundStyle.PLAIN
-        val root = JSONObject(file.readText())
+        val root = readStored(file) { JSONObject(it) } ?: return DEFAULT_BACKGROUND_COLOR to BackgroundStyle.PLAIN
         val color = Color(root.getInt("color"))
         val style = BackgroundStyle.valueOf(root.optString("style", BackgroundStyle.PLAIN.name))
         return color to style
@@ -235,7 +233,7 @@ object CanvasStorage {
             put("color", color.toArgb())
             put("style", style.name)
         }
-        backgroundFile(context, documentId).writeText(root.toString())
+        writeAtomically(backgroundFile(context, documentId), root.toString())
     }
 
     fun saveImageItems(context: Context, documentId: String, items: List<ImageItem>) {
@@ -252,7 +250,7 @@ object CanvasStorage {
                 }
             )
         }
-        imageItemsFile(context, documentId).writeText(root.toString())
+        writeAtomically(imageItemsFile(context, documentId), root.toString())
     }
 
     /** Directory holding decoded copies of every inserted image, shared across all documents and keyed by id-derived file name. */
@@ -273,7 +271,7 @@ object CanvasStorage {
         val indexFile = File(context.filesDir, INDEX_FILE_NAME)
         val legacyFile = File(context.filesDir, LEGACY_FILE_NAME)
         if (indexFile.exists() || !legacyFile.exists()) return
-        val strokes = parseStrokes(legacyFile.readText())
+        val strokes = readStored(legacyFile, ::parseStrokes) ?: emptyList()
         val meta = DocumentMeta(UUID.randomUUID().toString(), DEFAULT_DOCUMENT_NAME, System.currentTimeMillis())
         saveStrokesFile(context, meta.id, strokes)
         writeIndex(context, JSONArray().put(metaToJson(meta)))
@@ -282,12 +280,51 @@ object CanvasStorage {
 
     private fun readIndex(context: Context): JSONArray {
         val file = File(context.filesDir, INDEX_FILE_NAME)
-        if (!file.exists()) return JSONArray()
-        return JSONArray(file.readText())
+        return readStored(file) { JSONArray(it) } ?: JSONArray()
     }
 
     private fun writeIndex(context: Context, index: JSONArray) {
-        File(context.filesDir, INDEX_FILE_NAME).writeText(index.toString())
+        writeAtomically(File(context.filesDir, INDEX_FILE_NAME), index.toString())
+    }
+
+    /**
+     * Writes [text] to [file] crash-safely. The plain `writeText` this replaces truncated the
+     * file first, so a process kill mid-write left half a JSON document that then failed to
+     * parse on every launch. [AtomicFile] writes to a side file, fsyncs it, and only then
+     * renames it over the original, so a reader sees either the old or the new content.
+     */
+    private fun writeAtomically(file: File, text: String) {
+        val atomic = AtomicFile(file)
+        val out = atomic.startWrite()
+        try {
+            out.write(text.toByteArray())
+            atomic.finishWrite(out)
+        } catch (e: Exception) {
+            atomic.failWrite(out)
+            throw e
+        }
+    }
+
+    /**
+     * Reads and parses [file], or returns null if it doesn't exist. A file that can't be parsed
+     * (e.g. damaged by a crash before atomic writes existed) is renamed to `<name>.corrupt-<time>`
+     * rather than deleted, so the next autosave can't overwrite the only copy of that data, and
+     * the caller falls back to its empty default instead of crashing on every launch.
+     */
+    private fun <T> readStored(file: File, parse: (String) -> T): T? {
+        val text = try {
+            AtomicFile(file).readFully().decodeToString()
+        } catch (e: FileNotFoundException) {
+            return null
+        }
+        return try {
+            parse(text)
+        } catch (e: Exception) {
+            val quarantined = File(file.parentFile, "${file.name}.corrupt-${System.currentTimeMillis()}")
+            Log.e("CanvasStorage", "Unreadable ${file.name}; moved to ${quarantined.name}", e)
+            file.renameTo(quarantined)
+            null
+        }
     }
 
     private fun metaToJson(meta: DocumentMeta): JSONObject = JSONObject().apply {
@@ -329,7 +366,7 @@ object CanvasStorage {
             strokeJson.put("points", pointsJson)
             root.put(strokeJson)
         }
-        strokesFile(context, documentId).writeText(root.toString())
+        writeAtomically(strokesFile(context, documentId), root.toString())
     }
 
     private fun parseStrokes(json: String): List<Stroke> {
