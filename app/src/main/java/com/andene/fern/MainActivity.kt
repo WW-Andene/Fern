@@ -1,5 +1,6 @@
 package com.andene.fern
 
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -39,6 +40,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.andene.fern.canvas.BackgroundStyle
@@ -56,6 +58,7 @@ import com.andene.fern.canvas.WorldPoint
 import com.andene.fern.canvas.exportDocumentPdf
 import com.andene.fern.canvas.exportDocumentPng
 import com.andene.fern.canvas.exportDocumentSvg
+import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -272,6 +275,31 @@ class MainActivity : ComponentActivity() {
                             onExportPng = { pngExportLauncher.launch("${currentDocumentName()}.png") },
                             onExportPdf = { pdfExportLauncher.launch("${currentDocumentName()}.pdf") },
                             onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
+                            onShare = {
+                                coroutineScope.launch {
+                                    val png = withContext(Dispatchers.Default) {
+                                        exportDocumentPng(canvasState, textMeasurer, density, imageForExport)
+                                    }
+                                    if (png == null) {
+                                        Toast.makeText(context, "Nothing to share yet", Toast.LENGTH_SHORT).show()
+                                        return@launch
+                                    }
+                                    // Overwrites the previous share each time, so the cache never accumulates exports.
+                                    val file = withContext(Dispatchers.IO) {
+                                        val dir = File(context.cacheDir, "shared").apply { mkdirs() }
+                                        dir.listFiles()?.forEach { it.delete() }
+                                        // A "/" in a document name would otherwise be read as a folder.
+                                        File(dir, "${currentDocumentName().replace('/', '_')}.png").apply { writeBytes(png) }
+                                    }
+                                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.share", file)
+                                    val send = Intent(Intent.ACTION_SEND).apply {
+                                        type = "image/png"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(Intent.createChooser(send, null))
+                                }
+                            },
                             onInsertImage = {
                                 imagePickerLauncher.launch(
                                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)

@@ -97,6 +97,7 @@ fun Toolbar(
     onExportPng: () -> Unit = {},
     onExportPdf: () -> Unit = {},
     onExportSvg: () -> Unit = {},
+    onShare: () -> Unit = {},
 ) {
     var showExportMenu by remember { mutableStateOf(false) }
     var showWidthSlider by remember { mutableStateOf(false) }
@@ -363,6 +364,13 @@ fun Toolbar(
                         Icon(Icons.Filled.IosShare, contentDescription = "Export")
                     }
                     DropdownMenu(expanded = showExportMenu, onDismissRequest = { showExportMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Share…") },
+                            onClick = {
+                                showExportMenu = false
+                                onShare()
+                            },
+                        )
                         DropdownMenuItem(
                             text = { Text("Image (PNG)") },
                             onClick = {
