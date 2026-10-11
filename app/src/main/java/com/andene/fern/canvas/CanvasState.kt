@@ -69,6 +69,9 @@ class CanvasState(
         const val MIN_SCALE = 1e-250
         const val MAX_SCALE = 1e250
 
+        // Above ~0.9 the stroke lags so far behind the pen that it stops feeling like drawing.
+        const val MAX_STABILIZATION = 0.9
+
         // World-space distance the camera can drift from the current origin before we
         // re-anchor. Large enough that rebasing is rare (not a per-frame cost), small
         // enough that precision near the origin never meaningfully degrades.
@@ -123,6 +126,14 @@ class CanvasState(
 
     /** Opacity (0..1) applied to new strokes' color at creation time - baked into the stored color's alpha, not a separate live-editable property, matching how width/pen type are also fixed once a stroke is drawn. */
     var activeOpacity by mutableDoubleStateOf(1.0)
+
+    /**
+     * Stroke stabilisation strength, 0 (off) to [MAX_STABILIZATION]: how strongly each new
+     * point is pulled back toward the previous one, smoothing hand wobble (the same idea as
+     * Procreate's StreamLine or Krita's stabiliser). Higher values feel like dragging the pen
+     * on a string - smoother but lagging behind the finger.
+     */
+    var activeStabilization by mutableDoubleStateOf(0.0)
 
     /** Blend mode applied to new strokes - see [StrokeBlendMode]. */
     var activeBlendMode by mutableStateOf(StrokeBlendMode.NORMAL)
@@ -265,8 +276,17 @@ class CanvasState(
     }
 
     fun extendStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
-        currentStroke?.addPoint(snappedToActiveGuide(worldPoint), pressure, tilt, orientation)
+        val stroke = currentStroke ?: return
+        lastRawPoint = worldPoint
+        val previous = stroke.points.lastOrNull()
+        // Exponential smoothing: move only part of the way from the last point toward the pen.
+        val smoothed = if (previous == null || activeStabilization <= 0.0) worldPoint
+        else previous + (worldPoint - previous) * (1.0 - activeStabilization)
+        stroke.addPoint(snappedToActiveGuide(smoothed), pressure, tilt, orientation)
     }
+
+    // The unsmoothed pen position, so endStroke can finish the line where the pen actually lifted.
+    private var lastRawPoint: WorldPoint? = null
 
     /**
      * Projects [point] onto the ruler guide's infinite line when it's active and placed,
@@ -285,6 +305,13 @@ class CanvasState(
     }
 
     fun endStroke() {
+        val stroke = currentStroke
+        val raw = lastRawPoint
+        if (stroke != null && raw != null && activeStabilization > 0.0) {
+            // Smoothing trails behind the pen; close the gap so the stroke ends at the lift point.
+            stroke.addPoint(snappedToActiveGuide(raw), stroke.pressures.last(), stroke.tilts.last(), stroke.orientations.last())
+        }
+        lastRawPoint = null
         currentStroke = null
         rebaseIfNeeded()
         onChanged(strokes.toList())

@@ -90,6 +90,7 @@ fun Toolbar(
     var showPenTypeMenu by remember { mutableStateOf(false) }
     var showShapeKindMenu by remember { mutableStateOf(false) }
     var showOpacitySlider by remember { mutableStateOf(false) }
+    var showStabilizationSlider by remember { mutableStateOf(false) }
     var showBlendModeMenu by remember { mutableStateOf(false) }
     var showBackgroundStyleMenu by remember { mutableStateOf(false) }
     var showBackgroundColorPicker by remember { mutableStateOf(false) }
@@ -202,6 +203,13 @@ fun Toolbar(
                         Icons.Filled.Opacity,
                         contentDescription = "Stroke opacity",
                         tint = if (showOpacitySlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                    )
+                }
+                IconButton(onClick = { showStabilizationSlider = !showStabilizationSlider }) {
+                    Icon(
+                        Icons.Filled.Gesture,
+                        contentDescription = "Stroke stabilisation",
+                        tint = if (showStabilizationSlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
                 }
                 Box {
@@ -331,6 +339,16 @@ fun Toolbar(
                     value = state.activeOpacity.toFloat(),
                     onValueChange = { state.activeOpacity = it.toDouble() },
                     valueRange = MIN_OPACITY..1f,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .width(192.dp),
+                )
+            }
+            if (showStabilizationSlider) {
+                Slider(
+                    value = state.activeStabilization.toFloat(),
+                    onValueChange = { state.activeStabilization = it.toDouble() },
+                    valueRange = 0f..CanvasState.MAX_STABILIZATION.toFloat(),
                     modifier = Modifier
                         .padding(top = 8.dp)
                         .width(192.dp),
