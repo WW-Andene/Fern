@@ -43,6 +43,7 @@ import com.andene.fern.canvas.Minimap
 import com.andene.fern.canvas.PinMeta
 import com.andene.fern.canvas.PinsDialog
 import com.andene.fern.canvas.Toolbar
+import com.andene.fern.canvas.VersionsDialog
 import com.andene.fern.canvas.WorldPoint
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
@@ -68,6 +69,7 @@ class MainActivity : ComponentActivity() {
                     var showDocumentsDialog by remember { mutableStateOf(false) }
                     var pins by remember { mutableStateOf(emptyList<PinMeta>()) }
                     var showPinsDialog by remember { mutableStateOf(false) }
+                    var versions by remember { mutableStateOf<List<Long>?>(null) } // non-null = dialog open
 
                     // Debounced: a completed stroke/undo/clear schedules a save ~500ms out,
                     // cancelling any still-pending one, so a burst of quick actions coalesces
@@ -203,6 +205,11 @@ class MainActivity : ComponentActivity() {
                                 .padding(top = 12.dp),
                             onOpenDocuments = { showDocumentsDialog = true },
                             onOpenPins = { showPinsDialog = true },
+                            onOpenVersions = {
+                                coroutineScope.launch {
+                                    versions = withContext(Dispatchers.IO) { CanvasStorage.listVersions(context, currentDocumentId) }
+                                }
+                            },
                             onInsertImage = {
                                 imagePickerLauncher.launch(
                                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -272,6 +279,17 @@ class MainActivity : ComponentActivity() {
                             },
                             onDismiss = { showDocumentsDialog = false },
                             loadThumbnail = { doc -> CanvasStorage.loadThumbnail(context, doc.id)?.asImageBitmap() },
+                        )
+                    }
+
+                    versions?.let { list ->
+                        VersionsDialog(
+                            versions = list,
+                            onRestore = { timestamp ->
+                                canvasState.restoreVersion(CanvasStorage.loadVersion(context, currentDocumentId, timestamp))
+                                versions = null
+                            },
+                            onDismiss = { versions = null },
                         )
                     }
 

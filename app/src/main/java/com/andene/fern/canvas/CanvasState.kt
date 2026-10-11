@@ -720,6 +720,14 @@ class CanvasState(
         onChanged(strokes.toList())
     }
 
+    /** Replaces the strokes with a saved version; undoable like any other action. */
+    fun restoreVersion(version: List<Stroke>) {
+        recordHistory()
+        clearSelectionState()
+        restore(version)
+        onChanged(strokes.toList())
+    }
+
     /** Replaces all strokes with [loaded] (e.g. from [CanvasStorage.load] on app start). */
     fun loadStrokes(loaded: List<Stroke>) {
         strokes.clear()

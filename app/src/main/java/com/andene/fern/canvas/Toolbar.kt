@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.SelectAll
@@ -81,6 +82,7 @@ fun Toolbar(
     modifier: Modifier = Modifier,
     onOpenDocuments: () -> Unit = {},
     onOpenPins: () -> Unit = {},
+    onOpenVersions: () -> Unit = {},
     onInsertImage: () -> Unit = {},
 ) {
     var showWidthSlider by remember { mutableStateOf(false) }
@@ -272,6 +274,9 @@ fun Toolbar(
                 }
                 IconButton(onClick = onOpenPins) {
                     Icon(Icons.Filled.PushPin, contentDescription = "Pins")
+                }
+                IconButton(onClick = onOpenVersions) {
+                    Icon(Icons.Filled.History, contentDescription = "Version history")
                 }
                 IconButton(onClick = onInsertImage) {
                     Icon(Icons.Filled.Image, contentDescription = "Insert image")

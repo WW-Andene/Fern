@@ -66,6 +66,11 @@ object CanvasStorage {
     // 16 is on the project size scale (CLAUDE.md §7); see saveHistory for why it's below the in-memory cap.
     private const val PERSISTED_HISTORY_STEPS = 16
 
+    private const val VERSION_INTERVAL_MILLIS = 10L * 60 * 1000
+    // 32 versions at most 10 minutes apart covers 5+ hours of continuous drawing, and longer
+    // across sessions since versions are only written while drawing. 32 is on the §7 scale.
+    private const val MAX_VERSIONS = 32
+
     private const val TRASH_RETENTION_MILLIS = 30L * 24 * 60 * 60 * 1000
 
     private val DEFAULT_BACKGROUND_COLOR = Color(0xFFF7F5F0)
@@ -156,6 +161,7 @@ object CanvasStorage {
         backgroundFile(context, id).delete()
         thumbnailFile(context, id).delete()
         historyFile(context, id).delete()
+        versionsDir(context, id).deleteRecursively()
         // Deliberately not deleting files under images/: they're shared/immutable and may
         // still be referenced by a duplicate of this document. Accepted tradeoff - orphaned
         // image files from a deleted, non-duplicated document are left behind rather than
@@ -179,6 +185,7 @@ object CanvasStorage {
     fun save(context: Context, documentId: String, strokes: List<Stroke>) {
         saveStrokesFile(context, documentId, strokes)
         saveThumbnail(context, documentId, strokes)
+        saveVersionIfDue(context, documentId, strokes)
         val index = readIndex(context)
         for (i in 0 until index.length()) {
             val entry = index.getJSONObject(i)
@@ -342,6 +349,31 @@ object CanvasStorage {
         return steps("undo") to steps("redo")
     }
 
+    /** Saved version timestamps for [documentId], newest first. */
+    fun listVersions(context: Context, documentId: String): List<Long> =
+        versionsDir(context, documentId).listFiles().orEmpty()
+            .mapNotNull { it.name.removeSuffix(".json").toLongOrNull() }
+            .sortedDescending()
+
+    fun loadVersion(context: Context, documentId: String, timestamp: Long): List<Stroke> =
+        readStored(File(versionsDir(context, documentId), "$timestamp.json")) { parseStrokes(it as JSONArray) } ?: emptyList()
+
+    /**
+     * Keeps a timeline of past states: on save, a version is written if the newest one is at
+     * least [VERSION_INTERVAL_MILLIS] old, and only the newest [MAX_VERSIONS] are kept. Unlike
+     * undo history this is time-based, so it reaches back hours or days rather than a fixed
+     * number of edits. Versions cover strokes only; text and images aren't versioned yet.
+     */
+    private fun saveVersionIfDue(context: Context, documentId: String, strokes: List<Stroke>) {
+        if (strokes.isEmpty()) return
+        val now = System.currentTimeMillis()
+        val existing = listVersions(context, documentId)
+        if (existing.isNotEmpty() && now - existing.first() < VERSION_INTERVAL_MILLIS) return
+        val dir = versionsDir(context, documentId).apply { mkdirs() }
+        writeStored(File(dir, "$now.json"), strokesToJson(strokes))
+        for (old in existing.drop(MAX_VERSIONS - 1)) File(dir, "$old.json").delete()
+    }
+
     /** The document library preview, regenerated on every save; missing for a never-drawn-on document. */
     fun loadThumbnail(context: Context, documentId: String): Bitmap? {
         val file = thumbnailFile(context, documentId)
@@ -474,6 +506,8 @@ object CanvasStorage {
     private fun textItemsFile(context: Context, documentId: String) = File(context.filesDir, "text_$documentId.json")
 
     private fun imageItemsFile(context: Context, documentId: String) = File(context.filesDir, "images_$documentId.json")
+
+    private fun versionsDir(context: Context, documentId: String) = File(context.filesDir, "versions_$documentId")
 
     private fun historyFile(context: Context, documentId: String) = File(context.filesDir, "history_$documentId.json")
 
