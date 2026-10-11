@@ -31,6 +31,8 @@ import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.Colorize
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.CopyAll
 import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
@@ -309,6 +311,12 @@ fun Toolbar(
                     }
                     IconButton(onClick = { state.recolorSelection() }) {
                         Icon(Icons.Filled.FormatPaint, contentDescription = "Apply current colour to selection")
+                    }
+                    IconButton(onClick = { state.copySelection() }) {
+                        Icon(Icons.Filled.CopyAll, contentDescription = "Copy selection")
+                    }
+                    IconButton(onClick = { state.paste() }, enabled = state.hasClipboard) {
+                        Icon(Icons.Filled.ContentPaste, contentDescription = "Paste")
                     }
                     IconButton(onClick = { state.duplicateSelection() }) {
                         Icon(Icons.Filled.ContentCopy, contentDescription = "Duplicate selection")

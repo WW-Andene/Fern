@@ -816,6 +816,35 @@ class CanvasState(
         onChanged(strokes.toList())
     }
 
+    // App-level clipboard. CanvasState outlives document switches, so this also carries strokes
+    // between documents. Held as independent copies so later edits don't change what's pasted.
+    private var clipboard: List<Stroke> = emptyList()
+
+    var hasClipboard by mutableStateOf(false)
+        private set
+
+    fun copySelection() {
+        if (selection.isEmpty()) return
+        clipboard = selection.map { it.deepCopy() }
+        hasClipboard = true
+    }
+
+    /** Pastes the clipboard centred in the current view and selects the pasted strokes. */
+    fun paste() {
+        if (clipboard.isEmpty()) return
+        recordHistory()
+        val pasted = clipboard.map { it.deepCopy() }
+        val centerX = (pasted.minOf { it.minX } + pasted.maxOf { it.maxX }) / 2.0
+        val centerY = (pasted.minOf { it.minY } + pasted.maxOf { it.maxY }) / 2.0
+        // shiftBy subtracts, so shifting by (old centre - view centre) lands it at the view centre.
+        val offset = WorldPoint(centerX - panWorld.x, centerY - panWorld.y)
+        pasted.forEach { it.shiftBy(offset) }
+        strokes.addAll(pasted)
+        clearSelectionState()
+        selection.addAll(pasted)
+        onChanged(strokes.toList())
+    }
+
     fun deleteSelection() {
         if (selection.isEmpty()) return
         recordHistory()
