@@ -317,9 +317,12 @@ class CanvasState(
         val stroke = currentStroke ?: return
         // Touchscreens report sub-pixel jitter even from a still finger; only real movement
         // (more than HOLD_JITTER_SCREEN px) restarts the hold timer for shape recognition.
-        val previousRaw = lastRawPoint
-        if (previousRaw == null || hypot(worldPoint.x - previousRaw.x, worldPoint.y - previousRaw.y) * scale > HOLD_JITTER_SCREEN) {
+        // Measured from where the timer last restarted, not the previous event, so slow
+        // continuous drawing (under 2 px per event) still counts as moving.
+        val anchor = holdAnchor
+        if (anchor == null || hypot(worldPoint.x - anchor.x, worldPoint.y - anchor.y) * scale > HOLD_JITTER_SCREEN) {
             lastStrokeMoveMillis = System.currentTimeMillis()
+            holdAnchor = worldPoint
         }
         lastRawPoint = worldPoint
         val previous = stroke.points.lastOrNull()
@@ -331,6 +334,7 @@ class CanvasState(
 
     // When the pen last moved; a pause before lifting triggers shape recognition in endStroke.
     private var lastStrokeMoveMillis = 0L
+    private var holdAnchor: WorldPoint? = null
 
     // The unsmoothed pen position, so endStroke can finish the line where the pen actually lifted.
     private var lastRawPoint: WorldPoint? = null
@@ -371,6 +375,7 @@ class CanvasState(
             recognizeShape(stroke.points)?.let { clean -> replaceWithShape(stroke, clean) }
         }
         lastRawPoint = null
+        holdAnchor = null
         currentStroke = null
         rebaseIfNeeded()
         onChanged(strokes.toList())
