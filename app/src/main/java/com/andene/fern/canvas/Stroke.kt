@@ -146,11 +146,7 @@ class Stroke(
     }
 
     /** An independent copy (own point lists), so an undo snapshot isn't changed by later edits to this stroke. */
-    fun deepCopy(): Stroke {
-        val copy = Stroke(color, widthWorld, penType, filled, blendMode)
-        for (i in _points.indices) copy.addPoint(_points[i], _pressures[i], _tilts[i], _orientations[i])
-        return copy
-    }
+    fun deepCopy(): Stroke = withColor(color)
 
     /** Sets this stroke's width directly, for a SELECT-tool scale gesture. */
     fun setWidth(newWidth: Double) {
