@@ -55,6 +55,7 @@ import com.andene.fern.canvas.VersionsDialog
 import com.andene.fern.canvas.WorldPoint
 import com.andene.fern.canvas.exportDocumentPdf
 import com.andene.fern.canvas.exportDocumentPng
+import com.andene.fern.canvas.exportDocumentSvg
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -142,6 +143,15 @@ class MainActivity : ComponentActivity() {
                         contract = ActivityResultContracts.CreateDocument("image/png"),
                     ) { uri ->
                         if (uri != null) writeExport(uri) { exportDocumentPng(canvasState, textMeasurer, density, imageForExport) }
+                    }
+                    val svgExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("image/svg+xml"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) {
+                            exportDocumentSvg(canvasState) { fileName ->
+                                CanvasStorage.imageFile(context, fileName).takeIf { it.exists() }?.readBytes()
+                            }?.toByteArray()
+                        }
                     }
                     val pdfExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("application/pdf"),
@@ -261,6 +271,7 @@ class MainActivity : ComponentActivity() {
                             },
                             onExportPng = { pngExportLauncher.launch("${currentDocumentName()}.png") },
                             onExportPdf = { pdfExportLauncher.launch("${currentDocumentName()}.pdf") },
+                            onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
                             onInsertImage = {
                                 imagePickerLauncher.launch(
                                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)

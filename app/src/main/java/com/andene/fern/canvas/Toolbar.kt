@@ -96,6 +96,7 @@ fun Toolbar(
     onInsertImage: () -> Unit = {},
     onExportPng: () -> Unit = {},
     onExportPdf: () -> Unit = {},
+    onExportSvg: () -> Unit = {},
 ) {
     var showExportMenu by remember { mutableStateOf(false) }
     var showWidthSlider by remember { mutableStateOf(false) }
@@ -374,6 +375,13 @@ fun Toolbar(
                             onClick = {
                                 showExportMenu = false
                                 onExportPdf()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Vector (SVG)") },
+                            onClick = {
+                                showExportMenu = false
+                                onExportSvg()
                             },
                         )
                     }
