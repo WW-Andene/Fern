@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStyle
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -89,6 +90,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                     var mode = Mode.NONE
                     var prevCentroid = Offset.Zero
                     var prevSpan = 0f
+                    var prevAngle = 0.0
                     var selectionGestureKind = SelectionGestureKind.OTHER
                     var wasStylusActive = false
                     // Tool to return to after a gesture that the stylus temporarily switched to the eraser.
@@ -151,7 +153,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                     toolBeforeStylusEraser = state.activeTool
                                     state.activeTool = Tool.ERASER
                                 }
-                                val downPos = pointers[0].position
+                                val downPos = state.unrotateScreen(pointers[0].position, screenCenter)
                                 val world = state.screenToWorld(downPos, screenCenter)
                                 when (state.activeTool) {
                                     Tool.PEN -> state.beginStroke(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
@@ -183,7 +185,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                             } else {
                                 val change = pointers[0]
                                 if (change.positionChanged()) {
-                                    val world = state.screenToWorld(change.position, screenCenter)
+                                    val world = state.screenToWorld(state.unrotateScreen(change.position, screenCenter), screenCenter)
                                     when (state.activeTool) {
                                         Tool.PEN -> state.extendStroke(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
                                         Tool.ERASER -> state.continueErase(world)
@@ -205,148 +207,173 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                             if (mode == Mode.DRAW) endActiveDrawAction()
                             val centroid = pointers.fold(Offset.Zero) { acc, c -> acc + c.position } / count.toFloat()
                             val span = pointers.fold(0f) { acc, c -> acc + hypot((c.position.x - centroid.x), (c.position.y - centroid.y)) } / count.toFloat()
+                            // Angle of the first two fingers; its change frame to frame rotates the canvas.
+                            val angle = atan2(
+                                (pointers[1].position.y - pointers[0].position.y).toDouble(),
+                                (pointers[1].position.x - pointers[0].position.x).toDouble(),
+                            )
 
                             if (mode != Mode.NAVIGATE) {
                                 // Just transitioned into navigation: establish baseline, no jump this frame.
                                 prevCentroid = centroid
                                 prevSpan = span
+                                prevAngle = angle
                                 mode = Mode.NAVIGATE
                             } else {
-                                val panDelta = centroid - prevCentroid
+                                // Pan and zoom work in unrotated view space, so a drag moves the
+                                // content along with the fingers whatever the canvas angle is.
+                                val panDelta = state.unrotateScreen(centroid, screenCenter) - state.unrotateScreen(prevCentroid, screenCenter)
                                 if (panDelta != Offset.Zero) {
                                     state.panByScreenDelta(panDelta)
                                 }
                                 if (prevSpan > 0.001f && span > 0.001f) {
                                     val factor = (span / prevSpan).toDouble()
-                                    state.zoomAround(centroid, screenCenter, factor)
+                                    state.zoomAround(state.unrotateScreen(centroid, screenCenter), screenCenter, factor)
                                 }
+                                state.rotateAround(centroid, screenCenter, angleDelta(prevAngle, angle))
                                 prevCentroid = centroid
                                 prevSpan = span
+                                prevAngle = angle
                             }
                             pointers.forEach { it.consume() }
                         }
                     }
                     if (mode == Mode.DRAW) endActiveDrawAction()
+                    if (mode == Mode.NAVIGATE) state.snapRotation()
                 }
             }
     ) {
         state.viewportSize = size
         val screenCenter = Offset(size.width / 2f, size.height / 2f)
-        val topLeftWorld = state.screenToWorld(Offset.Zero, screenCenter)
-        val bottomRightWorld = state.screenToWorld(Offset(size.width, size.height), screenCenter)
+        // When rotated, the visible area is the screen turned about its centre; the square
+        // circumscribing it (side = screen diagonal) covers every angle, so cull against that.
+        val halfExtent = if (state.rotation == 0.0) null else hypot(size.width, size.height) / 2f
+        val topLeftWorld = state.screenToWorld(
+            if (halfExtent == null) Offset.Zero else screenCenter - Offset(halfExtent, halfExtent),
+            screenCenter,
+        )
+        val bottomRightWorld = state.screenToWorld(
+            if (halfExtent == null) Offset(size.width, size.height) else screenCenter + Offset(halfExtent, halfExtent),
+            screenCenter,
+        )
 
+        // Drawn before the rotation so the paper colour always fills the whole screen.
         drawRect(color = state.backgroundColor, topLeft = Offset.Zero, size = size)
-        drawBackgroundPattern(state, screenCenter, topLeftWorld, bottomRightWorld)
+        // Everything below is laid out in unrotated view space (worldToScreen) and turned as a
+        // whole here, so text, images and patterns rotate with the strokes.
+        rotate(degrees = Math.toDegrees(state.rotation).toFloat(), pivot = screenCenter) {
+            drawBackgroundPattern(state, screenCenter, topLeftWorld, bottomRightWorld)
 
-        // Drawn first (behind strokes/text), matching the common "insert a reference image,
-        // draw over it" workflow.
-        for (item in state.imageItems) {
-            var bitmap = imageBitmapCache[item.fileName]
-            if (bitmap == null) {
-                val file = CanvasStorage.imageFile(context, item.fileName)
-                val decoded = BitmapFactory.decodeFile(file.absolutePath)
-                if (decoded == null) continue
-                bitmap = decoded.asImageBitmap()
-                imageBitmapCache[item.fileName] = bitmap
+            // Drawn first (behind strokes/text), matching the common "insert a reference image,
+            // draw over it" workflow.
+            for (item in state.imageItems) {
+                var bitmap = imageBitmapCache[item.fileName]
+                if (bitmap == null) {
+                    val file = CanvasStorage.imageFile(context, item.fileName)
+                    val decoded = BitmapFactory.decodeFile(file.absolutePath)
+                    if (decoded == null) continue
+                    bitmap = decoded.asImageBitmap()
+                    imageBitmapCache[item.fileName] = bitmap
+                }
+                val topLeft = state.worldToScreen(item.position, screenCenter)
+                val bottomRight = state.worldToScreen(
+                    WorldPoint(item.position.x + item.widthWorld, item.position.y + item.heightWorld),
+                    screenCenter,
+                )
+                val widthPx = (bottomRight.x - topLeft.x).roundToInt()
+                val heightPx = (bottomRight.y - topLeft.y).roundToInt()
+                if (widthPx <= 0 || heightPx <= 0) continue
+                drawImage(
+                    image = bitmap,
+                    dstOffset = IntOffset(topLeft.x.roundToInt(), topLeft.y.roundToInt()),
+                    dstSize = IntSize(widthPx, heightPx),
+                )
             }
-            val topLeft = state.worldToScreen(item.position, screenCenter)
-            val bottomRight = state.worldToScreen(
-                WorldPoint(item.position.x + item.widthWorld, item.position.y + item.heightWorld),
-                screenCenter,
-            )
-            val widthPx = (bottomRight.x - topLeft.x).roundToInt()
-            val heightPx = (bottomRight.y - topLeft.y).roundToInt()
-            if (widthPx <= 0 || heightPx <= 0) continue
-            drawImage(
-                image = bitmap,
-                dstOffset = IntOffset(topLeft.x.roundToInt(), topLeft.y.roundToInt()),
-                dstSize = IntSize(widthPx, heightPx),
-            )
-        }
 
-        for (stroke in state.strokes) {
-            // Reading revision here (and only here) is what subscribes this draw phase to
-            // the stroke's mutations, so a redraw is triggered as each new point is added
-            // mid-stroke rather than waiting for an unrelated pan/zoom to happen to redraw.
-            stroke.revision
-            if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
-            val points = stroke.points
-            if (points.isEmpty()) continue
-            val screenPoints = points.map { state.worldToScreen(it, screenCenter) }
-            if (stroke.filled) {
+            for (stroke in state.strokes) {
+                // Reading revision here (and only here) is what subscribes this draw phase to
+                // the stroke's mutations, so a redraw is triggered as each new point is added
+                // mid-stroke rather than waiting for an unrelated pan/zoom to happen to redraw.
+                stroke.revision
+                if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
+                val points = stroke.points
+                if (points.isEmpty()) continue
+                val screenPoints = points.map { state.worldToScreen(it, screenCenter) }
+                if (stroke.filled) {
+                    val path = Path()
+                    path.moveTo(screenPoints[0].x, screenPoints[0].y)
+                    for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
+                    path.close()
+                    drawPath(path = path, color = stroke.color)
+                    continue
+                }
+                val rawWidthScreen = stroke.widthWorld * state.scale
+                if (!rawWidthScreen.isFinite()) continue
+                val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
+                drawStroke(stroke, screenPoints, widthScreen, stroke.blendMode.toComposeBlendMode())
+            }
+
+            for (item in state.textItems) {
+                val screenPos = state.worldToScreen(item.position, screenCenter)
+                val fontSizePx = (item.fontSizeWorld * state.scale)
+                if (!fontSizePx.isFinite() || fontSizePx <= 0.0) continue
+                val fontSizeSp = with(density) { fontSizePx.toFloat().toSp() }
+                val layout = textMeasurer.measure(text = item.text, style = TextStyle(color = item.color, fontSize = fontSizeSp))
+                drawText(textLayoutResult = layout, topLeft = screenPos)
+            }
+
+            for (stroke in state.selection) {
+                stroke.revision // subscribe so a moved selection redraws its highlight live
+                val topLeft = state.worldToScreen(WorldPoint(stroke.minX, stroke.minY), screenCenter)
+                val bottomRight = state.worldToScreen(WorldPoint(stroke.maxX, stroke.maxY), screenCenter)
+                drawRect(
+                    color = SELECTION_HIGHLIGHT_COLOR,
+                    topLeft = topLeft,
+                    size = Size(bottomRight.x - topLeft.x, bottomRight.y - topLeft.y),
+                    style = DrawStyle(width = 2f),
+                )
+            }
+
+            state.marqueeRect?.let { (start, end) ->
+                val a = state.worldToScreen(start, screenCenter)
+                val b = state.worldToScreen(end, screenCenter)
+                val topLeft = Offset(minOf(a.x, b.x), minOf(a.y, b.y))
+                val size = Size(abs(b.x - a.x), abs(b.y - a.y))
+                drawRect(color = MARQUEE_FILL_COLOR, topLeft = topLeft, size = size)
+                drawRect(color = MARQUEE_BORDER_COLOR, topLeft = topLeft, size = size, style = DrawStyle(width = 2f))
+            }
+
+            state.shapePreview?.let { (start, end) ->
+                val screenPoints = generateShapePoints(state.activeShapeKind, start, end).map { state.worldToScreen(it, screenCenter) }
+                val rawWidthScreen = state.activeWidthWorld
+                val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
                 val path = Path()
                 path.moveTo(screenPoints[0].x, screenPoints[0].y)
                 for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
-                path.close()
-                drawPath(path = path, color = stroke.color)
-                continue
+                drawPath(path = path, color = state.activeColor, style = DrawStyle(width = widthScreen, cap = StrokeCap.Round, join = StrokeJoin.Round))
             }
-            val rawWidthScreen = stroke.widthWorld * state.scale
-            if (!rawWidthScreen.isFinite()) continue
-            val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
-            drawStroke(stroke, screenPoints, widthScreen, stroke.blendMode.toComposeBlendMode())
-        }
 
-        for (item in state.textItems) {
-            val screenPos = state.worldToScreen(item.position, screenCenter)
-            val fontSizePx = (item.fontSizeWorld * state.scale)
-            if (!fontSizePx.isFinite() || fontSizePx <= 0.0) continue
-            val fontSizeSp = with(density) { fontSizePx.toFloat().toSp() }
-            val layout = textMeasurer.measure(text = item.text, style = TextStyle(color = item.color, fontSize = fontSizeSp))
-            drawText(textLayoutResult = layout, topLeft = screenPos)
-        }
-
-        for (stroke in state.selection) {
-            stroke.revision // subscribe so a moved selection redraws its highlight live
-            val topLeft = state.worldToScreen(WorldPoint(stroke.minX, stroke.minY), screenCenter)
-            val bottomRight = state.worldToScreen(WorldPoint(stroke.maxX, stroke.maxY), screenCenter)
-            drawRect(
-                color = SELECTION_HIGHLIGHT_COLOR,
-                topLeft = topLeft,
-                size = Size(bottomRight.x - topLeft.x, bottomRight.y - topLeft.y),
-                style = DrawStyle(width = 2f),
-            )
-        }
-
-        state.marqueeRect?.let { (start, end) ->
-            val a = state.worldToScreen(start, screenCenter)
-            val b = state.worldToScreen(end, screenCenter)
-            val topLeft = Offset(minOf(a.x, b.x), minOf(a.y, b.y))
-            val size = Size(abs(b.x - a.x), abs(b.y - a.y))
-            drawRect(color = MARQUEE_FILL_COLOR, topLeft = topLeft, size = size)
-            drawRect(color = MARQUEE_BORDER_COLOR, topLeft = topLeft, size = size, style = DrawStyle(width = 2f))
-        }
-
-        state.shapePreview?.let { (start, end) ->
-            val screenPoints = generateShapePoints(state.activeShapeKind, start, end).map { state.worldToScreen(it, screenCenter) }
-            val rawWidthScreen = state.activeWidthWorld
-            val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
-            val path = Path()
-            path.moveTo(screenPoints[0].x, screenPoints[0].y)
-            for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
-            drawPath(path = path, color = state.activeColor, style = DrawStyle(width = widthScreen, cap = StrokeCap.Round, join = StrokeJoin.Round))
-        }
-
-        if (state.activeTool == Tool.SELECT) {
-            selectionHandles(state, screenCenter)?.let { handles ->
-                drawLine(color = HANDLE_COLOR, start = handles.topCenter, end = handles.rotateHandle, strokeWidth = 2f)
-                drawCircle(color = HANDLE_COLOR, radius = 8f, center = handles.scaleHandle)
-                drawCircle(color = Color.White, radius = 4f, center = handles.scaleHandle)
-                drawCircle(color = HANDLE_COLOR, radius = 8f, center = handles.rotateHandle)
-                drawCircle(color = Color.White, radius = 4f, center = handles.rotateHandle)
+            if (state.activeTool == Tool.SELECT) {
+                selectionHandles(state, screenCenter)?.let { handles ->
+                    drawLine(color = HANDLE_COLOR, start = handles.topCenter, end = handles.rotateHandle, strokeWidth = 2f)
+                    drawCircle(color = HANDLE_COLOR, radius = 8f, center = handles.scaleHandle)
+                    drawCircle(color = Color.White, radius = 4f, center = handles.scaleHandle)
+                    drawCircle(color = HANDLE_COLOR, radius = 8f, center = handles.rotateHandle)
+                    drawCircle(color = Color.White, radius = 4f, center = handles.rotateHandle)
+                }
             }
-        }
 
-        if (state.rulerActive) {
-            state.rulerLine?.let { (start, end) ->
-                val startScreen = state.worldToScreen(start, screenCenter)
-                val endScreen = state.worldToScreen(end, screenCenter)
-                drawLine(color = RULER_COLOR, start = startScreen, end = endScreen, strokeWidth = 4f)
-                if (state.activeTool == Tool.RULER) {
-                    drawCircle(color = RULER_COLOR, radius = 10f, center = startScreen)
-                    drawCircle(color = Color.White, radius = 5f, center = startScreen)
-                    drawCircle(color = RULER_COLOR, radius = 10f, center = endScreen)
-                    drawCircle(color = Color.White, radius = 5f, center = endScreen)
+            if (state.rulerActive) {
+                state.rulerLine?.let { (start, end) ->
+                    val startScreen = state.worldToScreen(start, screenCenter)
+                    val endScreen = state.worldToScreen(end, screenCenter)
+                    drawLine(color = RULER_COLOR, start = startScreen, end = endScreen, strokeWidth = 4f)
+                    if (state.activeTool == Tool.RULER) {
+                        drawCircle(color = RULER_COLOR, radius = 10f, center = startScreen)
+                        drawCircle(color = Color.White, radius = 5f, center = startScreen)
+                        drawCircle(color = RULER_COLOR, radius = 10f, center = endScreen)
+                        drawCircle(color = Color.White, radius = 5f, center = endScreen)
+                    }
                 }
             }
         }
@@ -597,3 +624,11 @@ private val RULER_COLOR = Color(0xFFFB8C00)
 
 private enum class Mode { NONE, DRAW, NAVIGATE }
 private enum class SelectionGestureKind { SCALE, ROTATE, OTHER }
+
+/** The signed change from [from] to [to] in radians, wrapped to -pi..pi so crossing the +-180 degree seam doesn't jump. */
+private fun angleDelta(from: Double, to: Double): Double {
+    var delta = to - from
+    while (delta > Math.PI) delta -= 2 * Math.PI
+    while (delta < -Math.PI) delta += 2 * Math.PI
+    return delta
+}

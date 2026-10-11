@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -77,6 +78,9 @@ class CanvasState(
 
         // Holding the pen still this long before lifting turns a rough stroke into a clean shape.
         private const val SHAPE_HOLD_MILLIS = 500L
+
+        // Procreate/Concepts-style dead zone around upright.
+        private const val ROTATION_SNAP_DEGREES = 8.0
         private const val HOLD_JITTER_SCREEN = 2.0
 
         // Above ~0.9 the stroke lags so far behind the pen that it stops feeling like drawing.
@@ -862,6 +866,50 @@ class CanvasState(
     fun resetView() {
         panWorld = WorldPoint.Zero
         scale = 1.0
+        rotation = 0.0
+    }
+
+    /**
+     * Canvas rotation in radians, applied as a whole-scene rotation about the screen centre at
+     * draw time. [worldToScreen]/[screenToWorld] deliberately stay unrotated ("view space"), so
+     * every renderer and hit-test keeps working unchanged; only raw touch positions need
+     * [unrotateScreen] before use.
+     */
+    var rotation by mutableDoubleStateOf(0.0)
+        private set
+
+    /** Maps a raw on-screen position into unrotated view space by turning it back about [screenCenter]. */
+    fun unrotateScreen(screen: Offset, screenCenter: Offset): Offset {
+        if (rotation == 0.0) return screen
+        val dx = (screen.x - screenCenter.x).toDouble()
+        val dy = (screen.y - screenCenter.y).toDouble()
+        val c = cos(-rotation)
+        val s = sin(-rotation)
+        return Offset(
+            x = screenCenter.x + (dx * c - dy * s).toFloat(),
+            y = screenCenter.y + (dx * s + dy * c).toFloat(),
+        )
+    }
+
+    /** Rotates by [deltaRadians] keeping the content under the raw screen point [screenFocus] in place. */
+    fun rotateAround(screenFocus: Offset, screenCenter: Offset, deltaRadians: Double) {
+        if (deltaRadians == 0.0) return
+        val worldFocusBefore = screenToWorld(unrotateScreen(screenFocus, screenCenter), screenCenter)
+        rotation = normalizedAngle(rotation + deltaRadians)
+        val worldFocusAfter = screenToWorld(unrotateScreen(screenFocus, screenCenter), screenCenter)
+        panWorld += (worldFocusBefore - worldFocusAfter)
+    }
+
+    /** At gesture end, snaps to upright when within [ROTATION_SNAP_DEGREES], so pinch-zooming doesn't leave a slight accidental tilt. */
+    fun snapRotation() {
+        if (abs(Math.toDegrees(rotation)) < ROTATION_SNAP_DEGREES) rotation = 0.0
+    }
+
+    private fun normalizedAngle(angle: Double): Double {
+        var a = angle
+        while (a > PI) a -= 2 * PI
+        while (a < -PI) a += 2 * PI
+        return a
     }
 
     /** The combined bounding box of every stroke, or null if the canvas is empty. */
