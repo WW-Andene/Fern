@@ -1,0 +1,4 @@
+<resources>
+    <!-- Dark window background so there is no white flash before Compose draws in dark mode. -->
+    <style name="Theme.Fern" parent="android:Theme.Material.NoActionBar" />
+</resources>
