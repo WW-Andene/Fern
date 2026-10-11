@@ -17,6 +17,9 @@ data class DocumentMeta(
     val id: String,
     val name: String,
     val lastModified: Long,
+    val favorite: Boolean = false,
+    /** When the document was moved to the trash, or null if it isn't trashed. */
+    val trashedAt: Long? = null,
 )
 
 /** A named, jumpable camera position within one document. */
@@ -55,17 +58,53 @@ object CanvasStorage {
 
     // Matches the canvas backdrop's original hardcoded color, so an existing document with no
     // background file yet (created before this feature existed) looks exactly as it always has.
+    // Same 30-day window as Android's own Files and Photos trash, so it matches user expectations.
+    private const val TRASH_RETENTION_MILLIS = 30L * 24 * 60 * 60 * 1000
+
     private val DEFAULT_BACKGROUND_COLOR = Color(0xFFF7F5F0)
 
+    /** Every document, trashed ones included; callers filter on [DocumentMeta.trashedAt]. */
     fun listDocuments(context: Context): List<DocumentMeta> {
         migrateLegacyIfNeeded(context)
+        purgeExpiredTrash(context)
         val index = readIndex(context)
         val metas = mutableListOf<DocumentMeta>()
         for (i in 0 until index.length()) {
-            val entry = index.getJSONObject(i)
-            metas.add(DocumentMeta(entry.getString("id"), entry.getString("name"), entry.getLong("lastModified")))
+            metas.add(metaFromJson(index.getJSONObject(i)))
         }
         return metas.sortedByDescending { it.lastModified }
+    }
+
+    fun setFavorite(context: Context, id: String, favorite: Boolean) {
+        updateIndexEntry(context, id) { it.put("favorite", favorite) }
+    }
+
+    /** Soft delete: the document stays restorable until [TRASH_RETENTION_MILLIS] has passed. */
+    fun moveToTrash(context: Context, id: String) {
+        updateIndexEntry(context, id) { it.put("trashedAt", System.currentTimeMillis()) }
+    }
+
+    fun restoreFromTrash(context: Context, id: String) {
+        updateIndexEntry(context, id) { it.remove("trashedAt") }
+    }
+
+    private fun purgeExpiredTrash(context: Context) {
+        val cutoff = System.currentTimeMillis() - TRASH_RETENTION_MILLIS
+        val index = readIndex(context)
+        for (i in 0 until index.length()) {
+            val meta = metaFromJson(index.getJSONObject(i))
+            val trashedAt = meta.trashedAt ?: continue
+            if (trashedAt < cutoff) deleteDocument(context, meta.id)
+        }
+    }
+
+    private fun updateIndexEntry(context: Context, id: String, change: (JSONObject) -> Unit) {
+        val index = readIndex(context)
+        for (i in 0 until index.length()) {
+            val entry = index.getJSONObject(i)
+            if (entry.getString("id") == id) change(entry)
+        }
+        writeIndex(context, index)
     }
 
     fun createDocument(context: Context, name: String): DocumentMeta {
@@ -361,7 +400,18 @@ object CanvasStorage {
         put("id", meta.id)
         put("name", meta.name)
         put("lastModified", meta.lastModified)
+        put("favorite", meta.favorite)
+        meta.trashedAt?.let { put("trashedAt", it) }
     }
+
+    // favorite/trashedAt are optional: index entries written before they existed lack them.
+    private fun metaFromJson(entry: JSONObject) = DocumentMeta(
+        id = entry.getString("id"),
+        name = entry.getString("name"),
+        lastModified = entry.getLong("lastModified"),
+        favorite = entry.optBoolean("favorite", false),
+        trashedAt = if (entry.has("trashedAt")) entry.getLong("trashedAt") else null,
+    )
 
     private fun strokesFile(context: Context, documentId: String) = File(context.filesDir, "canvas_$documentId.json")
 

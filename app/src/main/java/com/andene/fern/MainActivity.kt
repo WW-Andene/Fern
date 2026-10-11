@@ -151,7 +151,7 @@ class MainActivity : ComponentActivity() {
 
                     LaunchedEffect(Unit) {
                         refreshDocuments()
-                        var current = documents.firstOrNull()
+                        var current = documents.firstOrNull { it.trashedAt == null }
                         if (current == null) {
                             current = withContext(Dispatchers.IO) { CanvasStorage.createDocument(context, "My Canvas") }
                             refreshDocuments()
@@ -222,15 +222,27 @@ class MainActivity : ComponentActivity() {
                                 CanvasStorage.duplicateDocument(context, doc.id, "${doc.name} copy")
                                 coroutineScope.launch { refreshDocuments() }
                             },
-                            onDelete = { doc ->
+                            onToggleFavorite = { doc ->
+                                CanvasStorage.setFavorite(context, doc.id, !doc.favorite)
+                                coroutineScope.launch { refreshDocuments() }
+                            },
+                            onTrash = { doc ->
                                 val wasCurrent = doc.id == currentDocumentId
-                                CanvasStorage.deleteDocument(context, doc.id)
+                                CanvasStorage.moveToTrash(context, doc.id)
                                 coroutineScope.launch {
                                     refreshDocuments()
                                     if (wasCurrent) {
-                                        documents.firstOrNull()?.let { switchToDocument(it.id) }
+                                        documents.firstOrNull { it.trashedAt == null }?.let { switchToDocument(it.id) }
                                     }
                                 }
+                            },
+                            onRestore = { doc ->
+                                CanvasStorage.restoreFromTrash(context, doc.id)
+                                coroutineScope.launch { refreshDocuments() }
+                            },
+                            onDeleteForever = { doc ->
+                                CanvasStorage.deleteDocument(context, doc.id)
+                                coroutineScope.launch { refreshDocuments() }
                             },
                             onCreateNew = {
                                 coroutineScope.launch {
