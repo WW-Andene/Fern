@@ -805,6 +805,17 @@ class CanvasState(
         onChanged(strokes.toList())
     }
 
+    /** Moves the selected strokes to the top ([toFront]) or bottom of the drawing order, keeping their order relative to each other. */
+    fun reorderSelection(toFront: Boolean) {
+        if (selection.isEmpty()) return
+        recordHistory()
+        val selected = selection.toSet()
+        val moving = strokes.filter { it in selected }
+        strokes.removeAll(selected)
+        if (toFront) strokes.addAll(moving) else strokes.addAll(0, moving)
+        onChanged(strokes.toList())
+    }
+
     fun deleteSelection() {
         if (selection.isEmpty()) return
         recordHistory()

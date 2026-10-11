@@ -34,6 +34,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FlipToBack
+import androidx.compose.material.icons.filled.FlipToFront
 import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.FormatPaint
 import androidx.compose.material.icons.filled.FormatSize
@@ -293,6 +295,12 @@ fun Toolbar(
                             if (state.lassoSelect) Icons.Filled.Gesture else Icons.Filled.HighlightAlt,
                             contentDescription = if (state.lassoSelect) "Lasso select (tap for rectangle)" else "Rectangle select (tap for lasso)",
                         )
+                    }
+                    IconButton(onClick = { state.reorderSelection(toFront = true) }) {
+                        Icon(Icons.Filled.FlipToFront, contentDescription = "Bring selection to front")
+                    }
+                    IconButton(onClick = { state.reorderSelection(toFront = false) }) {
+                        Icon(Icons.Filled.FlipToBack, contentDescription = "Send selection to back")
                     }
                     IconButton(onClick = { state.recolorSelection() }) {
                         Icon(Icons.Filled.FormatPaint, contentDescription = "Apply current colour to selection")
