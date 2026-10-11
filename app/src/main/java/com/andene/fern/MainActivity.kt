@@ -3,6 +3,7 @@ package com.andene.fern
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -11,12 +12,15 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,11 +33,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.andene.fern.canvas.BackgroundStyle
@@ -48,6 +51,7 @@ import com.andene.fern.canvas.PinsDialog
 import com.andene.fern.canvas.Toolbar
 import com.andene.fern.canvas.VersionsDialog
 import com.andene.fern.canvas.WorldPoint
+import com.andene.fern.canvas.exportDocumentPng
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -105,6 +109,32 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                         )
+                    }
+
+                    val textMeasurer = rememberTextMeasurer()
+                    val density = LocalDensity.current
+                    // Export goes through the system "save as" picker (Storage Access Framework):
+                    // works on every API level from minSdk 26 without a storage permission.
+                    val exportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("image/png"),
+                    ) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val png = withContext(Dispatchers.Default) {
+                                exportDocumentPng(canvasState, textMeasurer, density) { fileName ->
+                                    BitmapFactory.decodeFile(CanvasStorage.imageFile(context, fileName).absolutePath)?.asImageBitmap()
+                                }
+                            }
+                            val message = if (png == null) {
+                                "Nothing to export yet"
+                            } else {
+                                withContext(Dispatchers.IO) {
+                                    context.contentResolver.openOutputStream(uri)?.use { it.write(png) }
+                                }
+                                "Exported"
+                            }
+                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                        }
                     }
 
                     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -214,6 +244,10 @@ class MainActivity : ComponentActivity() {
                                 coroutineScope.launch {
                                     versions = withContext(Dispatchers.IO) { CanvasStorage.listVersions(context, currentDocumentId) }
                                 }
+                            },
+                            onExportImage = {
+                                val name = documents.firstOrNull { it.id == currentDocumentId }?.name ?: "Fern"
+                                exportLauncher.launch("$name.png")
                             },
                             onInsertImage = {
                                 imagePickerLauncher.launch(

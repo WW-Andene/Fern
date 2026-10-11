@@ -27,7 +27,7 @@ import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -63,7 +63,6 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
     // moment each point is captured. Untested against real stylus hardware.
     val stylusSample = remember { StylusSample() }
     val textMeasurer = rememberTextMeasurer()
-    val density = LocalDensity.current
     val context = LocalContext.current
     // Decoded lazily and cached by file name: re-decoding from disk every frame would be
     // wasteful, and images never change once placed (a new image is a new ImageItem/file).
@@ -262,64 +261,11 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
         // Everything below is laid out in unrotated view space (worldToScreen) and turned as a
         // whole here, so text, images and patterns rotate with the strokes.
         rotate(degrees = Math.toDegrees(state.rotation).toFloat(), pivot = screenCenter) {
-            drawBackgroundPattern(state, screenCenter, topLeftWorld, bottomRightWorld)
-
-            // Drawn first (behind strokes/text), matching the common "insert a reference image,
-            // draw over it" workflow.
-            for (item in state.imageItems) {
-                var bitmap = imageBitmapCache[item.fileName]
-                if (bitmap == null) {
-                    val file = CanvasStorage.imageFile(context, item.fileName)
-                    val decoded = BitmapFactory.decodeFile(file.absolutePath)
-                    if (decoded == null) continue
-                    bitmap = decoded.asImageBitmap()
-                    imageBitmapCache[item.fileName] = bitmap
-                }
-                val topLeft = state.worldToScreen(item.position, screenCenter)
-                val bottomRight = state.worldToScreen(
-                    WorldPoint(item.position.x + item.widthWorld, item.position.y + item.heightWorld),
-                    screenCenter,
-                )
-                val widthPx = (bottomRight.x - topLeft.x).roundToInt()
-                val heightPx = (bottomRight.y - topLeft.y).roundToInt()
-                if (widthPx <= 0 || heightPx <= 0) continue
-                drawImage(
-                    image = bitmap,
-                    dstOffset = IntOffset(topLeft.x.roundToInt(), topLeft.y.roundToInt()),
-                    dstSize = IntSize(widthPx, heightPx),
-                )
-            }
-
-            for (stroke in state.strokes) {
-                // Reading revision here (and only here) is what subscribes this draw phase to
-                // the stroke's mutations, so a redraw is triggered as each new point is added
-                // mid-stroke rather than waiting for an unrelated pan/zoom to happen to redraw.
-                stroke.revision
-                if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
-                val points = stroke.points
-                if (points.isEmpty()) continue
-                val screenPoints = points.map { state.worldToScreen(it, screenCenter) }
-                if (stroke.filled) {
-                    val path = Path()
-                    path.moveTo(screenPoints[0].x, screenPoints[0].y)
-                    for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
-                    path.close()
-                    drawPath(path = path, color = stroke.color)
-                    continue
-                }
-                val rawWidthScreen = stroke.widthWorld * state.scale
-                if (!rawWidthScreen.isFinite()) continue
-                val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
-                drawStroke(stroke, screenPoints, widthScreen, stroke.blendMode.toComposeBlendMode())
-            }
-
-            for (item in state.textItems) {
-                val screenPos = state.worldToScreen(item.position, screenCenter)
-                val fontSizePx = (item.fontSizeWorld * state.scale)
-                if (!fontSizePx.isFinite() || fontSizePx <= 0.0) continue
-                val fontSizeSp = with(density) { fontSizePx.toFloat().toSp() }
-                val layout = textMeasurer.measure(text = item.text, style = TextStyle(color = item.color, fontSize = fontSizeSp))
-                drawText(textLayoutResult = layout, topLeft = screenPos)
+            drawScene(state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer) { fileName ->
+                imageBitmapCache[fileName]
+                    ?: BitmapFactory.decodeFile(CanvasStorage.imageFile(context, fileName).absolutePath)
+                        ?.asImageBitmap()
+                        ?.also { imageBitmapCache[fileName] = it }
             }
 
             for (stroke in state.selection) {
@@ -642,4 +588,72 @@ private fun angleDelta(from: Double, to: Double): Double {
     while (delta > Math.PI) delta -= 2 * Math.PI
     while (delta < -Math.PI) delta += 2 * Math.PI
     return delta
+}
+
+/**
+ * Draws the document itself - paper pattern, images, strokes, text - for [state]'s camera,
+ * without any editing overlays (selection, marquee, previews, ruler). Shared by the live canvas
+ * and image export, so an export looks exactly like the canvas. [imageFor] supplies decoded
+ * images by file name (null skips one that can't be decoded).
+ */
+internal fun DrawScope.drawScene(
+    state: CanvasState,
+    screenCenter: Offset,
+    topLeftWorld: WorldPoint,
+    bottomRightWorld: WorldPoint,
+    textMeasurer: TextMeasurer,
+    imageFor: (String) -> ImageBitmap?,
+) {
+    drawBackgroundPattern(state, screenCenter, topLeftWorld, bottomRightWorld)
+
+    // Drawn first (behind strokes/text), matching the common "insert a reference image,
+    // draw over it" workflow.
+    for (item in state.imageItems) {
+        val bitmap = imageFor(item.fileName) ?: continue
+        val topLeft = state.worldToScreen(item.position, screenCenter)
+        val bottomRight = state.worldToScreen(
+            WorldPoint(item.position.x + item.widthWorld, item.position.y + item.heightWorld),
+            screenCenter,
+        )
+        val widthPx = (bottomRight.x - topLeft.x).roundToInt()
+        val heightPx = (bottomRight.y - topLeft.y).roundToInt()
+        if (widthPx <= 0 || heightPx <= 0) continue
+        drawImage(
+            image = bitmap,
+            dstOffset = IntOffset(topLeft.x.roundToInt(), topLeft.y.roundToInt()),
+            dstSize = IntSize(widthPx, heightPx),
+        )
+    }
+
+    for (stroke in state.strokes) {
+        // Reading revision here (and only here) is what subscribes this draw phase to
+        // the stroke's mutations, so a redraw is triggered as each new point is added
+        // mid-stroke rather than waiting for an unrelated pan/zoom to happen to redraw.
+        stroke.revision
+        if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
+        val points = stroke.points
+        if (points.isEmpty()) continue
+        val screenPoints = points.map { state.worldToScreen(it, screenCenter) }
+        if (stroke.filled) {
+            val path = Path()
+            path.moveTo(screenPoints[0].x, screenPoints[0].y)
+            for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
+            path.close()
+            drawPath(path = path, color = stroke.color)
+            continue
+        }
+        val rawWidthScreen = stroke.widthWorld * state.scale
+        if (!rawWidthScreen.isFinite()) continue
+        val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
+        drawStroke(stroke, screenPoints, widthScreen, stroke.blendMode.toComposeBlendMode())
+    }
+
+    for (item in state.textItems) {
+        val screenPos = state.worldToScreen(item.position, screenCenter)
+        val fontSizePx = (item.fontSizeWorld * state.scale)
+        if (!fontSizePx.isFinite() || fontSizePx <= 0.0) continue
+        val fontSizeSp = fontSizePx.toFloat().toSp() // DrawScope is a Density
+        val layout = textMeasurer.measure(text = item.text, style = TextStyle(color = item.color, fontSize = fontSizeSp))
+        drawText(textLayoutResult = layout, topLeft = screenPos)
+    }
 }
