@@ -240,6 +240,12 @@ class CanvasState(
     // (dragStart, currentPoint) - not yet normalized into a left/top/right/bottom rect,
     // since the drag can go in any direction. Null when no marquee is in progress.
     var marqueeRect: Pair<WorldPoint, WorldPoint>? by mutableStateOf(null)
+
+    /** SELECT tool mode: false = rectangle marquee, true = freehand lasso. */
+    var lassoSelect by mutableStateOf(false)
+
+    /** The lasso outline being drawn, in world space; empty when no lasso is in progress. */
+    val lassoPath = mutableStateListOf<WorldPoint>()
         private set
 
     private var isMovingSelection = false
@@ -636,14 +642,16 @@ class CanvasState(
      * existing selection once the marquee is released).
      */
     fun beginSelectGesture(worldPoint: WorldPoint) {
-        recordHistory()
         if (selection.isNotEmpty() && pointInsideSelectionBounds(worldPoint)) {
+            // Recorded only for a move: selecting changes no strokes, so recording it too left
+            // undo steps that appeared to do nothing.
+            recordHistory()
             isMovingSelection = true
             lastDragPoint = worldPoint
         } else {
             isMovingSelection = false
             selection.clear()
-            marqueeRect = worldPoint to worldPoint
+            if (lassoSelect) lassoPath.add(worldPoint) else marqueeRect = worldPoint to worldPoint
         }
     }
 
@@ -653,6 +661,8 @@ class CanvasState(
             val delta = worldPoint - last
             for (stroke in selection) stroke.shiftBy(WorldPoint(-delta.x, -delta.y))
             lastDragPoint = worldPoint
+        } else if (lassoSelect) {
+            if (lassoPath.isNotEmpty()) lassoPath.add(worldPoint)
         } else {
             val start = marqueeRect?.first ?: return
             marqueeRect = start to worldPoint
@@ -664,6 +674,19 @@ class CanvasState(
             isMovingSelection = false
             lastDragPoint = null
             onChanged(strokes.toList())
+            return
+        }
+        if (lassoPath.isNotEmpty()) {
+            val lasso = lassoPath.toList()
+            lassoPath.clear()
+            // A stroke is lassoed when at least half its points fall inside the (implicitly
+            // closed) outline - tolerant of a stroke that pokes slightly out of a loose loop.
+            if (lasso.size >= 3) {
+                selection.addAll(strokes.filter { stroke ->
+                    stroke.points.isNotEmpty() &&
+                        stroke.points.count { polygonContains(lasso, it) } * 2 >= stroke.points.size
+                })
+            }
             return
         }
         val rect = marqueeRect

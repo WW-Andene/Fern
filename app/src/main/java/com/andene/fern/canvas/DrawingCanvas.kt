@@ -343,6 +343,17 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                 drawRect(color = MARQUEE_BORDER_COLOR, topLeft = topLeft, size = size, style = DrawStyle(width = 2f))
             }
 
+            if (state.lassoPath.size >= 2) {
+                val lasso = Path()
+                state.lassoPath.forEachIndexed { index, point ->
+                    val screen = state.worldToScreen(point, screenCenter)
+                    if (index == 0) lasso.moveTo(screen.x, screen.y) else lasso.lineTo(screen.x, screen.y)
+                }
+                lasso.close()
+                drawPath(lasso, color = MARQUEE_FILL_COLOR)
+                drawPath(lasso, color = MARQUEE_BORDER_COLOR, style = DrawStyle(width = 2f))
+            }
+
             state.shapePreview?.let { (start, end) ->
                 val screenPoints = generateShapePoints(state.activeShapeKind, start, end).map { state.worldToScreen(it, screenCenter) }
                 val rawWidthScreen = state.activeWidthWorld

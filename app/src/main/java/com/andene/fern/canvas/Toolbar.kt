@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.HighlightAlt
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Remove
@@ -286,6 +287,12 @@ fun Toolbar(
                     )
                 }
                 if (state.activeTool == Tool.SELECT) {
+                    IconButton(onClick = { state.lassoSelect = !state.lassoSelect }) {
+                        Icon(
+                            if (state.lassoSelect) Icons.Filled.Gesture else Icons.Filled.HighlightAlt,
+                            contentDescription = if (state.lassoSelect) "Lasso select (tap for rectangle)" else "Rectangle select (tap for lasso)",
+                        )
+                    }
                     IconButton(onClick = { state.duplicateSelection() }) {
                         Icon(Icons.Filled.ContentCopy, contentDescription = "Duplicate selection")
                     }
