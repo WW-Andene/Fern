@@ -77,6 +77,7 @@ class CanvasState(
 
         // Holding the pen still this long before lifting turns a rough stroke into a clean shape.
         private const val SHAPE_HOLD_MILLIS = 500L
+        private const val HOLD_JITTER_SCREEN = 2.0
 
         // Above ~0.9 the stroke lags so far behind the pen that it stops feeling like drawing.
         const val MAX_STABILIZATION = 0.9
@@ -314,8 +315,13 @@ class CanvasState(
 
     fun extendStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
         val stroke = currentStroke ?: return
+        // Touchscreens report sub-pixel jitter even from a still finger; only real movement
+        // (more than HOLD_JITTER_SCREEN px) restarts the hold timer for shape recognition.
+        val previousRaw = lastRawPoint
+        if (previousRaw == null || hypot(worldPoint.x - previousRaw.x, worldPoint.y - previousRaw.y) * scale > HOLD_JITTER_SCREEN) {
+            lastStrokeMoveMillis = System.currentTimeMillis()
+        }
         lastRawPoint = worldPoint
-        lastStrokeMoveMillis = System.currentTimeMillis()
         val previous = stroke.points.lastOrNull()
         // Exponential smoothing: move only part of the way from the last point toward the pen.
         val smoothed = if (previous == null || activeStabilization <= 0.0) worldPoint
