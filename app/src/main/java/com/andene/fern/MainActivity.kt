@@ -58,6 +58,7 @@ import com.andene.fern.canvas.WorldPoint
 import com.andene.fern.canvas.exportDocumentPdf
 import com.andene.fern.canvas.exportDocumentPng
 import com.andene.fern.canvas.exportDocumentSvg
+import com.andene.fern.canvas.importPdfPages
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
@@ -160,6 +161,36 @@ class MainActivity : ComponentActivity() {
                         contract = ActivityResultContracts.CreateDocument("application/pdf"),
                     ) { uri ->
                         if (uri != null) writeExport(uri) { exportDocumentPdf(canvasState, textMeasurer, imageForExport) }
+                    }
+
+                    val pdfImportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocument(),
+                    ) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val pages = withContext(Dispatchers.IO) { importPdfPages(context, uri) }
+                            if (pages.isEmpty()) {
+                                Toast.makeText(context, "Couldn't open that PDF", Toast.LENGTH_SHORT).show()
+                                return@launch
+                            }
+                            // Pages stacked top to bottom like a scrolling document, each 512
+                            // screen px wide at the current zoom (on the §7 scale), centred
+                            // horizontally on the view with a 32 px gap between pages.
+                            val scale = canvasState.scale.coerceAtLeast(1e-300)
+                            val widthWorld = 512.0 / scale
+                            val gapWorld = 32.0 / scale
+                            var top = canvasState.panWorld.y
+                            for (page in pages) {
+                                val heightWorld = widthWorld * page.heightPx / page.widthPx
+                                canvasState.addImage(
+                                    page.fileName,
+                                    WorldPoint(canvasState.panWorld.x - widthWorld / 2.0, top),
+                                    widthWorld,
+                                    heightWorld,
+                                )
+                                top += heightWorld + gapWorld
+                            }
+                        }
                     }
 
                     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -300,6 +331,7 @@ class MainActivity : ComponentActivity() {
                                     context.startActivity(Intent.createChooser(send, null))
                                 }
                             },
+                            onImportPdf = { pdfImportLauncher.launch(arrayOf("application/pdf")) },
                             onInsertImage = {
                                 imagePickerLauncher.launch(
                                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)

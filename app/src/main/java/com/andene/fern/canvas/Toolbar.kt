@@ -53,6 +53,7 @@ import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.HighlightAlt
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.SelectAll
@@ -98,6 +99,7 @@ fun Toolbar(
     onExportPdf: () -> Unit = {},
     onExportSvg: () -> Unit = {},
     onShare: () -> Unit = {},
+    onImportPdf: () -> Unit = {},
 ) {
     var showExportMenu by remember { mutableStateOf(false) }
     var showWidthSlider by remember { mutableStateOf(false) }
@@ -358,6 +360,9 @@ fun Toolbar(
                 }
                 IconButton(onClick = onInsertImage) {
                     Icon(Icons.Filled.Image, contentDescription = "Insert image")
+                }
+                IconButton(onClick = onImportPdf) {
+                    Icon(Icons.Filled.PictureAsPdf, contentDescription = "Import PDF to annotate")
                 }
                 Box {
                     IconButton(onClick = { showExportMenu = true }) {
