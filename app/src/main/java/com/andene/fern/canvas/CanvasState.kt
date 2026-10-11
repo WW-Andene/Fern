@@ -60,6 +60,8 @@ class CanvasState(
     private val onTextChanged: (List<TextItem>) -> Unit = {},
     private val onImageChanged: (List<ImageItem>) -> Unit = {},
     private val onBackgroundChanged: (Color, BackgroundStyle) -> Unit = { _, _ -> },
+    /** World-space content stored outside this class (pins) must shift by -offset too; see [rebaseIfNeeded]. */
+    private val onRebased: (offset: WorldPoint) -> Unit = {},
 ) {
     companion object {
         // Effectively unbounded: leaves ~250 orders of magnitude of headroom on both sides
@@ -817,6 +819,20 @@ class CanvasState(
         for (snapshot in undoStack + redoStack) {
             for (stroke in snapshot) stroke.shiftBy(offset)
         }
+        // Everything else positioned in world space moves too. Previously only strokes did,
+        // so after panning past the threshold, text, images, the ruler and pins jumped away
+        // from the drawing they were placed on.
+        if (textItems.isNotEmpty()) {
+            for (i in textItems.indices) textItems[i] = textItems[i].copy(position = textItems[i].position - offset)
+            onTextChanged(textItems.toList())
+        }
+        if (imageItems.isNotEmpty()) {
+            for (i in imageItems.indices) imageItems[i] = imageItems[i].copy(position = imageItems[i].position - offset)
+            onImageChanged(imageItems.toList())
+        }
+        rulerLine = rulerLine?.let { (start, end) -> (start - offset) to (end - offset) }
+        pendingTextEdit = pendingTextEdit?.let { it.copy(worldPoint = it.worldPoint - offset) }
+        onRebased(offset)
         panWorld = WorldPoint.Zero
     }
 }

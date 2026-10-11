@@ -91,6 +91,12 @@ class MainActivity : ComponentActivity() {
                             onTextChanged = { snapshot -> CanvasStorage.saveTextItems(context, currentDocumentId, snapshot) },
                             onImageChanged = { snapshot -> CanvasStorage.saveImageItems(context, currentDocumentId, snapshot) },
                             onBackgroundChanged = { color, style -> CanvasStorage.saveBackground(context, currentDocumentId, color, style) },
+                            onRebased = { offset ->
+                                if (pins.isNotEmpty()) {
+                                    pins = pins.map { it.copy(x = it.x - offset.x, y = it.y - offset.y) }
+                                    CanvasStorage.savePins(context, currentDocumentId, pins)
+                                }
+                            },
                         )
                     }
 
