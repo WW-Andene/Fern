@@ -1,6 +1,8 @@
 package com.andene.fern.canvas
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.util.AtomicFile
 import android.util.Log
 import androidx.compose.ui.graphics.Color
@@ -141,6 +143,7 @@ object CanvasStorage {
         textItemsFile(context, id).delete()
         imageItemsFile(context, id).delete()
         backgroundFile(context, id).delete()
+        thumbnailFile(context, id).delete()
         // Deliberately not deleting files under images/: they're shared/immutable and may
         // still be referenced by a duplicate of this document. Accepted tradeoff - orphaned
         // image files from a deleted, non-duplicated document are left behind rather than
@@ -163,6 +166,7 @@ object CanvasStorage {
 
     fun save(context: Context, documentId: String, strokes: List<Stroke>) {
         saveStrokesFile(context, documentId, strokes)
+        saveThumbnail(context, documentId, strokes)
         val index = readIndex(context)
         for (i in 0 until index.length()) {
             val entry = index.getJSONObject(i)
@@ -302,6 +306,18 @@ object CanvasStorage {
         writeStored(imageItemsFile(context, documentId), root)
     }
 
+    /** The document library preview, regenerated on every save; missing for a never-drawn-on document. */
+    fun loadThumbnail(context: Context, documentId: String): Bitmap? {
+        val file = thumbnailFile(context, documentId)
+        return if (file.exists()) BitmapFactory.decodeFile(file.path) else null
+    }
+
+    private fun saveThumbnail(context: Context, documentId: String, strokes: List<Stroke>) {
+        val png = renderThumbnailPng(strokes)
+        if (png == null) thumbnailFile(context, documentId).delete()
+        else writeAtomically(thumbnailFile(context, documentId), png)
+    }
+
     /** Directory holding decoded copies of every inserted image, shared across all documents and keyed by id-derived file name. */
     fun imagesDir(context: Context): File {
         val dir = File(context.filesDir, IMAGES_DIR_NAME)
@@ -337,7 +353,7 @@ object CanvasStorage {
     }
 
     /**
-     * Writes [text] to [file] crash-safely. The plain `writeText` this replaces truncated the
+     * Writes [bytes] to [file] crash-safely. The plain `writeText` this replaces truncated the
      * file first, so a process kill mid-write left half a JSON document that then failed to
      * parse on every launch. [AtomicFile] writes to a side file, fsyncs it, and only then
      * renames it over the original, so a reader sees either the old or the new content.
@@ -347,7 +363,7 @@ object CanvasStorage {
             put(KEY_FORMAT_VERSION, FORMAT_VERSION)
             put(KEY_DATA, payload)
         }
-        writeAtomically(file, envelope.toString())
+        writeAtomically(file, envelope.toString().toByteArray())
     }
 
     /**
@@ -362,11 +378,11 @@ object CanvasStorage {
         return if (version == 0) raw else (raw as JSONObject).get(KEY_DATA)
     }
 
-    private fun writeAtomically(file: File, text: String) {
+    private fun writeAtomically(file: File, bytes: ByteArray) {
         val atomic = AtomicFile(file)
         val out = atomic.startWrite()
         try {
-            out.write(text.toByteArray())
+            out.write(bytes)
             atomic.finishWrite(out)
         } catch (e: Exception) {
             atomic.failWrite(out)
@@ -420,6 +436,8 @@ object CanvasStorage {
     private fun textItemsFile(context: Context, documentId: String) = File(context.filesDir, "text_$documentId.json")
 
     private fun imageItemsFile(context: Context, documentId: String) = File(context.filesDir, "images_$documentId.json")
+
+    private fun thumbnailFile(context: Context, documentId: String) = File(context.filesDir, "thumb_$documentId.png")
 
     private fun backgroundFile(context: Context, documentId: String) = File(context.filesDir, "background_$documentId.json")
 

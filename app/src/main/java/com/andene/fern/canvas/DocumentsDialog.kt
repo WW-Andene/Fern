@@ -1,6 +1,14 @@
 package com.andene.fern.canvas
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -59,6 +67,7 @@ fun DocumentsDialog(
     onDeleteForever: (DocumentMeta) -> Unit,
     onCreateNew: () -> Unit,
     onDismiss: () -> Unit,
+    loadThumbnail: (DocumentMeta) -> ImageBitmap?,
 ) {
     var renamingId by remember { mutableStateOf<String?>(null) }
     var renameText by remember { mutableStateOf("") }
@@ -154,9 +163,11 @@ fun DocumentsDialog(
                                         contentDescription = if (doc.favorite) "Remove from favourites" else "Add to favourites",
                                     )
                                 }
+                                DocumentThumbnailImage(doc, loadThumbnail)
                                 Text(
                                     text = doc.name,
                                     modifier = Modifier
+                                        .padding(start = 8.dp)
                                         .weight(1f)
                                         .clickable { onSelect(doc) },
                                     fontWeight = if (doc.id == currentDocumentId) FontWeight.Bold else FontWeight.Normal,
@@ -186,4 +197,20 @@ fun DocumentsDialog(
             TextButton(onClick = onDismiss) { Text("Close") }
         },
     )
+}
+
+/** A small preview of [doc]; a blank tile when it has nothing drawn yet. */
+@Composable
+private fun DocumentThumbnailImage(doc: DocumentMeta, loadThumbnail: (DocumentMeta) -> ImageBitmap?) {
+    // Keyed on lastModified so the preview refreshes after the document is saved again.
+    val thumbnail = remember(doc.id, doc.lastModified) { loadThumbnail(doc) }
+    val tileModifier = Modifier
+        .size(48.dp)
+        .clip(RoundedCornerShape(12.dp)) // §7.3: 0.24 × 48 = 11.5, nearest scale value 12
+        .background(Color(0xFFF7F5F0))
+    if (thumbnail != null) {
+        Image(bitmap = thumbnail, contentDescription = null, modifier = tileModifier)
+    } else {
+        Box(modifier = tileModifier)
+    }
 }
