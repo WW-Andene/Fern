@@ -141,8 +141,10 @@ class MainActivity : ComponentActivity() {
                         CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList())
                         CanvasStorage.saveTextItems(context, currentDocumentId, canvasState.textItems.toList())
                         CanvasStorage.saveImageItems(context, currentDocumentId, canvasState.imageItems.toList())
+                        canvasState.historySnapshot().let { (undo, redo) -> CanvasStorage.saveHistory(context, currentDocumentId, undo, redo) }
                         currentDocumentId = documentId
                         canvasState.loadStrokes(CanvasStorage.load(context, documentId))
+                        CanvasStorage.loadHistory(context, documentId).let { (undo, redo) -> canvasState.loadHistory(undo, redo) }
                         canvasState.loadTextItems(CanvasStorage.loadTextItems(context, documentId))
                         canvasState.loadImageItems(CanvasStorage.loadImageItems(context, documentId))
                         val (backgroundColor, backgroundStyle) = CanvasStorage.loadBackground(context, documentId)
@@ -159,6 +161,8 @@ class MainActivity : ComponentActivity() {
                         }
                         currentDocumentId = current.id
                         canvasState.loadStrokes(withContext(Dispatchers.IO) { CanvasStorage.load(context, current.id) })
+                        withContext(Dispatchers.IO) { CanvasStorage.loadHistory(context, current.id) }
+                            .let { (undo, redo) -> canvasState.loadHistory(undo, redo) }
                         canvasState.loadTextItems(withContext(Dispatchers.IO) { CanvasStorage.loadTextItems(context, current.id) })
                         canvasState.loadImageItems(withContext(Dispatchers.IO) { CanvasStorage.loadImageItems(context, current.id) })
                         val (backgroundColor, backgroundStyle) = withContext(Dispatchers.IO) { CanvasStorage.loadBackground(context, current.id) }
@@ -176,6 +180,7 @@ class MainActivity : ComponentActivity() {
                                 CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList())
                                 CanvasStorage.saveTextItems(context, currentDocumentId, canvasState.textItems.toList())
                                 CanvasStorage.saveImageItems(context, currentDocumentId, canvasState.imageItems.toList())
+                                canvasState.historySnapshot().let { (undo, redo) -> CanvasStorage.saveHistory(context, currentDocumentId, undo, redo) }
                             }
                         }
                         lifecycleOwner.lifecycle.addObserver(observer)

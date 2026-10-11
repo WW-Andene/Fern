@@ -217,6 +217,17 @@ class CanvasState(
         redoStack.clear()
     }
 
+    /** Undo and redo snapshots, oldest first, for [CanvasStorage.saveHistory]. */
+    fun historySnapshot(): Pair<List<List<Stroke>>, List<List<Stroke>>> = undoStack.toList() to redoStack.toList()
+
+    /** Restores history saved by [CanvasStorage.saveHistory]; call after [loadStrokes], which clears it. */
+    fun loadHistory(undo: List<List<Stroke>>, redo: List<List<Stroke>>) {
+        undoStack.clear()
+        undoStack.addAll(undo.takeLast(MAX_UNDO_STEPS))
+        redoStack.clear()
+        redoStack.addAll(redo)
+    }
+
     private fun restore(snapshot: List<Stroke>) {
         strokes.clear()
         strokes.addAll(snapshot.map { it.deepCopy() })

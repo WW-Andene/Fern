@@ -63,6 +63,9 @@ object CanvasStorage {
     // Matches the canvas backdrop's original hardcoded color, so an existing document with no
     // background file yet (created before this feature existed) looks exactly as it always has.
     // Same 30-day window as Android's own Files and Photos trash, so it matches user expectations.
+    // 16 is on the project size scale (CLAUDE.md §7); see saveHistory for why it's below the in-memory cap.
+    private const val PERSISTED_HISTORY_STEPS = 16
+
     private const val TRASH_RETENTION_MILLIS = 30L * 24 * 60 * 60 * 1000
 
     private val DEFAULT_BACKGROUND_COLOR = Color(0xFFF7F5F0)
@@ -152,6 +155,7 @@ object CanvasStorage {
         imageItemsFile(context, id).delete()
         backgroundFile(context, id).delete()
         thumbnailFile(context, id).delete()
+        historyFile(context, id).delete()
         // Deliberately not deleting files under images/: they're shared/immutable and may
         // still be referenced by a duplicate of this document. Accepted tradeoff - orphaned
         // image files from a deleted, non-duplicated document are left behind rather than
@@ -314,6 +318,30 @@ object CanvasStorage {
         writeStored(imageItemsFile(context, documentId), root)
     }
 
+    /**
+     * Persists undo/redo snapshots (oldest first) so history survives an app restart. Only the
+     * newest [PERSISTED_HISTORY_STEPS] of each are kept on disk: every step is a full copy of
+     * the document, so persisting all 64 in-memory steps would make this file up to 64x the
+     * size of the document itself.
+     */
+    fun saveHistory(context: Context, documentId: String, undo: List<List<Stroke>>, redo: List<List<Stroke>>) {
+        val root = JSONObject().apply {
+            put("undo", JSONArray().apply { undo.takeLast(PERSISTED_HISTORY_STEPS).forEach { put(strokesToJson(it)) } })
+            put("redo", JSONArray().apply { redo.takeLast(PERSISTED_HISTORY_STEPS).forEach { put(strokesToJson(it)) } })
+        }
+        writeStored(historyFile(context, documentId), root)
+    }
+
+    /** Undo and redo snapshots saved by [saveHistory], or empty lists if there are none. */
+    fun loadHistory(context: Context, documentId: String): Pair<List<List<Stroke>>, List<List<Stroke>>> {
+        val root = readStored(historyFile(context, documentId)) { it as JSONObject } ?: return emptyList<List<Stroke>>() to emptyList()
+        fun steps(key: String): List<List<Stroke>> {
+            val array = root.optJSONArray(key) ?: return emptyList()
+            return (0 until array.length()).map { parseStrokes(array.getJSONArray(it)) }
+        }
+        return steps("undo") to steps("redo")
+    }
+
     /** The document library preview, regenerated on every save; missing for a never-drawn-on document. */
     fun loadThumbnail(context: Context, documentId: String): Bitmap? {
         val file = thumbnailFile(context, documentId)
@@ -447,11 +475,17 @@ object CanvasStorage {
 
     private fun imageItemsFile(context: Context, documentId: String) = File(context.filesDir, "images_$documentId.json")
 
+    private fun historyFile(context: Context, documentId: String) = File(context.filesDir, "history_$documentId.json")
+
     private fun thumbnailFile(context: Context, documentId: String) = File(context.filesDir, "thumb_$documentId.png")
 
     private fun backgroundFile(context: Context, documentId: String) = File(context.filesDir, "background_$documentId.json")
 
     private fun saveStrokesFile(context: Context, documentId: String, strokes: List<Stroke>) {
+        writeStored(strokesFile(context, documentId), strokesToJson(strokes))
+    }
+
+    private fun strokesToJson(strokes: List<Stroke>): JSONArray {
         val root = JSONArray()
         for (stroke in strokes) {
             val strokeJson = JSONObject()
@@ -474,7 +508,7 @@ object CanvasStorage {
             strokeJson.put("points", pointsJson)
             root.put(strokeJson)
         }
-        writeStored(strokesFile(context, documentId), root)
+        return root
     }
 
     private fun parseStrokes(root: JSONArray): List<Stroke> {
