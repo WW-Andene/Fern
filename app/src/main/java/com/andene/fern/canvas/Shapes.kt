@@ -106,3 +106,40 @@ private fun rotatedOffset(from: WorldPoint, ux: Double, uy: Double, angle: Doubl
     val ry = ux * sin(angle) + uy * cos(angle)
     return WorldPoint(from.x + rx * length, from.y + ry * length)
 }
+
+// Recognition thresholds, relative to the stroke's own size so they work at any zoom level.
+private const val LINE_MAX_DEVIATION_RATIO = 0.06 // max distance from the chord, as a fraction of its length
+private const val LOOP_CLOSE_RATIO = 0.2 // end-to-start gap allowed, as a fraction of the bounding-box diagonal
+private const val RECTANGLE_MIN_FILL = 0.88 // polygon area / bounding-box area; a perfect rectangle is 1.0
+private const val ELLIPSE_MIN_FILL = 0.65 // a perfect ellipse is pi/4 = 0.785
+
+/**
+ * QuickShape-style recognition of a freehand stroke: returns clean points for the line,
+ * rectangle or ellipse it most resembles, or null if it doesn't clearly match any. Uses the
+ * same generators and snapping as the SHAPE tool, so a recognised circle or 45° line comes
+ * out exactly as if drawn with that tool. Rectangles are assumed axis-aligned.
+ */
+fun recognizeShape(points: List<WorldPoint>): List<WorldPoint>? {
+    if (points.size < 3) return null
+    val first = points.first()
+    val last = points.last()
+    val chord = hypot(last.x - first.x, last.y - first.y)
+    if (chord > 0.0 && points.all { distanceToPolyline(listOf(first, last), it) <= chord * LINE_MAX_DEVIATION_RATIO }) {
+        return generateShapePoints(ShapeKind.LINE, first, snappedShapeEnd(ShapeKind.LINE, first, last))
+    }
+    val minX = points.minOf { it.x }
+    val minY = points.minOf { it.y }
+    val maxX = points.maxOf { it.x }
+    val maxY = points.maxOf { it.y }
+    val boxArea = (maxX - minX) * (maxY - minY)
+    if (boxArea <= 0.0) return null
+    if (!isClosedLoop(points, hypot(maxX - minX, maxY - minY) * LOOP_CLOSE_RATIO)) return null
+    val fill = abs(polygonArea(points)) / boxArea
+    val kind = when {
+        fill >= RECTANGLE_MIN_FILL -> ShapeKind.RECTANGLE
+        fill >= ELLIPSE_MIN_FILL -> ShapeKind.ELLIPSE
+        else -> return null
+    }
+    val start = WorldPoint(minX, minY)
+    return generateShapePoints(kind, start, snappedShapeEnd(kind, start, WorldPoint(maxX, maxY)))
+}

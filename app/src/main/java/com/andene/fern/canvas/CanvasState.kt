@@ -75,6 +75,9 @@ class CanvasState(
         // Finger-sized hit slop so thin strokes can still be picked; on the §7 scale.
         private const val EYEDROPPER_TOLERANCE_SCREEN = 12.0
 
+        // Holding the pen still this long before lifting turns a rough stroke into a clean shape.
+        private const val SHAPE_HOLD_MILLIS = 500L
+
         // Above ~0.9 the stroke lags so far behind the pen that it stops feeling like drawing.
         const val MAX_STABILIZATION = 0.9
 
@@ -304,6 +307,7 @@ class CanvasState(
         )
         stroke.addPoint(snappedToActiveGuide(worldPoint), pressure, tilt, orientation)
         rememberActiveColor()
+        lastStrokeMoveMillis = System.currentTimeMillis()
         currentStroke = stroke
         strokes.add(stroke)
     }
@@ -311,6 +315,7 @@ class CanvasState(
     fun extendStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
         val stroke = currentStroke ?: return
         lastRawPoint = worldPoint
+        lastStrokeMoveMillis = System.currentTimeMillis()
         val previous = stroke.points.lastOrNull()
         // Exponential smoothing: move only part of the way from the last point toward the pen.
         val smoothed = if (previous == null || activeStabilization <= 0.0) worldPoint
@@ -318,8 +323,20 @@ class CanvasState(
         stroke.addPoint(snappedToActiveGuide(smoothed), pressure, tilt, orientation)
     }
 
+    // When the pen last moved; a pause before lifting triggers shape recognition in endStroke.
+    private var lastStrokeMoveMillis = 0L
+
     // The unsmoothed pen position, so endStroke can finish the line where the pen actually lifted.
     private var lastRawPoint: WorldPoint? = null
+
+    /** Swaps [stroke] for a clean shape with the same style; pressure is dropped, as with SHAPE-tool strokes. */
+    private fun replaceWithShape(stroke: Stroke, cleanPoints: List<WorldPoint>) {
+        val index = strokes.indexOf(stroke)
+        if (index == -1) return
+        val shape = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode)
+        for (point in cleanPoints) shape.addPoint(point)
+        strokes[index] = shape
+    }
 
     /**
      * Projects [point] onto the ruler guide's infinite line when it's active and placed,
@@ -343,6 +360,9 @@ class CanvasState(
         if (stroke != null && raw != null && activeStabilization > 0.0) {
             // Smoothing trails behind the pen; close the gap so the stroke ends at the lift point.
             stroke.addPoint(snappedToActiveGuide(raw), stroke.pressures.last(), stroke.tilts.last(), stroke.orientations.last())
+        }
+        if (stroke != null && System.currentTimeMillis() - lastStrokeMoveMillis >= SHAPE_HOLD_MILLIS) {
+            recognizeShape(stroke.points)?.let { clean -> replaceWithShape(stroke, clean) }
         }
         lastRawPoint = null
         currentStroke = null
