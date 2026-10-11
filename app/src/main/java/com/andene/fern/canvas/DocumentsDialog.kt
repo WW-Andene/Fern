@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -21,7 +22,9 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -49,7 +52,7 @@ private enum class DocumentSort(val label: String) {
 }
 
 /**
- * The document library: search, sort, favourites, and a trash view. Deleting moves a document
+ * The document library: search, sort, favourites, folders, and a trash view. Deleting moves a document
  * to the trash (restorable for 30 days, see [CanvasStorage.moveToTrash]); only the trash view
  * deletes permanently. The last non-trashed document can't be trashed, since a canvas with
  * zero open-able documents isn't a valid state.
@@ -62,6 +65,7 @@ fun DocumentsDialog(
     onRename: (DocumentMeta, String) -> Unit,
     onDuplicate: (DocumentMeta) -> Unit,
     onToggleFavorite: (DocumentMeta) -> Unit,
+    onMoveToFolder: (DocumentMeta, String?) -> Unit,
     onTrash: (DocumentMeta) -> Unit,
     onRestore: (DocumentMeta) -> Unit,
     onDeleteForever: (DocumentMeta) -> Unit,
@@ -74,10 +78,15 @@ fun DocumentsDialog(
     var query by remember { mutableStateOf("") }
     var sort by remember { mutableStateOf(DocumentSort.RECENT) }
     var showingTrash by remember { mutableStateOf(false) }
+    var openFolder by remember { mutableStateOf<String?>(null) } // null = all documents
+    var movingId by remember { mutableStateOf<String?>(null) }
+    var moveText by remember { mutableStateOf("") }
+    val folders = documents.filter { it.trashedAt == null }.mapNotNull { it.folder }.distinct().sorted()
 
     val activeCount = documents.count { it.trashedAt == null }
     val visible = documents
         .filter { (it.trashedAt != null) == showingTrash }
+        .filter { showingTrash || openFolder == null || it.folder == openFolder }
         .filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
         .let { list ->
             when (sort) {
@@ -117,6 +126,29 @@ fun DocumentsDialog(
                         label = { Text("Trash") },
                     )
                 }
+                if (!showingTrash && folders.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .horizontalScroll(rememberScrollState())
+                            .padding(bottom = 4.dp),
+                    ) {
+                        FilterChip(
+                            selected = openFolder == null,
+                            onClick = { openFolder = null },
+                            label = { Text("All") },
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                        for (folder in folders) {
+                            FilterChip(
+                                selected = openFolder == folder,
+                                onClick = { openFolder = folder },
+                                leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null) },
+                                label = { Text(folder) },
+                                modifier = Modifier.padding(end = 8.dp),
+                            )
+                        }
+                    }
+                }
                 Column(
                     modifier = Modifier
                         .heightIn(max = 384.dp)
@@ -142,6 +174,21 @@ fun DocumentsDialog(
                                 }
                                 IconButton(onClick = { onDeleteForever(doc) }) {
                                     Icon(Icons.Filled.DeleteForever, contentDescription = "Delete forever")
+                                }
+                            } else if (movingId == doc.id) {
+                                // Empty name moves the document back to the top level.
+                                OutlinedTextField(
+                                    value = moveText,
+                                    onValueChange = { moveText = it },
+                                    singleLine = true,
+                                    placeholder = { Text("Folder name") },
+                                    modifier = Modifier.weight(1f),
+                                )
+                                IconButton(onClick = {
+                                    onMoveToFolder(doc, moveText.ifBlank { null })
+                                    movingId = null
+                                }) {
+                                    Icon(Icons.Filled.Check, contentDescription = "Confirm move")
                                 }
                             } else if (renamingId == doc.id) {
                                 OutlinedTextField(
@@ -177,6 +224,12 @@ fun DocumentsDialog(
                                     renameText = doc.name
                                 }) {
                                     Icon(Icons.Filled.Edit, contentDescription = "Rename")
+                                }
+                                IconButton(onClick = {
+                                    movingId = doc.id
+                                    moveText = doc.folder ?: openFolder.orEmpty()
+                                }) {
+                                    Icon(Icons.Filled.DriveFileMove, contentDescription = "Move to folder")
                                 }
                                 IconButton(onClick = { onDuplicate(doc) }) {
                                     Icon(Icons.Filled.ContentCopy, contentDescription = "Duplicate")

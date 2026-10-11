@@ -22,6 +22,8 @@ data class DocumentMeta(
     val favorite: Boolean = false,
     /** When the document was moved to the trash, or null if it isn't trashed. */
     val trashedAt: Long? = null,
+    /** Library folder name, or null for the top level. Folders are just this label: one level, no separate folder records. */
+    val folder: String? = null,
 )
 
 /** A named, jumpable camera position within one document. */
@@ -75,6 +77,12 @@ object CanvasStorage {
             metas.add(metaFromJson(index.getJSONObject(i)))
         }
         return metas.sortedByDescending { it.lastModified }
+    }
+
+    fun setFolder(context: Context, id: String, folder: String?) {
+        updateIndexEntry(context, id) { entry ->
+            if (folder.isNullOrBlank()) entry.remove("folder") else entry.put("folder", folder.trim())
+        }
     }
 
     fun setFavorite(context: Context, id: String, favorite: Boolean) {
@@ -418,15 +426,17 @@ object CanvasStorage {
         put("lastModified", meta.lastModified)
         put("favorite", meta.favorite)
         meta.trashedAt?.let { put("trashedAt", it) }
+        meta.folder?.let { put("folder", it) }
     }
 
-    // favorite/trashedAt are optional: index entries written before they existed lack them.
+    // favorite/trashedAt/folder are optional: index entries written before they existed lack them.
     private fun metaFromJson(entry: JSONObject) = DocumentMeta(
         id = entry.getString("id"),
         name = entry.getString("name"),
         lastModified = entry.getLong("lastModified"),
         favorite = entry.optBoolean("favorite", false),
         trashedAt = if (entry.has("trashedAt")) entry.getLong("trashedAt") else null,
+        folder = if (entry.has("folder")) entry.getString("folder") else null,
     )
 
     private fun strokesFile(context: Context, documentId: String) = File(context.filesDir, "canvas_$documentId.json")

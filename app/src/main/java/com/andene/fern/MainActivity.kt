@@ -227,6 +227,10 @@ class MainActivity : ComponentActivity() {
                                 CanvasStorage.setFavorite(context, doc.id, !doc.favorite)
                                 coroutineScope.launch { refreshDocuments() }
                             },
+                            onMoveToFolder = { doc, folder ->
+                                CanvasStorage.setFolder(context, doc.id, folder)
+                                coroutineScope.launch { refreshDocuments() }
+                            },
                             onTrash = { doc ->
                                 val wasCurrent = doc.id == currentDocumentId
                                 CanvasStorage.moveToTrash(context, doc.id)
