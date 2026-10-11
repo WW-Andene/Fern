@@ -72,6 +72,10 @@ class CanvasState(
         // enough that precision near the origin never meaningfully degrades.
         private const val REBASE_THRESHOLD = 65536.0
 
+        // Snapshot undo keeps a full copy of the strokes per step, so the depth is capped to
+        // bound memory on big documents. 64 is on the project size scale (CLAUDE.md §7).
+        private const val MAX_UNDO_STEPS = 64
+
         // Eraser radius in screen pixels (on the §7 scale - Secondary tier), converted to
         // world units by the same scale-dependent logic as pen width, so the eraser covers
         // a consistent on-screen area regardless of zoom level.
@@ -199,10 +203,24 @@ class CanvasState(
 
     private var currentStroke: Stroke? = null
 
-    // Strokes popped by undo, in the order they can be redone (last popped, first redone).
-    // Not exposed as Compose state: nothing currently renders redo-availability, so this
-    // doesn't need to trigger recomposition on its own (§5.2 - no speculative UI hooks).
-    private val redoStack = mutableListOf<Stroke>()
+    // Snapshot history: each entry is a deep copy of the whole stroke list before (undo) or
+    // after (redo) an action. The previous design popped the last stroke, which was only
+    // correct for drawing - undoing an erase, move, fill or clear removed an unrelated stroke
+    // instead of reverting the action. Snapshots make every stroke action undoable the same way.
+    private val undoStack = ArrayDeque<List<Stroke>>()
+    private val redoStack = ArrayDeque<List<Stroke>>()
+
+    /** Called at the start of every stroke-changing action; also invalidates redo, standard editor semantics. */
+    private fun recordHistory() {
+        undoStack.addLast(strokes.map { it.deepCopy() })
+        while (undoStack.size > MAX_UNDO_STEPS) undoStack.removeFirst()
+        redoStack.clear()
+    }
+
+    private fun restore(snapshot: List<Stroke>) {
+        strokes.clear()
+        strokes.addAll(snapshot.map { it.deepCopy() })
+    }
 
     fun worldToScreen(world: WorldPoint, screenCenter: Offset): Offset {
         val relative = world - panWorld
@@ -220,7 +238,7 @@ class CanvasState(
     }
 
     fun beginStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
-        redoStack.clear() // drawing something new invalidates redo history, standard editor semantics
+        recordHistory()
         clearSelectionState() // avoid a stale selection referencing strokes another tool is about to change
         val stroke = Stroke(
             activeColor.copy(alpha = activeColor.alpha * activeOpacity.toFloat()),
@@ -264,7 +282,7 @@ class CanvasState(
         get() = ERASER_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
 
     fun beginErase(worldPoint: WorldPoint) {
-        redoStack.clear()
+        recordHistory()
         clearSelectionState() // avoid a stale selection referencing strokes this erase is about to split/remove
         eraseAt(worldPoint)
     }
@@ -301,7 +319,7 @@ class CanvasState(
     }
 
     fun beginShape(worldPoint: WorldPoint) {
-        redoStack.clear()
+        recordHistory()
         clearSelectionState()
         shapeStart = worldPoint
         shapePreview = worldPoint to worldPoint
@@ -342,7 +360,7 @@ class CanvasState(
      * real fill-tool expectations. No-op if nothing qualifies.
      */
     fun fillAt(worldPoint: WorldPoint) {
-        redoStack.clear()
+        recordHistory()
         clearSelectionState()
         val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
         var bestIndex = -1
@@ -508,7 +526,7 @@ class CanvasState(
      * existing selection once the marquee is released).
      */
     fun beginSelectGesture(worldPoint: WorldPoint) {
-        redoStack.clear()
+        recordHistory()
         if (selection.isNotEmpty() && pointInsideSelectionBounds(worldPoint)) {
             isMovingSelection = true
             lastDragPoint = worldPoint
@@ -568,6 +586,7 @@ class CanvasState(
      */
     fun beginScaleSelection(worldPoint: WorldPoint) {
         val bounds = selectionBounds() ?: return
+        recordHistory()
         gestureAnchor = bounds.first
         gestureStartDistance = hypot(worldPoint.x - gestureAnchor.x, worldPoint.y - gestureAnchor.y).coerceAtLeast(1e-9)
         gestureSnapshot = selection.associateWith { it.points.toList() }
@@ -603,6 +622,7 @@ class CanvasState(
      */
     fun beginRotateSelection(worldPoint: WorldPoint) {
         val bounds = selectionBounds() ?: return
+        recordHistory()
         val (min, max) = bounds
         gestureAnchor = WorldPoint((min.x + max.x) / 2.0, (min.y + max.y) / 2.0)
         gestureStartAngle = atan2(worldPoint.y - gestureAnchor.y, worldPoint.x - gestureAnchor.x)
@@ -637,6 +657,7 @@ class CanvasState(
     /** Deletes every currently selected stroke. */
     fun deleteSelection() {
         if (selection.isEmpty()) return
+        recordHistory()
         strokes.removeAll(selection.toSet())
         selection.clear()
         onChanged(strokes.toList())
@@ -645,6 +666,7 @@ class CanvasState(
     /** Duplicates every currently selected stroke, offset slightly so the copy is visible, and selects the copies. */
     fun duplicateSelection() {
         if (selection.isEmpty()) return
+        recordHistory()
         val nudge = WorldPoint(20.0 / scale.coerceAtLeast(1e-300), 20.0 / scale.coerceAtLeast(1e-300))
         val duplicates = selection.map { original ->
             val copy = Stroke(original.color, original.widthWorld, original.penType, original.filled, original.blendMode)
@@ -670,32 +692,33 @@ class CanvasState(
     }
 
     fun undo() {
-        if (strokes.isNotEmpty()) {
-            clearSelectionState()
-            redoStack.add(strokes.removeAt(strokes.size - 1))
-            onChanged(strokes.toList())
-        }
+        val previous = undoStack.removeLastOrNull() ?: return
+        clearSelectionState()
+        redoStack.addLast(strokes.map { it.deepCopy() })
+        restore(previous)
+        onChanged(strokes.toList())
     }
 
     fun redo() {
-        if (redoStack.isNotEmpty()) {
-            clearSelectionState()
-            strokes.add(redoStack.removeAt(redoStack.size - 1))
-            onChanged(strokes.toList())
-        }
+        val next = redoStack.removeLastOrNull() ?: return
+        clearSelectionState()
+        undoStack.addLast(strokes.map { it.deepCopy() })
+        restore(next)
+        onChanged(strokes.toList())
     }
 
     /** Replaces all strokes with [loaded] (e.g. from [CanvasStorage.load] on app start). */
     fun loadStrokes(loaded: List<Stroke>) {
         strokes.clear()
+        undoStack.clear()
         redoStack.clear()
         clearSelectionState()
         strokes.addAll(loaded)
     }
 
     fun clear() {
+        recordHistory() // strokes only: text and images aren't part of undo history yet
         strokes.clear()
-        redoStack.clear()
         clearSelectionState()
         onChanged(strokes.toList())
         textItems.clear()
@@ -777,6 +800,11 @@ class CanvasState(
         val offset = panWorld
         for (stroke in strokes) {
             stroke.shiftBy(offset)
+        }
+        // History snapshots are in the same world space, so they must move with it, or an
+        // undo after a rebase would restore strokes at their pre-rebase coordinates.
+        for (snapshot in undoStack + redoStack) {
+            for (stroke in snapshot) stroke.shiftBy(offset)
         }
         panWorld = WorldPoint.Zero
     }
