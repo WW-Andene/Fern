@@ -94,8 +94,10 @@ fun Toolbar(
     onOpenPins: () -> Unit = {},
     onOpenVersions: () -> Unit = {},
     onInsertImage: () -> Unit = {},
-    onExportImage: () -> Unit = {},
+    onExportPng: () -> Unit = {},
+    onExportPdf: () -> Unit = {},
 ) {
+    var showExportMenu by remember { mutableStateOf(false) }
     var showWidthSlider by remember { mutableStateOf(false) }
     var showColorPicker by remember { mutableStateOf(false) }
     var showPenTypeMenu by remember { mutableStateOf(false) }
@@ -355,8 +357,26 @@ fun Toolbar(
                 IconButton(onClick = onInsertImage) {
                     Icon(Icons.Filled.Image, contentDescription = "Insert image")
                 }
-                IconButton(onClick = onExportImage) {
-                    Icon(Icons.Filled.IosShare, contentDescription = "Export as PNG")
+                Box {
+                    IconButton(onClick = { showExportMenu = true }) {
+                        Icon(Icons.Filled.IosShare, contentDescription = "Export")
+                    }
+                    DropdownMenu(expanded = showExportMenu, onDismissRequest = { showExportMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Image (PNG)") },
+                            onClick = {
+                                showExportMenu = false
+                                onExportPng()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("PDF") },
+                            onClick = {
+                                showExportMenu = false
+                                onExportPdf()
+                            },
+                        )
+                    }
                 }
                 Box {
                     IconButton(onClick = { showBackgroundStyleMenu = true }) {

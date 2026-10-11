@@ -2,6 +2,7 @@ package com.andene.fern
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -31,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -51,6 +53,7 @@ import com.andene.fern.canvas.PinsDialog
 import com.andene.fern.canvas.Toolbar
 import com.andene.fern.canvas.VersionsDialog
 import com.andene.fern.canvas.WorldPoint
+import com.andene.fern.canvas.exportDocumentPdf
 import com.andene.fern.canvas.exportDocumentPng
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
@@ -113,28 +116,37 @@ class MainActivity : ComponentActivity() {
 
                     val textMeasurer = rememberTextMeasurer()
                     val density = LocalDensity.current
-                    // Export goes through the system "save as" picker (Storage Access Framework):
-                    // works on every API level from minSdk 26 without a storage permission.
-                    val exportLauncher = rememberLauncherForActivityResult(
-                        contract = ActivityResultContracts.CreateDocument("image/png"),
-                    ) { uri ->
-                        if (uri == null) return@rememberLauncherForActivityResult
+                    val imageForExport: (String) -> ImageBitmap? = { fileName ->
+                        BitmapFactory.decodeFile(CanvasStorage.imageFile(context, fileName).absolutePath)?.asImageBitmap()
+                    }
+
+                    // Renders off the main thread, then writes to the picked location; null bytes = empty document.
+                    fun writeExport(uri: Uri, render: () -> ByteArray?) {
                         coroutineScope.launch {
-                            val png = withContext(Dispatchers.Default) {
-                                exportDocumentPng(canvasState, textMeasurer, density) { fileName ->
-                                    BitmapFactory.decodeFile(CanvasStorage.imageFile(context, fileName).absolutePath)?.asImageBitmap()
-                                }
-                            }
-                            val message = if (png == null) {
+                            val bytes = withContext(Dispatchers.Default) { render() }
+                            val message = if (bytes == null) {
                                 "Nothing to export yet"
                             } else {
                                 withContext(Dispatchers.IO) {
-                                    context.contentResolver.openOutputStream(uri)?.use { it.write(png) }
+                                    context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
                                 }
                                 "Exported"
                             }
                             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                         }
+                    }
+
+                    // Export goes through the system "save as" picker (Storage Access Framework):
+                    // works on every API level from minSdk 26 without a storage permission.
+                    val pngExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("image/png"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportDocumentPng(canvasState, textMeasurer, density, imageForExport) }
+                    }
+                    val pdfExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/pdf"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportDocumentPdf(canvasState, textMeasurer, imageForExport) }
                     }
 
                     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -170,6 +182,8 @@ class MainActivity : ComponentActivity() {
                             canvasState.addImage(fileName, position, widthWorld, heightWorld)
                         }
                     }
+
+                    fun currentDocumentName() = documents.firstOrNull { it.id == currentDocumentId }?.name ?: "Fern"
 
                     suspend fun refreshDocuments() {
                         documents = withContext(Dispatchers.IO) { CanvasStorage.listDocuments(context) }
@@ -245,10 +259,8 @@ class MainActivity : ComponentActivity() {
                                     versions = withContext(Dispatchers.IO) { CanvasStorage.listVersions(context, currentDocumentId) }
                                 }
                             },
-                            onExportImage = {
-                                val name = documents.firstOrNull { it.id == currentDocumentId }?.name ?: "Fern"
-                                exportLauncher.launch("$name.png")
-                            },
+                            onExportPng = { pngExportLauncher.launch("${currentDocumentName()}.png") },
+                            onExportPdf = { pdfExportLauncher.launch("${currentDocumentName()}.pdf") },
                             onInsertImage = {
                                 imagePickerLauncher.launch(
                                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
