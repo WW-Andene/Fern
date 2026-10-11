@@ -76,6 +76,8 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                     stylusSample.pressure = event.getPressure(0)
                     stylusSample.tilt = if (isStylus) event.getAxisValue(MotionEvent.AXIS_TILT, 0) else 0f
                     stylusSample.orientation = if (isStylus) event.getOrientation(0) else 0f
+                    stylusSample.eraserEnd = event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER
+                    stylusSample.buttonPressed = isStylus && (event.buttonState and MotionEvent.BUTTON_STYLUS_PRIMARY) != 0
                 }
                 false
             }
@@ -89,6 +91,8 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                     var prevSpan = 0f
                     var selectionGestureKind = SelectionGestureKind.OTHER
                     var wasStylusActive = false
+                    // Tool to return to after a gesture that the stylus temporarily switched to the eraser.
+                    var toolBeforeStylusEraser: Tool? = null
 
                     fun endActiveDrawAction() {
                         when (state.activeTool) {
@@ -105,6 +109,8 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                 SelectionGestureKind.OTHER -> state.endSelectGesture()
                             }
                         }
+                        toolBeforeStylusEraser?.let { state.activeTool = it }
+                        toolBeforeStylusEraser = null
                     }
 
                     while (true) {
@@ -114,7 +120,8 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                         // entirely (a resting palm reads as ordinary touch input) rather
                         // than letting them register as a second drawing/navigation
                         // pointer. Consumed so nothing else treats them as unhandled.
-                        val stylusActive = allPressed.any { it.type == PointerType.Stylus }
+                        // The eraser end of a stylus reports its own pointer type; it's still a pen, not a palm.
+                        val stylusActive = allPressed.any { it.type == PointerType.Stylus || it.type == PointerType.Eraser }
                         val pointers = if (stylusActive) {
                             val (kept, rejected) = allPressed.partition { it.type != PointerType.Touch }
                             rejected.forEach { it.consume() }
@@ -137,6 +144,13 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
 
                         if (count == 1) {
                             if (mode != Mode.DRAW) {
+                                // Flipped stylus (eraser end) or held side button erases for this
+                                // gesture only, then the previous tool comes back - the convention
+                                // of Wacom pens, S Pen apps and most desktop paint programs.
+                                if ((stylusSample.eraserEnd || stylusSample.buttonPressed) && state.activeTool != Tool.ERASER) {
+                                    toolBeforeStylusEraser = state.activeTool
+                                    state.activeTool = Tool.ERASER
+                                }
                                 val downPos = pointers[0].position
                                 val world = state.screenToWorld(downPos, screenCenter)
                                 when (state.activeTool) {
@@ -416,6 +430,8 @@ private class StylusSample {
     var pressure = 1f
     var tilt = 0f
     var orientation = 0f
+    var eraserEnd = false
+    var buttonPressed = false
 }
 
 /**
