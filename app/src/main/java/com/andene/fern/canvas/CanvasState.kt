@@ -15,7 +15,7 @@ import kotlin.math.hypot
 import kotlin.math.sin
 import java.util.UUID
 
-enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER }
+enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER, EYEDROPPER }
 
 /**
  * Camera + document model for the infinite canvas.
@@ -68,6 +68,12 @@ class CanvasState(
         // of Double's range purely as a safety margin, not a meaningful practical limit.
         const val MIN_SCALE = 1e-250
         const val MAX_SCALE = 1e250
+
+        // 8 swatches fit beside the fixed palette without crowding the toolbar; on the §7 scale.
+        private const val MAX_RECENT_COLORS = 8
+
+        // Finger-sized hit slop so thin strokes can still be picked; on the §7 scale.
+        private const val EYEDROPPER_TOLERANCE_SCREEN = 12.0
 
         // Above ~0.9 the stroke lags so far behind the pen that it stops feeling like drawing.
         const val MAX_STABILIZATION = 0.9
@@ -134,6 +140,32 @@ class CanvasState(
      * on a string - smoother but lagging behind the finger.
      */
     var activeStabilization by mutableDoubleStateOf(0.0)
+
+    /** Colours most recently drawn with, newest first, for quick re-picking from the toolbar. */
+    val recentColors = mutableStateListOf<Color>()
+
+    /** Records [activeColor] as used; called whenever a new stroke, shape or fill is created. */
+    private fun rememberActiveColor() {
+        recentColors.remove(activeColor)
+        recentColors.add(0, activeColor)
+        while (recentColors.size > MAX_RECENT_COLORS) recentColors.removeAt(recentColors.size - 1)
+    }
+
+    /**
+     * EYEDROPPER tool: takes the colour of the topmost stroke under [worldPoint] (fills by
+     * containment, lines by distance within their width), then returns to the pen so the
+     * picked colour can be drawn with immediately. The stroke's alpha is dropped because it
+     * already includes the opacity slider's value; opacity stays a separate setting.
+     */
+    fun pickColorAt(worldPoint: WorldPoint) {
+        val tolerance = EYEDROPPER_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
+        val hit = strokes.lastOrNull { stroke ->
+            if (stroke.filled) polygonContains(stroke.points, worldPoint)
+            else distanceToPolyline(stroke.points, worldPoint) <= stroke.widthWorld / 2 + tolerance
+        } ?: return
+        activeColor = hit.color.copy(alpha = 1f)
+        activeTool = Tool.PEN
+    }
 
     /** Blend mode applied to new strokes - see [StrokeBlendMode]. */
     var activeBlendMode by mutableStateOf(StrokeBlendMode.NORMAL)
@@ -271,6 +303,7 @@ class CanvasState(
             blendMode = activeBlendMode,
         )
         stroke.addPoint(snappedToActiveGuide(worldPoint), pressure, tilt, orientation)
+        rememberActiveColor()
         currentStroke = stroke
         strokes.add(stroke)
     }
@@ -360,6 +393,7 @@ class CanvasState(
 
     fun beginShape(worldPoint: WorldPoint) {
         recordHistory()
+        rememberActiveColor()
         clearSelectionState()
         shapeStart = worldPoint
         shapePreview = worldPoint to worldPoint
@@ -401,6 +435,7 @@ class CanvasState(
      */
     fun fillAt(worldPoint: WorldPoint) {
         recordHistory()
+        rememberActiveColor()
         clearSelectionState()
         val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
         var bestIndex = -1

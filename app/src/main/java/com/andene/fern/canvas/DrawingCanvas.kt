@@ -97,6 +97,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                             Tool.SHAPE -> state.endShape()
                             Tool.FILL -> {} // one-shot on pointer-down, nothing to end
                             Tool.TEXT -> {} // one-shot on pointer-down, nothing to end
+                            Tool.EYEDROPPER -> {} // one-shot on pointer-down, nothing to end
                             Tool.RULER -> state.endRulerGesture()
                             Tool.SELECT -> when (selectionGestureKind) {
                                 SelectionGestureKind.SCALE -> state.endScaleSelection()
@@ -144,6 +145,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                     Tool.SHAPE -> state.beginShape(world)
                                     Tool.FILL -> state.fillAt(world)
                                     Tool.TEXT -> state.beginTextEdit(world)
+                                    Tool.EYEDROPPER -> state.pickColorAt(world)
                                     Tool.RULER -> state.beginRulerGesture(world)
                                     Tool.SELECT -> {
                                         val handles = selectionHandles(state, screenCenter)
@@ -174,6 +176,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                         Tool.SHAPE -> state.continueShape(world)
                                         Tool.FILL -> {} // one-shot; ignore drag
                                         Tool.TEXT -> {} // one-shot; ignore drag
+                                        Tool.EYEDROPPER -> {} // one-shot; ignore drag
                                         Tool.RULER -> state.continueRulerGesture(world)
                                         Tool.SELECT -> when (selectionGestureKind) {
                                             SelectionGestureKind.SCALE -> state.continueScaleSelection(world)

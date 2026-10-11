@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.Circle
+import androidx.compose.material.icons.filled.Colorize
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Delete
@@ -102,6 +103,27 @@ fun Toolbar(
         shadowElevation = 4.dp,
     ) {
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            // Recently used colours not already in the fixed palette, smaller than the palette swatches.
+            val recents = state.recentColors.filter { it !in palette }
+            if (recents.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.padding(bottom = 8.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                ) {
+                    for (color in recents) {
+                        Surface(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clickable {
+                                    state.activeColor = color
+                                    state.activeTool = Tool.PEN
+                                },
+                            shape = CircleShape,
+                            color = color,
+                        ) {}
+                    }
+                }
+            }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
@@ -125,6 +147,16 @@ fun Toolbar(
                 }
                 IconButton(onClick = { showColorPicker = true }) {
                     Icon(Icons.Filled.Palette, contentDescription = "Custom color")
+                }
+                IconButton(onClick = {
+                    state.activeTool = if (state.activeTool == Tool.EYEDROPPER) Tool.PEN else Tool.EYEDROPPER
+                }) {
+                    Icon(
+                        Icons.Filled.Colorize,
+                        contentDescription = "Eyedropper",
+                        tint = if (state.activeTool == Tool.EYEDROPPER) MaterialTheme.colorScheme.primary
+                        else LocalContentColor.current,
+                    )
                 }
                 Box {
                     IconButton(onClick = { showPenTypeMenu = true }) {

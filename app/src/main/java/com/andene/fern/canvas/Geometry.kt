@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import kotlin.math.hypot
+
 import kotlin.math.abs
 
 /** True if [points] forms a (roughly) closed loop: its first and last points are within [tolerance] of each other. */
@@ -37,4 +39,21 @@ fun polygonArea(points: List<WorldPoint>): Double {
         j = i
     }
     return abs(sum) / 2.0
+}
+
+/** Shortest distance from [point] to the polyline through [points] (to the single point if there's only one). */
+fun distanceToPolyline(points: List<WorldPoint>, point: WorldPoint): Double {
+    if (points.isEmpty()) return Double.POSITIVE_INFINITY
+    if (points.size == 1) return hypot(point.x - points[0].x, point.y - points[0].y)
+    var best = Double.POSITIVE_INFINITY
+    for (i in 0 until points.size - 1) {
+        val a = points[i]
+        val b = points[i + 1]
+        val dx = b.x - a.x
+        val dy = b.y - a.y
+        val lengthSq = dx * dx + dy * dy
+        val t = if (lengthSq == 0.0) 0.0 else (((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSq).coerceIn(0.0, 1.0)
+        best = minOf(best, hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy)))
+    }
+    return best
 }
