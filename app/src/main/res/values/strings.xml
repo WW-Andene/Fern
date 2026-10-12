@@ -952,4 +952,14 @@
     <string name="menu_group_import">Import</string>
     <string name="menu_group_document">Document</string>
     <string name="menu_group_app">App</string>
+    <string name="export_purpose_share">Share</string>
+    <string name="export_purpose_image">Image</string>
+    <string name="export_purpose_print">Print</string>
+    <string name="export_purpose_vector">Vector</string>
+    <string name="export_purpose_layered">For another app (layers)</string>
+    <string name="export_purpose_animation">Animation</string>
+    <string name="export_purpose_game">Game engine</string>
+    <string name="export_again">Again: %1$s</string>
+    <string name="export_recommended">Recommended</string>
+    <string name="export_unavailable">Needs animation frames (or bones)</string>
 </resources>

@@ -1303,193 +1303,40 @@ fun Toolbar(
                         )
                     }
                 }
-                Box {
-                    IconButton(onClick = { showExportMenu = true }) {
-                        Icon(Icons.Filled.IosShare, contentDescription = stringResource(R.string.tb_export))
-                    }
-                    DropdownMenu(expanded = showExportMenu, onDismissRequest = { showExportMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tb_share)) },
-                            onClick = {
-                                showExportMenu = false
-                                onShare()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tb_export_png)) },
-                            onClick = {
-                                showExportMenu = false
-                                onExportPng()
-                            },
-                        )
-                        if (state.selection.isNotEmpty()) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.tb_export_selection)) },
-                                onClick = {
-                                    showExportMenu = false
-                                    onExportSelection()
-                                },
-                            )
+                // Export by purpose, then format (design roadmap D13).
+                IconButton(onClick = { showExportMenu = true }) {
+                    Icon(Icons.Filled.IosShare, contentDescription = stringResource(R.string.tb_export))
+                }
+                if (showExportMenu) {
+                    ExportPanel(state, onDismiss = { showExportMenu = false }, run = { format ->
+                        when (format) {
+                            ExportFormat.SHARE -> onShare()
+                            ExportFormat.PNG -> onExportPng()
+                            ExportFormat.TRANSPARENT_PNG -> onExportTransparentPng()
+                            ExportFormat.SELECTION_PNG -> onExportSelection()
+                            ExportFormat.EXR -> onExportExr()
+                            ExportFormat.PDF -> onExportPdf()
+                            ExportFormat.CMYK_PDF -> onExportCmykPdf()
+                            ExportFormat.SVG -> onExportSvg()
+                            ExportFormat.EPS -> onExportEps()
+                            ExportFormat.AI -> onExportAi()
+                            ExportFormat.DXF -> onExportDxf()
+                            ExportFormat.PSD -> onExportPsd()
+                            ExportFormat.KRA -> onExportKra()
+                            ExportFormat.FERN -> onExportBundle()
+                            ExportFormat.GIF -> onExportGif()
+                            ExportFormat.MP4 -> onExportMp4()
+                            ExportFormat.WEBM -> onExportWebm()
+                            ExportFormat.APNG -> onExportApng()
+                            ExportFormat.LOTTIE -> onExportLottie()
+                            ExportFormat.REPLAY_GIF -> onExportReplayGif()
+                            ExportFormat.REPLAY_MP4 -> onExportReplayMp4()
+                            ExportFormat.SPRITE_SHEET -> onExportSpriteSheet()
+                            ExportFormat.SPRITE_ATLAS -> onExportSpriteAtlas()
+                            ExportFormat.SPINE -> onExportSpine()
+                            ExportFormat.DRAGON_BONES -> onExportDragonBones()
                         }
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tb_export_transparent)) },
-                            onClick = {
-                                showExportMenu = false
-                                onExportTransparentPng()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tb_export_pdf)) },
-                            onClick = {
-                                showExportMenu = false
-                                onExportPdf()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tb_export_svg)) },
-                            onClick = {
-                                showExportMenu = false
-                                onExportSvg()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tb_export_psd)) },
-                            onClick = {
-                                showExportMenu = false
-                                onExportPsd()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tb_export_kra)) },
-                            onClick = {
-                                showExportMenu = false
-                                onExportKra()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tb_export_eps)) },
-                            onClick = {
-                                showExportMenu = false
-                                onExportEps()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tb_export_ai)) },
-                            onClick = {
-                                showExportMenu = false
-                                onExportAi()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tb_export_dxf)) },
-                            onClick = {
-                                showExportMenu = false
-                                onExportDxf()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tb_export_cmyk_pdf)) },
-                            onClick = {
-                                showExportMenu = false
-                                onExportCmykPdf()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tb_export_exr)) },
-                            onClick = {
-                                showExportMenu = false
-                                onExportExr()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tb_export_replay)) },
-                            onClick = {
-                                showExportMenu = false
-                                onExportReplayGif()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tb_export_replay_mp4)) },
-                            onClick = {
-                                showExportMenu = false
-                                onExportReplayMp4()
-                            },
-                        )
-                        if (state.animFrameCount > 1) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.tb_export_gif)) },
-                                onClick = {
-                                    showExportMenu = false
-                                    onExportGif()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.tb_export_apng)) },
-                                onClick = {
-                                    showExportMenu = false
-                                    onExportApng()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.tb_export_mp4)) },
-                                onClick = {
-                                    showExportMenu = false
-                                    onExportMp4()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.tb_export_webm)) },
-                                onClick = {
-                                    showExportMenu = false
-                                    onExportWebm()
-                                },
-                            )
-                            if (state.bones.isNotEmpty()) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.tb_export_spine)) },
-                                    onClick = {
-                                        showExportMenu = false
-                                        onExportSpine()
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.tb_export_dragonbones)) },
-                                    onClick = {
-                                        showExportMenu = false
-                                        onExportDragonBones()
-                                    },
-                                )
-                            }
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.tb_export_lottie)) },
-                                onClick = {
-                                    showExportMenu = false
-                                    onExportLottie()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.tb_export_sprites)) },
-                                onClick = {
-                                    showExportMenu = false
-                                    onExportSpriteSheet()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.tb_export_sprite_atlas)) },
-                                onClick = {
-                                    showExportMenu = false
-                                    onExportSpriteAtlas()
-                                },
-                            )
-                        }
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tb_export_fern)) },
-                            onClick = {
-                                showExportMenu = false
-                                onExportBundle()
-                            },
-                        )
-                    }
+                    })
                 }
                 if (ToolbarGroup.BACKGROUND !in hiddenGroups) {
                     Box {

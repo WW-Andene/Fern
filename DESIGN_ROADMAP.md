@@ -195,9 +195,10 @@ Goal: the screen layout that replaces the single scrolling toolbar and the ⋮ j
   Import, Export, Document (versions, statistics, search, frames) and App (settings, plugins,
   help). Each is one level deep and opens from a labelled entry, not hidden in an overflow.
   Done: the ⋮ overflow is gone. Labelled Insert, Import, Document (search, frames, pins, versions, audio, statistics, script, second view, rulers, wrap-around) and App (settings, plugins) menus, each one level; Export stays its own menu until D13. Help joins App with D64.
-- [ ] D13. **Export by purpose.** First choose Share, Print, Image, Vector, Layered (for another
+- [x] D13. **Export by purpose.** First choose Share, Print, Image, Vector, Layered (for another
   app), Animation or Game engine; then the format, with a recommended default. The last used
   export is a single tap.
+  Done: `ExportPanel.kt`. The export button opens a panel: "Again: <last export>" first, then Share, Image, Print, Vector, For another app, Animation and Game engine; each lists its formats with the recommended one first (starred), and formats that need frames or bones say so instead of disappearing.
 - [ ] D14. **Command palette.** Search every action, tool, setting and recent document by name
   or synonym, in English and French, with the shortcut and location shown beside each. It opens
   from a button, a gesture or Ctrl/⌘ K.
