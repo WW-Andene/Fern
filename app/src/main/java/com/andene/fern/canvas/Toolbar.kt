@@ -143,6 +143,7 @@ fun Toolbar(
     onExportBundle: () -> Unit = {},
     onExportSpriteSheet: () -> Unit = {},
     onExportGif: () -> Unit = {},
+    onExportReplayGif: () -> Unit = {},
     onImportPdf: () -> Unit = {},
     onOpenFrames: () -> Unit = {},
     onImportPalette: () -> Unit = {},
@@ -681,6 +682,13 @@ fun Toolbar(
                             onClick = {
                                 showExportMenu = false
                                 onExportSvg()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Time-lapse replay (GIF)") },
+                            onClick = {
+                                showExportMenu = false
+                                onExportReplayGif()
                             },
                         )
                         if (state.animFrameCount > 1) {

@@ -142,6 +142,38 @@ fun exportAnimatedGif(
     return encodeGif(pixels, frame.widthPx, frame.heightPx, delayCentis = (100 / source.animFps).coerceAtLeast(2))
 }
 
+// Replay GIF: the strokes appear over this many frames at REPLAY_GIF_DELAY_CENTIS each (about
+// 5 s whatever the document's size, like the in-app replay's fixed length), then the finished
+// drawing holds for REPLAY_GIF_HOLD_FRAMES more (GIF frames share one delay, so a hold is repeats).
+private const val REPLAY_GIF_FRAMES = 48
+private const val REPLAY_GIF_DELAY_CENTIS = 10
+private const val REPLAY_GIF_HOLD_FRAMES = 16
+
+/**
+ * The time-lapse replay as an animated GIF - the drawing appearing stroke by stroke, in the
+ * order it was drawn, as the in-app replay shows it - framed like the other exports. Null for
+ * an empty document. Like the in-app replay, it shows the current animation frame.
+ */
+fun exportReplayGif(
+    source: CanvasState,
+    textMeasurer: TextMeasurer,
+    density: Density,
+    imageFor: (String) -> ImageBitmap?,
+): ByteArray? {
+    val frame = frameForExport(source, SPRITE_FRAME_EDGE_PX) ?: return null
+    frame.camera.goToAnimFrame(source.currentAnimFrame)
+    val total = frame.camera.strokes.size
+    val growing = (1..REPLAY_GIF_FRAMES).map { step ->
+        frame.camera.replayCount = (total.toLong() * step / REPLAY_GIF_FRAMES).toInt()
+        val image = ImageBitmap(frame.widthPx, frame.heightPx)
+        frame.drawOn(Canvas(image), density, textMeasurer, imageFor)
+        IntArray(frame.widthPx * frame.heightPx).also { image.readPixels(it) }
+    }
+    // The hold repeats the finished frame's pixels (the same array), costing no extra memory.
+    val pixels = growing + List(REPLAY_GIF_HOLD_FRAMES) { growing.last() }
+    return encodeGif(pixels, frame.widthPx, frame.heightPx, REPLAY_GIF_DELAY_CENTIS)
+}
+
 /**
  * The whole document as a PDF, or null if it's empty: one page per canvas [Frame] when the
  * document has frames (a multi-page document laid out on the canvas), otherwise one page
