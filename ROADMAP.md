@@ -30,7 +30,7 @@ Goal: ink that feels like it comes straight out of the pen tip.
 - [ ] 7. Low-latency ink: front-buffered rendering (`GLFrontBufferedRenderer` / Ink API), under 20 ms pen-to-pixel
 - [x] 8. Motion prediction (`androidx.input` `MotionEventPredictor`)
 - [ ] 9. Variable-width stroke geometry (tessellated outlines instead of per-segment lines)
-- [~] 10. Zoom-level-aware simplification — sub-pixel strokes drawn as a dot; no point decimation yet
+- [x] 10. Zoom-level-aware simplification — sub-pixel strokes drawn as a dot; points under a screen pixel apart skipped at render time
 - [x] 11. Two-finger canvas rotation, snap to upright, reset
 
 ## Phase 2 — Documents, persistence & reliability
@@ -90,7 +90,7 @@ Goal: 120 fps at any zoom, with any amount of content.
 
 - [ ] 48. Benchmark suite (10k / 100k / 1M strokes)
 - [ ] 49. Spatial index (deliberately waiting for item 48's numbers)
-- [~] 50. Level of detail — sub-pixel strokes drawn as one dot
+- [~] 50. Level of detail — sub-pixel strokes drawn as one dot, sub-pixel point spacing decimated; no cached simplified geometry
 - [ ] 51. Tile caching
 - [ ] 52. GPU rendering path
 - [ ] 53. Background loading / streaming of off-screen regions

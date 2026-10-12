@@ -54,4 +54,32 @@ class GeometryTest {
         assertEquals(6, resampled.size)
         resampled.forEachIndexed { i, p -> assertEquals(i * 2.0, p.x, 1e-9) }
     }
+
+    @Test
+    fun decimatePolyline_dropsSubSpacingPointsKeepsEnds() {
+        val dense = (0..100).map { WorldPoint(it * 0.1, 0.0) } // 0.1 apart over 10 units
+        val kept = decimatePolyline(dense, 1.0)
+        assertEquals(0, kept.first())
+        assertEquals(100, kept.last())
+        assertEquals(11, kept.size) // every 10th point, plus the end (which coincides with x=10)
+        for (i in 1 until kept.size - 1) {
+            assertTrue(dense[kept[i]].x - dense[kept[i - 1]].x >= 1.0 - 1e-9)
+        }
+    }
+
+    @Test
+    fun decimatePolyline_isStableAsPointsAreAppended() {
+        val points = (0..50).map { WorldPoint(it * 0.37, (it % 3) * 0.2) }
+        val shorter = decimatePolyline(points.take(30), 1.0)
+        val longer = decimatePolyline(points, 1.0)
+        // Everything kept before the old end point is still kept once more points arrive.
+        assertEquals(shorter.dropLast(1), longer.take(shorter.size - 1))
+    }
+
+    @Test
+    fun decimatePolyline_keepsEverythingWhenSpacingIsZeroOrTiny() {
+        val points = listOf(WorldPoint(0.0, 0.0), WorldPoint(1.0, 0.0), WorldPoint(2.0, 0.0))
+        assertEquals(listOf(0, 1, 2), decimatePolyline(points, 0.0).toList())
+        assertEquals(listOf(0, 1, 2), decimatePolyline(points, 0.5).toList())
+    }
 }

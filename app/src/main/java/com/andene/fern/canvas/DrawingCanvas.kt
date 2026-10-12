@@ -595,19 +595,19 @@ private fun widthFactorAt(stroke: Stroke, index: Int): Float {
  * per-segment instead (like calligraphy) so the width can vary along its length. Calligraphy
  * always needs per-segment width, so it's built entirely differently regardless.
  */
-private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, baseWidthScreen: Float, blendMode: BlendMode) {
+private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, source: IntArray, baseWidthScreen: Float, blendMode: BlendMode) {
     if (stroke.penType == PenType.CALLIGRAPHY) {
-        drawCalligraphyStroke(stroke, screenPoints, baseWidthScreen, blendMode)
+        drawCalligraphyStroke(stroke, screenPoints, source, baseWidthScreen, blendMode)
         return
     }
     if (stroke.penType == PenType.AIRBRUSH || stroke.penType == PenType.CRAYON) {
-        drawTexturedStroke(stroke, screenPoints, baseWidthScreen, blendMode)
+        drawTexturedStroke(stroke, screenPoints, source, baseWidthScreen, blendMode)
         return
     }
     val style = penStyle(stroke.penType, stroke.color, baseWidthScreen)
     if (screenPoints.size >= 2 && hasStylusVariation(stroke)) {
         for (i in 0 until screenPoints.size - 1) {
-            val factor = (widthFactorAt(stroke, i) + widthFactorAt(stroke, i + 1)) / 2f
+            val factor = (widthFactorAt(stroke, source[i]) + widthFactorAt(stroke, source[i + 1])) / 2f
             val width = (style.widthScreen * factor).coerceAtLeast(1f)
             drawLine(color = style.color, start = screenPoints[i], end = screenPoints[i + 1], strokeWidth = width, cap = style.cap, blendMode = blendMode)
         }
@@ -687,7 +687,7 @@ private fun penStyle(penType: PenType, baseColor: Color, baseWidthScreen: Float)
  * - CRAYON: the line drawn as short segments with grain gaps, plus a jittered second pass, so
  *   it reads as wax over textured paper.
  */
-private fun DrawScope.drawTexturedStroke(stroke: Stroke, screenPoints: List<Offset>, baseWidthScreen: Float, blendMode: BlendMode) {
+private fun DrawScope.drawTexturedStroke(stroke: Stroke, screenPoints: List<Offset>, source: IntArray, baseWidthScreen: Float, blendMode: BlendMode) {
     val radius = baseWidthScreen / 2f
     // Walk the path at a fixed screen spacing so texture density doesn't depend on how fast
     // (and so how sparsely) the points were captured.
@@ -701,7 +701,7 @@ private fun DrawScope.drawTexturedStroke(stroke: Stroke, screenPoints: List<Offs
         val count = maxOf(1, (length / step).toInt())
         for (k in 0 until count) {
             val center = a + segment * (k.toFloat() / count)
-            val width = baseWidthScreen * widthFactorAt(stroke, i)
+            val width = baseWidthScreen * widthFactorAt(stroke, source[i])
             when (stroke.penType) {
                 PenType.AIRBRUSH -> for (d in 0 until AIRBRUSH_DOTS_PER_SAMPLE) {
                     val angle = hash01(sample, d * 2) * 2f * Math.PI.toFloat()
@@ -730,6 +730,9 @@ private fun DrawScope.drawTexturedStroke(stroke: Stroke, screenPoints: List<Offs
 }
 
 private const val AIRBRUSH_DOTS_PER_SAMPLE = 6
+
+// Drawn points closer than this on screen are skipped: below a pixel they add no visible detail.
+private const val MIN_POINT_SPACING_SCREEN = 1.0
 
 /**
  * Pixel-art rendering: the grid is in world space with cells [Stroke.widthWorld] wide,
@@ -821,7 +824,7 @@ private fun hash01(a: Int, b: Int): Float {
  * pointing along +X, matching `atan2`) with a quarter-turn offset - approximate, and unverified
  * against real stylus hardware.
  */
-private fun DrawScope.drawCalligraphyStroke(stroke: Stroke, screenPoints: List<Offset>, baseWidthScreen: Float, blendMode: BlendMode) {
+private fun DrawScope.drawCalligraphyStroke(stroke: Stroke, screenPoints: List<Offset>, source: IntArray, baseWidthScreen: Float, blendMode: BlendMode) {
     if (screenPoints.size < 2) {
         if (screenPoints.size == 1) drawCircle(stroke.color, radius = baseWidthScreen / 2f, center = screenPoints[0], blendMode = blendMode)
         return
@@ -833,12 +836,12 @@ private fun DrawScope.drawCalligraphyStroke(stroke: Stroke, screenPoints: List<O
         val b = screenPoints[i + 1]
         val angle = atan2(b.y - a.y, b.x - a.x)
         val nibAngle = if (useRealNibAngle) {
-            val orientation = (stroke.orientations.getOrNull(i) ?: stroke.orientations.getOrElse(0) { CALLIGRAPHY_NIB_ANGLE })
+            val orientation = (stroke.orientations.getOrNull(source[i]) ?: stroke.orientations.getOrElse(0) { CALLIGRAPHY_NIB_ANGLE })
             orientation + (Math.PI.toFloat() / 2f)
         } else {
             CALLIGRAPHY_NIB_ANGLE
         }
-        val pressureFactor = ((stroke.pressures.getOrElse(i) { 1f } + stroke.pressures.getOrElse(i + 1) { 1f }) / 2f).coerceIn(0.1f, 1f)
+        val pressureFactor = ((stroke.pressures.getOrElse(source[i]) { 1f } + stroke.pressures.getOrElse(source[i + 1]) { 1f }) / 2f).coerceIn(0.1f, 1f)
         val widthFactor = (0.25f + 0.75f * abs(sin(angle - nibAngle))) * pressureFactor
         val width = (baseWidthScreen * widthFactor).coerceAtLeast(1f)
         drawLine(color = stroke.color, start = a, end = b, strokeWidth = width, cap = StrokeCap.Round, blendMode = blendMode)
@@ -952,9 +955,10 @@ internal fun DrawScope.drawScene(
             if (stroke.animFrame != onionFrame || stroke.points.isEmpty()) continue
             if (state.layers.firstOrNull { it.id == stroke.layerId }?.visible == false) continue
             if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
-            val screenPoints = stroke.points.map { state.worldToScreen(it, screenCenter) }
+            val source = decimatePolyline(stroke.points, MIN_POINT_SPACING_SCREEN / state.scale)
+            val screenPoints = source.map { state.worldToScreen(stroke.points[it], screenCenter) }
             val widthScreen = (stroke.widthWorld * state.scale).toFloat().coerceIn(1f, 1_000_000f)
-            drawStroke(stroke, screenPoints, widthScreen, BlendMode.SrcOver)
+            drawStroke(stroke, screenPoints, source, widthScreen, BlendMode.SrcOver)
         }
         drawContext.canvas.restore()
     }
@@ -984,7 +988,11 @@ internal fun DrawScope.drawScene(
                     drawCircle(color = stroke.color, radius = 0.5f, center = center)
                     continue
                 }
-                val screenPoints = points.map { state.worldToScreen(it, screenCenter) }
+                // Points closer together than a pixel on screen add path-building cost but no
+                // visible detail, so only those at least MIN_POINT_SPACING_SCREEN apart are drawn;
+                // [source] maps each drawn point back to its index for pressure/tilt lookups.
+                val source = decimatePolyline(points, MIN_POINT_SPACING_SCREEN / state.scale)
+                val screenPoints = source.map { state.worldToScreen(points[it], screenCenter) }
                 if (stroke.filled) {
                     val path = Path()
                     path.moveTo(screenPoints[0].x, screenPoints[0].y)
@@ -1009,7 +1017,7 @@ internal fun DrawScope.drawScene(
                 if (!rawWidthScreen.isFinite()) continue
                 val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
                 if (stroke.penType == PenType.PIXEL) drawPixelStroke(stroke, state, screenCenter)
-                else drawStroke(stroke, screenPoints, widthScreen, stroke.blendMode.toComposeBlendMode())
+                else drawStroke(stroke, screenPoints, source, widthScreen, stroke.blendMode.toComposeBlendMode())
         }
         if (translucent) drawContext.canvas.restore()
     }
