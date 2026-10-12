@@ -141,8 +141,9 @@ fun exportAnimatedGif(
         frame.drawOn(Canvas(image), density, textMeasurer, imageFor)
         IntArray(frame.widthPx * frame.heightPx).also { image.readPixels(it) }
     }
-    // GIF delays are in hundredths of a second.
-    return encodeGif(pixels, frame.widthPx, frame.heightPx, delayCentis = (100 / source.animFps).coerceAtLeast(2))
+    // GIF delays are in hundredths of a second and shared by every frame, so a held frame repeats.
+    val held = pixels.withIndex().flatMap { (i, p) -> List(source.holdOf(i)) { p } }
+    return encodeGif(held, frame.widthPx, frame.heightPx, delayCentis = (100 / source.animFps).coerceAtLeast(2))
 }
 
 /** Every animation frame as a looping animated PNG (full colour, unlike GIF) at the playback speed; null for an empty document. */
@@ -159,7 +160,7 @@ fun exportAnimatedPng(
         frame.drawOn(Canvas(image), density, textMeasurer, imageFor)
         IntArray(frame.widthPx * frame.heightPx).also { image.readPixels(it) }
     }
-    return encodeApng(pixels, frame.widthPx, frame.heightPx, source.animFps)
+    return encodeApng(pixels, frame.widthPx, frame.heightPx, source.animFps, holds = List(pixels.size) { source.holdOf(it) })
 }
 
 // Replay GIF: the strokes appear over this many frames at REPLAY_GIF_DELAY_CENTIS each (about

@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import androidx.compose.runtime.mutableStateMapOf
 import com.andene.fern.R
 import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
@@ -87,6 +88,8 @@ class CanvasState(
     private val onBrushPresetsChanged: (List<BrushPreset>) -> Unit = {},
     private val onConnectorsChanged: (List<Connector>) -> Unit = {},
     private val onBonesChanged: (List<Bone>) -> Unit = {},
+    /** Playback speed and frame holds changed (see [AnimationSettings]). */
+    private val onAnimationSettingsChanged: (AnimationSettings) -> Unit = {},
     /**
      * False for an off-screen camera that renders the document (the tile cache's): it never
      * needs the floating origin, and rebasing would shift and re-index its whole copy of the
@@ -126,6 +129,8 @@ class CanvasState(
         private const val BONE_MIN_SCREEN = 16.0
         // IK: chain length, solver passes per move, and close enough (screen px).
         private const val IK_CHAIN_BONES = 4
+        /** Longest hold the X-sheet offers, in playback ticks. */
+        const val MAX_FRAME_HOLD = 24
         private const val IK_ITERATIONS = 8
         private const val IK_TOLERANCE_SCREEN = 1.0
         // Template text sizes and spacing in screen px at the zoom the template is inserted at (§7 scale).
@@ -320,8 +325,54 @@ class CanvasState(
 
     var playing by mutableStateOf(false)
 
-    /** Playback speed in frames per second; 12 is the classic hand-drawn animation rate ("on twos"). */
-    var animFps by mutableIntStateOf(12)
+    private var animFpsState by mutableIntStateOf(12)
+
+    /** Playback speed in ticks per second; 12 is the classic hand-drawn animation rate ("on twos"). Saved per document. */
+    var animFps: Int
+        get() = animFpsState
+        set(value) {
+            animFpsState = value
+            onAnimationSettingsChanged(animationSettings())
+        }
+
+    /**
+     * The exposure sheet (X-sheet, roadmap item 88): how many playback ticks each frame stays on
+     * screen, for frames held longer than one; a frame not listed is shown for one tick.
+     * Playback and the animated exports follow it. Shifts with frames as they're inserted or
+     * deleted, and is part of undo.
+     */
+    val frameHolds = mutableStateMapOf<Int, Int>()
+
+    fun holdOf(frame: Int): Int = frameHolds[frame] ?: 1
+
+    /** Sets frame [frame]'s hold, from 1 to [MAX_FRAME_HOLD] ticks. */
+    fun setHold(frame: Int, ticks: Int) {
+        val hold = ticks.coerceIn(1, MAX_FRAME_HOLD)
+        if (hold == holdOf(frame)) return
+        recordHistory()
+        if (hold == 1) frameHolds.remove(frame) else frameHolds[frame] = hold
+        onAnimationSettingsChanged(animationSettings())
+    }
+
+    fun animationSettings() = AnimationSettings(animFps, frameHolds.toMap())
+
+    /** Applies settings read from storage, without reporting them back. */
+    fun loadAnimationSettings(settings: AnimationSettings) {
+        animFpsState = settings.fps
+        frameHolds.clear()
+        frameHolds.putAll(settings.holds.filterValues { it > 1 })
+    }
+
+    private fun shiftHolds(from: Int, by: Int) {
+        if (frameHolds.isEmpty()) return
+        val moved = frameHolds.entries.associate { (frame, hold) -> (if (frame >= from) frame + by else frame) to hold }
+        frameHolds.clear()
+        frameHolds.putAll(moved)
+        onAnimationSettingsChanged(animationSettings())
+    }
+
+    // Ticks the current frame has been on screen during playback.
+    private var heldTicks = 0
 
     fun goToAnimFrame(frame: Int) {
         clearSelectionState()
@@ -339,6 +390,8 @@ class CanvasState(
     /** Next frame for playback: wraps to the first when looping, reverses at either end in ping-pong. */
     fun advanceAnimFrame() {
         if (animFrameCount <= 1) return
+        if (++heldTicks < holdOf(currentAnimFrame)) return
+        heldTicks = 0
         if (!pingPong) {
             playingBackwards = false
             currentAnimFrame = (currentAnimFrame + 1) % animFrameCount
@@ -365,6 +418,7 @@ class CanvasState(
             strokes.addAll(strokes.filter { it.animFrame == currentAnimFrame }.map { it.onAnimFrame(insertAt) })
         }
         shiftBoneFrames(from = insertAt, by = 1)
+        shiftHolds(from = insertAt, by = 1)
         if (copyCurrent) bones.addAll(bones.filter { it.animFrame == currentAnimFrame }.map { it.copy(animFrame = insertAt) })
         if (bones.isNotEmpty()) onBonesChanged(bones.toList())
         animFrameCount++
@@ -398,6 +452,7 @@ class CanvasState(
         val poseFrom = bones.filter { it.animFrame == from }
         val poseTo = bones.filter { it.animFrame == to }
         shiftBoneFrames(from = to, by = count)
+        shiftHolds(from = to, by = count)
         if (poseFrom.isNotEmpty() && poseTo.isNotEmpty()) {
             for (step in 1..count) bones.addAll(interpolatePose(poseFrom, poseTo, motionEasing.at(step.toDouble() / (count + 1)), from + step))
         }
@@ -472,6 +527,8 @@ class CanvasState(
             shiftBoneFrames(from = removed + 1, by = -1)
             onBonesChanged(bones.toList())
         }
+        if (frameHolds.remove(removed) != null) onAnimationSettingsChanged(animationSettings())
+        shiftHolds(from = removed + 1, by = -1)
         animFrameCount--
         currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
         strokesChanged()
@@ -1204,6 +1261,7 @@ class CanvasState(
         var shift: WorldPoint = WorldPoint.Zero,
         val connectors: List<Connector>? = null,
         var bones: List<Bone>? = null,
+        val holds: Map<Int, Int>? = null,
     ) {
         /** Independent strokes holding this entry's geometry (shift applied), e.g. for saving. */
         fun materialize(): List<Stroke> = strokes.indices.map { i ->
@@ -1211,8 +1269,8 @@ class CanvasState(
         }
 
         companion object {
-            fun of(strokes: List<Stroke>, images: List<ImageItem>?, texts: List<TextItem>? = null, connectors: List<Connector>? = null, bones: List<Bone>? = null) =
-                HistoryEntry(strokes.toTypedArray(), Array(strokes.size) { strokes[it].captureState() }, images, texts, connectors = connectors, bones = bones)
+            fun of(strokes: List<Stroke>, images: List<ImageItem>?, texts: List<TextItem>? = null, connectors: List<Connector>? = null, bones: List<Bone>? = null, holds: Map<Int, Int>? = null) =
+                HistoryEntry(strokes.toTypedArray(), Array(strokes.size) { strokes[it].captureState() }, images, texts, connectors = connectors, bones = bones, holds = holds)
         }
     }
 
@@ -1377,7 +1435,7 @@ class CanvasState(
     private val undoStack = ArrayDeque<HistoryEntry>()
     private val redoStack = ArrayDeque<HistoryEntry>()
 
-    private fun currentEntry() = HistoryEntry.of(strokes, imageItems.toList(), textItems.toList(), connectors.toList(), bones.toList())
+    private fun currentEntry() = HistoryEntry.of(strokes, imageItems.toList(), textItems.toList(), connectors.toList(), bones.toList(), frameHolds.toMap())
 
     /** Called at the start of every stroke-changing action; also invalidates redo, standard editor semantics. */
     private fun recordHistory() {
@@ -1426,6 +1484,12 @@ class CanvasState(
             connectors.clear()
             connectors.addAll(savedConnectors)
             onConnectorsChanged(connectors.toList())
+        }
+        val savedHolds = entry.holds
+        if (savedHolds != null && savedHolds != frameHolds.toMap()) {
+            frameHolds.clear()
+            frameHolds.putAll(savedHolds)
+            onAnimationSettingsChanged(animationSettings())
         }
         val savedBones = entry.bones
         if (savedBones != null && savedBones != bones.toList()) {
@@ -2939,3 +3003,6 @@ class CanvasState(
         panWorld -= offset
     }
 }
+
+/** A document's animation timing (saved per document): playback speed and the X-sheet's holds. */
+data class AnimationSettings(val fps: Int = 12, val holds: Map<Int, Int> = emptyMap())

@@ -10,12 +10,12 @@ private val PNG_SIGNATURE = byteArrayOf(0x89.toByte(), 'P'.code.toByte(), 'N'.co
 
 /**
  * Encodes ARGB [frames] (each [width] x [height]) as a looping animated PNG (APNG, roadmap item
- * 80), each frame shown for 1 / [fps] s. Unlike GIF it keeps full colour and alpha. Each frame
+ * 80), each frame shown for its [holds] count (default 1) of 1 / [fps] s ticks. Unlike GIF it keeps full colour and alpha. Each frame
  * is compressed by the platform's PNG encoder, then its image data is moved into APNG frame
  * chunks: the first frame stays IDAT (the still image viewers without APNG support show), the
  * rest become fdAT. Every frame covers the whole image and replaces the previous one.
  */
-fun encodeApng(frames: List<IntArray>, width: Int, height: Int, fps: Int): ByteArray {
+fun encodeApng(frames: List<IntArray>, width: Int, height: Int, fps: Int, holds: List<Int> = emptyList()): ByteArray {
     require(frames.isNotEmpty())
     val out = ByteArrayOutputStream()
     val data = DataOutputStream(out)
@@ -34,7 +34,7 @@ fun encodeApng(frames: List<IntArray>, width: Int, height: Int, fps: Int): ByteA
                 writeInt(height)
                 writeInt(0) // x offset
                 writeInt(0) // y offset
-                writeShort(1) // delay numerator
+                writeShort((holds.getOrNull(index) ?: 1).coerceIn(1, Short.MAX_VALUE.toInt())) // delay numerator: ticks held
                 writeShort(fps.coerceIn(1, Short.MAX_VALUE.toInt())) // delay denominator
                 writeByte(0) // dispose: none
                 writeByte(0) // blend: source (replace)

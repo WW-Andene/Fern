@@ -1,5 +1,10 @@
 package com.andene.fern.canvas
 
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.material.icons.filled.TableRows
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Row
@@ -40,6 +45,8 @@ private val FPS_CHOICES = listOf(6, 8, 12, 24)
  */
 @Composable
 fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
+    var showXSheet by remember { mutableStateOf(false) }
+    if (showXSheet) XSheetDialog(state, onDismiss = { showXSheet = false })
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
@@ -84,6 +91,9 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
                     if (state.pingPong) Icons.Filled.SyncAlt else Icons.Filled.Repeat,
                     contentDescription = if (state.pingPong) stringResource(R.string.anim_pingpong) else stringResource(R.string.anim_loop),
                 )
+            }
+            IconButton(onClick = { showXSheet = true }) {
+                Icon(Icons.Filled.TableRows, contentDescription = stringResource(R.string.xsheet_title))
             }
             // Timing of the generated in-betweens and motion paths; tap to cycle.
             TextButton(onClick = { state.motionEasing = Easing.entries[(state.motionEasing.ordinal + 1) % Easing.entries.size] }) {

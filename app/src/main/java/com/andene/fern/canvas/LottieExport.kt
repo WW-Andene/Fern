@@ -28,6 +28,8 @@ fun exportLottie(source: CanvasState): String? {
     }
     val layerIndex = camera.layers.withIndex().associate { (index, layer) -> layer.id to index }
     val frames = source.animFrameCount
+    // Each frame starts where the previous one's hold ends (X-sheet, roadmap item 88).
+    val starts = IntArray(frames + 1).also { for (f in 0 until frames) it[f + 1] = it[f] + source.holdOf(f) }
     val layers = JSONArray()
     // Lottie draws its first layer on top, so frames go first and the paper last.
     for (f in 0 until frames) {
@@ -55,7 +57,7 @@ fun exportLottie(source: CanvasState): String? {
             }
             shapes.put(JSONObject().put("ty", "gr").put("it", JSONArray().put(path).put(paint).put(groupTransform())))
         }
-        layers.put(shapeLayer("Frame ${f + 1}", f, f + 1, shapes))
+        layers.put(shapeLayer("Frame ${f + 1}", starts[f], starts[f + 1], shapes))
     }
     val paper = JSONArray().put(
         JSONObject().put("ty", "gr").put(
@@ -69,12 +71,12 @@ fun exportLottie(source: CanvasState): String? {
                 .put(groupTransform()),
         ),
     )
-    layers.put(shapeLayer("Paper", 0, frames, paper))
+    layers.put(shapeLayer("Paper", 0, starts[frames], paper))
     return JSONObject()
         .put("v", "5.7.4")
         .put("fr", source.animFps)
         .put("ip", 0)
-        .put("op", frames)
+        .put("op", starts[frames])
         .put("w", frame.widthPx)
         .put("h", frame.heightPx)
         .put("nm", "Fern animation")

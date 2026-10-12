@@ -174,6 +174,7 @@ object CanvasStorage {
         textItemsFile(context, id).delete()
         connectorsFile(context, id).delete()
         bonesFile(context, id).delete()
+        animationFile(context, id).delete()
         imageItemsFile(context, id).delete()
         backgroundFile(context, id).delete()
         thumbnailFile(context, id).delete()
@@ -195,6 +196,7 @@ object CanvasStorage {
         val textItems = loadTextItems(context, id)
         val connectors = loadConnectors(context, id)
         val bones = loadBones(context, id)
+        val animation = loadAnimationSettings(context, id)
         val imageItems = loadImageItems(context, id)
         val (backgroundColor, backgroundStyle) = loadBackground(context, id)
         val layers = loadLayers(context, id)
@@ -204,6 +206,7 @@ object CanvasStorage {
         saveTextItems(context, meta.id, textItems)
         saveConnectors(context, meta.id, connectors)
         saveBones(context, meta.id, bones)
+        saveAnimationSettings(context, meta.id, animation)
         saveImageItems(context, meta.id, imageItems)
         saveBackground(context, meta.id, backgroundColor, backgroundStyle)
         if (layers.isNotEmpty()) saveLayers(context, meta.id, layers)
@@ -322,6 +325,23 @@ object CanvasStorage {
                 )
             }.getOrNull()
         }
+    }
+
+    /** Saves the playback speed and X-sheet holds (roadmap item 88). */
+    fun saveAnimationSettings(context: Context, documentId: String, settings: AnimationSettings) {
+        val holds = JSONObject()
+        for ((frame, hold) in settings.holds) holds.put(frame.toString(), hold)
+        writeStored(animationFile(context, documentId), JSONObject().put("fps", settings.fps).put("holds", holds))
+    }
+
+    /** The saved timing, or the defaults (12 fps, no holds) for a document from before it was saved. */
+    fun loadAnimationSettings(context: Context, documentId: String): AnimationSettings {
+        val root = readStored(animationFile(context, documentId)) { it as JSONObject } ?: return AnimationSettings()
+        val holds = root.optJSONObject("holds")
+        return AnimationSettings(
+            root.optInt("fps", 12).coerceIn(1, 60),
+            holds?.keys()?.asSequence()?.mapNotNull { key -> key.toIntOrNull()?.let { it to holds.optInt(key, 1).coerceIn(1, CanvasState.MAX_FRAME_HOLD) } }?.toMap().orEmpty(),
+        )
     }
 
     fun loadTextItems(context: Context, documentId: String): List<TextItem> {
@@ -715,6 +735,7 @@ object CanvasStorage {
         "text.json" to textItemsFile(context, documentId),
         "connectors.json" to connectorsFile(context, documentId),
         "bones.json" to bonesFile(context, documentId),
+        "animation.json" to animationFile(context, documentId),
         "images.json" to imageItemsFile(context, documentId),
         "background.json" to backgroundFile(context, documentId),
         "layers.json" to layersFile(context, documentId),
@@ -744,6 +765,7 @@ object CanvasStorage {
 
     private fun connectorsFile(context: Context, documentId: String) = File(context.filesDir, "connectors_$documentId.json")
     private fun bonesFile(context: Context, documentId: String) = File(context.filesDir, "bones_$documentId.json")
+    private fun animationFile(context: Context, documentId: String) = File(context.filesDir, "animation_$documentId.json")
 
     private fun imageItemsFile(context: Context, documentId: String) = File(context.filesDir, "images_$documentId.json")
 

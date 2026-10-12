@@ -144,7 +144,7 @@ All deferred: they need a server or cloud platform.
 - [~] 85. Inverse kinematics: dragging a limb's end pulls its chain (up to four bones, CCD solver) so the tip follows the finger; no joint-angle constraints or physics yet
 - [ ] 86. Skins and animation blending
 - [~] 87. Lottie export (frame by frame, vector, checked by rendering with an independent Lottie library); no Spine or DragonBones skeletal formats, no import
-- [ ] 88. Audio track with lip-sync and an X-sheet
+- [~] 88. X-sheet: per-frame holds (playback, GIF, APNG and Lottie follow them; saved with the fps, undoable); no audio track or lip-sync yet
 
 ## Phase 10 — Raster painting
 

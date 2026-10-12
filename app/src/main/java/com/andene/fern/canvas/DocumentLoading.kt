@@ -25,6 +25,7 @@ class LoadedDocument(
     val texts: List<TextItem>,
     val connectors: List<Connector>,
     val bones: List<Bone>,
+    val animation: AnimationSettings,
     val images: List<ImageItem>,
     val background: Pair<Color, BackgroundStyle>,
     val pins: List<PinMeta>,

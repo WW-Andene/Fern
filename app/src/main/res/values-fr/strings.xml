@@ -342,4 +342,9 @@
     <string name="tb_ik_on">Cinématique inverse : activée (tirez le bout d\'un membre pour entraîner la chaîne)</string>
     <string name="tb_ik_off">Cinématique inverse : désactivée</string>
     <string name="tb_export_lottie">Animation Lottie (JSON)</string>
+    <string name="xsheet_title">Feuille d\'exposition (durée des images)</string>
+    <string name="xsheet_frame">Image %1$d</string>
+    <string name="xsheet_hold">×%1$d</string>
+    <string name="xsheet_shorter">Tenir l\'image %1$d moins longtemps</string>
+    <string name="xsheet_longer">Tenir l\'image %1$d plus longtemps</string>
 </resources>

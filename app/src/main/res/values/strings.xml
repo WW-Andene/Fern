@@ -340,4 +340,9 @@
     <string name="tb_ik_on">Inverse kinematics: on (drag a limb\'s end to pull its chain)</string>
     <string name="tb_ik_off">Inverse kinematics: off</string>
     <string name="tb_export_lottie">Lottie animation (JSON)</string>
+    <string name="xsheet_title">Exposure sheet (frame timing)</string>
+    <string name="xsheet_frame">Frame %1$d</string>
+    <string name="xsheet_hold">×%1$d</string>
+    <string name="xsheet_shorter">Hold frame %1$d for less</string>
+    <string name="xsheet_longer">Hold frame %1$d for longer</string>
 </resources>

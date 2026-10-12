@@ -238,6 +238,7 @@ class MainActivity : ComponentActivity() {
                             onBrushPresetsChanged = { presets -> AppSettings.setBrushPresets(context, presets) },
                             onConnectorsChanged = { connectors -> CanvasStorage.saveConnectors(context, currentDocumentId, connectors) },
                             onBonesChanged = { bones -> CanvasStorage.saveBones(context, currentDocumentId, bones) },
+                            onAnimationSettingsChanged = { settings -> CanvasStorage.saveAnimationSettings(context, currentDocumentId, settings) },
                             onFramesChanged = { frames -> CanvasStorage.saveFrames(context, currentDocumentId, frames) },
                             onLayersChanged = { layers -> CanvasStorage.saveLayers(context, currentDocumentId, layers) },
                             onRebased = { offset ->
@@ -530,6 +531,7 @@ class MainActivity : ComponentActivity() {
                                 texts = CanvasStorage.loadTextItems(context, documentId),
                                 connectors = CanvasStorage.loadConnectors(context, documentId),
                                 bones = CanvasStorage.loadBones(context, documentId),
+                                animation = CanvasStorage.loadAnimationSettings(context, documentId),
                                 images = CanvasStorage.loadImageItems(context, documentId),
                                 background = CanvasStorage.loadBackground(context, documentId),
                                 pins = CanvasStorage.listPins(context, documentId),
@@ -542,6 +544,7 @@ class MainActivity : ComponentActivity() {
                         canvasState.loadTextItems(loaded.texts)
                         canvasState.loadConnectors(loaded.connectors)
                         canvasState.loadBones(loaded.bones)
+                        canvasState.loadAnimationSettings(loaded.animation)
                         canvasState.loadImageItems(loaded.images)
                         canvasState.loadBackground(loaded.background.first, loaded.background.second)
                         pins = loaded.pins
