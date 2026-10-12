@@ -2053,6 +2053,7 @@ class CanvasState(
         val initialOutlined: Boolean = false,
         /** The path a new label will follow, relative to [worldPoint]; see [TextItem.path]. */
         val path: List<WorldPoint>? = null,
+        val initialFeatures: Set<OpenTypeFeature> = emptySet(),
     )
 
     /** While dragging out a text box with the TEXT tool: its opposite corners, for the preview outline. */
@@ -3166,7 +3167,7 @@ class CanvasState(
             PendingTextEdit(
                 existing.id, existing.position, existing.text, existing.bold, existing.italic, existing.sticky,
                 existing.fontSizeWorld * scale, existing.font, existing.alignment, existing.boxWidthWorld, existing.link,
-                existing.outlined, existing.path,
+                existing.outlined, existing.path, existing.features,
             )
         } else {
             PendingTextEdit(null, worldPoint, "", initialSizePx = activeTextSizeWorld)
@@ -3190,6 +3191,7 @@ class CanvasState(
         keepBox: Boolean = true,
         link: LinkTarget? = null,
         outlined: Boolean = false,
+        features: Set<OpenTypeFeature> = emptySet(),
     ) {
         // The chosen size also becomes the default for the next new label.
         activeTextSizeWorld = sizePx
@@ -3208,7 +3210,7 @@ class CanvasState(
         if (existingIndex != -1) {
             textItems[existingIndex] = textItems[existingIndex].copy(
                 text = text, bold = bold, italic = italic, sticky = sticky, fontSizeWorld = fontSizeWorld,
-                font = font, alignment = alignment, boxWidthWorld = boxWidthWorld, link = link, outlined = outlined,
+                font = font, alignment = alignment, boxWidthWorld = boxWidthWorld, link = link, outlined = outlined, features = features,
             )
         } else {
             textItems.add(
@@ -3227,6 +3229,7 @@ class CanvasState(
                     link = link,
                     outlined = outlined,
                     path = pending.path,
+                    features = features,
                 )
             )
         }

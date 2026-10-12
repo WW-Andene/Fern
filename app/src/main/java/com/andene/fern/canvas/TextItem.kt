@@ -18,6 +18,23 @@ enum class TextFont(@StringRes val label: Int, val fontFamily: FontFamily, val s
 }
 
 /**
+ * OpenType features a label can turn on or off (roadmap item 98), by their four-letter tags.
+ * Fonts without a feature ignore it, as in any app; the platform's generic families support
+ * ligatures, figure styles and fractions, while small caps depend on the device's fonts.
+ */
+enum class OpenTypeFeature(@StringRes val label: Int, val setting: String) {
+    NO_LIGATURES(R.string.otf_no_ligatures, "liga 0, clig 0"),
+    SMALL_CAPS(R.string.otf_small_caps, "smcp"),
+    OLDSTYLE_FIGURES(R.string.otf_oldstyle, "onum"),
+    TABULAR_FIGURES(R.string.otf_tabular, "tnum"),
+    FRACTIONS(R.string.otf_fractions, "frac"),
+}
+
+/** [features] as a CSS-style feature setting string ("smcp, tnum"), or null for none. */
+fun featureSettings(features: Set<OpenTypeFeature>): String? =
+    features.takeIf { it.isNotEmpty() }?.sortedBy { it.ordinal }?.joinToString(", ") { it.setting }
+
+/**
  * Where a linked label leads (roadmap item 46): a named pin in the same document (a region of
  * the canvas), or another document. Stored by id, so renaming the target keeps the link; a
  * target that was deleted is reported when the link is followed.
@@ -75,4 +92,6 @@ data class TextItem(
      * start, one line, each letter turned to the path's direction.
      */
     val path: List<WorldPoint>? = null,
+    /** OpenType features on for this label (roadmap item 98). */
+    val features: Set<OpenTypeFeature> = emptySet(),
 )

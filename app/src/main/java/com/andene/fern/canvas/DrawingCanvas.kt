@@ -684,7 +684,7 @@ fun DrawingCanvas(
     state.pendingTextEdit?.let { pending ->
         TextEditDialog(
             pending = pending,
-            onConfirm = { r -> state.confirmTextEdit(r.text, r.bold, r.italic, r.sticky, r.sizePx, r.font, r.alignment, r.keepBox, r.link, r.outlined) },
+            onConfirm = { r -> state.confirmTextEdit(r.text, r.bold, r.italic, r.sticky, r.sizePx, r.font, r.alignment, r.keepBox, r.link, r.outlined, r.features) },
             onDismiss = { state.cancelTextEdit() },
             linkChoices = linkChoices,
             onFollowLink = onFollowLink,
@@ -1574,6 +1574,7 @@ internal fun DrawScope.drawScene(
                 fontWeight = if (item.bold) FontWeight.Bold else FontWeight.Normal,
                 fontStyle = if (item.italic) FontStyle.Italic else FontStyle.Normal,
                 fontFamily = item.font.fontFamily,
+                fontFeatureSettings = featureSettings(item.features),
                 textAlign = item.alignment.textAlign,
                 // A label linked to a pin or document is underlined, like a link.
                 textDecoration = if (item.link != null) TextDecoration.Underline else null,
