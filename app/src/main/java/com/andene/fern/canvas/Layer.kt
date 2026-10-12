@@ -19,4 +19,9 @@ data class Layer(
     val locked: Boolean = false,
     /** Applied to the layer as a whole (composited once), not to each stroke separately. */
     val opacity: Float = 1f,
+    /**
+     * A reference layer (roadmap item 94): when any layer is one, the fill tool finds its
+     * boundaries in reference layers only, so colours can go on their own layer under line art.
+     */
+    val reference: Boolean = false,
 )

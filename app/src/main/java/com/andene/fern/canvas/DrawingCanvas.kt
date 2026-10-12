@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
 import android.graphics.BitmapFactory
 import android.view.MotionEvent
 import androidx.compose.foundation.Canvas
@@ -18,6 +19,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
@@ -25,6 +27,9 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStyle
 import androidx.compose.ui.graphics.drawscope.clipPath
@@ -40,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -47,6 +53,8 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import androidx.input.motionprediction.MotionEventPredictor
@@ -73,7 +81,13 @@ import kotlin.math.sin
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
+fun DrawingCanvas(
+    state: CanvasState,
+    modifier: Modifier = Modifier,
+    /** Pins and documents a text label can link to (see [LinkTarget]). */
+    linkChoices: LinkChoices = LinkChoices(),
+    onFollowLink: (LinkTarget) -> Unit = {},
+) {
     // Side-channel for stylus pressure/tilt/orientation: Compose's own pointer-input APIs
     // (used below, unchanged) don't expose tilt at all, and pressure only patchily, so this
     // observes the raw MotionEvent directly. It never consumes the event (always returns
@@ -88,6 +102,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
     val predictor = remember(view) { MotionEventPredictor.newInstance(view) }
     var predictedScreen by remember { mutableStateOf<Offset?>(null) }
     val textMeasurer = rememberTextMeasurer()
+    val tileCache = remember { SceneTileCache() }
     val context = LocalContext.current
     // Decoded lazily and cached by file name: re-decoding from disk every frame would be
     // wasteful, and images never change once placed (a new image is a new ImageItem/file).
@@ -97,7 +112,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
         modifier = modifier
             // Screen readers otherwise announce nothing for the drawing surface.
             .semantics {
-                contentDescription = "Drawing canvas, ${state.strokes.size} strokes. One finger draws, two fingers pan and zoom."
+                contentDescription = context.resources.getQuantityString(R.plurals.canvas_description, state.strokes.size, state.strokes.size)
             }
             .pointerInteropFilter { event ->
                 if (event.pointerCount > 0) {
@@ -162,8 +177,11 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                             Tool.ERASER -> state.endErase()
                             Tool.SHAPE -> state.endShape()
                             Tool.FILL -> {} // one-shot on pointer-down, nothing to end
-                            Tool.TEXT -> {} // one-shot on pointer-down, nothing to end
+                            Tool.TEXT -> state.endTextGesture()
                             Tool.EYEDROPPER -> {} // one-shot on pointer-down, nothing to end
+                            Tool.CONNECT -> state.endConnect()
+                            Tool.BONE -> state.endBone()
+                            Tool.BEZIER -> {} // a node is placed on press; nothing to end
                             Tool.RULER -> state.endRulerGesture()
                             Tool.SELECT -> when (selectionGestureKind) {
                                 SelectionGestureKind.SCALE -> state.endScaleSelection()
@@ -221,8 +239,11 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                     Tool.ERASER -> state.beginErase(world)
                                     Tool.SHAPE -> state.beginShape(world)
                                     Tool.FILL -> state.fillAt(world)
-                                    Tool.TEXT -> state.beginTextEdit(world)
+                                    Tool.TEXT -> state.beginTextGesture(world)
                                     Tool.EYEDROPPER -> state.pickColorAt(world)
+                                    Tool.CONNECT -> state.beginConnect(world)
+                                    Tool.BONE -> state.beginBone(world)
+                                    Tool.BEZIER -> state.beginBezierNode(world)
                                     Tool.RULER -> state.beginRulerGesture(world)
                                     Tool.SELECT -> {
                                         val handles = selectionHandles(state, screenCenter)
@@ -252,8 +273,11 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                         Tool.ERASER -> state.continueErase(world)
                                         Tool.SHAPE -> state.continueShape(world)
                                         Tool.FILL -> {} // one-shot; ignore drag
-                                        Tool.TEXT -> {} // one-shot; ignore drag
+                                        Tool.TEXT -> state.continueTextGesture(world)
                                         Tool.EYEDROPPER -> {} // one-shot; ignore drag
+                                        Tool.CONNECT -> state.continueConnect(world)
+                                        Tool.BONE -> state.continueBone(world)
+                                        Tool.BEZIER -> state.dragBezierHandle(world)
                                         Tool.RULER -> state.continueRulerGesture(world)
                                         Tool.SELECT -> when (selectionGestureKind) {
                                             SelectionGestureKind.SCALE -> state.continueScaleSelection(world)
@@ -265,7 +289,9 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                             }
                             pointers[0].consume()
                         } else {
-                            if (mode == Mode.DRAW) endActiveDrawAction()
+                            // A second finger turns a text tap into a pinch: don't open the text dialog for it.
+                            if (mode == Mode.DRAW && state.activeTool == Tool.TEXT) state.cancelTextGesture()
+                            else if (mode == Mode.DRAW) endActiveDrawAction()
                             val centroid = pointers.fold(Offset.Zero) { acc, c -> acc + c.position } / count.toFloat()
                             val span = pointers.fold(0f) { acc, c -> acc + hypot((c.position.x - centroid.x), (c.position.y - centroid.y)) } / count.toFloat()
                             // Angle of the first two fingers; its change frame to frame rotates the canvas.
@@ -330,12 +356,16 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
         // Everything below is laid out in unrotated view space (worldToScreen) and turned as a
         // whole here, so text, images and patterns rotate with the strokes.
         rotate(degrees = Math.toDegrees(state.rotation).toFloat(), pivot = screenCenter) {
-            drawScene(state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer, imageFor = { fileName ->
+            val imageFor = { fileName: String ->
                 imageBitmapCache[fileName]
                     ?: BitmapFactory.decodeFile(CanvasStorage.imageFile(context, fileName).absolutePath)
                         ?.asImageBitmap()
                         ?.also { imageBitmapCache[fileName] = it }
-            })
+            }
+            // Large documents pan and zoom from cached tiles when nothing is being edited live.
+            val fromTiles = state.tileCacheEligible &&
+                tileCache.draw(this, state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer, imageFor)
+            if (!fromTiles) drawScene(state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer, imageFor)
 
             state.textItems.firstOrNull { it.id == state.selectedTextId }?.let { item ->
                 val (min, max) = state.textBounds(item)
@@ -401,6 +431,30 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                 }
             }
 
+            // Perspective guide: construction lines radiating from each vanishing point, the horizon
+            // through them, and a handle on each to drag it. A guide only: never exported.
+            if (state.perspectiveMode != PerspectiveMode.OFF && state.vanishingPoints.isNotEmpty()) {
+                val reach = hypot(size.width, size.height) * 2f
+                val points = state.vanishingPoints.map { state.worldToScreen(it, screenCenter) }
+                val horizonY = points.first().y
+                if (points.size == 2) {
+                    // The horizon is the line through both points, extended across the screen.
+                    val d = points[1] - points[0]
+                    val unit = d / d.getDistance().coerceAtLeast(1e-3f)
+                    drawLine(PERSPECTIVE_HORIZON_COLOR, points[0] - unit * reach, points[0] + unit * reach, strokeWidth = 2f)
+                } else {
+                    drawLine(PERSPECTIVE_HORIZON_COLOR, Offset(points[0].x - reach, horizonY), Offset(points[0].x + reach, horizonY), strokeWidth = 2f)
+                }
+                for (vp in points) {
+                    for (k in 0 until PERSPECTIVE_RAYS) {
+                        val angle = 2 * PI * k / PERSPECTIVE_RAYS
+                        drawLine(PERSPECTIVE_RAY_COLOR, vp, vp + Offset((cos(angle) * reach).toFloat(), (sin(angle) * reach).toFloat()), strokeWidth = 1f)
+                    }
+                    drawCircle(color = RULER_COLOR, radius = 12f, center = vp)
+                    drawCircle(color = Color.White, radius = 6f, center = vp)
+                }
+            }
+
             // Frame outlines and names: editing guides only, so not part of drawScene and never exported.
             for (frame in state.frames) {
                 val a = state.worldToScreen(frame.min, screenCenter)
@@ -444,6 +498,71 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                 drawPath(lasso, color = MARQUEE_BORDER_COLOR, style = DrawStyle(width = 2f))
             }
 
+            // Node editing: a square handle on each node of the stroke being edited.
+            state.nodeEditStroke?.let { stroke ->
+                stroke.revision // redraw as nodes are dragged
+                for (index in editNodeIndices(stroke.points.size)) {
+                    val p = state.worldToScreen(stroke.points[index], screenCenter)
+                    drawRect(Color.White, topLeft = p - Offset(6f, 6f), size = Size(12f, 12f))
+                    drawRect(HANDLE_COLOR, topLeft = p - Offset(6f, 6f), size = Size(12f, 12f), style = DrawStyle(width = 2f))
+                }
+            }
+
+            // The Bézier path being built: the curve so far, its nodes, and the last node's handles.
+            if (state.bezierNodes.isNotEmpty()) {
+                val nodes = state.bezierNodes.toList()
+                val preview = flattenBezier(nodes, closed = false, spacing = 4.0 / state.scale.coerceAtLeast(1e-300)).map { state.worldToScreen(it, screenCenter) }
+                for (i in 1 until preview.size) drawLine(MARQUEE_BORDER_COLOR, preview[i - 1], preview[i], strokeWidth = 2f)
+                val last = nodes.last()
+                if (!last.isCorner) {
+                    val p = state.worldToScreen(last.point, screenCenter)
+                    for (handle in listOf(last.handleIn, last.handleOut)) {
+                        val h = state.worldToScreen(handle, screenCenter)
+                        drawLine(HANDLE_COLOR, p, h, strokeWidth = 1f)
+                        drawCircle(HANDLE_COLOR, 4f, h)
+                    }
+                }
+                for ((i, node) in nodes.withIndex()) {
+                    val p = state.worldToScreen(node.point, screenCenter)
+                    // The first node is drawn larger: tapping it closes the path.
+                    drawRect(HANDLE_COLOR, topLeft = p - Offset(if (i == 0) 6f else 4f, if (i == 0) 6f else 4f), size = Size(if (i == 0) 12f else 8f, if (i == 0) 12f else 8f), style = DrawStyle(width = 2f))
+                }
+            }
+
+            // The skeleton (roadmap item 83): a guide, never exported. Shown while the bone tool is
+            // in use, or in animation mode, where it's what poses each frame.
+            if (state.activeTool == Tool.BONE || (state.animationMode && state.bones.isNotEmpty())) {
+                for (bone in state.currentBones) {
+                    drawBone(state.worldToScreen(bone.head, screenCenter), state.worldToScreen(bone.tail, screenCenter), bone.id == state.selectedBoneId)
+                }
+                state.boneDraft?.let { (head, tail) -> drawBone(state.worldToScreen(head, screenCenter), state.worldToScreen(tail, screenCenter), true) }
+            }
+
+            // Connector being dragged out: from its label's box edge to the finger.
+            state.connectorDraft?.let { (fromId, point) ->
+                state.textItems.firstOrNull { it.id == fromId }?.let { from ->
+                    val (min, max) = state.textBounds(from)
+                    val start = state.worldToScreen(WorldPoint((min.x + max.x) / 2, (min.y + max.y) / 2), screenCenter)
+                    drawConnector(start, state.worldToScreen(point, screenCenter), MARQUEE_BORDER_COLOR)
+                }
+            }
+
+            // Ring on the object point the shape being drawn is snapped to.
+            state.snapIndicator?.let { anchor ->
+                drawCircle(color = MARQUEE_BORDER_COLOR, radius = 12f, center = state.worldToScreen(anchor, screenCenter), style = DrawStyle(width = 2f))
+            }
+
+            state.textBoxDraft?.let { (start, end) ->
+                val a = state.worldToScreen(start, screenCenter)
+                val b = state.worldToScreen(end, screenCenter)
+                drawRect(
+                    color = MARQUEE_BORDER_COLOR,
+                    topLeft = Offset(minOf(a.x, b.x), minOf(a.y, b.y)),
+                    size = Size(abs(b.x - a.x), abs(b.y - a.y)),
+                    style = DrawStyle(width = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))),
+                )
+            }
+
             state.shapePreview?.let { (start, end) ->
                 val screenPoints = generateShapePoints(state.activeShapeKind, start, end).map { state.worldToScreen(it, screenCenter) }
                 val rawWidthScreen = state.activeWidthWorld
@@ -452,6 +571,24 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                 path.moveTo(screenPoints[0].x, screenPoints[0].y)
                 for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
                 drawPath(path = path, color = state.activeColor, style = DrawStyle(width = widthScreen, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                // Dimensions (roadmap item 99): the line's length, or the box's width x height,
+                // in world units, beside the finger.
+                val label = shapeDimensions(state.activeShapeKind, start, end)
+                val layout = textMeasurer.measure(label, TextStyle(color = Color.White, fontSize = 12.sp))
+                val at = state.worldToScreen(end, screenCenter) + Offset(16f, 16f)
+                drawRect(MARQUEE_BORDER_COLOR, topLeft = at - Offset(4f, 2f), size = Size(layout.size.width + 8f, layout.size.height + 4f))
+                drawText(layout, topLeft = at)
+            }
+
+            // Smart guides (roadmap item 99): the lines a moving selection is snapped to.
+            val (guideX, guideY) = state.smartGuides
+            guideX?.let { x ->
+                val sx = state.worldToScreen(WorldPoint(x, 0.0), screenCenter).x
+                drawLine(GUIDE_COLOR, Offset(sx, 0f), Offset(sx, size.height), strokeWidth = 1f)
+            }
+            guideY?.let { y ->
+                val sy = state.worldToScreen(WorldPoint(0.0, y), screenCenter).y
+                drawLine(GUIDE_COLOR, Offset(0f, sy), Offset(size.width, sy), strokeWidth = 1f)
             }
 
             if (state.activeTool == Tool.SELECT) {
@@ -482,13 +619,11 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
 
     state.pendingTextEdit?.let { pending ->
         TextEditDialog(
-            initialText = pending.initialText,
-            initialBold = pending.initialBold,
-            initialItalic = pending.initialItalic,
-            initialSticky = pending.initialSticky,
-            initialSizePx = pending.initialSizePx,
-            onConfirm = { text, bold, italic, sticky, sizePx -> state.confirmTextEdit(text, bold, italic, sticky, sizePx) },
+            pending = pending,
+            onConfirm = { r -> state.confirmTextEdit(r.text, r.bold, r.italic, r.sticky, r.sizePx, r.font, r.alignment, r.keepBox, r.link, r.outlined) },
             onDismiss = { state.cancelTextEdit() },
+            linkChoices = linkChoices,
+            onFollowLink = onFollowLink,
         )
     }
 }
@@ -511,7 +646,7 @@ private fun DrawScope.drawBackgroundPattern(state: CanvasState, screenCenter: Of
     if (!columnCount.isFinite() || !rowCount.isFinite() || columnCount > MAX_BACKGROUND_PATTERN_LINES || rowCount > MAX_BACKGROUND_PATTERN_LINES) return
     val startX = kotlin.math.floor(topLeftWorld.x / spacing) * spacing
     val startY = kotlin.math.floor(topLeftWorld.y / spacing) * spacing
-    val lineColor = BACKGROUND_PATTERN_COLOR
+    val lineColor = if (state.backgroundColor.luminance() < 0.5f) DARK_BACKGROUND_PATTERN_COLOR else BACKGROUND_PATTERN_COLOR
     when (state.backgroundStyle) {
         BackgroundStyle.GRID -> {
             var x = startX
@@ -553,6 +688,8 @@ private fun DrawScope.drawBackgroundPattern(state: CanvasState, screenCenter: Of
 
 private const val MAX_BACKGROUND_PATTERN_LINES = 500.0
 private val BACKGROUND_PATTERN_COLOR = Color(0xFFD8D3C8)
+// The same faint step from the paper, the other way, for dark paper (roadmap item 73).
+private val DARK_BACKGROUND_PATTERN_COLOR = Color(0xFF3C3D40)
 
 /** Mutable holder for the most recent raw-MotionEvent pressure/tilt/orientation of pointer 0. */
 private class StylusSample {
@@ -571,16 +708,25 @@ private class StylusSample {
  * always have.
  */
 private fun hasStylusVariation(stroke: Stroke): Boolean {
-    val minPressure = stroke.pressures.minOrNull() ?: 1f
-    val maxPressure = stroke.pressures.maxOrNull() ?: 1f
-    val maxTilt = stroke.tilts.maxOrNull() ?: 0f
+    // Primitive accessors, not the boxed list views: this runs for every stroke every frame.
+    var minPressure = 1f
+    var maxPressure = 1f
+    var maxTilt = 0f
+    for (i in 0 until stroke.points.size) {
+        val pressure = stroke.pressureAt(i)
+        if (pressure < minPressure) minPressure = pressure
+        if (pressure > maxPressure) maxPressure = pressure
+        val tilt = stroke.tiltAt(i)
+        if (tilt > maxTilt) maxTilt = tilt
+    }
     return (maxPressure - minPressure) > 0.05f || maxTilt > 0.05f
 }
 
 /** Pressure/tilt combined into a single multiplier on the base stroke width at one point. */
 private fun widthFactorAt(stroke: Stroke, index: Int): Float {
-    val pressure = stroke.pressures.getOrElse(index) { 1f }.coerceIn(0.1f, 1f)
-    val tilt = stroke.tilts.getOrElse(index) { 0f }
+    val inRange = index in 0 until stroke.points.size
+    val pressure = (if (inRange) stroke.pressureAt(index) else 1f).coerceIn(0.1f, 1f)
+    val tilt = if (inRange) stroke.tiltAt(index) else 0f
     // More tilt lays down more ink, like a real pen/marker tipped over - up to 80% wider at
     // maximum tilt (~90°, a stylus flat against the screen).
     val tiltFactor = 1f + (tilt / (Math.PI.toFloat() / 2f)).coerceIn(0f, 1f) * 0.8f
@@ -591,26 +737,52 @@ private fun widthFactorAt(stroke: Stroke, index: Int): Float {
  * Renders one stroke's already screen-space points, styled per [Stroke.penType]. Marker,
  * pencil, and highlighter share the same smoothed-path construction (quadratic Beziers
  * through successive midpoints - see the class doc) with a different color/width/cap, unless
- * the stroke actually carries stylus pressure/tilt data, in which case it's rendered
- * per-segment instead (like calligraphy) so the width can vary along its length. Calligraphy
- * always needs per-segment width, so it's built entirely differently regardless.
+ * the stroke actually carries stylus pressure/tilt data, in which case it's filled as a
+ * variable-width outline instead (like calligraphy) so the width can vary along its length.
+ * Calligraphy always needs per-point width, so it's built entirely differently regardless.
  */
-private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, baseWidthScreen: Float, blendMode: BlendMode) {
+private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, source: IntArray, baseWidthScreen: Float, blendMode: BlendMode) {
     if (stroke.penType == PenType.CALLIGRAPHY) {
-        drawCalligraphyStroke(stroke, screenPoints, baseWidthScreen, blendMode)
+        drawCalligraphyStroke(stroke, screenPoints, source, baseWidthScreen, blendMode)
         return
     }
     if (stroke.penType == PenType.AIRBRUSH || stroke.penType == PenType.CRAYON) {
-        drawTexturedStroke(stroke, screenPoints, baseWidthScreen, blendMode)
+        drawTexturedStroke(stroke, screenPoints, source, baseWidthScreen, blendMode)
         return
     }
-    val style = penStyle(stroke.penType, stroke.color, baseWidthScreen)
-    if (screenPoints.size >= 2 && hasStylusVariation(stroke)) {
-        for (i in 0 until screenPoints.size - 1) {
-            val factor = (widthFactorAt(stroke, i) + widthFactorAt(stroke, i + 1)) / 2f
-            val width = (style.widthScreen * factor).coerceAtLeast(1f)
-            drawLine(color = style.color, start = screenPoints[i], end = screenPoints[i + 1], strokeWidth = width, cap = style.cap, blendMode = blendMode)
+    if (stroke.penType == PenType.STAMP) {
+        drawStampStroke(stroke, screenPoints, source, baseWidthScreen, blendMode)
+        return
+    }
+    val penDefaults = penStyle(stroke.penType, stroke.color, baseWidthScreen)
+    // The stroke's own line style (roadmap item 97) overrides the pen's cap and the round join.
+    val line = stroke.lineStyle
+    val style = when (line?.cap) {
+        LineCap.ROUND -> penDefaults.copy(cap = StrokeCap.Round)
+        LineCap.SQUARE -> penDefaults.copy(cap = StrokeCap.Square)
+        LineCap.BUTT -> penDefaults.copy(cap = StrokeCap.Butt)
+        null -> penDefaults
+    }
+    val join = when (line?.join) {
+        LineJoin.MITER -> StrokeJoin.Miter
+        LineJoin.BEVEL -> StrokeJoin.Bevel
+        else -> StrokeJoin.Round
+    }
+    val profile = line?.profile ?: WidthProfile.UNIFORM
+    if (screenPoints.size >= 2 && (hasStylusVariation(stroke) || profile != WidthProfile.UNIFORM)) {
+        // A width profile is applied by length along the stroke, on top of any pen pressure.
+        val along = FloatArray(screenPoints.size)
+        for (i in 1 until screenPoints.size) along[i] = along[i - 1] + (screenPoints[i] - screenPoints[i - 1]).getDistance()
+        val total = along.last().coerceAtLeast(1e-3f)
+        val halfWidths = FloatArray(screenPoints.size) { i ->
+            (style.widthScreen * widthFactorAt(stroke, source[i]) * profile.at(along[i] / total)).coerceAtLeast(1f) / 2f
         }
+        val cap = when (style.cap) {
+            StrokeCap.Square -> OutlineCap.SQUARE
+            StrokeCap.Butt -> OutlineCap.BUTT
+            else -> OutlineCap.ROUND
+        }
+        drawOutline(screenPoints, halfWidths, cap, style.color, blendMode)
         return
     }
     when (screenPoints.size) {
@@ -639,7 +811,7 @@ private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, bas
                 style = DrawStyle(
                     width = style.widthScreen,
                     cap = style.cap,
-                    join = StrokeJoin.Round,
+                    join = join,
                     pathEffect = if (stroke.dashed) dashEffect(style.widthScreen) else null,
                 ),
                 blendMode = blendMode,
@@ -673,8 +845,8 @@ private fun penStyle(penType: PenType, baseColor: Color, baseWidthScreen: Float)
         widthScreen = baseWidthScreen * 3f,
         cap = StrokeCap.Square,
     )
-    // Unused: these pens have their own renderers (drawCalligraphyStroke, drawTexturedStroke).
-    PenType.CALLIGRAPHY, PenType.AIRBRUSH, PenType.CRAYON, PenType.PIXEL -> PenStyle(baseColor, baseWidthScreen, StrokeCap.Round)
+    // Unused: these pens have their own renderers (drawCalligraphyStroke, drawTexturedStroke, drawStampStroke).
+    PenType.CALLIGRAPHY, PenType.AIRBRUSH, PenType.CRAYON, PenType.PIXEL, PenType.STAMP -> PenStyle(baseColor, baseWidthScreen, StrokeCap.Round)
 }
 
 /**
@@ -687,7 +859,7 @@ private fun penStyle(penType: PenType, baseColor: Color, baseWidthScreen: Float)
  * - CRAYON: the line drawn as short segments with grain gaps, plus a jittered second pass, so
  *   it reads as wax over textured paper.
  */
-private fun DrawScope.drawTexturedStroke(stroke: Stroke, screenPoints: List<Offset>, baseWidthScreen: Float, blendMode: BlendMode) {
+private fun DrawScope.drawTexturedStroke(stroke: Stroke, screenPoints: List<Offset>, source: IntArray, baseWidthScreen: Float, blendMode: BlendMode) {
     val radius = baseWidthScreen / 2f
     // Walk the path at a fixed screen spacing so texture density doesn't depend on how fast
     // (and so how sparsely) the points were captured.
@@ -701,7 +873,7 @@ private fun DrawScope.drawTexturedStroke(stroke: Stroke, screenPoints: List<Offs
         val count = maxOf(1, (length / step).toInt())
         for (k in 0 until count) {
             val center = a + segment * (k.toFloat() / count)
-            val width = baseWidthScreen * widthFactorAt(stroke, i)
+            val width = baseWidthScreen * widthFactorAt(stroke, source[i])
             when (stroke.penType) {
                 PenType.AIRBRUSH -> for (d in 0 until AIRBRUSH_DOTS_PER_SAMPLE) {
                     val angle = hash01(sample, d * 2) * 2f * Math.PI.toFloat()
@@ -730,6 +902,46 @@ private fun DrawScope.drawTexturedStroke(stroke: Stroke, screenPoints: List<Offs
 }
 
 private const val AIRBRUSH_DOTS_PER_SAMPLE = 6
+
+/**
+ * A [PenType.STAMP] stroke: its brush's tip drawn at each of [stampPlacements]. Each stamp is
+ * opaque in the stroke's colour, so a translucent colour builds up where stamps overlap - the
+ * way dab-based brushes behave in paint apps.
+ */
+private fun DrawScope.drawStampStroke(stroke: Stroke, screenPoints: List<Offset>, source: IntArray, baseWidthScreen: Float, blendMode: BlendMode) {
+    val brush = stroke.brush ?: StampBrush()
+    val stamps = stampPlacements(screenPoints, baseWidthScreen, brush) { i -> widthFactorAt(stroke, source[i]) }
+    for (stamp in stamps) drawStamp(brush.tip, stamp, stroke.color, blendMode)
+}
+
+/** Draws one stamp of [tip]; shared with the brush editor's preview. */
+fun DrawScope.drawStamp(tip: StampTip, stamp: Stamp, color: Color, blendMode: BlendMode = BlendMode.SrcOver) {
+    val radius = (stamp.size / 2f).coerceAtLeast(0.5f)
+    when (tip) {
+        StampTip.CIRCLE -> drawCircle(color, radius = radius, center = stamp.center, blendMode = blendMode)
+        // Soft: a radial falloff from full colour at the centre to transparent at the rim.
+        StampTip.SOFT -> drawCircle(
+            brush = Brush.radialGradient(listOf(color, color.copy(alpha = 0f)), center = stamp.center, radius = radius),
+            radius = radius,
+            center = stamp.center,
+            blendMode = blendMode,
+        )
+        StampTip.SQUARE -> rotate(Math.toDegrees(stamp.angle.toDouble()).toFloat(), pivot = stamp.center) {
+            drawRect(color, topLeft = stamp.center - Offset(radius, radius), size = Size(radius * 2f, radius * 2f), blendMode = blendMode)
+        }
+        StampTip.STAR -> {
+            val path = Path()
+            starOutline(stamp.size, stamp.angle).forEachIndexed { k, p ->
+                if (k == 0) path.moveTo(stamp.center.x + p.x, stamp.center.y + p.y) else path.lineTo(stamp.center.x + p.x, stamp.center.y + p.y)
+            }
+            path.close()
+            drawPath(path, color, blendMode = blendMode)
+        }
+    }
+}
+
+// Drawn points closer than this on screen are skipped: below a pixel they add no visible detail.
+private const val MIN_POINT_SPACING_SCREEN = 1.0
 
 /**
  * Pixel-art rendering: the grid is in world space with cells [Stroke.widthWorld] wide,
@@ -810,9 +1022,9 @@ private fun hash01(a: Int, b: Int): Float {
 /**
  * Simulates a flat calligraphy nib: each segment's width depends on how that segment's
  * direction relates to the nib's angle - widest when drawing across the nib's edge
- * (perpendicular to it), thinnest when drawing along it. Drawn as separate line segments
- * rather than one smoothed path, since a single Path/Stroke style can't vary width along its
- * length.
+ * (perpendicular to it), thinnest when drawing along it. Filled as one variable-width
+ * outline ([variableWidthOutline]) rather than stroked, since a single Path/Stroke style can't
+ * vary width along its length.
  *
  * Uses the stylus's actual tilt orientation as the nib angle when real tilt data is present
  * (a genuinely tilt-responsive nib), falling back to a fixed 45° for finger input or a
@@ -821,28 +1033,57 @@ private fun hash01(a: Int, b: Int): Float {
  * pointing along +X, matching `atan2`) with a quarter-turn offset - approximate, and unverified
  * against real stylus hardware.
  */
-private fun DrawScope.drawCalligraphyStroke(stroke: Stroke, screenPoints: List<Offset>, baseWidthScreen: Float, blendMode: BlendMode) {
+private fun DrawScope.drawCalligraphyStroke(stroke: Stroke, screenPoints: List<Offset>, source: IntArray, baseWidthScreen: Float, blendMode: BlendMode) {
     if (screenPoints.size < 2) {
         if (screenPoints.size == 1) drawCircle(stroke.color, radius = baseWidthScreen / 2f, center = screenPoints[0], blendMode = blendMode)
         return
     }
-    val avgTilt = if (stroke.tilts.isEmpty()) 0f else stroke.tilts.average().toFloat()
+    val pointCount = stroke.points.size
+    var tiltSum = 0.0
+    for (i in 0 until pointCount) tiltSum += stroke.tiltAt(i)
+    val avgTilt = if (pointCount == 0) 0f else (tiltSum / pointCount).toFloat()
     val useRealNibAngle = avgTilt > 0.1f
+    // Width is a property of each segment's direction; a point takes the mean of the segments
+    // on either side of it, so the outline changes width smoothly through each point.
+    val segmentWidths = FloatArray(screenPoints.size - 1)
     for (i in 0 until screenPoints.size - 1) {
         val a = screenPoints[i]
         val b = screenPoints[i + 1]
         val angle = atan2(b.y - a.y, b.x - a.x)
         val nibAngle = if (useRealNibAngle) {
-            val orientation = (stroke.orientations.getOrNull(i) ?: stroke.orientations.getOrElse(0) { CALLIGRAPHY_NIB_ANGLE })
+            val orientation = stroke.orientationAt(source[i])
             orientation + (Math.PI.toFloat() / 2f)
         } else {
             CALLIGRAPHY_NIB_ANGLE
         }
-        val pressureFactor = ((stroke.pressures.getOrElse(i) { 1f } + stroke.pressures.getOrElse(i + 1) { 1f }) / 2f).coerceIn(0.1f, 1f)
+        val pressureFactor = ((stroke.pressureAt(source[i]) + stroke.pressureAt(source[i + 1])) / 2f).coerceIn(0.1f, 1f)
         val widthFactor = (0.25f + 0.75f * abs(sin(angle - nibAngle))) * pressureFactor
-        val width = (baseWidthScreen * widthFactor).coerceAtLeast(1f)
-        drawLine(color = stroke.color, start = a, end = b, strokeWidth = width, cap = StrokeCap.Round, blendMode = blendMode)
+        segmentWidths[i] = (baseWidthScreen * widthFactor).coerceAtLeast(1f)
     }
+    val halfWidths = FloatArray(screenPoints.size) { i ->
+        val before = segmentWidths.getOrElse(i - 1) { segmentWidths[i] }
+        val after = segmentWidths.getOrElse(i) { segmentWidths[i - 1] }
+        (before + after) / 4f
+    }
+    drawOutline(screenPoints, halfWidths, OutlineCap.ROUND, stroke.color, blendMode)
+}
+
+/**
+ * Fills a variable-width stroke as one shape (see [variableWidthOutline]), so translucent ink
+ * isn't darkened where its segments would otherwise overlap. A stroke whose points all
+ * coincide has no outline and is drawn as a dot.
+ */
+private fun DrawScope.drawOutline(screenPoints: List<Offset>, halfWidths: FloatArray, cap: OutlineCap, color: Color, blendMode: BlendMode) {
+    val outline = variableWidthOutline(screenPoints, halfWidths, cap)
+    if (outline.isEmpty()) {
+        drawCircle(color, radius = halfWidths.max(), center = screenPoints[0], blendMode = blendMode)
+        return
+    }
+    val path = Path()
+    path.moveTo(outline[0].x, outline[0].y)
+    for (i in 1 until outline.size) path.lineTo(outline[i].x, outline[i].y)
+    path.close()
+    drawPath(path = path, color = color, blendMode = blendMode)
 }
 
 private const val CALLIGRAPHY_NIB_ANGLE = (Math.PI / 4).toFloat() // 45°, a standard calligraphy nib angle
@@ -851,6 +1092,8 @@ private const val CALLIGRAPHY_NIB_ANGLE = (Math.PI / 4).toFloat() // 45°, a sta
 private data class SelectionHandles(val scaleHandle: Offset, val rotateHandle: Offset, val topCenter: Offset)
 
 private fun selectionHandles(state: CanvasState, screenCenter: Offset): SelectionHandles? {
+    // While editing nodes, a node on the bounds' corner must be draggable, not the scale handle.
+    if (state.nodeEditStroke != null) return null
     val bounds = state.selectionBounds() ?: return null
     val (min, max) = bounds
     val scaleHandle = state.worldToScreen(max, screenCenter)
@@ -865,6 +1108,68 @@ private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
 private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
+// Widest a text box is laid out on screen; beyond this (deep zoom) the box is cropped to it.
+private const val MAX_TEXT_BOX_PX = 65536.0
+
+private val CONNECTOR_COLOR = Color(0xFF455A64)
+
+/** A connector arrow from [a] to [b] in screen space: a 2 px line and an arrowhead at [b]. */
+// Bone overlay: a tapered wedge from joint to tail, with a ring on the joint (sizes in px on the §7 scale).
+private val BONE_COLOR = Color(0xCC5E35B1)
+private val SELECTED_BONE_COLOR = Color(0xFFFF6F00)
+private const val BONE_HALF_WIDTH_PX = 6f
+private const val BONE_JOINT_RADIUS_PX = 6f
+
+private val GUIDE_COLOR = Color(0xFFE91E63)
+
+/** The shape-tool readout: a line or arrow's length, otherwise the box's width x height, rounded to whole units. */
+internal fun shapeDimensions(kind: ShapeKind, start: WorldPoint, end: WorldPoint): String {
+    val dx = abs(end.x - start.x)
+    val dy = abs(end.y - start.y)
+    return when (kind) {
+        ShapeKind.LINE, ShapeKind.ARROW -> "%.0f".format(kotlin.math.hypot(dx, dy))
+        else -> "%.0f × %.0f".format(dx, dy)
+    }
+}
+
+private fun DrawScope.drawBone(head: Offset, tail: Offset, selected: Boolean) {
+    val color = if (selected) SELECTED_BONE_COLOR else BONE_COLOR
+    val direction = tail - head
+    val length = direction.getDistance()
+    if (length > 0f) {
+        val normal = Offset(-direction.y / length, direction.x / length) * BONE_HALF_WIDTH_PX
+        val shoulder = head + direction * 0.2f
+        val path = Path().apply {
+            moveTo(head.x, head.y)
+            lineTo(shoulder.x + normal.x, shoulder.y + normal.y)
+            lineTo(tail.x, tail.y)
+            lineTo(shoulder.x - normal.x, shoulder.y - normal.y)
+            close()
+        }
+        drawPath(path, color.copy(alpha = color.alpha * 0.5f))
+        drawPath(path, color, style = DrawStyle(width = 2f))
+    }
+    drawCircle(color, BONE_JOINT_RADIUS_PX, head, style = DrawStyle(width = 2f))
+}
+
+internal fun DrawScope.drawConnector(a: Offset, b: Offset, color: Color = CONNECTOR_COLOR) {
+    drawLine(color, a, b, strokeWidth = 2f, cap = StrokeCap.Round)
+    val direction = b - a
+    val length = direction.getDistance()
+    if (length < 1f) return
+    val unit = direction / length
+    val normal = Offset(-unit.y, unit.x)
+    // A 12 px long arrowhead, 6 px each side of the line (both on the §7 scale).
+    val back = b - unit * 12f
+    val head = Path().apply {
+        moveTo(b.x, b.y)
+        lineTo(back.x + normal.x * 6f, back.y + normal.y * 6f)
+        lineTo(back.x - normal.x * 6f, back.y - normal.y * 6f)
+        close()
+    }
+    drawPath(head, color)
+}
+
 // Classic sticky-note yellow.
 private val STICKY_NOTE_COLOR = Color(0xFFFFF59D)
 
@@ -881,6 +1186,10 @@ private const val MULTI_FINGER_TAP_SLOP_PX = 24f // on the §7 scale
 
 // Translucent teal so the axes guide without competing with the drawing.
 private val SYMMETRY_COLOR = Color(0x6600897B)
+private val PERSPECTIVE_RAY_COLOR = Color(0x335E35B1)
+private val PERSPECTIVE_HORIZON_COLOR = Color(0x995E35B1)
+// One ray every 15 degrees.
+private const val PERSPECTIVE_RAYS = 24
 // Muted purple, distinct from the blue selection/marquee colours.
 private val FRAME_COLOR = Color(0xFF7E57C2)
 private val MARQUEE_FILL_COLOR = Color(0x1A1E88E5)
@@ -940,7 +1249,10 @@ internal fun DrawScope.drawScene(
     // Only the current animation frame is drawn (outside animation everything is frame 0), plus
     // the previous frame as a faint onion skin while editing an animation.
     val onionFrame = if (state.animationMode && state.onionSkin && !state.playing && state.currentAnimFrame > 0) state.currentAnimFrame - 1 else null
-    val replayed = state.replayCount?.let { state.strokes.take(it) } ?: state.strokes
+    // Only strokes near the view, from the spatial index - not a pass over the whole document.
+    val nearby = state.strokesNear(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)
+    // Replay draws the first replayCount strokes of the document, in drawing order.
+    val replayed = state.replayCount?.let { count -> state.strokes.take(count).toHashSet().let { shown -> nearby.filter { it in shown } } } ?: nearby
     val strokesByLayer = replayed.filter { it.animFrame == state.currentAnimFrame }.groupBy { layerIndex[it.layerId] ?: 0 }
     // Offscreen bounds for a translucent layer: the square around the screen centre that covers
     // the screen at any canvas rotation.
@@ -948,13 +1260,14 @@ internal fun DrawScope.drawScene(
     val layerBounds = Rect(screenCenter - Offset(halfDiagonal, halfDiagonal), screenCenter + Offset(halfDiagonal, halfDiagonal))
     if (onionFrame != null) {
         drawContext.canvas.saveLayer(layerBounds, Paint().apply { alpha = ONION_SKIN_ALPHA })
-        for (stroke in state.strokes) {
+        for (stroke in nearby) {
             if (stroke.animFrame != onionFrame || stroke.points.isEmpty()) continue
             if (state.layers.firstOrNull { it.id == stroke.layerId }?.visible == false) continue
             if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
-            val screenPoints = stroke.points.map { state.worldToScreen(it, screenCenter) }
+            val source = stroke.decimatedIndices(MIN_POINT_SPACING_SCREEN / state.scale)
+            val screenPoints = source.map { state.worldToScreen(stroke.points[it], screenCenter) }
             val widthScreen = (stroke.widthWorld * state.scale).toFloat().coerceIn(1f, 1_000_000f)
-            drawStroke(stroke, screenPoints, widthScreen, BlendMode.SrcOver)
+            drawStroke(stroke, screenPoints, source, widthScreen, BlendMode.SrcOver)
         }
         drawContext.canvas.restore()
     }
@@ -984,7 +1297,11 @@ internal fun DrawScope.drawScene(
                     drawCircle(color = stroke.color, radius = 0.5f, center = center)
                     continue
                 }
-                val screenPoints = points.map { state.worldToScreen(it, screenCenter) }
+                // Points closer together than a pixel on screen add path-building cost but no
+                // visible detail, so only those at least MIN_POINT_SPACING_SCREEN apart are drawn;
+                // [source] maps each drawn point back to its index for pressure/tilt lookups.
+                val source = stroke.decimatedIndices(MIN_POINT_SPACING_SCREEN / state.scale)
+                val screenPoints = source.map { state.worldToScreen(points[it], screenCenter) }
                 if (stroke.filled) {
                     val path = Path()
                     path.moveTo(screenPoints[0].x, screenPoints[0].y)
@@ -992,6 +1309,9 @@ internal fun DrawScope.drawScene(
                     path.close()
                     if (stroke.screentone) {
                         drawScreentone(path, stroke.color, screenPoints)
+                    } else if (stroke.gradient != null) {
+                        val (start, end) = gradientEndpoints(screenPoints, stroke.gradient.angleDegrees)
+                        drawPath(path = path, brush = Brush.linearGradient(listOf(stroke.color, stroke.gradient.endColor), start = start, end = end))
                     } else if (stroke.fadeFill) {
                         // Gradient spans the fill's own height on screen, so it zooms with the shape.
                         val top = screenPoints.minOf { it.y }
@@ -1009,31 +1329,102 @@ internal fun DrawScope.drawScene(
                 if (!rawWidthScreen.isFinite()) continue
                 val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
                 if (stroke.penType == PenType.PIXEL) drawPixelStroke(stroke, state, screenCenter)
-                else drawStroke(stroke, screenPoints, widthScreen, stroke.blendMode.toComposeBlendMode())
+                else drawStroke(stroke, screenPoints, source, widthScreen, stroke.blendMode.toComposeBlendMode())
         }
         if (translucent) drawContext.canvas.restore()
     }
 
-    for (item in state.textItems) {
-        val screenPos = state.worldToScreen(item.position, screenCenter)
+    // Labels are measured first: connectors run to the boxes actually drawn (measured text plus a
+    // sticky note's paper), and are drawn under the labels so arrows never cover a note's text.
+    class MeasuredLabel(val item: TextItem, val position: Offset, val layout: TextLayoutResult, val pad: Float)
+    val labels = state.textItems.mapNotNull { item ->
         val fontSizePx = (item.fontSizeWorld * state.scale)
-        if (!fontSizePx.isFinite() || fontSizePx <= 0.0) continue
+        if (!fontSizePx.isFinite() || fontSizePx <= 0.0) return@mapNotNull null
         val fontSizeSp = fontSizePx.toFloat().toSp() // DrawScope is a Density
-        val layout = textMeasurer.measure(text = item.text, style = TextStyle(
+        // A boxed label lays out at exactly its box width (so wrapping and alignment are within the
+        // box); capped because layout constraints can't hold an arbitrarily large zoomed-in width.
+        val boxPx = item.boxWidthWorld?.let { (it * state.scale).coerceIn(1.0, MAX_TEXT_BOX_PX).toInt() }
+        val onPath = item.path != null && item.path.size >= 2
+        val layout = textMeasurer.measure(
+            // Text on a path is one line along it.
+            text = if (onPath) item.text.replace('\n', ' ') else item.text,
+            style = TextStyle(
                 color = item.color,
                 fontSize = fontSizeSp,
                 fontWeight = if (item.bold) FontWeight.Bold else FontWeight.Normal,
                 fontStyle = if (item.italic) FontStyle.Italic else FontStyle.Normal,
-            ))
-        if (item.sticky) {
-            // The note extends half a line around the text, like paper around handwriting.
-            val pad = layout.size.height / 2f
+                fontFamily = item.font.fontFamily,
+                textAlign = item.alignment.textAlign,
+                // A label linked to a pin or document is underlined, like a link.
+                textDecoration = if (item.link != null) TextDecoration.Underline else null,
+            ),
+            constraints = if (boxPx != null && !onPath) Constraints.fixedWidth(boxPx) else Constraints(),
+        )
+        // A sticky note extends half a line around the text, like paper around handwriting.
+        MeasuredLabel(item, state.worldToScreen(item.position, screenCenter), layout, if (item.sticky) layout.size.height / 2f else 0f)
+    }
+    val labelBoxes = labels.associate { label ->
+        val topLeft = label.position - Offset(label.pad, label.pad)
+        val bottomRight = label.position + Offset(label.layout.size.width + label.pad, label.layout.size.height + label.pad)
+        label.item.id to (WorldPoint(topLeft.x.toDouble(), topLeft.y.toDouble()) to WorldPoint(bottomRight.x.toDouble(), bottomRight.y.toDouble()))
+    }
+    for (connector in state.connectors) {
+        // Screen-space boxes, so the same edge-to-edge geometry applies.
+        val from = labelBoxes[connector.fromId] ?: continue
+        val to = labelBoxes[connector.toId] ?: continue
+        val (a, b) = connectorSegment(from.first, from.second, to.first, to.second) ?: continue
+        drawConnector(Offset(a.x.toFloat(), a.y.toFloat()), Offset(b.x.toFloat(), b.y.toFloat()))
+    }
+
+    for (label in labels) {
+        if (label.item.sticky) {
             drawRect(
                 color = STICKY_NOTE_COLOR,
-                topLeft = screenPos - Offset(pad, pad),
-                size = Size(layout.size.width + 2 * pad, layout.size.height + 2 * pad),
+                topLeft = label.position - Offset(label.pad, label.pad),
+                size = Size(label.layout.size.width + 2 * label.pad, label.layout.size.height + 2 * label.pad),
             )
         }
-        drawText(textLayoutResult = layout, topLeft = screenPos)
+        // Outlined text (roadmap item 98): letter outlines a twentieth of the text size wide.
+        val textStyle = if (label.item.outlined) DrawStyle(width = maxOf(1f, label.layout.layoutInput.style.fontSize.toPx() / 20f)) else Fill
+        val path = label.item.path
+        if (path != null && path.size >= 2) {
+            drawTextOnPath(label.layout, path.map { state.worldToScreen(label.item.position + it, screenCenter) }, textStyle)
+        } else {
+            drawText(textLayoutResult = label.layout, topLeft = label.position, drawStyle = textStyle)
+        }
+    }
+}
+
+/**
+ * Draws one line of laid-out text along [path] (screen points, roadmap item 98): each letter
+ * centred at its distance along the path, sitting on it by its baseline and turned to the
+ * path's direction there. Letters past the path's end aren't drawn. Each letter is the whole
+ * line drawn moved and clipped to that letter, so shaping (kerning, ligatures) is kept.
+ */
+private fun DrawScope.drawTextOnPath(layout: TextLayoutResult, path: List<Offset>, style: androidx.compose.ui.graphics.drawscope.DrawStyle) {
+    val along = FloatArray(path.size)
+    for (i in 1 until path.size) along[i] = along[i - 1] + (path[i] - path[i - 1]).getDistance()
+    val baseline = layout.firstBaseline
+    var segment = 1
+    for (i in 0 until layout.layoutInput.text.length) {
+        val box = layout.getBoundingBox(i)
+        if (box.width <= 0f) continue // spaces and zero-width marks have nothing to draw
+        val middle = box.left + box.width / 2
+        if (middle > along.last()) break
+        while (segment < path.size - 1 && along[segment] < middle) segment++
+        val a = path[segment - 1]
+        val b = path[segment]
+        val span = (along[segment] - along[segment - 1]).coerceAtLeast(1e-3f)
+        val t = ((middle - along[segment - 1]) / span).coerceIn(0f, 1f)
+        val at = a + (b - a) * t
+        val degrees = Math.toDegrees(atan2((b - a).y.toDouble(), (b - a).x.toDouble())).toFloat()
+        withTransform({
+            translate(at.x, at.y)
+            rotate(degrees, pivot = Offset.Zero)
+        }) {
+            clipRect(box.left - middle - 1f, box.top - baseline - 1f, box.right - middle + 1f, box.bottom - baseline + 1f) {
+                drawText(textLayoutResult = layout, topLeft = Offset(-middle, -baseline), drawStyle = style)
+            }
+        }
     }
 }

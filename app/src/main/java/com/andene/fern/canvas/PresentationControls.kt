@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -33,14 +35,14 @@ fun PresentationControls(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { onStep(-1) }, enabled = position > 0) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous frame")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.presentation_previous))
             }
-            Text("${position + 1} / $count", modifier = Modifier.padding(horizontal = 8.dp))
+            Text(stringResource(R.string.presentation_position, position + 1, count), modifier = Modifier.padding(horizontal = 8.dp))
             IconButton(onClick = { onStep(1) }, enabled = position < count - 1) {
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next frame")
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.presentation_next))
             }
             IconButton(onClick = onExit) {
-                Icon(Icons.Filled.Close, contentDescription = "Exit presentation")
+                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.presentation_exit))
             }
         }
     }

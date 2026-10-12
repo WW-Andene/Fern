@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.annotation.StringRes
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -8,12 +10,12 @@ import kotlin.math.sin
  * Symmetry drawing: every pen stroke is repeated live through these reflections/rotations
  * about [CanvasState.symmetryCenter], like the symmetry guides in Procreate or Krita.
  */
-enum class SymmetryMode(val label: String) {
-    OFF("Off"),
-    VERTICAL("Mirror left/right"),
-    HORIZONTAL("Mirror top/bottom"),
-    QUADRANT("Four-way mirror"),
-    RADIAL("Radial (6)"),
+enum class SymmetryMode(@StringRes val label: Int) {
+    OFF(R.string.symmetry_off),
+    VERTICAL(R.string.symmetry_vertical),
+    HORIZONTAL(R.string.symmetry_horizontal),
+    QUADRANT(R.string.symmetry_quadrant),
+    RADIAL(R.string.symmetry_radial),
 }
 
 // Six segments: the common default for mandala-style radial symmetry.

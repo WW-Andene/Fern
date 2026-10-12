@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,14 +33,14 @@ fun SearchDialog(textItems: List<TextItem>, onJump: (TextItem) -> Unit, onDismis
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Search text") },
+        title = { Text(stringResource(R.string.search_title)) },
         text = {
             Column {
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
                     singleLine = true,
-                    placeholder = { Text("Find text on the canvas") },
+                    placeholder = { Text(stringResource(R.string.search_placeholder)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Column(
@@ -47,7 +49,7 @@ fun SearchDialog(textItems: List<TextItem>, onJump: (TextItem) -> Unit, onDismis
                         .verticalScroll(rememberScrollState()),
                 ) {
                     if (query.isNotBlank() && matches.isEmpty()) {
-                        Text("No matches", modifier = Modifier.padding(vertical = 8.dp))
+                        Text(stringResource(R.string.search_no_matches), modifier = Modifier.padding(vertical = 8.dp))
                     }
                     for (item in matches) {
                         Text(
@@ -65,7 +67,7 @@ fun SearchDialog(textItems: List<TextItem>, onJump: (TextItem) -> Unit, onDismis
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         },
     )
 }

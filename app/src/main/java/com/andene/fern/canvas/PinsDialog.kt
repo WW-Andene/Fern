@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,7 +42,7 @@ fun PinsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Pins") },
+        title = { Text(stringResource(R.string.pins_title)) },
         text = {
             Column {
                 for (pin in pins) {
@@ -57,7 +59,7 @@ fun PinsDialog(
                                 .clickable { onJump(pin) },
                         )
                         IconButton(onClick = { onDelete(pin) }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Delete pin")
+                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.pins_delete))
                         }
                     }
                 }
@@ -68,7 +70,7 @@ fun PinsDialog(
                     OutlinedTextField(
                         value = newPinName,
                         onValueChange = { newPinName = it },
-                        label = { Text("New pin name") },
+                        label = { Text(stringResource(R.string.pins_new_name)) },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )
@@ -78,14 +80,14 @@ fun PinsDialog(
                             newPinName = ""
                         }
                     }) {
-                        Icon(Icons.Filled.Add, contentDescription = "Add pin at current view")
+                        Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.pins_add))
                     }
                 }
             }
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         },
     )
 }

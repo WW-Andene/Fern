@@ -12,7 +12,8 @@ import java.util.zip.ZipOutputStream
 
 private const val META_ENTRY = "meta.json"
 private const val IMAGES_PREFIX = "images/"
-private const val BUNDLE_VERSION = 1
+// 2: strokes travel as the binary strokes.bin (StrokeCodec) instead of canvas.json.
+private const val BUNDLE_VERSION = 2
 
 /**
  * A `.fern` bundle: one document as a zip of its portable files (see
@@ -29,6 +30,7 @@ fun exportDocumentBundle(context: Context, documentId: String, name: String): By
             zip.closeEntry()
         }
         put(META_ENTRY, JSONObject().put("name", name).put("bundleVersion", BUNDLE_VERSION).toString().toByteArray())
+        CanvasStorage.compactStrokes(context, documentId)
         for ((entry, file) in CanvasStorage.portableFiles(context, documentId)) {
             if (file.exists()) put(entry, file.readBytes())
         }
@@ -68,7 +70,9 @@ fun importDocumentBundle(context: Context, input: InputStream): DocumentMeta? {
         }
     }
     val bundleName = name ?: return cleanUp(targets.values)
-    if (!targets.getValue("canvas.json").exists()) return cleanUp(targets.values)
+    val hasStrokes = targets.getValue(CanvasStorage.BUNDLE_STROKES_ENTRY).exists() ||
+        targets.getValue(CanvasStorage.LEGACY_BUNDLE_STROKES_ENTRY).exists()
+    if (!hasStrokes) return cleanUp(targets.values)
     return CanvasStorage.registerDocument(context, newId, bundleName)
 }
 

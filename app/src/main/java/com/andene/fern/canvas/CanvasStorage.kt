@@ -10,6 +10,10 @@ import androidx.compose.ui.graphics.toArgb
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
+import java.io.DataInputStream
+import java.io.DataOutputStream
 import java.io.File
 import java.io.FileNotFoundException
 import java.util.UUID
@@ -39,14 +43,21 @@ data class PinMeta(
 private const val IMAGES_DIR_NAME = "images"
 
 /**
- * Persists canvas documents to local app storage as JSON: an index file listing every
- * document's metadata, plus one strokes file per document (`canvas_<id>.json`).
+ * Persists canvas documents to local app storage: an index file listing every document's
+ * metadata, plus per-document files for each concern.
  *
- * Uses `org.json` (bundled in the Android SDK) rather than a serialization library, since the
- * schema is small. Every file is wrapped in a versioned envelope; see [FORMAT_VERSION].
+ * Strokes, undo history and saved versions - the files that grow with the drawing - are binary
+ * ([StrokeCodec], `strokes_<id>.bin`), carrying their own format version. Everything else is
+ * small and uses `org.json` (bundled in the Android SDK), wrapped in a versioned envelope; see
+ * [FORMAT_VERSION]. JSON stroke files from before the binary format are still read, and
+ * replaced by the next save.
  */
 object CanvasStorage {
     private const val INDEX_FILE_NAME = "documents.json"
+    private const val VERSION_SUFFIX = ".bin"
+    private const val LEGACY_VERSION_SUFFIX = ".json"
+    internal const val BUNDLE_STROKES_ENTRY = "strokes.bin"
+    internal const val LEGACY_BUNDLE_STROKES_ENTRY = "canvas.json"
     private const val PALETTE_FILE_NAME = "palette.json"
     private const val LEGACY_FILE_NAME = "canvas.json" // pre-multi-document single canvas file
     private const val DEFAULT_DOCUMENT_NAME = "My Canvas"
@@ -156,12 +167,19 @@ object CanvasStorage {
         }
         writeIndex(context, kept)
         strokesFile(context, id).delete()
+        journalFile(context, id).delete()
+        legacyStrokesFile(context, id).delete()
+        synchronized(this) { lastSaved.remove(id) }
         pinsFile(context, id).delete()
         textItemsFile(context, id).delete()
+        connectorsFile(context, id).delete()
+        bonesFile(context, id).delete()
+        animationFile(context, id).delete()
         imageItemsFile(context, id).delete()
         backgroundFile(context, id).delete()
         thumbnailFile(context, id).delete()
         historyFile(context, id).delete()
+        legacyHistoryFile(context, id).delete()
         layersFile(context, id).delete()
         framesFile(context, id).delete()
         AudioNotes.deleteAll(context, id)
@@ -176,6 +194,9 @@ object CanvasStorage {
     fun duplicateDocument(context: Context, id: String, newName: String): DocumentMeta {
         val strokes = load(context, id)
         val textItems = loadTextItems(context, id)
+        val connectors = loadConnectors(context, id)
+        val bones = loadBones(context, id)
+        val animation = loadAnimationSettings(context, id)
         val imageItems = loadImageItems(context, id)
         val (backgroundColor, backgroundStyle) = loadBackground(context, id)
         val layers = loadLayers(context, id)
@@ -183,6 +204,9 @@ object CanvasStorage {
         val meta = createDocument(context, newName)
         save(context, meta.id, strokes)
         saveTextItems(context, meta.id, textItems)
+        saveConnectors(context, meta.id, connectors)
+        saveBones(context, meta.id, bones)
+        saveAnimationSettings(context, meta.id, animation)
         saveImageItems(context, meta.id, imageItems)
         saveBackground(context, meta.id, backgroundColor, backgroundStyle)
         if (layers.isNotEmpty()) saveLayers(context, meta.id, layers)
@@ -191,8 +215,10 @@ object CanvasStorage {
     }
 
     /**
-     * Saves [strokes]. [withThumbnail] re-renders the library thumbnail too; autosave (after
-     * every action) passes false, since rendering every stroke again each time adds up on big
+     * Saves [strokes]. When the only change since the last save is strokes added at the end (the
+     * usual case: something was just drawn), just those are appended to a journal instead of
+     * rewriting the whole file; see [saveStrokesFile]. [withThumbnail] re-renders the library
+     * thumbnail too; autosave (after every action) passes false, since rendering every stroke again each time adds up on big
      * documents - the thumbnail is refreshed when leaving the document or opening the library.
      */
     fun save(context: Context, documentId: String, strokes: List<Stroke>, withThumbnail: Boolean = true) {
@@ -209,9 +235,22 @@ object CanvasStorage {
         writeIndex(context, index)
     }
 
-    fun load(context: Context, documentId: String): List<Stroke> {
-        val target = strokesFile(context, documentId)
-        return readStored(target) { parseStrokes(it as JSONArray) } ?: emptyList()
+    fun load(context: Context, documentId: String): List<Stroke> = synchronized(this) {
+        // Whatever was remembered from an earlier load or save no longer describes these objects.
+        lastSaved.remove(documentId)
+        val base = readBinary(strokesFile(context, documentId)) { StrokeCodec.read(it) }
+            // Documents saved before the binary format; converted by the next save.
+            ?: readStored(legacyStrokesFile(context, documentId)) { parseStrokes(it as JSONArray) }
+            ?: emptyList()
+        val journal = readJournal(journalFile(context, documentId))
+        val strokes = base + journal.strokes
+        if (journal.damagedTail) {
+            // A crash mid-append left a partial block; rewrite cleanly so later appends aren't
+            // stranded behind it.
+            saveStrokesFile(context, documentId, strokes)
+        }
+        lastSaved[documentId] = SavedStrokes(strokes, journal.blocks)
+        strokes
     }
 
     fun listPins(context: Context, documentId: String): List<PinMeta> {
@@ -249,6 +288,62 @@ object CanvasStorage {
         writeStored(pinsFile(context, documentId), root)
     }
 
+    fun saveConnectors(context: Context, documentId: String, connectors: List<Connector>) {
+        val root = JSONArray()
+        for (c in connectors) root.put(JSONObject().put("id", c.id).put("from", c.fromId).put("to", c.toId))
+        writeStored(connectorsFile(context, documentId), root)
+    }
+
+    fun loadConnectors(context: Context, documentId: String): List<Connector> {
+        val root = readStored(connectorsFile(context, documentId)) { it as JSONArray } ?: return emptyList()
+        return (0 until root.length()).map { i ->
+            val entry = root.getJSONObject(i)
+            Connector(entry.getString("id"), entry.getString("from"), entry.getString("to"))
+        }
+    }
+
+    /** Saves every frame's skeleton bones (roadmap item 83). */
+    fun saveBones(context: Context, documentId: String, bones: List<Bone>) {
+        val root = JSONArray()
+        for (b in bones) {
+            root.put(
+                JSONObject().put("id", b.id).put("parent", b.parentId ?: JSONObject.NULL).put("frame", b.animFrame)
+                    .put("hx", b.head.x).put("hy", b.head.y).put("tx", b.tail.x).put("ty", b.tail.y)
+            )
+        }
+        writeStored(bonesFile(context, documentId), root)
+    }
+
+    fun loadBones(context: Context, documentId: String): List<Bone> {
+        val root = readStored(bonesFile(context, documentId)) { it as JSONArray } ?: return emptyList()
+        return (0 until root.length()).mapNotNull { i ->
+            val e = root.optJSONObject(i) ?: return@mapNotNull null
+            runCatching {
+                Bone(
+                    e.getString("id"), if (e.isNull("parent")) null else e.getString("parent"),
+                    WorldPoint(e.getDouble("hx"), e.getDouble("hy")), WorldPoint(e.getDouble("tx"), e.getDouble("ty")), e.optInt("frame", 0),
+                )
+            }.getOrNull()
+        }
+    }
+
+    /** Saves the playback speed and X-sheet holds (roadmap item 88). */
+    fun saveAnimationSettings(context: Context, documentId: String, settings: AnimationSettings) {
+        val holds = JSONObject()
+        for ((frame, hold) in settings.holds) holds.put(frame.toString(), hold)
+        writeStored(animationFile(context, documentId), JSONObject().put("fps", settings.fps).put("holds", holds))
+    }
+
+    /** The saved timing, or the defaults (12 fps, no holds) for a document from before it was saved. */
+    fun loadAnimationSettings(context: Context, documentId: String): AnimationSettings {
+        val root = readStored(animationFile(context, documentId)) { it as JSONObject } ?: return AnimationSettings()
+        val holds = root.optJSONObject("holds")
+        return AnimationSettings(
+            root.optInt("fps", 12).coerceIn(1, 60),
+            holds?.keys()?.asSequence()?.mapNotNull { key -> key.toIntOrNull()?.let { it to holds.optInt(key, 1).coerceIn(1, CanvasState.MAX_FRAME_HOLD) } }?.toMap().orEmpty(),
+        )
+    }
+
     fun loadTextItems(context: Context, documentId: String): List<TextItem> {
         val file = textItemsFile(context, documentId)
         val root = readStored(file) { it as JSONArray } ?: return emptyList()
@@ -266,6 +361,17 @@ object CanvasStorage {
                     bold = entry.optBoolean("bold", false),
                     italic = entry.optBoolean("italic", false),
                     sticky = entry.optBoolean("sticky", false),
+                    // Labels saved before fonts, alignment and text boxes: sans, left, no box.
+                    font = enumOrDefault(entry.optString("font"), TextFont.SANS),
+                    alignment = enumOrDefault(entry.optString("align"), TextAlignment.START),
+                    boxWidthWorld = if (entry.has("boxWidth")) entry.getDouble("boxWidth") else null,
+                    outlined = entry.optBoolean("outlined", false),
+                    path = entry.optJSONArray("path")?.let { a -> (0 until a.length() / 2).map { WorldPoint(a.getDouble(2 * it), a.getDouble(2 * it + 1)) } },
+                    link = when {
+                        entry.has("linkPin") -> LinkTarget.Pin(entry.getString("linkPin"))
+                        entry.has("linkDoc") -> LinkTarget.Document(entry.getString("linkDoc"))
+                        else -> null
+                    },
                 )
             )
         }
@@ -286,6 +392,16 @@ object CanvasStorage {
                     put("bold", item.bold)
                     put("italic", item.italic)
                     put("sticky", item.sticky)
+                    put("font", item.font.name)
+                    put("align", item.alignment.name)
+                    item.boxWidthWorld?.let { put("boxWidth", it) }
+                    if (item.outlined) put("outlined", true)
+                    item.path?.let { path -> put("path", JSONArray().apply { path.forEach { put(it.x); put(it.y) } }) }
+                    when (val link = item.link) {
+                        is LinkTarget.Pin -> put("linkPin", link.pinId)
+                        is LinkTarget.Document -> put("linkDoc", link.documentId)
+                        null -> {}
+                    }
                 }
             )
         }
@@ -352,16 +468,24 @@ object CanvasStorage {
      * size of the document itself.
      */
     fun saveHistory(context: Context, documentId: String, undo: List<List<Stroke>>, redo: List<List<Stroke>>) {
-        val root = JSONObject().apply {
-            put("undo", JSONArray().apply { undo.takeLast(PERSISTED_HISTORY_STEPS).forEach { put(strokesToJson(it)) } })
-            put("redo", JSONArray().apply { redo.takeLast(PERSISTED_HISTORY_STEPS).forEach { put(strokesToJson(it)) } })
+        // Layout: int undo-step count, that many stroke blocks, then the same for redo.
+        writeBinary(historyFile(context, documentId)) { out ->
+            for (steps in listOf(undo.takeLast(PERSISTED_HISTORY_STEPS), redo.takeLast(PERSISTED_HISTORY_STEPS))) {
+                out.writeInt(steps.size)
+                steps.forEach { StrokeCodec.write(out, it) }
+            }
         }
-        writeStored(historyFile(context, documentId), root)
+        legacyHistoryFile(context, documentId).delete()
     }
 
     /** Undo and redo snapshots saved by [saveHistory], or empty lists if there are none. */
     fun loadHistory(context: Context, documentId: String): Pair<List<List<Stroke>>, List<List<Stroke>>> {
-        val root = readStored(historyFile(context, documentId)) { it as JSONObject } ?: return emptyList<List<Stroke>>() to emptyList()
+        readBinary(historyFile(context, documentId)) { input ->
+            fun steps() = List(input.readInt().coerceAtLeast(0)) { StrokeCodec.read(input) }
+            val undo = steps()
+            undo to steps()
+        }?.let { return it }
+        val root = readStored(legacyHistoryFile(context, documentId)) { it as JSONObject } ?: return emptyList<List<Stroke>>() to emptyList()
         fun steps(key: String): List<List<Stroke>> {
             val array = root.optJSONArray(key) ?: return emptyList()
             return (0 until array.length()).map { parseStrokes(array.getJSONArray(it)) }
@@ -372,11 +496,16 @@ object CanvasStorage {
     /** Saved version timestamps for [documentId], newest first. */
     fun listVersions(context: Context, documentId: String): List<Long> =
         versionsDir(context, documentId).listFiles().orEmpty()
-            .mapNotNull { it.name.removeSuffix(".json").toLongOrNull() }
+            .mapNotNull { it.name.removeSuffix(VERSION_SUFFIX).removeSuffix(LEGACY_VERSION_SUFFIX).toLongOrNull() }
+            .distinct()
             .sortedDescending()
 
-    fun loadVersion(context: Context, documentId: String, timestamp: Long): List<Stroke> =
-        readStored(File(versionsDir(context, documentId), "$timestamp.json")) { parseStrokes(it as JSONArray) } ?: emptyList()
+    fun loadVersion(context: Context, documentId: String, timestamp: Long): List<Stroke> {
+        val dir = versionsDir(context, documentId)
+        readBinary(File(dir, "$timestamp$VERSION_SUFFIX")) { StrokeCodec.read(it) }?.let { return it }
+        // Versions saved before the binary format stay readable as they age out.
+        return readStored(File(dir, "$timestamp$LEGACY_VERSION_SUFFIX")) { parseStrokes(it as JSONArray) } ?: emptyList()
+    }
 
     /**
      * Keeps a timeline of past states: on save, a version is written if the newest one is at
@@ -390,8 +519,11 @@ object CanvasStorage {
         val existing = listVersions(context, documentId)
         if (existing.isNotEmpty() && now - existing.first() < VERSION_INTERVAL_MILLIS) return
         val dir = versionsDir(context, documentId).apply { mkdirs() }
-        writeStored(File(dir, "$now.json"), strokesToJson(strokes))
-        for (old in existing.drop(MAX_VERSIONS - 1)) File(dir, "$old.json").delete()
+        writeBinary(File(dir, "$now$VERSION_SUFFIX")) { StrokeCodec.write(it, strokes) }
+        for (old in existing.drop(MAX_VERSIONS - 1)) {
+            File(dir, "$old$VERSION_SUFFIX").delete()
+            File(dir, "$old$LEGACY_VERSION_SUFFIX").delete()
+        }
     }
 
     /** The user's saved colour palette, shared by all documents. */
@@ -441,6 +573,7 @@ object CanvasStorage {
                 put("visible", layer.visible)
                 put("locked", layer.locked)
                 put("opacity", layer.opacity.toDouble())
+                put("reference", layer.reference)
             })
         }
         writeStored(layersFile(context, documentId), root)
@@ -457,6 +590,7 @@ object CanvasStorage {
                 visible = entry.optBoolean("visible", true),
                 locked = entry.optBoolean("locked", false),
                 opacity = entry.optDouble("opacity", 1.0).toFloat(),
+                reference = entry.optBoolean("reference", false),
             )
         }
     }
@@ -591,10 +725,23 @@ object CanvasStorage {
      * bundle; see DocumentBundle). Excludes what can be regenerated or is device-local:
      * thumbnail, undo history and version snapshots.
      */
+    /** Folds the append journal into the strokes file, so [portableFiles]' strokes entry is complete. */
+    internal fun compactStrokes(context: Context, documentId: String): Unit = synchronized(this) {
+        if (!journalFile(context, documentId).exists()) return@synchronized
+        val strokes = load(context, documentId)
+        lastSaved.remove(documentId)
+        saveStrokesFile(context, documentId, strokes)
+    }
+
     internal fun portableFiles(context: Context, documentId: String): Map<String, File> = mapOf(
-        "canvas.json" to strokesFile(context, documentId),
+        BUNDLE_STROKES_ENTRY to strokesFile(context, documentId),
+        // Bundles exported before the binary format carry this instead; load() still reads it.
+        LEGACY_BUNDLE_STROKES_ENTRY to legacyStrokesFile(context, documentId),
         "pins.json" to pinsFile(context, documentId),
         "text.json" to textItemsFile(context, documentId),
+        "connectors.json" to connectorsFile(context, documentId),
+        "bones.json" to bonesFile(context, documentId),
+        "animation.json" to animationFile(context, documentId),
         "images.json" to imageItemsFile(context, documentId),
         "background.json" to backgroundFile(context, documentId),
         "layers.json" to layersFile(context, documentId),
@@ -610,11 +757,21 @@ object CanvasStorage {
         return meta
     }
 
-    private fun strokesFile(context: Context, documentId: String) = File(context.filesDir, "canvas_$documentId.json")
+    private fun strokesFile(context: Context, documentId: String) = File(context.filesDir, "strokes_$documentId.bin")
+
+    /** Strokes appended since [strokesFile] was last written in full; see [saveStrokesFile]. */
+    private fun journalFile(context: Context, documentId: String) = File(context.filesDir, "strokes_$documentId.journal")
+
+    /** The JSON strokes file documents used before [StrokeCodec]; read as a fallback, deleted on the next save. */
+    private fun legacyStrokesFile(context: Context, documentId: String) = File(context.filesDir, "canvas_$documentId.json")
 
     private fun pinsFile(context: Context, documentId: String) = File(context.filesDir, "pins_$documentId.json")
 
     private fun textItemsFile(context: Context, documentId: String) = File(context.filesDir, "text_$documentId.json")
+
+    private fun connectorsFile(context: Context, documentId: String) = File(context.filesDir, "connectors_$documentId.json")
+    private fun bonesFile(context: Context, documentId: String) = File(context.filesDir, "bones_$documentId.json")
+    private fun animationFile(context: Context, documentId: String) = File(context.filesDir, "animation_$documentId.json")
 
     private fun imageItemsFile(context: Context, documentId: String) = File(context.filesDir, "images_$documentId.json")
 
@@ -624,45 +781,130 @@ object CanvasStorage {
 
     private fun layersFile(context: Context, documentId: String) = File(context.filesDir, "layers_$documentId.json")
 
-    private fun historyFile(context: Context, documentId: String) = File(context.filesDir, "history_$documentId.json")
+    private fun historyFile(context: Context, documentId: String) = File(context.filesDir, "history_$documentId.bin")
+
+    private fun legacyHistoryFile(context: Context, documentId: String) = File(context.filesDir, "history_$documentId.json")
 
     private fun thumbnailFile(context: Context, documentId: String) = File(context.filesDir, "thumb_$documentId.png")
 
     private fun backgroundFile(context: Context, documentId: String) = File(context.filesDir, "background_$documentId.json")
 
-    private fun saveStrokesFile(context: Context, documentId: String, strokes: List<Stroke>) {
-        writeStored(strokesFile(context, documentId), strokesToJson(strokes))
+    private fun saveStrokesFile(context: Context, documentId: String, strokes: List<Stroke>): Unit = synchronized(this) {
+        val saved = lastSaved[documentId]
+        val added = saved?.appendedTo(strokes)
+        if (saved != null && added != null && saved.journalBlocks < MAX_JOURNAL_BLOCKS && strokesFile(context, documentId).exists()) {
+            if (added.isNotEmpty()) appendJournal(journalFile(context, documentId), added)
+            lastSaved[documentId] = SavedStrokes(strokes, saved.journalBlocks + if (added.isEmpty()) 0 else 1)
+            return@synchronized
+        }
+        writeBinary(strokesFile(context, documentId)) { StrokeCodec.write(it, strokes) }
+        // The full file now holds everything the journal did.
+        journalFile(context, documentId).delete()
+        legacyStrokesFile(context, documentId).delete()
+        lastSaved[documentId] = SavedStrokes(strokes, 0)
     }
 
-    private fun strokesToJson(strokes: List<Stroke>): JSONArray {
-        val root = JSONArray()
-        for (stroke in strokes) {
-            val strokeJson = JSONObject()
-            strokeJson.put("color", stroke.color.toArgb())
-            strokeJson.put("width", stroke.widthWorld)
-            strokeJson.put("penType", stroke.penType.name)
-            strokeJson.put("filled", stroke.filled)
-            strokeJson.put("blendMode", stroke.blendMode.name)
-            strokeJson.put("layer", stroke.layerId)
-            if (stroke.animFrame != 0) strokeJson.put("frame", stroke.animFrame)
-            if (stroke.dashed) strokeJson.put("dashed", true)
-            if (stroke.fadeFill) strokeJson.put("fade", true)
-            if (stroke.screentone) strokeJson.put("tone", true)
-            val pointsJson = JSONArray()
-            for (index in stroke.points.indices) {
-                val point = stroke.points[index]
-                val pointJson = JSONObject()
-                pointJson.put("x", point.x)
-                pointJson.put("y", point.y)
-                pointJson.put("pressure", stroke.pressures[index])
-                pointJson.put("tilt", stroke.tilts[index])
-                pointJson.put("orientation", stroke.orientations[index])
-                pointsJson.put(pointJson)
+    /**
+     * What was last written for a document, for incremental saves: the strokes (by identity) and
+     * each one's [Stroke.revision] at that moment. Strokes are mutable - a floating-origin rebase
+     * shifts every point in place, a transform rewrites them - so identity alone can't tell an
+     * unchanged stroke from an edited one; the revision can.
+     */
+    private class SavedStrokes(strokes: List<Stroke>, val journalBlocks: Int) {
+        private val strokes = strokes.toList()
+        private val revisions = IntArray(strokes.size) { strokes[it].revision }
+
+        /** The strokes [current] adds after an untouched copy of what was saved, or null if anything saved changed. */
+        fun appendedTo(current: List<Stroke>): List<Stroke>? {
+            if (current.size < strokes.size) return null
+            for (i in strokes.indices) {
+                if (current[i] !== strokes[i] || current[i].revision != revisions[i]) return null
             }
-            strokeJson.put("points", pointsJson)
-            root.put(strokeJson)
+            return current.subList(strokes.size, current.size).toList()
         }
-        return root
+    }
+
+    // In-memory only: after a restart the first save is a full one (load() re-seeds this too).
+    private val lastSaved = HashMap<String, SavedStrokes>()
+
+    /**
+     * Appended blocks before the journal is folded into a full rewrite: 64 keeps load-time block
+     * parsing trivial and the full rewrite rare (once per 64 drawing actions at most).
+     */
+    private const val MAX_JOURNAL_BLOCKS = 64
+
+    /**
+     * Appends one [StrokeCodec] block of newly drawn strokes, then syncs it to disk. A crash
+     * mid-append leaves a partial final block, which [readJournal] drops (losing only that last
+     * action) while every earlier block stays readable.
+     */
+    private fun appendJournal(file: File, strokes: List<Stroke>) {
+        val bytes = java.io.ByteArrayOutputStream().also { StrokeCodec.write(DataOutputStream(it), strokes) }.toByteArray()
+        java.io.FileOutputStream(file, true).use { stream ->
+            stream.write(bytes)
+            stream.fd.sync()
+        }
+    }
+
+    private class Journal(val strokes: List<Stroke>, val blocks: Int, val damagedTail: Boolean)
+
+    private fun readJournal(file: File): Journal {
+        if (!file.exists()) return Journal(emptyList(), 0, false)
+        val strokes = mutableListOf<Stroke>()
+        var blocks = 0
+        var damaged = false
+        DataInputStream(BufferedInputStream(file.inputStream())).use { input ->
+            while (true) {
+                input.mark(1)
+                if (input.read() == -1) break
+                input.reset()
+                try {
+                    strokes += StrokeCodec.read(input)
+                    blocks++
+                } catch (e: Exception) {
+                    Log.e("CanvasStorage", "Dropping damaged tail of ${file.name} after $blocks blocks", e)
+                    damaged = true
+                    break
+                }
+            }
+        }
+        return Journal(strokes, blocks, damaged)
+    }
+
+    /** [writeAtomically] for a binary payload, streamed rather than built in memory first. */
+    private fun writeBinary(file: File, write: (DataOutputStream) -> Unit) {
+        val atomic = AtomicFile(file)
+        val stream = atomic.startWrite()
+        try {
+            val out = DataOutputStream(BufferedOutputStream(stream))
+            write(out)
+            out.flush()
+            atomic.finishWrite(stream)
+        } catch (e: Exception) {
+            atomic.failWrite(stream)
+            throw e
+        }
+    }
+
+    /**
+     * The binary counterpart of [readStored]: null if [file] doesn't exist, and an unreadable or
+     * newer-version file is quarantined (renamed aside, never deleted) rather than crashing.
+     */
+    private fun <T> readBinary(file: File, read: (DataInputStream) -> T): T? {
+        val stream = try {
+            AtomicFile(file).openRead()
+        } catch (e: FileNotFoundException) {
+            return null
+        }
+        return try {
+            DataInputStream(BufferedInputStream(stream)).use(read)
+        } catch (e: Exception) {
+            stream.close()
+            val quarantined = File(file.parentFile, "${file.name}.corrupt-${System.currentTimeMillis()}")
+            Log.e("CanvasStorage", "Unreadable ${file.name}; moved to ${quarantined.name}", e)
+            file.renameTo(quarantined)
+            null
+        }
     }
 
     private inline fun <reified T : Enum<T>> enumOrDefault(name: String, default: T): T =

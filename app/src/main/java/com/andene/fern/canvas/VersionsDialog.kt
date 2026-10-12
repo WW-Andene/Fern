@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,7 +31,7 @@ fun VersionsDialog(
     val format = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Version history") },
+        title = { Text(stringResource(R.string.versions_title)) },
         text = {
             Column(
                 modifier = Modifier
@@ -37,7 +39,7 @@ fun VersionsDialog(
                     .verticalScroll(rememberScrollState()),
             ) {
                 if (versions.isEmpty()) {
-                    Text("No versions yet. One is saved every 10 minutes while you draw.")
+                    Text(stringResource(R.string.versions_empty))
                 }
                 for (timestamp in versions) {
                     Text(
@@ -52,7 +54,7 @@ fun VersionsDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         },
     )
 }

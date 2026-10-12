@@ -1,11 +1,27 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.andene.fern
 
+import com.andene.fern.canvas.traceImage
+import com.andene.fern.canvas.TRACE_MAX_EDGE_PX
+import java.time.format.TextStyle as JavaTextStyle
+import java.time.temporal.WeekFields
+import java.util.Locale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draganddrop.toAndroidDragEvent
+import androidx.compose.ui.draganddrop.mimeTypes
+import androidx.compose.ui.draganddrop.DragAndDropTarget
+import androidx.compose.ui.draganddrop.DragAndDropEvent
+import androidx.compose.foundation.draganddrop.dragAndDropTarget
+import android.view.DragEvent
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -15,7 +31,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -23,12 +38,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,6 +48,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -51,6 +64,8 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -73,17 +88,31 @@ import com.andene.fern.canvas.DocumentsDialog
 import com.andene.fern.canvas.DrawingCanvas
 import com.andene.fern.canvas.Frame
 import com.andene.fern.canvas.FramesDialog
+import com.andene.fern.canvas.ClipboardContent
+import com.andene.fern.canvas.DocumentLoadingOverlay
+import com.andene.fern.canvas.LoadedDocument
+import com.andene.fern.canvas.LinkChoices
+import com.andene.fern.canvas.LinkTarget
 import com.andene.fern.canvas.Minimap
+import com.andene.fern.canvas.SystemClipboard
+import com.andene.fern.canvas.startSelectionDrag
+import com.andene.fern.canvas.QuickMenuButton
+import com.andene.fern.canvas.QuickMenuOverlay
 import com.andene.fern.canvas.PinMeta
 import com.andene.fern.canvas.PinsDialog
 import com.andene.fern.canvas.PresentationControls
 import com.andene.fern.canvas.SettingsDialog
 import com.andene.fern.canvas.Tool
 import com.andene.fern.canvas.Toolbar
+import com.andene.fern.canvas.ToolbarCustomizeDialog
 import com.andene.fern.canvas.VersionsDialog
 import com.andene.fern.canvas.WelcomeDialog
 import com.andene.fern.canvas.WorldPoint
 import com.andene.fern.canvas.exportAnimatedGif
+import com.andene.fern.canvas.exportAnimatedPng
+import com.andene.fern.canvas.exportLottie
+import com.andene.fern.canvas.exportDocumentEps
+import com.andene.fern.canvas.exportReplayGif
 import com.andene.fern.canvas.exportDocumentBundle
 import com.andene.fern.canvas.exportDocumentPdf
 import com.andene.fern.canvas.exportDocumentPng
@@ -92,6 +121,8 @@ import com.andene.fern.canvas.exportSpriteSheetPng
 import com.andene.fern.canvas.importDocumentBundle
 import com.andene.fern.canvas.importPdfPages
 import com.andene.fern.canvas.markWelcomeSeen
+import com.andene.fern.canvas.isAdobeSwatchExchange
+import com.andene.fern.canvas.parseAdobeSwatchExchange
 import com.andene.fern.canvas.parseGimpPalette
 import com.andene.fern.canvas.shouldShowWelcome
 import java.io.File
@@ -100,12 +131,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 // Inserted images are stored at most this large on their longest edge: plenty for a canvas
 // image, while a full-resolution phone photo (48 MP+) decoded every session could exhaust
 // memory. 2048 is on the project size scale.
 private const val MAX_IMAGE_EDGE_PX = 2048
+
+// Window width from which the toolbar wraps instead of scrolling (tablets, unfolded foldables,
+// wide split windows). Material's "expanded" class starts at 840dp; this is that, put on the §7
+// scale (512 + 256), which also takes in a portrait tablet.
+private const val WIDE_WINDOW_DP = 768
 
 /**
  * Decodes the image at [uri] no larger than [maxEdgePx] on its longest edge: first reads only
@@ -137,7 +175,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             // Follows the system light/dark setting for the app's own UI (toolbar, dialogs). The
             // canvas paper keeps each document's chosen background colour either way.
-            MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
+            var highContrast by remember { mutableStateOf(AppSettings.highContrast(this)) }
+            FernTheme(highContrast = highContrast) {
                 Surface(color = Color(0xFFF7F5F0)) {
                     val context = LocalContext.current
                     val lifecycleOwner = LocalLifecycleOwner.current
@@ -152,16 +191,23 @@ class MainActivity : ComponentActivity() {
                     var showFramesDialog by remember { mutableStateOf(false) }
                     var showWelcome by remember { mutableStateOf(shouldShowWelcome(context)) }
                     var showSettings by remember { mutableStateOf(false) }
+                    var showQuickMenu by remember { mutableStateOf(false) }
+                    // True while a document is being read: the canvas is covered so nothing can be
+                    // drawn onto (and then autosaved over) a document that isn't loaded yet.
+                    var loadingDocument by remember { mutableStateOf(true) }
+                    val switchMutex = remember { Mutex() }
                     var showAudioNotes by remember { mutableStateOf(false) }
                     val audioNotes = remember { AudioNotes(context) }
                     val micPermissionLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.RequestPermission(),
                     ) { granted ->
                         if (granted) showAudioNotes = true
-                        else Toast.makeText(context, "Voice notes need microphone access", Toast.LENGTH_SHORT).show()
+                        else Toast.makeText(context, context.getString(R.string.toast_mic), Toast.LENGTH_SHORT).show()
                     }
                     var leftHanded by remember { mutableStateOf(AppSettings.leftHanded(context)) }
                     var toolbarAtBottom by remember { mutableStateOf(AppSettings.toolbarAtBottom(context)) }
+                    var hiddenToolbarGroups by remember { mutableStateOf(AppSettings.hiddenToolbarGroups(context)) }
+                    var showToolbarCustomize by remember { mutableStateOf(false) }
                     var crashReport by remember { mutableStateOf(CrashReporter.pendingReport(context)) }
                     var presentingIndex by remember { mutableStateOf<Int?>(null) } // non-null = presenting that frame
                     var frameToExport by remember { mutableStateOf<Frame?>(null) }
@@ -190,6 +236,12 @@ class MainActivity : ComponentActivity() {
                             onImageChanged = { snapshot -> CanvasStorage.saveImageItems(context, currentDocumentId, snapshot) },
                             onBackgroundChanged = { color, style -> CanvasStorage.saveBackground(context, currentDocumentId, color, style) },
                             onSavedColorsChanged = { colors -> CanvasStorage.saveSavedColors(context, colors) },
+                            onBrushChanged = { brush -> AppSettings.setStampBrush(context, brush) },
+                            onToolSlotsChanged = { slots -> AppSettings.setToolSlots(context, slots) },
+                            onBrushPresetsChanged = { presets -> AppSettings.setBrushPresets(context, presets) },
+                            onConnectorsChanged = { connectors -> CanvasStorage.saveConnectors(context, currentDocumentId, connectors) },
+                            onBonesChanged = { bones -> CanvasStorage.saveBones(context, currentDocumentId, bones) },
+                            onAnimationSettingsChanged = { settings -> CanvasStorage.saveAnimationSettings(context, currentDocumentId, settings) },
                             onFramesChanged = { frames -> CanvasStorage.saveFrames(context, currentDocumentId, frames) },
                             onLayersChanged = { layers -> CanvasStorage.saveLayers(context, currentDocumentId, layers) },
                             onRebased = { offset ->
@@ -214,12 +266,12 @@ class MainActivity : ComponentActivity() {
                         coroutineScope.launch {
                             val bytes = withContext(Dispatchers.Default) { render() }
                             val message = if (bytes == null) {
-                                "Nothing to export yet"
+                                context.getString(R.string.toast_nothing_export)
                             } else {
                                 withContext(Dispatchers.IO) {
                                     context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
                                 }
-                                "Exported"
+                                context.getString(R.string.toast_exported)
                             }
                             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                         }
@@ -272,6 +324,26 @@ class MainActivity : ComponentActivity() {
                     ) { uri ->
                         if (uri != null) writeExport(uri) { exportAnimatedGif(canvasState, textMeasurer, density, imageForExport) }
                     }
+                    val apngExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("image/apng"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportAnimatedPng(canvasState, textMeasurer, density, imageForExport) }
+                    }
+                    val epsExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/postscript"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportDocumentEps(canvasState)?.toByteArray() }
+                    }
+                    val lottieExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/json"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportLottie(canvasState)?.toByteArray() }
+                    }
+                    val replayGifExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("image/gif"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportReplayGif(canvasState, textMeasurer, density, imageForExport) }
+                    }
                     val transparentPngExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("image/png"),
                     ) { uri ->
@@ -298,7 +370,7 @@ class MainActivity : ComponentActivity() {
                         coroutineScope.launch {
                             val pages = withContext(Dispatchers.IO) { importPdfPages(context, uri) }
                             if (pages.isEmpty()) {
-                                Toast.makeText(context, "Couldn't open that PDF", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.toast_bad_pdf), Toast.LENGTH_SHORT).show()
                                 return@launch
                             }
                             // Pages stacked top to bottom like a scrolling document, each 512
@@ -329,47 +401,141 @@ class MainActivity : ComponentActivity() {
                         coroutineScope.launch {
                             val colors = withContext(Dispatchers.IO) {
                                 runCatching {
-                                    context.contentResolver.openInputStream(uri)?.use { parseGimpPalette(it.readBytes().decodeToString()) }
+                                    context.contentResolver.openInputStream(uri)?.use { stream ->
+                                        val bytes = stream.readBytes()
+                                        // Told apart by content, not file name: providers don't always keep the extension.
+                                        if (isAdobeSwatchExchange(bytes)) parseAdobeSwatchExchange(bytes)
+                                        else parseGimpPalette(bytes.decodeToString())
+                                    }
                                 }.getOrNull().orEmpty()
                             }
                             colors.forEach { canvasState.addSavedColor(it) }
                             Toast.makeText(
                                 context,
-                                if (colors.isEmpty()) "That isn't a GIMP palette (.gpl)" else "Imported ${colors.size} colours",
+                                if (colors.isEmpty()) context.getString(R.string.toast_bad_palette) else context.resources.getQuantityString(R.plurals.toast_imported_colours, colors.size, colors.size),
                                 Toast.LENGTH_SHORT,
                             ).show()
                         }
+                    }
+
+                    /** Places the image at [uri] centred on [at] - the view centre for a pick or a paste, the drop point for a drop. */
+                    suspend fun insertImage(uri: android.net.Uri, at: WorldPoint = canvasState.panWorld) {
+                        val decoded = withContext(Dispatchers.IO) {
+                            val bitmap = decodeDownsampled(context, uri, MAX_IMAGE_EDGE_PX) ?: return@withContext null
+                            val fileName = "${UUID.randomUUID()}.png"
+                            CanvasStorage.imageFile(context, fileName).outputStream().use { out ->
+                                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                            }
+                            Triple(fileName, bitmap.width, bitmap.height)
+                        } ?: return
+                        val (fileName, widthPx, heightPx) = decoded
+                        // Default placed size: 300 screen px wide (on the §7 scale -
+                        // between Primary 256 and 384... actually not on-scale, but this
+                        // is placed-content sizing, not a UI chrome dimension, so §7
+                        // doesn't govern it), aspect-ratio preserved, centered on the
+                        // current viewport.
+                        val targetWidthScreen = 300.0
+                        val targetHeightScreen = targetWidthScreen * heightPx / widthPx
+                        val scale = canvasState.scale.coerceAtLeast(1e-300)
+                        val widthWorld = targetWidthScreen / scale
+                        val heightWorld = targetHeightScreen / scale
+                        val position = WorldPoint(at.x - widthWorld / 2.0, at.y - heightWorld / 2.0)
+                        canvasState.addImage(fileName, position, widthWorld, heightWorld)
                     }
 
                     val imagePickerLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.PickVisualMedia(),
                     ) { uri ->
                         if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch { insertImage(uri) }
+                    }
+
+                    // System clipboard (SystemClipboard): a copy carries a PNG of the selected
+                    // area for other apps plus the strokes themselves for Fern.
+                    fun copySelectionToClipboard() {
+                        val strokes = canvasState.selectionForClipboard()
+                        val region = canvasState.selectionExportRegion()
+                        if (strokes.isEmpty() || region == null) return
                         coroutineScope.launch {
-                            val decoded = withContext(Dispatchers.IO) {
-                                val bitmap = decodeDownsampled(context, uri, MAX_IMAGE_EDGE_PX) ?: return@withContext null
-                                val fileName = "${UUID.randomUUID()}.png"
-                                CanvasStorage.imageFile(context, fileName).outputStream().use { out ->
-                                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-                                }
-                                Triple(fileName, bitmap.width, bitmap.height)
+                            val png = exportDocumentPng(canvasState, textMeasurer, density, imageForExport, region) ?: return@launch
+                            withContext(Dispatchers.IO) { SystemClipboard.copy(context, strokes, png) }
+                            // Android 13+ confirms clipboard writes itself; earlier versions get a toast.
+                            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                                Toast.makeText(context, context.getString(R.string.toast_copied), Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+
+                    // Drag and drop to other windows (roadmap item 75): the same clip as a copy,
+                    // started once the picture is rendered if the finger is still down by then.
+                    // Image trace (roadmap item 101): decoded at most TRACE_MAX_EDGE_PX on its long edge, traced off the main thread.
+                    fun traceSelectedImage() {
+                        val image = canvasState.imageItems.firstOrNull { it.id == canvasState.selectedImageId } ?: return
+                        coroutineScope.launch {
+                            val traced = withContext(Dispatchers.Default) {
+                                val file = CanvasStorage.imageFile(context, image.fileName).absolutePath
+                                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }.also { BitmapFactory.decodeFile(file, it) }
+                                var sample = 1
+                                while (maxOf(bounds.outWidth, bounds.outHeight) / sample > TRACE_MAX_EDGE_PX * 2) sample *= 2
+                                val decoded = BitmapFactory.decodeFile(file, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return@withContext null
+                                val scale = minOf(1f, TRACE_MAX_EDGE_PX.toFloat() / maxOf(decoded.width, decoded.height))
+                                val bitmap = Bitmap.createScaledBitmap(decoded, maxOf(1, (decoded.width * scale).toInt()), maxOf(1, (decoded.height * scale).toInt()), true)
+                                val pixels = IntArray(bitmap.width * bitmap.height).also { bitmap.getPixels(it, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height) }
+                                Triple(traceImage(pixels, bitmap.width, bitmap.height), bitmap.width, bitmap.height)
                             } ?: return@launch
-                            val (fileName, widthPx, heightPx) = decoded
-                            // Default placed size: 300 screen px wide (on the §7 scale -
-                            // between Primary 256 and 384... actually not on-scale, but this
-                            // is placed-content sizing, not a UI chrome dimension, so §7
-                            // doesn't govern it), aspect-ratio preserved, centered on the
-                            // current viewport.
-                            val targetWidthScreen = 300.0
-                            val targetHeightScreen = targetWidthScreen * heightPx / widthPx
-                            val scale = canvasState.scale.coerceAtLeast(1e-300)
-                            val widthWorld = targetWidthScreen / scale
-                            val heightWorld = targetHeightScreen / scale
-                            val position = WorldPoint(
-                                canvasState.panWorld.x - widthWorld / 2.0,
-                                canvasState.panWorld.y - heightWorld / 2.0,
-                            )
-                            canvasState.addImage(fileName, position, widthWorld, heightWorld)
+                            if (traced.first.isEmpty()) Toast.makeText(context, context.getString(R.string.toast_trace_nothing), Toast.LENGTH_SHORT).show()
+                            else canvasState.addTracedImage(image, traced.first, traced.second, traced.third)
+                        }
+                    }
+
+                    val view = LocalView.current
+                    fun dragSelectionOut() {
+                        val strokes = canvasState.selectionForClipboard()
+                        val region = canvasState.selectionExportRegion()
+                        if (strokes.isEmpty() || region == null) return
+                        coroutineScope.launch {
+                            val png = exportDocumentPng(canvasState, textMeasurer, density, imageForExport, region) ?: return@launch
+                            val (clip, image) = withContext(Dispatchers.IO) {
+                                SystemClipboard.dragClip(context, strokes, png) to BitmapFactory.decodeByteArray(png, 0, png.size)
+                            }
+                            if (image != null) startSelectionDrag(view, clip, image)
+                        }
+                    }
+
+                    /**
+                     * Drag and drop from other apps: an image or text dropped on the canvas lands
+                     * where it was dropped (Fern strokes too, from another Fern window). Reading a
+                     * dropped content URI needs the drop's permission grant, requested first.
+                     */
+                    fun dropOntoCanvas(event: DragEvent) {
+                        val clip = event.clipData ?: return
+                        val permissions = this@MainActivity.requestDragAndDropPermissions(event)
+                        val size = canvasState.viewportSize
+                        val center = Offset(size.width / 2f, size.height / 2f)
+                        // The canvas fills the window, so the drop point is already in canvas coordinates.
+                        val at = canvasState.screenToWorld(canvasState.unrotateScreen(Offset(event.x, event.y), center), center)
+                        coroutineScope.launch {
+                            try {
+                                when (val content = withContext(Dispatchers.IO) { SystemClipboard.contentOf(context, clip) }) {
+                                    is ClipboardContent.FernStrokes -> canvasState.pasteStrokes(content.strokes, at)
+                                    is ClipboardContent.Text -> canvasState.pasteText(content.text, at)
+                                    is ClipboardContent.Image -> insertImage(content.uri, at)
+                                    ClipboardContent.Nothing -> {}
+                                }
+                            } finally {
+                                permissions?.release()
+                            }
+                        }
+                    }
+
+                    fun pasteFromClipboard() {
+                        coroutineScope.launch {
+                            when (val content = withContext(Dispatchers.IO) { SystemClipboard.read(context) }) {
+                                is ClipboardContent.FernStrokes -> canvasState.pasteStrokes(content.strokes)
+                                is ClipboardContent.Text -> canvasState.pasteText(content.text)
+                                is ClipboardContent.Image -> insertImage(content.uri)
+                                ClipboardContent.Nothing -> Toast.makeText(context, context.getString(R.string.toast_nothing_paste), Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
 
@@ -377,47 +543,83 @@ class MainActivity : ComponentActivity() {
                         documents = withContext(Dispatchers.IO) { CanvasStorage.listDocuments(context) }
                     }
 
-                    suspend fun refreshPins() {
-                        pins = withContext(Dispatchers.IO) { CanvasStorage.listPins(context, currentDocumentId) }
+                    /**
+                     * Reads a whole document off the main thread, then applies it in one go, and
+                     * only then makes it current: a big document takes seconds to read (3.5 s for
+                     * 1M strokes in ScaleBenchmark), which on the main thread froze the app, and
+                     * an ON_STOP save while it was half loaded wrote the half-loaded canvas over it.
+                     */
+                    suspend fun loadDocument(documentId: String) {
+                        val loaded = withContext(Dispatchers.IO) {
+                            LoadedDocument(
+                                strokes = CanvasStorage.load(context, documentId),
+                                layers = CanvasStorage.loadLayers(context, documentId),
+                                frames = CanvasStorage.loadFrames(context, documentId),
+                                history = CanvasStorage.loadHistory(context, documentId),
+                                texts = CanvasStorage.loadTextItems(context, documentId),
+                                connectors = CanvasStorage.loadConnectors(context, documentId),
+                                bones = CanvasStorage.loadBones(context, documentId),
+                                animation = CanvasStorage.loadAnimationSettings(context, documentId),
+                                images = CanvasStorage.loadImageItems(context, documentId),
+                                background = CanvasStorage.loadBackground(context, documentId),
+                                pins = CanvasStorage.listPins(context, documentId),
+                            )
+                        }
+                        canvasState.loadStrokes(loaded.strokes)
+                        canvasState.loadLayers(loaded.layers)
+                        canvasState.loadFrames(loaded.frames)
+                        canvasState.loadHistory(loaded.history.first, loaded.history.second)
+                        canvasState.loadTextItems(loaded.texts)
+                        canvasState.loadConnectors(loaded.connectors)
+                        canvasState.loadBones(loaded.bones)
+                        canvasState.loadAnimationSettings(loaded.animation)
+                        canvasState.loadImageItems(loaded.images)
+                        canvasState.loadBackground(loaded.background.first, loaded.background.second)
+                        pins = loaded.pins
+                        currentDocumentId = documentId
                     }
 
-                    fun switchToDocument(documentId: String) {
+                    /**
+                     * Saves the open document and opens [documentId], both off the main thread,
+                     * with the canvas covered (and so not drawable) until it's done. Switches run
+                     * one at a time.
+                     */
+                    suspend fun switchToDocument(documentId: String) = switchMutex.withLock {
                         autosaveJob?.cancel()
-                        CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList())
-                        CanvasStorage.saveTextItems(context, currentDocumentId, canvasState.textItems.toList())
-                        CanvasStorage.saveImageItems(context, currentDocumentId, canvasState.imageItems.toList())
-                        canvasState.historySnapshot().let { (undo, redo) -> CanvasStorage.saveHistory(context, currentDocumentId, undo, redo) }
-                        currentDocumentId = documentId
-                        canvasState.loadStrokes(CanvasStorage.load(context, documentId))
-                        canvasState.loadLayers(CanvasStorage.loadLayers(context, documentId))
-                        canvasState.loadFrames(CanvasStorage.loadFrames(context, documentId))
-                        CanvasStorage.loadHistory(context, documentId).let { (undo, redo) -> canvasState.loadHistory(undo, redo) }
-                        canvasState.loadTextItems(CanvasStorage.loadTextItems(context, documentId))
-                        canvasState.loadImageItems(CanvasStorage.loadImageItems(context, documentId))
-                        val (backgroundColor, backgroundStyle) = CanvasStorage.loadBackground(context, documentId)
-                        canvasState.loadBackground(backgroundColor, backgroundStyle)
-                        pins = CanvasStorage.listPins(context, documentId)
+                        loadingDocument = true
+                        try {
+                            val leaving = currentDocumentId
+                            val strokes = canvasState.strokes.toList()
+                            val texts = canvasState.textItems.toList()
+                            val images = canvasState.imageItems.toList()
+                            val (undo, redo) = canvasState.historySnapshot()
+                            withContext(Dispatchers.IO) {
+                                CanvasStorage.save(context, leaving, strokes)
+                                CanvasStorage.saveTextItems(context, leaving, texts)
+                                CanvasStorage.saveImageItems(context, leaving, images)
+                                // The history lists materialize as read; nothing changes them meanwhile (canvas covered).
+                                CanvasStorage.saveHistory(context, leaving, undo, redo)
+                            }
+                            loadDocument(documentId)
+                        } finally {
+                            loadingDocument = false
+                        }
                     }
 
                     LaunchedEffect(Unit) {
                         canvasState.loadSavedColors(withContext(Dispatchers.IO) { CanvasStorage.loadSavedColors(context) })
+                        canvasState.loadBrush(AppSettings.stampBrush(context))
+                        canvasState.loadToolSlots(AppSettings.toolSlots(context))
+                        canvasState.loadBrushPresets(AppSettings.brushPresets(context))
+                        canvasState.snapToObjects = AppSettings.snapToObjects(context)
                         refreshDocuments()
                         var current = documents.firstOrNull { it.trashedAt == null }
                         if (current == null) {
-                            current = withContext(Dispatchers.IO) { CanvasStorage.createDocument(context, "My Canvas") }
+                            current = withContext(Dispatchers.IO) { CanvasStorage.createDocument(context, context.getString(R.string.default_document_name)) }
                             refreshDocuments()
                         }
-                        currentDocumentId = current.id
-                        canvasState.loadStrokes(withContext(Dispatchers.IO) { CanvasStorage.load(context, current.id) })
-                        canvasState.loadLayers(withContext(Dispatchers.IO) { CanvasStorage.loadLayers(context, current.id) })
-                        canvasState.loadFrames(withContext(Dispatchers.IO) { CanvasStorage.loadFrames(context, current.id) })
-                        withContext(Dispatchers.IO) { CanvasStorage.loadHistory(context, current.id) }
-                            .let { (undo, redo) -> canvasState.loadHistory(undo, redo) }
-                        canvasState.loadTextItems(withContext(Dispatchers.IO) { CanvasStorage.loadTextItems(context, current.id) })
-                        canvasState.loadImageItems(withContext(Dispatchers.IO) { CanvasStorage.loadImageItems(context, current.id) })
-                        val (backgroundColor, backgroundStyle) = withContext(Dispatchers.IO) { CanvasStorage.loadBackground(context, current.id) }
-                        canvasState.loadBackground(backgroundColor, backgroundStyle)
-                        refreshPins()
+                        loadDocument(current.id)
+                        loadingDocument = false
                     }
 
                     // Saved synchronously on ON_STOP: the write is small (JSON of the current
@@ -480,8 +682,8 @@ class MainActivity : ComponentActivity() {
                                     ctrl && event.key == Key.Z && event.isShiftPressed -> canvasState.redo()
                                     ctrl && event.key == Key.Z -> canvasState.undo()
                                     ctrl && event.key == Key.Y -> canvasState.redo()
-                                    ctrl && event.key == Key.C -> canvasState.copySelection()
-                                    ctrl && event.key == Key.V -> canvasState.paste()
+                                    ctrl && event.key == Key.C -> copySelectionToClipboard()
+                                    ctrl && event.key == Key.V -> pasteFromClipboard()
                                     ctrl && event.key == Key.D -> canvasState.duplicateSelection()
                                     event.key == Key.Delete || event.key == Key.Backspace -> canvasState.deleteSelection()
                                     event.key == Key.P -> canvasState.activeTool = Tool.PEN
@@ -493,7 +695,39 @@ class MainActivity : ComponentActivity() {
                                 true
                             },
                     ) {
-                        DrawingCanvas(state = canvasState, modifier = Modifier.fillMaxSize())
+                        DrawingCanvas(
+                            state = canvasState,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .dragAndDropTarget(
+                                    shouldStartDragAndDrop = { event ->
+                                        event.mimeTypes().any { it.startsWith("image/") || it.startsWith("text/") }
+                                    },
+                                    target = remember {
+                                        object : DragAndDropTarget {
+                                            override fun onDrop(event: DragAndDropEvent): Boolean {
+                                                dropOntoCanvas(event.toAndroidDragEvent())
+                                                return true
+                                            }
+                                        }
+                                    },
+                                ),
+                            linkChoices = LinkChoices(pins, documents.filter { it.trashedAt == null && it.id != currentDocumentId }),
+                            onFollowLink = { target ->
+                                when (target) {
+                                    is LinkTarget.Pin -> {
+                                        val pin = pins.firstOrNull { it.id == target.pinId }
+                                        if (pin != null) canvasState.jumpTo(WorldPoint(pin.x, pin.y), pin.scale)
+                                        else Toast.makeText(context, context.getString(R.string.toast_pin_gone), Toast.LENGTH_SHORT).show()
+                                    }
+                                    is LinkTarget.Document -> {
+                                        val document = documents.firstOrNull { it.id == target.documentId && it.trashedAt == null }
+                                        if (document != null) coroutineScope.launch { switchToDocument(document.id) }
+                                        else Toast.makeText(context, context.getString(R.string.toast_document_gone), Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                        )
                         val presenting = presentingIndex
                         if (presenting != null && presenting in canvasState.frames.indices) {
                             // Presentation mode: editing chrome hidden, frames shown one at a time.
@@ -514,6 +748,8 @@ class MainActivity : ComponentActivity() {
                         } else {
                             Toolbar(
                                 state = canvasState,
+                                hiddenGroups = hiddenToolbarGroups,
+                                wrap = LocalConfiguration.current.screenWidthDp >= WIDE_WINDOW_DP,
                                 modifier = Modifier
                                     .align(if (toolbarAtBottom) Alignment.BottomCenter else Alignment.TopCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
@@ -531,6 +767,10 @@ class MainActivity : ComponentActivity() {
                                 onOpenPins = { showPinsDialog = true },
                                 onOpenFrames = { showFramesDialog = true },
                                 onOpenSettings = { showSettings = true },
+                                onCopySelection = { copySelectionToClipboard() },
+                                onDragSelectionOut = { dragSelectionOut() },
+                                onTraceImage = { traceSelectedImage() },
+                                onPaste = { pasteFromClipboard() },
                                 onOpenAudioNotes = {
                                     val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
                                     if (granted) showAudioNotes = true else micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
@@ -542,12 +782,16 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onExportPng = { pngExportLauncher.launch("${currentDocumentName()}.png") },
-                                onExportSelection = { selectionExportLauncher.launch("${currentDocumentName()} selection.png") },
+                                onExportSelection = { selectionExportLauncher.launch(context.getString(R.string.name_selection, currentDocumentName()) + ".png") },
                                 onExportTransparentPng = { transparentPngExportLauncher.launch("${currentDocumentName()}.png") },
                                 onExportPdf = { pdfExportLauncher.launch("${currentDocumentName()}.pdf") },
                                 onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
+                                onExportEps = { epsExportLauncher.launch("${currentDocumentName()}.eps") },
                                 onExportGif = { gifExportLauncher.launch("${currentDocumentName()}.gif") },
-                                onExportSpriteSheet = { spriteSheetExportLauncher.launch("${currentDocumentName()} sprites.png") },
+                                onExportApng = { apngExportLauncher.launch("${currentDocumentName()}.png") },
+                                onExportLottie = { lottieExportLauncher.launch("${currentDocumentName()}.json") },
+                                onExportReplayGif = { replayGifExportLauncher.launch(context.getString(R.string.name_timelapse, currentDocumentName()) + ".gif") },
+                                onExportSpriteSheet = { spriteSheetExportLauncher.launch(context.getString(R.string.name_sprites, currentDocumentName()) + ".png") },
                                 onExportBundle = { bundleExportLauncher.launch("${currentDocumentName()}.fern") },
                                 onShare = {
                                     coroutineScope.launch {
@@ -555,7 +799,7 @@ class MainActivity : ComponentActivity() {
                                             exportDocumentPng(canvasState, textMeasurer, density, imageForExport)
                                         }
                                         if (png == null) {
-                                            Toast.makeText(context, "Nothing to share yet", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, context.getString(R.string.toast_nothing_share), Toast.LENGTH_SHORT).show()
                                             return@launch
                                         }
                                         // Overwrites the previous share each time, so the cache never accumulates exports.
@@ -595,10 +839,21 @@ class MainActivity : ComponentActivity() {
                                 state = canvasState,
                                 modifier = Modifier
                                     // Opposite the drawing hand, whose palm rests below and beside the pen.
-                                    .align(if (leftHanded) Alignment.BottomEnd else Alignment.BottomStart)
+                                    // Physical sides (not start/end): the hands are the same in a right-to-left language.
+                                    .align(if (leftHanded) AbsoluteAlignment.BottomRight else AbsoluteAlignment.BottomLeft)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(12.dp),
                             )
+                            QuickMenuButton(
+                                onOpen = { showQuickMenu = true },
+                                modifier = Modifier
+                                    // Same side as the minimap, mid-height: in reach of the free hand's thumb.
+                                    .align(if (leftHanded) AbsoluteAlignment.CenterRight else AbsoluteAlignment.CenterLeft)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(12.dp),
+                            )
+                            if (showQuickMenu) QuickMenuOverlay(state = canvasState, onDismiss = { showQuickMenu = false })
+                            if (loadingDocument) DocumentLoadingOverlay()
                         }
                     }
 
@@ -615,7 +870,7 @@ class MainActivity : ComponentActivity() {
                                 }.getOrNull()
                             }
                             if (imported == null) {
-                                Toast.makeText(context, "That isn't a Fern backup", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.toast_bad_backup), Toast.LENGTH_SHORT).show()
                                 return@launch
                             }
                             refreshDocuments()
@@ -629,7 +884,7 @@ class MainActivity : ComponentActivity() {
                             documents = documents,
                             currentDocumentId = currentDocumentId,
                             onSelect = { doc ->
-                                switchToDocument(doc.id)
+                                coroutineScope.launch { switchToDocument(doc.id) }
                                 showDocumentsDialog = false
                             },
                             onRename = { doc, newName ->
@@ -637,7 +892,7 @@ class MainActivity : ComponentActivity() {
                                 coroutineScope.launch { refreshDocuments() }
                             },
                             onDuplicate = { doc ->
-                                CanvasStorage.duplicateDocument(context, doc.id, "${doc.name} copy")
+                                CanvasStorage.duplicateDocument(context, doc.id, context.getString(R.string.name_copy, doc.name))
                                 coroutineScope.launch { refreshDocuments() }
                             },
                             onToggleFavorite = { doc ->
@@ -669,7 +924,7 @@ class MainActivity : ComponentActivity() {
                             onCreateNew = { template ->
                                 coroutineScope.launch {
                                     val created = withContext(Dispatchers.IO) {
-                                        CanvasStorage.createDocument(context, if (template == DocumentTemplate.BLANK) "Untitled" else template.label)
+                                        CanvasStorage.createDocument(context, context.getString(if (template == DocumentTemplate.BLANK) R.string.untitled else template.label))
                                     }
                                     refreshDocuments()
                                     switchToDocument(created.id)
@@ -680,6 +935,14 @@ class MainActivity : ComponentActivity() {
                                     when (template) {
                                         DocumentTemplate.COMIC -> canvasState.insertComicPage()
                                         DocumentTemplate.STORYBOARD -> canvasState.insertStoryboard()
+                                        DocumentTemplate.PLANNER -> {
+                                            // The locale's own week: its first day, its day names.
+                                            val locale = Locale.getDefault()
+                                            val first = WeekFields.of(locale).firstDayOfWeek
+                                            val days = (0L until 7L).map { first.plus(it).getDisplayName(JavaTextStyle.FULL, locale).replaceFirstChar { c -> c.titlecase(locale) } }
+                                            canvasState.insertWeeklyPlanner(context.getString(R.string.template_planner), days, context.getString(R.string.planner_notes))
+                                        }
+                                        DocumentTemplate.MIND_MAP -> canvasState.insertMindMap(context.getString(R.string.mind_map_central), context.getString(R.string.mind_map_branch))
                                         else -> {}
                                     }
                                     showDocumentsDialog = false
@@ -708,25 +971,25 @@ class MainActivity : ComponentActivity() {
                                 CrashReporter.clearPendingReport(context)
                                 crashReport = null
                             },
-                            title = { Text("Fern closed unexpectedly") },
-                            text = { Text("A crash report was saved on this device. Share it to help fix the problem? It contains technical details only, no drawings.") },
+                            title = { Text(stringResource(R.string.crash_title)) },
+                            text = { Text(stringResource(R.string.crash_text)) },
                             confirmButton = {
                                 TextButton(onClick = {
                                     val send = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
-                                        putExtra(Intent.EXTRA_SUBJECT, "Fern crash report")
+                                        putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.crash_subject))
                                         putExtra(Intent.EXTRA_TEXT, report)
                                     }
                                     context.startActivity(Intent.createChooser(send, null))
                                     CrashReporter.clearPendingReport(context)
                                     crashReport = null
-                                }) { Text("Share report") }
+                                }) { Text(stringResource(R.string.crash_share)) }
                             },
                             dismissButton = {
                                 TextButton(onClick = {
                                     CrashReporter.clearPendingReport(context)
                                     crashReport = null
-                                }) { Text("Dismiss") }
+                                }) { Text(stringResource(R.string.action_dismiss)) }
                             },
                         )
                     }
@@ -747,11 +1010,36 @@ class MainActivity : ComponentActivity() {
                                 toolbarAtBottom = value
                                 AppSettings.setToolbarAtBottom(context, value)
                             },
+                            highContrast = highContrast,
+                            onHighContrastChange = { value ->
+                                highContrast = value
+                                AppSettings.setHighContrast(context, value)
+                            },
+                            snapToObjects = canvasState.snapToObjects,
+                            onSnapToObjectsChange = { value ->
+                                canvasState.snapToObjects = value
+                                AppSettings.setSnapToObjects(context, value)
+                            },
                             onShowGuide = {
                                 showSettings = false
                                 showWelcome = true
                             },
+                            onCustomizeToolbar = {
+                                showSettings = false
+                                showToolbarCustomize = true
+                            },
                             onDismiss = { showSettings = false },
+                        )
+                    }
+
+                    if (showToolbarCustomize) {
+                        ToolbarCustomizeDialog(
+                            hidden = hiddenToolbarGroups,
+                            onHiddenChange = { value ->
+                                hiddenToolbarGroups = value
+                                AppSettings.setHiddenToolbarGroups(context, value)
+                            },
+                            onDismiss = { showToolbarCustomize = false },
                         )
                     }
 

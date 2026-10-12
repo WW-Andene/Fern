@@ -40,6 +40,26 @@ android {
         kotlinCompilerExtensionVersion = "1.5.14"
     }
 
+    testOptions {
+        // Robolectric runs the Android-dependent tests (storage, Compose UI) on the JVM and needs
+        // the merged resources and manifest to do so.
+        unitTests.isIncludeAndroidResources = true
+        // One JVM per test class. Sharing one JVM, the Compose UI tests intermittently never went
+        // idle (AppNotIdleException) once enough Robolectric classes had run before them -
+        // reproducible only in a full run, never with the class alone or after any single other
+        // class, and with the toolbar code unchanged - so state leaking between test classes,
+        // not the code under test. Isolating classes removes the leak path.
+        unitTests.all {
+            it.forkEvery = 1
+            // Scale benchmarks (ScaleBenchmark) only run when asked: ./gradlew testDebugUnitTest -Pbenchmark
+            // --tests '*ScaleBenchmark'. A million strokes needs more heap than the default.
+            if (project.hasProperty("benchmark")) {
+                it.systemProperty("fern.benchmark", "true")
+                it.maxHeapSize = "4g"
+            }
+        }
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -61,4 +81,11 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("androidx.test:core-ktx:1.6.1")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    // Hosts composables under test in an empty activity; must be on the debug runtime classpath.
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

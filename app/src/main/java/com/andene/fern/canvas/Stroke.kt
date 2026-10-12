@@ -18,8 +18,10 @@ import androidx.compose.ui.graphics.Color
  * - [CRAYON]: a waxy line broken up by paper grain, letting the paper show through.
  * - [PIXEL]: pixel art - fills whole square cells of a grid whose cell size is the stroke
  *   width, with no gaps between cells however fast the pen moves.
+ * - [STAMP]: a [StampBrush] tip repeated along the path, with the stroke's own spacing,
+ *   scatter, size and angle settings (see [Stroke.brush]).
  */
-enum class PenType { MARKER, PENCIL, HIGHLIGHTER, CALLIGRAPHY, AIRBRUSH, CRAYON, PIXEL }
+enum class PenType { MARKER, PENCIL, HIGHLIGHTER, CALLIGRAPHY, AIRBRUSH, CRAYON, PIXEL, STAMP }
 
 /**
  * How a stroke composites with whatever is already drawn beneath it, mirroring the standard
@@ -63,27 +65,130 @@ class Stroke(
     val fadeFill: Boolean = false,
     /** For a fill: a comic screentone (a grid of dots in [color]) instead of a solid colour. */
     val screentone: Boolean = false,
+    /** The brush a [PenType.STAMP] stroke was drawn with; null for every other pen. */
+    val brush: StampBrush? = null,
+    /** For a fill: a two-colour gradient from [color] instead of a solid colour. */
+    val gradient: FillGradient? = null,
+    /** Strokes sharing a group id are selected, moved and edited together; null when not grouped. */
+    val groupId: String? = null,
+    /** The skeleton bone this stroke is bound to and moves with (roadmap item 83); null when unbound. */
+    val boneId: String? = null,
+    /** Cap, join and width profile (roadmap item 97); null draws with the pen's defaults. */
+    val lineStyle: LineStyle? = null,
 ) {
     /** Mutable so a SELECT-tool scale gesture can resize the stroke proportionally with its geometry. */
     var widthWorld: Double = widthWorld
         private set
 
-    private val _points = mutableListOf<WorldPoint>()
-    val points: List<WorldPoint> get() = _points
+    // Point data lives in growable primitive arrays, not lists of objects: a WorldPoint plus
+    // three boxed Floats cost ~106 bytes of heap per point, which a 100k-stroke document can't
+    // afford on a phone; this costs 28 (two Doubles, three Floats). Parallel by index:
+    // pressure (0..1, 1.0 = no pressure data), tilt (radians, 0 = perpendicular to the screen /
+    // no tilt data), and orientation (radians, the compass direction the stylus is tilted
+    // toward) at the moment each point was captured.
+    private var xs = DoubleArray(INITIAL_CAPACITY)
+    private var ys = DoubleArray(INITIAL_CAPACITY)
+    private var pressureData = FloatArray(INITIAL_CAPACITY)
+    private var tiltData = FloatArray(INITIAL_CAPACITY)
+    private var orientationData = FloatArray(INITIAL_CAPACITY)
+    private var size = 0
 
-    // Parallel to _points: pressure (0..1, 1.0 = no pressure data), tilt (radians, 0 =
-    // perpendicular to the screen / no tilt data), and orientation (radians, the compass
-    // direction the stylus is tilted toward) at the moment each point was captured.
-    private val _pressures = mutableListOf<Float>()
-    val pressures: List<Float> get() = _pressures
-    private val _tilts = mutableListOf<Float>()
-    val tilts: List<Float> get() = _tilts
-    private val _orientations = mutableListOf<Float>()
-    val orientations: List<Float> get() = _orientations
+    // Copy-on-write: true while the point arrays are also referenced by a [State] (an undo
+    // snapshot, or a copy made by [deepCopy]). Every mutation calls [ensureOwnData] first, so
+    // shared arrays are copied before they're written and a captured State never changes.
+    private var dataShared = false
+
+    // The State last captured, reused while nothing has changed since (same revision), so
+    // consecutive undo snapshots of an untouched stroke share one State object.
+    private var cachedState: State? = null
 
     /**
-     * Bumped on every mutation ([addPoint], [shiftBy]). [_points] itself is a plain
-     * `MutableList`, not something Compose's snapshot system can see — so without this,
+     * An immutable capture of a stroke's geometry - points, stylus data, width and bounds - taken
+     * in O(1) by sharing the stroke's arrays (see [dataShared]). Undo snapshots hold these instead
+     * of deep copies, so an undo step costs a reference per stroke, not a copy of the document.
+     */
+    class State internal constructor(
+        internal val xs: DoubleArray,
+        internal val ys: DoubleArray,
+        internal val pressures: FloatArray,
+        internal val tilts: FloatArray,
+        internal val orientations: FloatArray,
+        internal val size: Int,
+        internal val widthWorld: Double,
+        internal val minX: Double,
+        internal val minY: Double,
+        internal val maxX: Double,
+        internal val maxY: Double,
+        internal val revision: Int,
+    )
+
+    /** This stroke's current geometry as an immutable [State]; O(1). */
+    fun captureState(): State {
+        cachedState?.let { if (it.revision == revision) return it }
+        dataShared = true
+        return State(xs, ys, pressureData, tiltData, orientationData, size, widthWorld, minX, minY, maxX, maxY, revision).also { cachedState = it }
+    }
+
+    /** Sets this stroke's geometry back to [state] (an undo); O(1), the arrays stay shared until written. */
+    fun restoreState(state: State) {
+        xs = state.xs
+        ys = state.ys
+        pressureData = state.pressures
+        tiltData = state.tilts
+        orientationData = state.orientations
+        size = state.size
+        widthWorld = state.widthWorld
+        minX = state.minX
+        minY = state.minY
+        maxX = state.maxX
+        maxY = state.maxY
+        dataShared = true
+        revision++
+    }
+
+    private fun ensureOwnData() {
+        if (!dataShared) return
+        xs = xs.copyOf()
+        ys = ys.copyOf()
+        pressureData = pressureData.copyOf()
+        tiltData = tiltData.copyOf()
+        orientationData = orientationData.copyOf()
+        dataShared = false
+    }
+
+    /** A live read-only view of the points; each element is created on access. */
+    val points: List<WorldPoint> = object : AbstractList<WorldPoint>() {
+        override val size: Int get() = this@Stroke.size
+        override fun get(index: Int): WorldPoint {
+            checkIndex(index)
+            return WorldPoint(xs[index], ys[index])
+        }
+    }
+
+    /** Live views of the stylus data; per-frame code should prefer [pressureAt] and friends, which don't box. */
+    val pressures: List<Float> = floatView { pressureData }
+    val tilts: List<Float> = floatView { tiltData }
+    val orientations: List<Float> = floatView { orientationData }
+
+    fun pressureAt(index: Int): Float { checkIndex(index); return pressureData[index] }
+    fun tiltAt(index: Int): Float { checkIndex(index); return tiltData[index] }
+    fun orientationAt(index: Int): Float { checkIndex(index); return orientationData[index] }
+
+    private fun floatView(data: () -> FloatArray): List<Float> = object : AbstractList<Float>() {
+        override val size: Int get() = this@Stroke.size
+        override fun get(index: Int): Float {
+            checkIndex(index)
+            return data()[index]
+        }
+    }
+
+    private fun checkIndex(index: Int) {
+        if (index < 0 || index >= size) throw IndexOutOfBoundsException("Index $index, size $size")
+    }
+
+    /**
+     * Bumped on every mutation ([addPoint], [shiftBy]). The point arrays themselves are plain
+     * arrays, not something Compose's snapshot system can see — so without this,
      * appending points while a stroke is being drawn wouldn't invalidate the `Canvas`
      * draw phase at all, and the in-progress stroke would only actually render on the
      * next *unrelated* redraw (e.g. the next pan/zoom, since panWorld/scale are
@@ -100,15 +205,76 @@ class Stroke(
     var maxY: Double = Double.NEGATIVE_INFINITY; private set
 
     fun addPoint(point: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
-        _points.add(point)
-        _pressures.add(pressure)
-        _tilts.add(tilt)
-        _orientations.add(orientation)
+        ensureOwnData()
+        if (size == xs.size) grow()
+        xs[size] = point.x
+        ys[size] = point.y
+        pressureData[size] = pressure
+        tiltData[size] = tilt
+        orientationData[size] = orientation
+        size++
         if (point.x < minX) minX = point.x
         if (point.y < minY) minY = point.y
         if (point.x > maxX) maxX = point.x
         if (point.y > maxY) maxY = point.y
         revision++
+    }
+
+    private class Lod(val revision: Int, val spacing: Double, val indices: IntArray)
+
+    // Last decimation result. Swapped whole (never mutated), and volatile: an export may draw this
+    // stroke from another thread, and must never see indices computed for a different revision.
+    @Volatile
+    private var lod: Lod? = null
+
+    /**
+     * Indices of the points to draw so consecutive drawn points are at least about [minSpacing]
+     * apart (zoom-aware level of detail): a point closer than that to the last kept one is
+     * skipped; both ends are always kept. One exact repeat of a kept point is kept too: that's
+     * how shapes mark a sharp corner (see withSharpCorners in Shapes.kt), and dropping it would
+     * round the corner off. Each decision depends only on earlier points, so
+     * appending points never changes which earlier ones are kept (no flicker while drawing).
+     *
+     * Cached per stroke. [minSpacing] is rounded down to a power of two, so the result is reused
+     * across a whole octave of zoom (keeping at most twice the points strictly needed, still
+     * under a pixel apart) and recomputed only when the stroke changes or the zoom crosses an
+     * octave - not on every frame.
+     */
+    fun decimatedIndices(minSpacing: Double): IntArray {
+        val spacing = if (minSpacing > 0.0 && minSpacing.isFinite()) Math.scalb(1.0, Math.getExponent(minSpacing)) else 0.0
+        val cached = lod
+        if (cached != null && cached.revision == revision && cached.spacing == spacing) return cached.indices
+        val indices = decimate(spacing)
+        lod = Lod(revision, spacing, indices)
+        return indices
+    }
+
+    private fun decimate(spacing: Double): IntArray {
+        val n = size
+        if (n <= 2 || spacing <= 0.0) return IntArray(n) { it }
+        val spacingSq = spacing * spacing
+        val kept = IntArray(n)
+        var count = 0
+        kept[count++] = 0
+        var lastX = xs[0]
+        var lastY = ys[0]
+        var lastKept = 0
+        for (i in 1 until n - 1) {
+            val dx = xs[i] - lastX
+            val dy = ys[i] - lastY
+            val distanceSq = dx * dx + dy * dy
+            // A repeat right after a kept point that isn't itself a repeat: a corner marker. Only one,
+            // so a pen held still (many identical samples) still collapses to two points.
+            val cornerMarker = distanceSq == 0.0 && lastKept == i - 1 && (count < 2 || kept[count - 2] != i - 2 || xs[i - 2] != lastX || ys[i - 2] != lastY)
+            if (distanceSq >= spacingSq || cornerMarker) {
+                lastKept = i
+                kept[count++] = i
+                lastX = xs[i]
+                lastY = ys[i]
+            }
+        }
+        kept[count++] = n - 1
+        return kept.copyOf(count)
     }
 
     /** True if this stroke's bounding box (padded by its width) intersects the given world-space rect. */
@@ -120,8 +286,10 @@ class Stroke(
 
     /** Shifts every point (and the cached bounds) by [-offset], used when re-anchoring the world origin. */
     fun shiftBy(offset: WorldPoint) {
-        for (i in _points.indices) {
-            _points[i] -= offset
+        ensureOwnData()
+        for (i in 0 until size) {
+            xs[i] -= offset.x
+            ys[i] -= offset.y
         }
         minX -= offset.x; maxX -= offset.x
         minY -= offset.y; maxY -= offset.y
@@ -137,8 +305,18 @@ class Stroke(
      * [orientations] stay correctly paired by index without needing to be passed in too.
      */
     fun setPoints(newPoints: List<WorldPoint>) {
-        _points.clear()
-        _points.addAll(newPoints)
+        require(newPoints.size == size) { "setPoints moves points; it can't change their number" }
+        // Read everything before writing, in case newPoints is a view of this stroke.
+        val newXs = DoubleArray(xs.size)
+        val newYs = DoubleArray(ys.size)
+        for (i in newPoints.indices) {
+            newXs[i] = newPoints[i].x
+            newYs[i] = newPoints[i].y
+        }
+        // The stylus arrays are kept, so they must be this stroke's own before it can write them later.
+        ensureOwnData()
+        xs = newXs
+        ys = newYs
         minX = Double.POSITIVE_INFINITY
         minY = Double.POSITIVE_INFINITY
         maxX = Double.NEGATIVE_INFINITY
@@ -163,14 +341,31 @@ class Stroke(
     /** A deep copy moved to animation frame [frame], e.g. when frames are inserted or deleted. */
     fun onAnimFrame(frame: Int): Stroke = restyled(color, layerId, frame)
 
-    private fun restyled(newColor: Color, newLayerId: String, newFrame: Int = animFrame): Stroke {
-        val copy = Stroke(newColor, widthWorld, penType, filled, blendMode, newLayerId, newFrame, dashed, fadeFill, screentone)
-        for (i in _points.indices) copy.addPoint(_points[i], _pressures[i], _tilts[i], _orientations[i])
+    /** A deep copy in group [newGroupId] (null = ungrouped). */
+    fun inGroup(newGroupId: String?): Stroke = restyled(color, layerId, newGroupId = newGroupId)
+
+    /** A deep copy bound to bone [newBoneId] (null = unbound). */
+    fun onBone(newBoneId: String?): Stroke = restyled(color, layerId, newBoneId = newBoneId)
+
+    private fun restyled(newColor: Color, newLayerId: String, newFrame: Int = animFrame, newGroupId: String? = groupId, newBoneId: String? = boneId): Stroke {
+        val copy = Stroke(newColor, widthWorld, penType, filled, blendMode, newLayerId, newFrame, dashed, fadeFill, screentone, brush, gradient, newGroupId, newBoneId, lineStyle)
+        // Shares the point arrays copy-on-write: O(1), and neither stroke sees the other's later edits.
+        copy.restoreState(captureState())
         return copy
     }
 
-    /** An independent copy (own point lists), so an undo snapshot isn't changed by later edits to this stroke. */
+    /** A deep copy with fill gradient [newGradient] (null = solid). */
+    fun withGradient(newGradient: FillGradient?): Stroke =
+        Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush, newGradient, groupId, boneId, lineStyle)
+            .also { it.restoreState(captureState()) }
+
+    /** An independent copy: later edits to either stroke don't affect the other (copy-on-write, O(1)). */
     fun deepCopy(): Stroke = withColor(color)
+
+    /** A new stroke with this one's attributes and [state]'s geometry, e.g. to persist an undo snapshot. */
+    fun withState(state: State): Stroke =
+        Stroke(color, state.widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush, gradient, groupId, boneId, lineStyle)
+            .also { it.restoreState(state) }
 
     /** Sets this stroke's width directly, for a SELECT-tool scale gesture. */
     fun setWidth(newWidth: Double) {
@@ -192,15 +387,29 @@ class Stroke(
      */
     fun eraseNear(center: WorldPoint, radius: Double): List<Stroke>? {
         val radiusSq = radius * radius
+        return eraseWhere { i ->
+            val dx = xs[i] - center.x
+            val dy = ys[i] - center.y
+            dx * dx + dy * dy <= radiusSq
+        }
+    }
+
+    /** [eraseNear] for a lasso: removes the points inside [polygon] (see [polygonContains]). */
+    fun eraseInside(polygon: List<WorldPoint>): List<Stroke>? =
+        eraseWhere { i -> polygonContains(polygon, WorldPoint(xs[i], ys[i])) }
+
+    /**
+     * Removes every point [erased] selects and splits the survivors into pieces wherever a removal
+     * broke the stroke's continuity; each piece keeps this stroke's style, and a piece left with
+     * a single point is dropped. Returns null if nothing was erased, otherwise the surviving
+     * pieces (empty if the whole stroke went).
+     */
+    private inline fun eraseWhere(erased: (Int) -> Boolean): List<Stroke>? {
         var anyRemoved = false
-        val runs = mutableListOf<MutableList<Int>>() // indices into _points/_pressures/_tilts/_orientations
+        val runs = mutableListOf<MutableList<Int>>() // point indices
         var current: MutableList<Int>? = null
-        for (index in points.indices) {
-            val point = points[index]
-            val dx = point.x - center.x
-            val dy = point.y - center.y
-            val inside = dx * dx + dy * dy <= radiusSq
-            if (inside) {
+        for (index in 0 until size) {
+            if (erased(index)) {
                 anyRemoved = true
                 current = null
             } else {
@@ -213,9 +422,23 @@ class Stroke(
         }
         if (!anyRemoved) return null
         return runs.filter { it.size >= 2 }.map { run ->
-            val piece = Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone)
-            for (index in run) piece.addPoint(points[index], pressures[index], tilts[index], orientations[index])
+            val piece = Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush, gradient, groupId, boneId, lineStyle)
+            for (index in run) piece.addPoint(WorldPoint(xs[index], ys[index]), pressureData[index], tiltData[index], orientationData[index])
             piece
         }
+    }
+
+    private fun grow() {
+        val capacity = maxOf(xs.size * 2, INITIAL_CAPACITY)
+        xs = xs.copyOf(capacity)
+        ys = ys.copyOf(capacity)
+        pressureData = pressureData.copyOf(capacity)
+        tiltData = tiltData.copyOf(capacity)
+        orientationData = orientationData.copyOf(capacity)
+    }
+
+    private companion object {
+        // Most strokes are short; doubling from 8 keeps the slack small for them.
+        const val INITIAL_CAPACITY = 8
     }
 }

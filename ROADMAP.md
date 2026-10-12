@@ -29,8 +29,8 @@ Goal: ink that feels like it comes straight out of the pen tip.
 - [x] 6. Brush width and full HSV/hex colour picker
 - [ ] 7. Low-latency ink: front-buffered rendering (`GLFrontBufferedRenderer` / Ink API), under 20 ms pen-to-pixel
 - [x] 8. Motion prediction (`androidx.input` `MotionEventPredictor`)
-- [ ] 9. Variable-width stroke geometry (tessellated outlines instead of per-segment lines)
-- [~] 10. Zoom-level-aware simplification — sub-pixel strokes drawn as a dot; no point decimation yet
+- [x] 9. Variable-width stroke geometry (tessellated outlines instead of per-segment lines) — pressure/tilt and calligraphy strokes filled as one mitred outline
+- [x] 10. Zoom-level-aware simplification — sub-pixel strokes drawn as a dot; points under a screen pixel apart skipped at render time
 - [x] 11. Two-finger canvas rotation, snap to upright, reset
 
 ## Phase 2 — Documents, persistence & reliability
@@ -40,10 +40,10 @@ Goal: no drawing is ever lost.
 - [x] 12. Persist strokes locally across restarts
 - [x] 13. Debounced autosave after every action
 - [x] 14. Multiple documents: create, rename, duplicate, delete, switch
-- [ ] 15. Automated tests (unit + UI)
+- [x] 15. Automated tests (unit + UI) — JVM unit tests, plus storage and Compose UI tests on Robolectric; run in CI
 - [x] 16. Crash-safe atomic writes, corrupt-file quarantine instead of a crash
 - [x] 17. Versioned file format with migration path
-- [~] 18. Storage that scales to 1M strokes — thumbnail no longer re-rendered on every autosave; still one JSON file per document
+- [~] 18. Storage that scales to 1M strokes — thumbnail no longer re-rendered on every autosave; strokes, history and versions in a compact binary format (16 bytes per finger point instead of ~90); drawing appends to a journal instead of rewriting the file; stroke points held in primitive arrays (~41 bytes per point in memory instead of ~106). Probe: 100k strokes x 32 points load in 0.5 s, autosave after a stroke 34 ms (JVM); not yet measured at 1M or on a device (item 48)
 - [x] 19. Undo history that survives restarts; version-history timeline with restore
 - [x] 20. Document library: thumbnails, folders, search, sort, favourites, 30-day trash with restore
 - [~] 21. Crash reporting — on-device reports, shared only by the user's choice; no analytics (by design)
@@ -59,14 +59,14 @@ Goal: a full, professional tool set.
 - [x] 26. Ruler/guide; opacity and blend modes; background styles
 - [~] 27. Stylus eraser end and side button erase; no double-tap/squeeze gestures yet
 - [x] 28. Shape recognition: draw-and-hold snaps to a clean line, rectangle or ellipse
-- [~] 29. Brush engine — airbrush and crayon procedural textures; no stamp brushes or brush editor
-- [~] 30. Colour workflow — eyedropper, touch-and-hold pick, recent colours, saved palette, .gpl import; no .ase import
-- [~] 31. Quick tool switching — touch-and-hold eyedropper, keyboard shortcuts; no radial menu or favourite slots
-- [~] 32. Erase modes — ink vs object eraser; no lasso eraser
-- [~] 33. Rich text — bold, italic, four sizes, sticky notes, links; no fonts, alignment or wrapping boxes
-- [~] 34. Gradients and pattern fills — fade fill, screentone fill; no two-colour or directional gradients
-- [~] 35. Symmetry (mirror, four-way, radial) done; perspective guides not started
-- [~] 36. Snapping — shapes snap to grid on grid/dot paper, 15° angles, square/circle; no snap-to-object
+- [~] 29. Brush engine — airbrush and crayon procedural textures; stamp brush (circle, soft, square, star tips) with a brush editor for spacing, scatter, size/angle jitter and direction following, and named brush presets; no image-based tips
+- [x] 30. Colour workflow — eyedropper, touch-and-hold pick, recent colours, saved palette, .gpl and .ase import
+- [x] 31. Quick tool switching — touch-and-hold eyedropper, keyboard shortcuts, four favourite pen slots on the toolbar, radial quick menu (tools, undo/redo)
+- [x] 32. Erase modes — ink vs object eraser, each also as a lasso eraser
+- [x] 33. Rich text — bold, italic, four sizes, sticky notes, links, four fonts (system families), left/centre/right alignment, wrapping text boxes dragged out with the text tool (width fixed by the drag; no resize handle)
+- [x] 34. Gradients and pattern fills — fade fill, screentone fill, two-colour linear gradients in eight directions (also in SVG export); no radial gradients
+- [x] 35. Symmetry (mirror, four-way, radial); one- and two-point perspective guides with draggable vanishing points and assisted drawing (no three-point)
+- [x] 36. Snapping — shapes snap to grid on grid/dot paper, 15° angles, square/circle, and to existing strokes' ends and corners (snap-to-object, with an on-screen ring; toggle in Settings)
 
 ## Phase 4 — Editing, organisation & layers
 
@@ -77,23 +77,23 @@ Goal: anything drawn can be rearranged later.
 - [x] 39. Layers: add, reorder, hide, lock, opacity, merge, rename, delete, remove empty/hidden
 - [x] 40. Lasso selection, select-by-colour, select-all-on-layer
 - [x] 41. Recolour and change the width of a selection
-- [~] 42. Z-order, align and distribute done; grouping not started
-- [~] 43. Copy and paste within and between documents; not with the system clipboard
-- [~] 44. Smooth and straighten selected strokes; no node editing
+- [x] 42. Z-order, align and distribute; grouping (select one member, get the group; group / ungroup; duplicates and pastes form new groups)
+- [x] 43. Copy and paste through the system clipboard: strokes between documents and across restarts, a PNG of the selection for other apps, and text or images pasted from other apps
+- [x] 44. Smooth and straighten selected strokes; node editing (drag a stroke's nodes; freehand strokes bend smoothly between nodes)
 - [x] 45. Frames/artboards: named, navigable, exportable, presentable
-- [ ] 46. Links between canvas regions and documents
+- [x] 46. Links between canvas regions and documents — a text label can link to a named pin or another document (underlined; "Follow link" in its dialog)
 - [~] 47. Search text labels and jump to them; handwriting search ⏸ (needs item 67)
 
 ## Phase 5 — Performance at scale
 
 Goal: 120 fps at any zoom, with any amount of content.
 
-- [ ] 48. Benchmark suite (10k / 100k / 1M strokes)
-- [ ] 49. Spatial index (deliberately waiting for item 48's numbers)
-- [~] 50. Level of detail — sub-pixel strokes drawn as one dot
-- [ ] 51. Tile caching
+- [~] 48. Benchmark suite (10k / 100k / 1M strokes) — JVM suite (storage, rendering, hit-testing; `-Pbenchmark`); no on-device benchmark yet
+- [x] 49. Spatial index — multi-level grid for rendering, the eraser and object snapping (JVM, 1M strokes: zoomed-in frame 251 -> 1.6 ms, eraser move ~0 ms, rebuild after an action 356 ms)
+- [x] 50. Level of detail — sub-pixel strokes drawn as one dot; sub-pixel point spacing decimated, cached per stroke per zoom octave
+- [x] 51. Tile caching — world-aligned 256 px tiles per zoom octave for documents of 20k+ strokes while nothing is edited live (JVM, 1M strokes: whole-document pan frame 1899 -> 16 ms; refilling after an edit ~3 s)
 - [ ] 52. GPU rendering path
-- [ ] 53. Background loading / streaming of off-screen regions
+- [~] 53. Background loading / streaming of off-screen regions — documents load and switch off the main thread behind a loading cover; no streaming of off-screen regions (needs chunked storage)
 - [x] 54. Large images and PDF pages downscaled to 2048 px
 - [ ] 55. Battery and thermal checks
 
@@ -104,8 +104,8 @@ Goal: work can leave the app and come back.
 - [x] 56. Export PNG: whole document, a frame, the selected area, transparent background
 - [x] 57. Vector export: SVG and multi-page PDF (one page per frame)
 - [x] 58. `.fern` backup format: export and import a whole document
-- [~] 59. Import PDFs to annotate; no drag-and-drop from other apps yet
-- [~] 60. Share sheet and in-app time-lapse replay; replay can't be exported as video yet
+- [x] 59. Import PDFs to annotate; drag and drop images and text from other apps onto the canvas
+- [~] 60. Share sheet and in-app time-lapse replay; replay exports as an animated GIF; no MP4 video (MediaCodec needs on-device verification)
 
 ## Phase 7 — Sync & collaboration ⏸
 
@@ -121,30 +121,30 @@ All deferred: they need a server or cloud platform.
 ## Phase 8 — Intelligence, accessibility, polish & platform
 
 - [ ] 67. Handwriting recognition ⏸ (ML Kit depends on Google Play Services)
-- [ ] 68. Smart diagramming: connectors, flowchart cleanup
-- [~] 69. Accessibility — button descriptions, canvas screen-reader description, left-handed layout; no high-contrast theme
-- [ ] 70. Localisation (French first) and right-to-left
-- [~] 71. Two-finger tap undo, three-finger tap redo, toolbar top or bottom; toolbar not yet customisable
-- [~] 72. Gesture guide on first launch, templates (graph, dot, lined, comic, storyboard); no planner or mind-map templates
-- [~] 73. Dark mode for the UI; no dark paper preset
-- [~] 74. Keyboard shortcuts, mouse wheel and trackpad; no dedicated large-screen layout
-- [ ] 75. Multi-window drag-and-drop
+- [x] 68. Smart diagramming: connectors between labels and sticky notes (follow moves, undoable, saved, exported); "Tidy diagram" lays connected labels out as a layered flowchart
+- [x] 69. Accessibility — button descriptions, canvas screen-reader description, left-handed layout, high-contrast theme (light and dark, every pair 7:1 or better)
+- [x] 70. Localisation: every UI string in res/values, full French translation (checked key-for-key by a test); right-to-left supported, with hand-side controls kept on physical sides. Names generated inside documents ("Layer 2", "Page 3") stay English
+- [x] 71. Two-finger tap undo, three-finger tap redo, toolbar top or bottom; customisable toolbar (Settings → Customise toolbar hides optional button groups; core tools always stay)
+- [x] 72. Gesture guide on first launch, templates (graph, dot, lined, comic, storyboard, weekly planner in the locale's week order, mind map of connected sticky notes)
+- [x] 73. Dark mode for the UI; light and dark paper presets (paper menu), with a pattern tone for dark paper and the pen switched to a readable ink when it would vanish
+- [x] 74. Keyboard shortcuts, mouse wheel and trackpad; large-screen layout: from 768dp wide the toolbar wraps onto several rows with every tool in view instead of scrolling
+- [x] 75. Multi-window drag-and-drop: images, text and Fern strokes dropped onto the canvas; a selection dragged out from its handle to other apps (as a PNG) or another Fern window (as strokes). The cross-window drag itself is untested here (needs a device)
 - [ ] 76. Generative assists ⏸ (hosted AI)
-- [ ] 77. Release work: Play Store listing, privacy policy, staged rollouts
+- [ ] 77. Release work: Play Store listing, privacy policy, staged rollouts ⏸ (owner: the listing and rollouts are Play Console steps; a privacy-policy document is a new top-level file needing approval; R8 shrinking needs device testing, since saved documents store enum names)
 
 ## Phase 9 — Animation & skeletal rigging
 
 - [x] 78. Flipbook frames: insert blank or copied, delete, step
 - [x] 79. Onion skin, playback at 6/8/12/24 fps, loop and ping-pong
-- [~] 80. Export animated GIF and sprite sheet; no MP4, WebM or APNG
-- [~] 81. Automatic in-betweens and motion along a drawn path; no keyframe easing or graph editor
-- [~] 82. Shape tweening — strokes morphed pairwise in in-betweens
-- [ ] 83. Bones and skeletons
-- [ ] 84. Mesh deformation with weights
-- [ ] 85. Inverse kinematics, constraints, physics
+- [~] 80. Export animated GIF, animated PNG (APNG, full colour and alpha) and sprite sheet; no MP4 or WebM (device encoders, untestable here)
+- [~] 81. Automatic in-betweens and motion along a drawn path, with easing (linear, ease in, ease out, ease in-out); no graph editor for custom curves
+- [x] 82. Shape tweening — strokes morphed pairwise in in-betweens, each paired with its nearest counterpart, closed outlines lined up (start point and direction) so they don't twist
+- [x] 83. Bones and skeletons: a bone tool draws bones (chained when started at a tail), binds strokes to the nearest bones, and poses per frame (turn a bone with its children and ink, move a root); copied frames carry the pose, in-betweens tween it; saved, in bundles, undoable
+- [~] 84. Weighted deformation: smooth joints bend bound ink around a turned bone's joint by inverse-distance weights (rotation-blended); weights are automatic, not paintable, and there's no free-form mesh
+- [~] 85. Inverse kinematics: dragging a limb's end pulls its chain (up to four bones, CCD solver) so the tip follows the finger; no joint-angle constraints or physics yet
 - [ ] 86. Skins and animation blending
-- [ ] 87. Spine / Lottie / DragonBones export and import
-- [ ] 88. Audio track with lip-sync and an X-sheet
+- [~] 87. Lottie export (frame by frame, vector, checked by rendering with an independent Lottie library); no Spine or DragonBones skeletal formats, no import
+- [~] 88. X-sheet: per-frame holds (playback, GIF, APNG and Lottie follow them; saved with the fps, undoable); no audio track or lip-sync yet
 
 ## Phase 10 — Raster painting
 
@@ -153,28 +153,28 @@ All deferred: they need a server or cloud platform.
 - [ ] 91. Raster selections, masks, clipping masks, alpha lock
 - [ ] 92. Adjustments: curves, levels, hue/saturation, liquify, warp
 - [ ] 93. Full Photoshop blend modes and adjustment layers
-- [ ] 94. Reference layers, gap-closing bucket fill
+- [x] 94. Reference layers (fills take their boundaries from them), gap-closing bucket fill (areas closed by several strokes, gaps up to ~8 px bridged, within the view)
 - [ ] 95. PSD / Procreate / Krita import and export
 
 ## Phase 11 — Professional vector & design
 
-- [ ] 96. Pen tool with Bézier nodes; boolean operations
-- [~] 97. Stroke styles — dashed lines; no custom caps, joins or width profiles
-- [ ] 98. Text on a path, outlined text, OpenType features
-- [ ] 99. Rulers, dimensions, numeric transforms, smart guides
-- [ ] 100. Reusable symbols and shared colour styles
-- [ ] 101. Image trace
-- [ ] 102. CMYK, spot colours, ICC, print-ready PDF
-- [ ] 103. AI / EPS / Figma import and export (SVG export done in 57)
+- [x] 96. Pen tool with Bézier nodes (tap for corners, drag for smooth handles, tap the first node to close; finish, remove last node, cancel); boolean operations on selected closed shapes (union, intersect, subtract, exclude; holes kept). Finished paths aren't re-editable as curves (node editing works on their points)
+- [x] 97. Stroke styles — dashed lines; caps (round, square, flat), joins (round, sharp, bevelled) and width profiles (even, taper either or both ends), saved per stroke and in SVG/Lottie exports (tapers drawn on canvas and in images only)
+- [~] 98. Text on a path (from a selected line; letters follow and turn with it; SVG textPath), outlined text; no OpenType feature controls (the platform's generic fonts offer few)
+- [~] 99. Smart guides (a moved selection snaps edges/centres to nearby objects, guide lines shown), numeric transform dialog (X, Y, width, height, proportions, rotation), live shape dimensions; no screen rulers
+- [~] 100. Shared colour styles (a saved colour changed everywhere it's used, opacity kept), symbol library across documents (save a selection, place copies); placed symbols are copies, not linked instances
+- [x] 101. Image trace: a selected image's dark shapes (Otsu threshold) become filled vector outlines, holes kept, in the active colour over the image; one colour (no colour separation)
+- [~] 102. CMYK entry in the colour picker (uncalibrated device CMYK); no spot colours, ICC colour management or CMYK PDF (the platform PDF writer is RGB-only)
+- [~] 103. EPS export (paths, fills, caps, joins, dashes; checked by rendering); no AI import/export, Figma ⏸ (external platform); SVG export done in 57
 
 ## Phase 12 — Specialty modes
 
-- [~] 104. Pixel art — grid-aligned pixel pen; no indexed palettes or sprite editing
+- [x] 104. Pixel art — grid-aligned pixel pen; indexed palette (pixels snap to saved colours; reduce a selection to them; palette swaps via 100); sprites are animation frames exported as sprite sheets (80)
 - [~] 105. Comics — comic page template, speech bubbles, screentones
-- [~] 106. Notes — sticky notes; no connectors or mind maps
-- [~] 107. Whiteboard — links in text labels open in the browser; no embedded video or documents
-- [ ] 108. 3D painting and posable mannequins
-- [ ] 109. AR placement and tracing
+- [x] 106. Notes — sticky notes, connectors between them (68), mind-map and planner templates (72)
+- [~] 107. Whiteboard — links in text labels open in the browser or another document; PDF pages imported onto the canvas to annotate; no embedded video (needs a device to verify a live video surface)
+- [~] 108. Posable mannequin in 2D (a rigged figure posed with the bone tool); no 3D painting
+- [ ] 109. AR placement and tracing ⏸ (ARCore is a Google Play Services platform)
 - [ ] 110. Generative AI ⏸
 
 ## Phase 13 — Ecosystem

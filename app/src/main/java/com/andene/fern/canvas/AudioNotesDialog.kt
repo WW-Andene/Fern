@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -49,11 +51,11 @@ fun AudioNotesDialog(audio: AudioNotes, documentId: String, onDismiss: () -> Uni
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Voice notes") },
+        title = { Text(stringResource(R.string.audio_title)) },
         text = {
             Column(modifier = Modifier.heightIn(max = 384.dp).verticalScroll(rememberScrollState())) {
-                if (failed) Text("The microphone couldn't be started.")
-                if (notes.isEmpty() && !recording) Text("No voice notes for this document yet.")
+                if (failed) Text(stringResource(R.string.audio_mic_failed))
+                if (notes.isEmpty() && !recording) Text(stringResource(R.string.audio_empty))
                 for (note in notes) {
                     // File names end in _<timestamp>.m4a.
                     val time = note.nameWithoutExtension.substringAfterLast('_').toLongOrNull()
@@ -70,7 +72,7 @@ fun AudioNotesDialog(audio: AudioNotes, documentId: String, onDismiss: () -> Uni
                         }, enabled = !recording) {
                             Icon(
                                 if (playing == note) Icons.Filled.Stop else Icons.Filled.PlayArrow,
-                                contentDescription = if (playing == note) "Stop" else "Play",
+                                contentDescription = if (playing == note) stringResource(R.string.action_stop) else stringResource(R.string.action_play),
                             )
                         }
                         IconButton(onClick = {
@@ -78,7 +80,7 @@ fun AudioNotesDialog(audio: AudioNotes, documentId: String, onDismiss: () -> Uni
                             note.delete()
                             notes = audio.list(documentId)
                         }, enabled = !recording) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Delete voice note")
+                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.audio_delete))
                         }
                     }
                 }
@@ -95,10 +97,10 @@ fun AudioNotesDialog(audio: AudioNotes, documentId: String, onDismiss: () -> Uni
                     failed = !audio.start(documentId)
                     recording = !failed
                 }
-            }) { Text(if (recording) "Stop recording" else "Record") }
+            }) { Text(if (recording) stringResource(R.string.audio_stop_recording) else stringResource(R.string.audio_record)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         },
     )
 }

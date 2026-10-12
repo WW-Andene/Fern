@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,7 +45,7 @@ fun ColorPickerDialog(
     onColorSelected: (Color) -> Unit,
     /** When set, a "Save to palette" button stores the current colour without closing. */
     onSaveColor: ((Color) -> Unit)? = null,
-    /** When set, an "Import .gpl" button imports a palette file into the saved colours. */
+    /** When set, an "Import palette" button imports a .gpl or .ase palette file into the saved colours. */
     onImportPalette: (() -> Unit)? = null,
 ) {
     var hue by remember { mutableFloatStateOf(0f) }
@@ -62,9 +64,20 @@ fun ColorPickerDialog(
 
     fun currentColor() = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, saturation, value)))
 
+    // Kept as typed while they still describe the colour (within a percent), so typing isn't
+    // overwritten by rounding; recomputed when another control changes the colour.
+    var cmykTexts by remember { mutableStateOf(List(4) { "" }) }
+    LaunchedEffect(hue, saturation, value) {
+        val now = cmykOf(currentColor())
+        val typed = cmykTexts.map { it.trim().replace(',', '.').toFloatOrNull() }
+        if (typed.indices.any { i -> typed[i]?.let { kotlin.math.abs(it - now[i] * 100f) > 1f } ?: true }) {
+            cmykTexts = now.map { "%.0f".format(it * 100f) }
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Choose color") },
+        title = { Text(stringResource(R.string.color_title)) },
         text = {
             // Scrolls: with the harmony rows the picker is taller than a landscape phone screen.
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -74,7 +87,7 @@ fun ColorPickerDialog(
                     color = currentColor(),
                 ) {}
 
-                Text("Hue", modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(R.string.color_hue), modifier = Modifier.padding(top = 8.dp))
                 Slider(
                     value = hue,
                     onValueChange = {
@@ -84,7 +97,7 @@ fun ColorPickerDialog(
                     valueRange = 0f..360f,
                 )
 
-                Text("Saturation")
+                Text(stringResource(R.string.color_saturation))
                 Slider(
                     value = saturation,
                     onValueChange = {
@@ -94,7 +107,7 @@ fun ColorPickerDialog(
                     valueRange = 0f..1f,
                 )
 
-                Text("Brightness")
+                Text(stringResource(R.string.color_brightness))
                 Slider(
                     value = value,
                     onValueChange = {
@@ -106,13 +119,13 @@ fun ColorPickerDialog(
 
                 // Colour harmonies: hues related to the current one by the classic colour-wheel
                 // rules. Tapping a swatch makes it the current colour.
-                Text("Harmonies", modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(R.string.color_harmonies), modifier = Modifier.padding(top = 8.dp))
                 for ((label, offsets) in HARMONIES) {
                     Row(
                         modifier = Modifier.padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(label, modifier = Modifier.width(128.dp))
+                        Text(stringResource(label), modifier = Modifier.width(128.dp))
                         for (offset in offsets) {
                             val swatchHue = (hue + offset) % 360f
                             Surface(
@@ -143,27 +156,53 @@ fun ColorPickerDialog(
                                 value = hsv[2]
                             }
                         },
-                        label = { Text("Hex") },
+                        label = { Text(stringResource(R.string.color_hex)) },
                         singleLine = true,
                     )
+                }
+                // CMYK (roadmap item 102): plain device CMYK in percent, not colour-managed - a
+                // way to enter print values, not a promise of how a press will print them.
+                Text(stringResource(R.string.color_cmyk), modifier = Modifier.padding(top = 8.dp))
+                Row {
+                    for ((channel, label) in listOf("C", "M", "Y", "K").withIndex()) {
+                        OutlinedTextField(
+                            value = cmykTexts[channel],
+                            onValueChange = { text ->
+                                cmykTexts = cmykTexts.toMutableList().also { it[channel] = text }
+                                val parts = cmykTexts.map { it.trim().replace(',', '.').toFloatOrNull() }
+                                if (parts.all { it != null }) {
+                                    val hsv = FloatArray(3)
+                                    android.graphics.Color.colorToHSV(colorOfCmyk(parts.map { it!! / 100f }).toArgb(), hsv)
+                                    hue = hsv[0]
+                                    saturation = hsv[1]
+                                    value = hsv[2]
+                                    hexText = hexOf(hue, saturation, value)
+                                }
+                            },
+                            label = { Text(label) },
+                            singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
+                            modifier = Modifier.width(62.dp).padding(end = 4.dp),
+                        )
+                    }
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = { onColorSelected(currentColor()) }) {
-                Text("Select")
+                Text(stringResource(R.string.action_select))
             }
         },
         dismissButton = {
             Row {
                 if (onImportPalette != null) {
-                    TextButton(onClick = onImportPalette) { Text("Import .gpl") }
+                    TextButton(onClick = onImportPalette) { Text(stringResource(R.string.color_import_palette)) }
                 }
                 if (onSaveColor != null) {
-                    TextButton(onClick = { onSaveColor(currentColor()) }) { Text("Save to palette") }
+                    TextButton(onClick = { onSaveColor(currentColor()) }) { Text(stringResource(R.string.color_save_palette)) }
                 }
                 TextButton(onClick = onDismiss) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
         },
@@ -172,11 +211,11 @@ fun ColorPickerDialog(
 
 /** Hue offsets in degrees from the current colour, per harmony rule. */
 private val HARMONIES = listOf(
-    "Complementary" to listOf(180f),
-    "Analogous" to listOf(330f, 30f),
-    "Triadic" to listOf(120f, 240f),
-    "Split compl." to listOf(150f, 210f),
-    "Tetradic" to listOf(90f, 180f, 270f),
+    R.string.harmony_complementary to listOf(180f),
+    R.string.harmony_analogous to listOf(330f, 30f),
+    R.string.harmony_triadic to listOf(120f, 240f),
+    R.string.harmony_split to listOf(150f, 210f),
+    R.string.harmony_tetradic to listOf(90f, 180f, 270f),
 )
 
 private fun hexOf(hue: Float, saturation: Float, value: Float): String {
@@ -210,4 +249,17 @@ fun parseGimpPalette(text: String): List<Color> {
         if (rgb.size < 3 || rgb.any { it == null || it !in 0..255 }) null
         else Color(rgb[0]!!, rgb[1]!!, rgb[2]!!)
     }
+}
+
+/** Uncalibrated device CMYK (0..1 each) of [color]: K = 1 - max(R, G, B), the rest relative to it. */
+internal fun cmykOf(color: Color): List<Float> {
+    val k = 1f - maxOf(color.red, color.green, color.blue)
+    if (k >= 1f) return listOf(0f, 0f, 0f, 1f)
+    return listOf((1f - color.red - k) / (1f - k), (1f - color.green - k) / (1f - k), (1f - color.blue - k) / (1f - k), k)
+}
+
+/** The RGB colour of uncalibrated device [cmyk] (0..1 each, clamped). */
+internal fun colorOfCmyk(cmyk: List<Float>): Color {
+    val (c, m, y, k) = cmyk.map { it.coerceIn(0f, 1f) }
+    return Color((1 - c) * (1 - k), (1 - m) * (1 - k), (1 - y) * (1 - k))
 }

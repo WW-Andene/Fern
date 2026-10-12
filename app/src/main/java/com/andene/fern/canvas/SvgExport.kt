@@ -1,6 +1,7 @@
 package com.andene.fern.canvas
 
 import android.util.Base64
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import java.util.Locale
 
@@ -39,34 +40,101 @@ fun exportDocumentSvg(source: CanvasState, imageBytesFor: (String) -> ByteArray?
     // Same layer order and visibility as the canvas. Layer opacity is folded into each stroke's
     // opacity, which only differs from the canvas where strokes on one layer overlap.
     val layerIndex = camera.layers.withIndex().associate { (index, layer) -> layer.id to index }
+    // Only the animation frame on screen, as the canvas shows it (before, every frame's strokes were drawn on top of each other).
     val ordered = camera.strokes.withIndex()
+        .filter { it.value.animFrame == camera.currentAnimFrame }
         .sortedWith(compareBy({ layerIndex[it.value.layerId] ?: 0 }, { it.index }))
         .map { it.value }
+    var gradientCount = 0
     for (stroke in ordered) {
         if (stroke.points.isEmpty()) continue
         val layer = camera.layers.getOrNull(layerIndex[stroke.layerId] ?: 0)
         if (layer != null && !layer.visible) continue
         val d = stroke.points.mapIndexed { i, p -> (if (i == 0) "M" else "L") + "${n(p.x)} ${n(p.y)}" }.joinToString(" ")
         val opacity = n(stroke.color.alpha.toDouble() * (layer?.opacity ?: 1f))
-        if (stroke.filled) {
+        val gradient = stroke.gradient
+        if (stroke.filled && gradient != null) {
+            // Same endpoints as the canvas, in world space, so the gradient's angle isn't
+            // distorted by the fill's aspect ratio the way objectBoundingBox units would be.
+            val (start, end) = gradientEndpoints(stroke.points.map { Offset(it.x.toFloat(), it.y.toFloat()) }, gradient.angleDegrees)
+            val id = "g${gradientCount++}"
+            svg.append("""<defs><linearGradient id="$id" gradientUnits="userSpaceOnUse" x1="${n(start.x.toDouble())}" y1="${n(start.y.toDouble())}" x2="${n(end.x.toDouble())}" y2="${n(end.y.toDouble())}">""")
+            svg.append("""<stop offset="0" stop-color="${hex(stroke.color)}" stop-opacity="$opacity"/>""")
+            svg.append("""<stop offset="1" stop-color="${hex(gradient.endColor)}" stop-opacity="${n(gradient.endColor.alpha.toDouble() * (layer?.opacity ?: 1f))}"/>""")
+            svg.append("""</linearGradient></defs><path d="$d Z" fill="url(#$id)"/>""")
+        } else if (stroke.filled) {
             svg.append("""<path d="$d Z" fill="${hex(stroke.color)}" fill-opacity="$opacity"/>""")
         } else {
             svg.append("""<path d="$d" fill="none" stroke="${hex(stroke.color)}" stroke-opacity="$opacity" """)
-            svg.append("""stroke-width="${n(stroke.widthWorld)}" stroke-linecap="round" stroke-linejoin="round"""")
+            // Width profiles (tapers) aren't expressible on an SVG stroke; caps and joins are.
+            val cap = when (stroke.lineStyle?.cap) { LineCap.SQUARE -> "square"; LineCap.BUTT -> "butt"; else -> "round" }
+            val join = when (stroke.lineStyle?.join) { LineJoin.MITER -> "miter"; LineJoin.BEVEL -> "bevel"; else -> "round" }
+            svg.append("""stroke-width="${n(stroke.widthWorld)}" stroke-linecap="$cap" stroke-linejoin="$join"""")
             if (stroke.dashed) svg.append(""" stroke-dasharray="${n(stroke.widthWorld * 3)} ${n(stroke.widthWorld * 3)}"""")
             svg.append("/>")
         }
         svg.append('\n')
     }
 
+    // Connectors under the labels, as on the canvas: a line and a triangular arrowhead.
+    for (connector in camera.connectors) {
+        val (from, to) = camera.connectorEnds(connector) ?: continue
+        val (a, b) = connectorSegment(from.first, from.second, to.first, to.second) ?: continue
+        val dx = b.x - a.x
+        val dy = b.y - a.y
+        val length = kotlin.math.hypot(dx, dy).coerceAtLeast(1e-9)
+        val ux = dx / length
+        val uy = dy / length
+        val head = 12.0 / camera.scale.coerceAtLeast(1e-300) // same 12 px arrowhead as on screen at the export zoom
+        val side = head / 2
+        val bx = b.x - ux * head
+        val by = b.y - uy * head
+        val stroke = 2.0 / camera.scale.coerceAtLeast(1e-300)
+        svg.append("""<line x1="${n(a.x)}" y1="${n(a.y)}" x2="${n(b.x)}" y2="${n(b.y)}" stroke="#455a64" stroke-width="${n(stroke)}" stroke-linecap="round"/>""")
+        svg.append("""<polygon points="${n(b.x)},${n(b.y)} ${n(bx - uy * side)},${n(by + ux * side)} ${n(bx + uy * side)},${n(by - ux * side)}" fill="#455a64"/>""").append('\n')
+    }
+
+    var textPathCount = 0
     for (item in camera.textItems) {
-        // SVG text is positioned by its baseline; the canvas anchors text at its top-left.
+        // Outlined text (roadmap item 98): a stroke instead of a fill, as on the canvas.
+        val paint = if (item.outlined) """fill="none" stroke="${hex(item.color)}" stroke-width="${n(item.fontSizeWorld / 20)}""""
+        else """fill="${hex(item.color)}""""
+        val path = item.path
+        if (path != null && path.size >= 2) {
+            // Text on a path: SVG's own textPath, along the label's path.
+            val id = "tp${textPathCount++}"
+            val d = path.mapIndexed { i, p -> (if (i == 0) "M" else "L") + "${n(item.position.x + p.x)} ${n(item.position.y + p.y)}" }.joinToString(" ")
+            svg.append("""<defs><path id="$id" d="$d"/></defs>""")
+            svg.append("""<text font-size="${n(item.fontSizeWorld)}" $paint font-family="${item.font.svgFamily}"""")
+            if (item.bold) svg.append(""" font-weight="bold"""")
+            if (item.italic) svg.append(""" font-style="italic"""")
+            svg.append("""><textPath href="#$id">${escapeXml(item.text.replace('\n', ' '))}</textPath></text>""").append('\n')
+            continue
+        }
+        // SVG text is positioned by its baseline; the canvas anchors text at its top-left. Each
+        // line is its own tspan at 1.3 em spacing (the canvas's approximate line height).
+        // Alignment anchors to the box's edges or centre when there is a box, otherwise to the
+        // label's left edge. SVG 1.1 has no automatic wrapping, so a boxed label's text keeps
+        // only its own line breaks here - the one way this export differs from the canvas.
         val baseline = item.position.y + item.fontSizeWorld
-        svg.append("""<text x="${n(item.position.x)}" y="${n(baseline)}" font-size="${n(item.fontSizeWorld)}" """)
-        svg.append("""fill="${hex(item.color)}" font-family="sans-serif"""")
+        val box = item.boxWidthWorld
+        val x = when {
+            box == null -> item.position.x
+            item.alignment == TextAlignment.CENTER -> item.position.x + box / 2
+            item.alignment == TextAlignment.END -> item.position.x + box
+            else -> item.position.x
+        }
+        svg.append("""<text x="${n(x)}" y="${n(baseline)}" font-size="${n(item.fontSizeWorld)}" """)
+        svg.append("""$paint font-family="${item.font.svgFamily}"""")
+        if (box != null) svg.append(""" text-anchor="${item.alignment.svgAnchor}"""")
         if (item.bold) svg.append(""" font-weight="bold"""")
         if (item.italic) svg.append(""" font-style="italic"""")
-        svg.append(""">${escapeXml(item.text)}</text>""").append('\n')
+        svg.append(">")
+        item.text.split('\n').forEachIndexed { i, line ->
+            val dy = if (i == 0) "0" else n(item.fontSizeWorld * 1.3)
+            svg.append("""<tspan x="${n(x)}" dy="$dy">${escapeXml(line)}</tspan>""")
+        }
+        svg.append("</text>").append('\n')
     }
     svg.append("</svg>\n")
     return svg.toString()

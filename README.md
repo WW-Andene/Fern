@@ -52,7 +52,8 @@ could do.
 
 ## Features
 
-- **Drawing:** pen types (marker, pencil, highlighter, calligraphy), stylus pressure/tilt,
+- **Drawing:** pen types (marker, pencil, highlighter, calligraphy, airbrush, crayon, pixel art,
+  stamp brush with a brush editor), stylus pressure/tilt,
   palm rejection, stylus eraser end and side button, stroke stabiliser, shape tool,
   draw-and-hold shape recognition, vector fill, eyedropper, text (bold/italic), images,
   ruler, symmetry (mirror, four-way, radial), opacity and blend modes.
@@ -93,6 +94,21 @@ Requires the Android SDK (compileSdk 34) and JDK 17.
 ```
 ./gradlew assembleDebug
 ```
+
+Run the tests (plain JVM; storage and Compose UI tests use Robolectric, no device needed):
+
+```
+./gradlew testDebugUnitTest
+```
+
+Scale benchmarks (10k / 100k / 1M strokes; JVM numbers for comparing changes, not phone frame
+times) are skipped by default; run them with:
+
+```
+./gradlew testDebugUnitTest -Pbenchmark --tests '*ScaleBenchmark'
+```
+
+Results go to `app/build/reports/benchmarks/scale.txt`.
 
 The debug APK lands in `app/build/outputs/apk/debug/`. Open the project in
 Android Studio for the full IDE experience (emulator, layout inspector,
