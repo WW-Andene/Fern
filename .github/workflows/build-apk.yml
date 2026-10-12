@@ -20,6 +20,10 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The action's default list includes the legacy "tools" package, which the current
+          # sdkmanager no longer offers, failing the step. Request only what the build needs.
+          packages: "platform-tools platforms;android-34 build-tools;34.0.0"
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
