@@ -878,7 +878,7 @@ private fun ToolSlotButton(state: CanvasState, index: Int) {
     }
 }
 
-private fun penTypeIcon(penType: PenType) = when (penType) {
+internal fun penTypeIcon(penType: PenType) = when (penType) {
     PenType.MARKER -> Icons.Filled.Brush
     PenType.PENCIL -> Icons.Filled.Edit
     PenType.HIGHLIGHTER -> Icons.Filled.Highlight
@@ -900,7 +900,7 @@ private fun penTypeLabel(penType: PenType) = when (penType) {
     PenType.STAMP -> "Stamp brush"
 }
 
-private fun shapeKindIcon(kind: ShapeKind) = when (kind) {
+internal fun shapeKindIcon(kind: ShapeKind) = when (kind) {
     ShapeKind.LINE -> Icons.Filled.Remove
     ShapeKind.RECTANGLE -> Icons.Filled.CropSquare
     ShapeKind.ELLIPSE -> Icons.Filled.Circle

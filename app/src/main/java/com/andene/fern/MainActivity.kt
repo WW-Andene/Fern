@@ -74,6 +74,8 @@ import com.andene.fern.canvas.DrawingCanvas
 import com.andene.fern.canvas.Frame
 import com.andene.fern.canvas.FramesDialog
 import com.andene.fern.canvas.Minimap
+import com.andene.fern.canvas.QuickMenuButton
+import com.andene.fern.canvas.QuickMenuOverlay
 import com.andene.fern.canvas.PinMeta
 import com.andene.fern.canvas.PinsDialog
 import com.andene.fern.canvas.PresentationControls
@@ -154,6 +156,7 @@ class MainActivity : ComponentActivity() {
                     var showFramesDialog by remember { mutableStateOf(false) }
                     var showWelcome by remember { mutableStateOf(shouldShowWelcome(context)) }
                     var showSettings by remember { mutableStateOf(false) }
+                    var showQuickMenu by remember { mutableStateOf(false) }
                     var showAudioNotes by remember { mutableStateOf(false) }
                     val audioNotes = remember { AudioNotes(context) }
                     val micPermissionLauncher = rememberLauncherForActivityResult(
@@ -611,6 +614,15 @@ class MainActivity : ComponentActivity() {
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(12.dp),
                             )
+                            QuickMenuButton(
+                                onOpen = { showQuickMenu = true },
+                                modifier = Modifier
+                                    // Same side as the minimap, mid-height: in reach of the free hand's thumb.
+                                    .align(if (leftHanded) Alignment.CenterEnd else Alignment.CenterStart)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(12.dp),
+                            )
+                            if (showQuickMenu) QuickMenuOverlay(state = canvasState, onDismiss = { showQuickMenu = false })
                         }
                     }
 
