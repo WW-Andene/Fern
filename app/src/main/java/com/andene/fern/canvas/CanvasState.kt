@@ -2811,6 +2811,41 @@ class CanvasState(
         strokesChanged()
     }
 
+    /**
+     * Boolean operation on the selected closed shapes (roadmap item 96): union, intersect,
+     * subtract (the bottom shape minus the others) or exclude, with [combineShapes]. The result
+     * takes the bottom shape's style and place in the drawing order, replacing the selection;
+     * a filled result keeps its holes empty, an outlined one draws them as outlines. Needs two or
+     * more strokes, each closed; does nothing (and records no undo step) otherwise, or if
+     * nothing would be left.
+     */
+    fun combineSelection(op: ShapeOp) {
+        val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
+        val chosen = selection.toList()
+        if (chosen.size < 2 || chosen.any { !isClosedLoop(it.points, closeTolerance) }) return
+        val ordered = chosen.sortedBy { strokes.indexOf(it) }
+        val bottom = ordered.first()
+        val loops = combineShapes(ordered.map { it.points }, op, bridgeHoles = bottom.filled)
+        if (loops.isEmpty()) return
+        recordHistory()
+        val at = strokes.indexOf(bottom)
+        val results = loops.map { loop ->
+            Stroke(
+                bottom.color, bottom.widthWorld, bottom.penType, bottom.filled, bottom.blendMode, bottom.layerId, bottom.animFrame,
+                bottom.dashed, bottom.fadeFill, bottom.screentone, bottom.brush, bottom.gradient, bottom.groupId, bottom.boneId,
+            ).apply {
+                for (point in loop) addPoint(point)
+                addPoint(loop.first()) // closed, like the shapes it came from
+            }
+        }
+        val removed = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Stroke, Boolean>()).apply { addAll(chosen) }
+        strokes.removeWhere { it in removed }
+        strokes.addAll(at.coerceAtMost(strokes.size), results)
+        clearSelectionState()
+        selection.addAll(results)
+        strokesChanged()
+    }
+
     fun deleteSelection() {
         val textId = selectedTextId
         if (textId != null) {

@@ -352,4 +352,9 @@
     <string name="tb_bezier_close">Close the path</string>
     <string name="tb_bezier_remove_node">Remove the last node</string>
     <string name="tb_bezier_cancel">Cancel the path</string>
+    <string name="tb_combine">Combine shapes</string>
+    <string name="combine_union">Union</string>
+    <string name="combine_intersect">Intersect</string>
+    <string name="combine_subtract">Subtract from the bottom shape</string>
+    <string name="combine_exclude">Exclude overlaps</string>
 </resources>

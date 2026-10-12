@@ -354,4 +354,9 @@
     <string name="tb_bezier_close">Fermer le tracé</string>
     <string name="tb_bezier_remove_node">Retirer le dernier nœud</string>
     <string name="tb_bezier_cancel">Annuler le tracé</string>
+    <string name="tb_combine">Combiner les formes</string>
+    <string name="combine_union">Union</string>
+    <string name="combine_intersect">Intersection</string>
+    <string name="combine_subtract">Soustraire de la forme du dessous</string>
+    <string name="combine_exclude">Exclure les chevauchements</string>
 </resources>

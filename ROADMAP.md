@@ -158,7 +158,7 @@ All deferred: they need a server or cloud platform.
 
 ## Phase 11 — Professional vector & design
 
-- [~] 96. Pen tool with Bézier nodes (tap for corners, drag for smooth handles, tap the first node to close; finish, remove last node, cancel); boolean operations not yet; finished paths aren't re-editable as curves
+- [x] 96. Pen tool with Bézier nodes (tap for corners, drag for smooth handles, tap the first node to close; finish, remove last node, cancel); boolean operations on selected closed shapes (union, intersect, subtract, exclude; holes kept). Finished paths aren't re-editable as curves (node editing works on their points)
 - [~] 97. Stroke styles — dashed lines; no custom caps, joins or width profiles
 - [ ] 98. Text on a path, outlined text, OpenType features
 - [ ] 99. Rulers, dimensions, numeric transforms, smart guides

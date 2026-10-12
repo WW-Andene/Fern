@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.JoinFull
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pentagon
 import androidx.compose.material.icons.filled.Check
@@ -192,6 +193,7 @@ fun Toolbar(
     var showSearchDialog by remember { mutableStateOf(false) }
     var showSymmetryMenu by remember { mutableStateOf(false) }
     var showAlignMenu by remember { mutableStateOf(false) }
+    var showCombineMenu by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
     var showBlendModeMenu by remember { mutableStateOf(false) }
     var showBackgroundStyleMenu by remember { mutableStateOf(false) }
@@ -643,6 +645,25 @@ fun Toolbar(
                                     onClick = {
                                         state.alignSelection(alignment)
                                         showAlignMenu = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    Box {
+                        IconButton(onClick = { showCombineMenu = true }, enabled = state.selection.size >= 2) {
+                            Icon(Icons.Filled.JoinFull, contentDescription = stringResource(R.string.tb_combine))
+                        }
+                        DropdownMenu(expanded = showCombineMenu, onDismissRequest = { showCombineMenu = false }) {
+                            for ((op, label) in listOf(
+                                ShapeOp.UNION to R.string.combine_union, ShapeOp.INTERSECT to R.string.combine_intersect,
+                                ShapeOp.SUBTRACT to R.string.combine_subtract, ShapeOp.EXCLUDE to R.string.combine_exclude,
+                            )) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(label)) },
+                                    onClick = {
+                                        state.combineSelection(op)
+                                        showCombineMenu = false
                                     },
                                 )
                             }
