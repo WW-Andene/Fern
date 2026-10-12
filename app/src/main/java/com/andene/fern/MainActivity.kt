@@ -171,6 +171,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         CrashReporter.install(this)
+        CrashReporter.recordUnseenExits(this)
         enableEdgeToEdge()
         setContent {
             // Follows the system light/dark setting for the app's own UI (toolbar, dialogs). The
