@@ -1190,6 +1190,34 @@ class CanvasState(
         if (same(activeColor)) activeColor = new.copy(alpha = activeColor.alpha)
     }
 
+    /**
+     * Indexed palette for pixel art (roadmap item 104): while on, pixel-pen strokes are drawn in
+     * the saved colour nearest the chosen one, so a sprite keeps to its palette.
+     */
+    var indexedPalette by mutableStateOf(false)
+
+    /** The saved colour nearest [color] (RGB distance, alpha kept), or [color] with no saved colours. */
+    fun nearestPaletteColor(color: Color): Color {
+        val nearest = savedColors.minByOrNull {
+            val dr = it.red - color.red
+            val dg = it.green - color.green
+            val db = it.blue - color.blue
+            dr * dr + dg * dg + db * db
+        } ?: return color
+        return nearest.copy(alpha = color.alpha)
+    }
+
+    /** Recolours the selection to the nearest saved colours (roadmap item 104), keeping opacity. One undo step. */
+    fun reduceSelectionToPalette() {
+        if (selection.isEmpty() || savedColors.isEmpty()) return
+        recordHistory()
+        val reduced = selection.associateWith { it.withColor(nearestPaletteColor(it.color)) }
+        for (i in strokes.indices) reduced[strokes[i]]?.let { strokes[i] = it }
+        selection.clear()
+        selection.addAll(reduced.values)
+        strokesChanged()
+    }
+
     fun removeSavedColor(color: Color) {
         if (savedColors.remove(color)) onSavedColorsChanged(savedColors.toList())
     }
@@ -1672,8 +1700,10 @@ class CanvasState(
         strokeMovedAway = false
         recordHistory()
         clearSelectionState() // avoid a stale selection referencing strokes another tool is about to change
+        // Indexed palette (roadmap item 104): pixel art stays within the saved colours.
+        val inkColor = if (activePenType == PenType.PIXEL && indexedPalette) nearestPaletteColor(activeColor) else activeColor
         val stroke = Stroke(
-            activeColor.copy(alpha = activeColor.alpha * activeOpacity.toFloat()),
+            inkColor.copy(alpha = inkColor.alpha * activeOpacity.toFloat()),
             activeWidthWorld / scale.coerceAtLeast(1e-300),
             activePenType,
             blendMode = activeBlendMode,

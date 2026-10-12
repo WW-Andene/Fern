@@ -386,4 +386,7 @@
     <string name="toast_trace_nothing">No dark shapes found to trace</string>
     <string name="tb_export_eps">Print vector (EPS)</string>
     <string name="color_cmyk">CMYK % (uncalibrated)</string>
+    <string name="tb_indexed_on">Indexed palette: on (pixels use saved colours only)</string>
+    <string name="tb_indexed_off">Indexed palette: off</string>
+    <string name="tb_reduce_palette">Reduce the selection to the saved colours</string>
 </resources>

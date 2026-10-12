@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.InvertColors
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.AutoFixHigh
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -398,6 +400,15 @@ fun Toolbar(
                                 },
                             )
                         }
+                    }
+                }
+                if (state.activePenType == PenType.PIXEL) {
+                    IconButton(onClick = { state.indexedPalette = !state.indexedPalette }, enabled = state.savedColors.isNotEmpty()) {
+                        Icon(
+                            Icons.Filled.GridView,
+                            contentDescription = if (state.indexedPalette) stringResource(R.string.tb_indexed_on) else stringResource(R.string.tb_indexed_off),
+                            tint = if (state.indexedPalette) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
                     }
                 }
                 if (state.activePenType == PenType.STAMP) {
@@ -803,6 +814,9 @@ fun Toolbar(
                     }
                     IconButton(onClick = { showTransformDialog = true }, enabled = state.selection.isNotEmpty()) {
                         Icon(Icons.Filled.Transform, contentDescription = stringResource(R.string.transform_title))
+                    }
+                    IconButton(onClick = { state.reduceSelectionToPalette() }, enabled = state.selection.isNotEmpty() && state.savedColors.isNotEmpty()) {
+                        Icon(Icons.Filled.InvertColors, contentDescription = stringResource(R.string.tb_reduce_palette))
                     }
                     IconButton(onClick = { state.beginTextOnPath() }, enabled = state.selection.size == 1) {
                         Icon(Icons.Filled.TextRotationAngleup, contentDescription = stringResource(R.string.tb_text_on_path))

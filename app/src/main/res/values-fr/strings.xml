@@ -388,4 +388,7 @@
     <string name="toast_trace_nothing">Aucune forme sombre à vectoriser</string>
     <string name="tb_export_eps">Vectoriel pour l\'impression (EPS)</string>
     <string name="color_cmyk">CMJN % (non calibré)</string>
+    <string name="tb_indexed_on">Palette indexée : activée (les pixels n\'utilisent que les couleurs enregistrées)</string>
+    <string name="tb_indexed_off">Palette indexée : désactivée</string>
+    <string name="tb_reduce_palette">Ramener la sélection aux couleurs enregistrées</string>
 </resources>

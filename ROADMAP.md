@@ -169,7 +169,7 @@ All deferred: they need a server or cloud platform.
 
 ## Phase 12 — Specialty modes
 
-- [~] 104. Pixel art — grid-aligned pixel pen; no indexed palettes or sprite editing
+- [x] 104. Pixel art — grid-aligned pixel pen; indexed palette (pixels snap to saved colours; reduce a selection to them; palette swaps via 100); sprites are animation frames exported as sprite sheets (80)
 - [~] 105. Comics — comic page template, speech bubbles, screentones
 - [x] 106. Notes — sticky notes, connectors between them (68), mind-map and planner templates (72)
 - [~] 107. Whiteboard — links in text labels open in the browser; no embedded video or documents
