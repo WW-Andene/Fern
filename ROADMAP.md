@@ -43,7 +43,7 @@ Goal: no drawing is ever lost.
 - [x] 15. Automated tests (unit + UI) — JVM unit tests, plus storage and Compose UI tests on Robolectric; run in CI
 - [x] 16. Crash-safe atomic writes, corrupt-file quarantine instead of a crash
 - [x] 17. Versioned file format with migration path
-- [~] 18. Storage that scales to 1M strokes — thumbnail no longer re-rendered on every autosave; still one JSON file per document
+- [~] 18. Storage that scales to 1M strokes — thumbnail no longer re-rendered on every autosave; strokes, history and versions in a compact binary format (16 bytes per finger point instead of ~90); each save still rewrites the whole strokes file
 - [x] 19. Undo history that survives restarts; version-history timeline with restore
 - [x] 20. Document library: thumbnails, folders, search, sort, favourites, 30-day trash with restore
 - [~] 21. Crash reporting — on-device reports, shared only by the user's choice; no analytics (by design)

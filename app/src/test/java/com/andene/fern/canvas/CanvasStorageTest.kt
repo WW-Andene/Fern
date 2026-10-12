@@ -37,19 +37,53 @@ class CanvasStorageTest {
     @Test
     fun corruptFileIsQuarantinedNotFatal() {
         val doc = CanvasStorage.createDocument(context, "Broken")
-        val file = File(context.filesDir, "canvas_${doc.id}.json")
-        file.writeText("{ not json")
+        val file = File(context.filesDir, "strokes_${doc.id}.bin")
+        file.writeText("{ not a stroke file")
         assertTrue(CanvasStorage.load(context, doc.id).isEmpty())
-        assertTrue(context.filesDir.listFiles()!!.any { it.name.startsWith("canvas_${doc.id}.json.corrupt-") })
+        assertTrue(context.filesDir.listFiles()!!.any { it.name.startsWith("strokes_${doc.id}.bin.corrupt-") })
+    }
+
+    @Test
+    fun legacyJsonDocumentIsReadThenReplacedByBinary() {
+        val doc = CanvasStorage.createDocument(context, "Old")
+        File(context.filesDir, "strokes_${doc.id}.bin").delete()
+        val legacy = File(context.filesDir, "canvas_${doc.id}.json")
+        legacy.writeText("""{"formatVersion":1,"data":[{"color":-16777216,"width":2.0,"points":[{"x":1.0,"y":2.0},{"x":3.0,"y":4.0,"pressure":0.5}]}]}""")
+        val loaded = CanvasStorage.load(context, doc.id).single()
+        assertEquals(listOf(WorldPoint(1.0, 2.0), WorldPoint(3.0, 4.0)), loaded.points)
+        assertEquals(listOf(1f, 0.5f), loaded.pressures)
+        CanvasStorage.save(context, doc.id, listOf(loaded), withThumbnail = false)
+        assertTrue(!legacy.exists())
+        assertEquals(loaded.points, CanvasStorage.load(context, doc.id).single().points)
+    }
+
+    @Test
+    fun historyRoundTrips() {
+        val doc = CanvasStorage.createDocument(context, "History")
+        val a = listOf(Stroke(Color.Red, 1.0).apply { addPoint(WorldPoint(0.0, 0.0)); addPoint(WorldPoint(1.0, 1.0)) })
+        CanvasStorage.saveHistory(context, doc.id, undo = listOf(emptyList(), a), redo = listOf(a))
+        val (undo, redo) = CanvasStorage.loadHistory(context, doc.id)
+        assertEquals(listOf(0, 1), undo.map { it.size })
+        assertEquals(a.single().points, redo.single().single().points)
+    }
+
+    @Test
+    fun bundleRoundTripsStrokes() {
+        val doc = CanvasStorage.createDocument(context, "Bundle")
+        val stroke = Stroke(Color.Green, 2.0).apply { addPoint(WorldPoint(7.0, 8.0)); addPoint(WorldPoint(9.0, 10.0)) }
+        CanvasStorage.save(context, doc.id, listOf(stroke), withThumbnail = false)
+        val imported = importDocumentBundle(context, exportDocumentBundle(context, doc.id, "Bundle").inputStream())!!
+        assertEquals(stroke.points, CanvasStorage.load(context, imported.id).single().points)
     }
 
     @Test
     fun newerFormatIsNotOverwrittenByOlderBuild() {
         val doc = CanvasStorage.createDocument(context, "Future")
-        val file = File(context.filesDir, "canvas_${doc.id}.json")
-        file.writeText("""{"formatVersion": 999, "data": []}""")
+        val file = File(context.filesDir, "strokes_${doc.id}.bin")
+        // Magic "FSTK", then version 999.
+        file.writeBytes(byteArrayOf(0x46, 0x53, 0x54, 0x4B, 0, 0, 0x03, 0xE7.toByte()))
         assertTrue(CanvasStorage.load(context, doc.id).isEmpty())
-        assertTrue(context.filesDir.listFiles()!!.any { it.name.startsWith("canvas_${doc.id}.json.corrupt-") })
+        assertTrue(context.filesDir.listFiles()!!.any { it.name.startsWith("strokes_${doc.id}.bin.corrupt-") })
     }
 
     @Test
