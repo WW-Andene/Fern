@@ -147,6 +147,10 @@ fun Toolbar(
     onImportPalette: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onOpenAudioNotes: () -> Unit = {},
+    /** Copy the selection to the system clipboard; see [SystemClipboard]. */
+    onCopySelection: () -> Unit = {},
+    /** Paste whatever the system clipboard holds: Fern strokes, text or an image. */
+    onPaste: () -> Unit = {},
 ) {
     var showExportMenu by remember { mutableStateOf(false) }
     var showWidthSlider by remember { mutableStateOf(false) }
@@ -543,10 +547,10 @@ fun Toolbar(
                     IconButton(onClick = { state.recolorSelection() }) {
                         Icon(Icons.Filled.FormatPaint, contentDescription = "Apply current colour to selection")
                     }
-                    IconButton(onClick = { state.copySelection() }) {
+                    IconButton(onClick = onCopySelection) {
                         Icon(Icons.Filled.CopyAll, contentDescription = "Copy selection")
                     }
-                    IconButton(onClick = { state.paste() }, enabled = state.hasClipboard) {
+                    IconButton(onClick = onPaste) {
                         Icon(Icons.Filled.ContentPaste, contentDescription = "Paste")
                     }
                     IconButton(onClick = { state.duplicateSelection() }) {

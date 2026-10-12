@@ -1798,13 +1798,6 @@ class CanvasState(
         onChanged(strokes.toList())
     }
 
-    // App-level clipboard. CanvasState outlives document switches, so this also carries strokes
-    // between documents. Held as independent copies so later edits don't change what's pasted.
-    private var clipboard: List<Stroke> = emptyList()
-
-    var hasClipboard by mutableStateOf(false)
-        private set
-
     /** Adds every other editable member of each group a selected stroke belongs to: a group is picked whole. */
     private fun expandSelectionToGroups() {
         val groups = selection.mapNotNullTo(HashSet()) { it.groupId }
@@ -1853,17 +1846,30 @@ class CanvasState(
         }
     }
 
-    fun copySelection() {
-        if (selection.isEmpty()) return
-        clipboard = selection.map { it.deepCopy() }
-        hasClipboard = true
+    /**
+     * Independent copies of the selected strokes, for the system clipboard ([SystemClipboard]),
+     * so later edits don't change what gets pasted. Empty when nothing is selected.
+     */
+    fun selectionForClipboard(): List<Stroke> = selection.map { it.deepCopy() }
+
+    /** Pastes [text] as a new label centred in the current view, in the active colour and text size. */
+    fun pasteText(text: String) {
+        if (text.isBlank()) return
+        recordHistory()
+        val fontSizeWorld = activeTextSizeWorld / scale.coerceAtLeast(1e-300)
+        val item = TextItem(UUID.randomUUID().toString(), text, panWorld, fontSizeWorld, activeColor)
+        val (min, max) = textBounds(item)
+        // Centre the label's approximate box on the view centre.
+        textItems.add(item.copy(position = WorldPoint(panWorld.x - (max.x - min.x) / 2, panWorld.y - (max.y - min.y) / 2)))
+        onTextChanged(textItems.toList())
     }
 
-    /** Pastes the clipboard centred in the current view and selects the pasted strokes. */
-    fun paste() {
-        if (clipboard.isEmpty()) return
+    /** Pastes [copied] strokes centred in the current view, on the active layer and frame, and selects them. */
+    fun pasteStrokes(copied: List<Stroke>) {
+        if (copied.isEmpty() || !activeLayerEditable) return
         recordHistory()
-        val pasted = withFreshGroups(clipboard.map { it.deepCopy() })
+        // Strokes from another document may name a layer or frame this one doesn't have.
+        val pasted = withFreshGroups(copied.map { it.onLayer(activeLayerId).onAnimFrame(currentAnimFrame) })
         val centerX = (pasted.minOf { it.minX } + pasted.maxOf { it.maxX }) / 2.0
         val centerY = (pasted.minOf { it.minY } + pasted.maxOf { it.maxY }) / 2.0
         // shiftBy subtracts, so shifting by (old centre - view centre) lands it at the view centre.

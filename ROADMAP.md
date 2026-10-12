@@ -78,7 +78,7 @@ Goal: anything drawn can be rearranged later.
 - [x] 40. Lasso selection, select-by-colour, select-all-on-layer
 - [x] 41. Recolour and change the width of a selection
 - [x] 42. Z-order, align and distribute; grouping (select one member, get the group; group / ungroup; duplicates and pastes form new groups)
-- [~] 43. Copy and paste within and between documents; not with the system clipboard
+- [x] 43. Copy and paste through the system clipboard: strokes between documents and across restarts, a PNG of the selection for other apps, and text or images pasted from other apps
 - [~] 44. Smooth and straighten selected strokes; no node editing
 - [x] 45. Frames/artboards: named, navigable, exportable, presentable
 - [ ] 46. Links between canvas regions and documents

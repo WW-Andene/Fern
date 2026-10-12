@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -73,7 +74,9 @@ import com.andene.fern.canvas.DocumentsDialog
 import com.andene.fern.canvas.DrawingCanvas
 import com.andene.fern.canvas.Frame
 import com.andene.fern.canvas.FramesDialog
+import com.andene.fern.canvas.ClipboardContent
 import com.andene.fern.canvas.Minimap
+import com.andene.fern.canvas.SystemClipboard
 import com.andene.fern.canvas.QuickMenuButton
 import com.andene.fern.canvas.QuickMenuOverlay
 import com.andene.fern.canvas.PinMeta
@@ -354,35 +357,65 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    /** Places the image at [uri] centred in the view (from the image picker or a paste). */
+                    suspend fun insertImage(uri: android.net.Uri) {
+                        val decoded = withContext(Dispatchers.IO) {
+                            val bitmap = decodeDownsampled(context, uri, MAX_IMAGE_EDGE_PX) ?: return@withContext null
+                            val fileName = "${UUID.randomUUID()}.png"
+                            CanvasStorage.imageFile(context, fileName).outputStream().use { out ->
+                                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                            }
+                            Triple(fileName, bitmap.width, bitmap.height)
+                        } ?: return
+                        val (fileName, widthPx, heightPx) = decoded
+                        // Default placed size: 300 screen px wide (on the §7 scale -
+                        // between Primary 256 and 384... actually not on-scale, but this
+                        // is placed-content sizing, not a UI chrome dimension, so §7
+                        // doesn't govern it), aspect-ratio preserved, centered on the
+                        // current viewport.
+                        val targetWidthScreen = 300.0
+                        val targetHeightScreen = targetWidthScreen * heightPx / widthPx
+                        val scale = canvasState.scale.coerceAtLeast(1e-300)
+                        val widthWorld = targetWidthScreen / scale
+                        val heightWorld = targetHeightScreen / scale
+                        val position = WorldPoint(
+                            canvasState.panWorld.x - widthWorld / 2.0,
+                            canvasState.panWorld.y - heightWorld / 2.0,
+                        )
+                        canvasState.addImage(fileName, position, widthWorld, heightWorld)
+                    }
+
                     val imagePickerLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.PickVisualMedia(),
                     ) { uri ->
                         if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch { insertImage(uri) }
+                    }
+
+                    // System clipboard (SystemClipboard): a copy carries a PNG of the selected
+                    // area for other apps plus the strokes themselves for Fern.
+                    fun copySelectionToClipboard() {
+                        val strokes = canvasState.selectionForClipboard()
+                        val region = canvasState.selectionExportRegion()
+                        if (strokes.isEmpty() || region == null) return
                         coroutineScope.launch {
-                            val decoded = withContext(Dispatchers.IO) {
-                                val bitmap = decodeDownsampled(context, uri, MAX_IMAGE_EDGE_PX) ?: return@withContext null
-                                val fileName = "${UUID.randomUUID()}.png"
-                                CanvasStorage.imageFile(context, fileName).outputStream().use { out ->
-                                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-                                }
-                                Triple(fileName, bitmap.width, bitmap.height)
-                            } ?: return@launch
-                            val (fileName, widthPx, heightPx) = decoded
-                            // Default placed size: 300 screen px wide (on the §7 scale -
-                            // between Primary 256 and 384... actually not on-scale, but this
-                            // is placed-content sizing, not a UI chrome dimension, so §7
-                            // doesn't govern it), aspect-ratio preserved, centered on the
-                            // current viewport.
-                            val targetWidthScreen = 300.0
-                            val targetHeightScreen = targetWidthScreen * heightPx / widthPx
-                            val scale = canvasState.scale.coerceAtLeast(1e-300)
-                            val widthWorld = targetWidthScreen / scale
-                            val heightWorld = targetHeightScreen / scale
-                            val position = WorldPoint(
-                                canvasState.panWorld.x - widthWorld / 2.0,
-                                canvasState.panWorld.y - heightWorld / 2.0,
-                            )
-                            canvasState.addImage(fileName, position, widthWorld, heightWorld)
+                            val png = exportDocumentPng(canvasState, textMeasurer, density, imageForExport, region) ?: return@launch
+                            withContext(Dispatchers.IO) { SystemClipboard.copy(context, strokes, png) }
+                            // Android 13+ confirms clipboard writes itself; earlier versions get a toast.
+                            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                                Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+
+                    fun pasteFromClipboard() {
+                        coroutineScope.launch {
+                            when (val content = withContext(Dispatchers.IO) { SystemClipboard.read(context) }) {
+                                is ClipboardContent.FernStrokes -> canvasState.pasteStrokes(content.strokes)
+                                is ClipboardContent.Text -> canvasState.pasteText(content.text)
+                                is ClipboardContent.Image -> insertImage(content.uri)
+                                ClipboardContent.Nothing -> Toast.makeText(context, "Nothing to paste", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
 
@@ -497,8 +530,8 @@ class MainActivity : ComponentActivity() {
                                     ctrl && event.key == Key.Z && event.isShiftPressed -> canvasState.redo()
                                     ctrl && event.key == Key.Z -> canvasState.undo()
                                     ctrl && event.key == Key.Y -> canvasState.redo()
-                                    ctrl && event.key == Key.C -> canvasState.copySelection()
-                                    ctrl && event.key == Key.V -> canvasState.paste()
+                                    ctrl && event.key == Key.C -> copySelectionToClipboard()
+                                    ctrl && event.key == Key.V -> pasteFromClipboard()
                                     ctrl && event.key == Key.D -> canvasState.duplicateSelection()
                                     event.key == Key.Delete || event.key == Key.Backspace -> canvasState.deleteSelection()
                                     event.key == Key.P -> canvasState.activeTool = Tool.PEN
@@ -548,6 +581,8 @@ class MainActivity : ComponentActivity() {
                                 onOpenPins = { showPinsDialog = true },
                                 onOpenFrames = { showFramesDialog = true },
                                 onOpenSettings = { showSettings = true },
+                                onCopySelection = { copySelectionToClipboard() },
+                                onPaste = { pasteFromClipboard() },
                                 onOpenAudioNotes = {
                                     val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
                                     if (granted) showAudioNotes = true else micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
