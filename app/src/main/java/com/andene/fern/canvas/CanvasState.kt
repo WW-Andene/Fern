@@ -2677,7 +2677,58 @@ class CanvasState(
     private var nodeDragOriginal: List<WorldPoint> = emptyList()
     private var nodeDragStart = WorldPoint.Zero
 
+    /**
+     * Mesh warp (roadmap items 84, 122): a [MESH_SIZE] x [MESH_SIZE] lattice over the selection;
+     * dragging a lattice point bends the selected ink smoothly ([meshWarp]). Each drag is one
+     * undo step. Ends when the selection is cleared or changed, or toggled off.
+     */
+    var meshWarping by mutableStateOf(false)
+        private set
+
+    /** The lattice's control points while [meshWarping], row by row; empty otherwise. */
+    val meshNodes = mutableStateListOf<WorldPoint>()
+
+    private var meshMin = WorldPoint.Zero
+    private var meshMax = WorldPoint.Zero
+    // Each selected stroke's points when the lattice was laid, which every warp is computed from.
+    private var meshOriginals: List<Pair<Stroke, List<WorldPoint>>> = emptyList()
+    private var meshDragIndex: Int? = null
+
+    fun toggleMeshWarp() {
+        if (meshWarping || selection.isEmpty()) {
+            endMeshWarp()
+            return
+        }
+        val (min, max) = selectionBounds() ?: return
+        // A flat selection (a horizontal line) still gets a box to bend.
+        val pad = maxOf(max.x - min.x, max.y - min.y) * 0.05 + 1.0 / scale.coerceAtLeast(1e-300)
+        meshMin = WorldPoint(min.x - pad, min.y - pad)
+        meshMax = WorldPoint(max.x + pad, max.y + pad)
+        meshNodes.clear()
+        meshNodes.addAll(meshGrid(meshMin, meshMax))
+        meshOriginals = selection.map { it to it.points.toList() }
+        meshWarping = true
+    }
+
+    private fun endMeshWarp() {
+        meshWarping = false
+        meshNodes.clear()
+        meshOriginals = emptyList()
+        meshDragIndex = null
+    }
+
     fun beginSelectGesture(worldPoint: WorldPoint) {
+        // The lattice belongs to the selection it was laid over; a changed selection ends it.
+        if (meshWarping && (meshOriginals.size != selection.size || meshOriginals.any { (stroke, _) -> selection.none { it === stroke } })) endMeshWarp()
+        if (meshWarping) {
+            val hit = meshNodes.indices.minByOrNull { k -> hypot(meshNodes[k].x - worldPoint.x, meshNodes[k].y - worldPoint.y) }
+                ?.takeIf { k -> hypot(meshNodes[k].x - worldPoint.x, meshNodes[k].y - worldPoint.y) * scale <= NODE_HANDLE_SCREEN }
+            if (hit != null) {
+                recordHistory()
+                meshDragIndex = hit
+                return
+            }
+        }
         nodeEditStroke?.let { stroke ->
             val nodes = editNodeIndices(stroke.points.size)
             val hit = nodes.indices.minByOrNull { k ->
@@ -2727,6 +2778,14 @@ class CanvasState(
     }
 
     fun continueSelectGesture(worldPoint: WorldPoint) {
+        meshDragIndex?.let { k ->
+            meshNodes[k] = worldPoint
+            val nodes = meshNodes.toList()
+            for ((stroke, original) in meshOriginals) {
+                if (stroke.points.size == original.size) stroke.setPoints(original.map { meshWarp(it, meshMin, meshMax, nodes) })
+            }
+            return
+        }
         val dragged = nodeDragIndex
         val editing = nodeEditStroke
         if (dragged != null && editing != null) {
@@ -2763,6 +2822,11 @@ class CanvasState(
     }
 
     fun endSelectGesture() {
+        if (meshDragIndex != null) {
+            meshDragIndex = null
+            strokesChanged()
+            return
+        }
         if (nodeDragIndex != null) {
             nodeDragIndex = null
             nodeDragOriginal = emptyList()
@@ -3315,6 +3379,7 @@ class CanvasState(
     private fun clearSelectionState() {
         selection.clear()
         nodeEditing = false
+        endMeshWarp()
         selectedImageId = null
         selectedTextId = null
         gestureSnapshot = emptyMap()
@@ -3528,6 +3593,7 @@ class CanvasState(
             kotlin.math.round(panWorld.x / spacing) * spacing,
             kotlin.math.round(panWorld.y / spacing) * spacing,
         )
+        endMeshWarp() // its box and starting points are in the old coordinates
         // Not logged: the logs and entries are moved below instead.
         Stroke.withoutLogging {
             for (stroke in strokes) stroke.shiftBy(offset)

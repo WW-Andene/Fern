@@ -241,6 +241,8 @@
     <string name="action_paste">Paste</string>
     <string name="tb_duplicate">Duplicate selection</string>
     <string name="tb_nodes_stop">Stop editing nodes</string>
+    <string name="tb_mesh">Mesh warp</string>
+    <string name="tb_mesh_stop">Finish mesh warp</string>
     <string name="tb_nodes">Edit nodes</string>
     <string name="tb_ungroup">Ungroup selection</string>
     <string name="tb_group">Group selection</string>

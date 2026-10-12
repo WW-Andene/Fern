@@ -882,6 +882,13 @@ fun Toolbar(
                             tint = if (state.nodeEditing) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
+                    IconButton(onClick = { state.toggleMeshWarp() }) {
+                        Icon(
+                            Icons.Filled.GridOn,
+                            contentDescription = if (state.meshWarping) stringResource(R.string.tb_mesh_stop) else stringResource(R.string.tb_mesh),
+                            tint = if (state.meshWarping) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
                     val grouped = state.selectionHasGroup
                     IconButton(
                         onClick = { if (grouped) state.ungroupSelection() else state.groupSelection() },

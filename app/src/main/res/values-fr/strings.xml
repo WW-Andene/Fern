@@ -241,6 +241,8 @@
     <string name="action_paste">Coller</string>
     <string name="tb_duplicate">Dupliquer la sélection</string>
     <string name="tb_nodes_stop">Terminer l\'édition des nœuds</string>
+    <string name="tb_mesh">Déformer par grille</string>
+    <string name="tb_mesh_stop">Terminer la déformation</string>
     <string name="tb_nodes">Modifier les nœuds</string>
     <string name="tb_ungroup">Dissocier la sélection</string>
     <string name="tb_group">Grouper la sélection</string>

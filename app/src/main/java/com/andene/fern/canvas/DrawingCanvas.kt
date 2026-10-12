@@ -525,6 +525,20 @@ fun DrawingCanvas(
                 }
             }
 
+            // Mesh warp lattice: grid lines between control points and a handle on each.
+            if (state.meshWarping && state.meshNodes.size == MESH_SIZE * MESH_SIZE) {
+                val nodes = state.meshNodes.map { state.worldToScreen(it, screenCenter) }
+                for (j in 0 until MESH_SIZE) for (i in 0 until MESH_SIZE) {
+                    val p = nodes[j * MESH_SIZE + i]
+                    if (i + 1 < MESH_SIZE) drawLine(HANDLE_COLOR, p, nodes[j * MESH_SIZE + i + 1], strokeWidth = 1f)
+                    if (j + 1 < MESH_SIZE) drawLine(HANDLE_COLOR, p, nodes[(j + 1) * MESH_SIZE + i], strokeWidth = 1f)
+                }
+                for (p in nodes) {
+                    drawCircle(Color.White, radius = 8f, center = p)
+                    drawCircle(HANDLE_COLOR, radius = 8f, center = p, style = DrawStyle(width = 2f))
+                }
+            }
+
             // The Bézier path being built: the curve so far, its nodes, and the last node's handles.
             if (state.bezierNodes.isNotEmpty()) {
                 val nodes = state.bezierNodes.toList()
