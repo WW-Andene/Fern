@@ -234,6 +234,7 @@ fun SettingsDialog(
                     Text(stringResource(R.string.settings_snap_objects), modifier = Modifier.weight(1f))
                     Switch(checked = snapToObjects, onCheckedChange = onSnapToObjectsChange)
                 }
+                CmykProfileRow()
                 TextButton(onClick = onCustomizeToolbar) { Text(stringResource(R.string.settings_customize_toolbar)) }
                 TextButton(onClick = onCustomizeQuickMenu) { Text(stringResource(R.string.quick_menu_customize)) }
                 TextButton(onClick = onShowGuide) { Text(stringResource(R.string.settings_show_guide)) }
@@ -243,4 +244,27 @@ fun SettingsDialog(
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) }
         },
     )
+}
+
+/** The CMYK ICC profile used for print colours (roadmap item 102): which one, load another, or go back to device CMYK. */
+@Composable
+private fun CmykProfileRow() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val pick = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val ok = runCatching {
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("unreadable")
+            ColorManagement.installProfile(context, bytes)
+        }.isSuccess
+        if (!ok) android.widget.Toast.makeText(context, context.getString(R.string.settings_cmyk_bad), android.widget.Toast.LENGTH_SHORT).show()
+    }
+    val profile = ColorManagement.cmykProfile
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            stringResource(R.string.settings_cmyk_profile, profile?.description?.ifEmpty { "ICC" } ?: stringResource(R.string.settings_cmyk_none)),
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = { pick.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.settings_cmyk_load)) }
+        if (profile != null) TextButton(onClick = { ColorManagement.removeProfile(context) }) { Text(stringResource(R.string.settings_cmyk_remove)) }
+    }
 }

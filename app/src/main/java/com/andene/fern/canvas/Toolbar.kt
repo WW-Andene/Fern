@@ -190,6 +190,7 @@ fun Toolbar(
     onExportSvg: () -> Unit = {},
     onExportEps: () -> Unit = {},
     onExportDxf: () -> Unit = {},
+    onExportCmykPdf: () -> Unit = {},
     onExportExr: () -> Unit = {},
     onShare: () -> Unit = {},
     onExportBundle: () -> Unit = {},
@@ -1180,6 +1181,13 @@ fun Toolbar(
                             onClick = {
                                 showExportMenu = false
                                 onExportDxf()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.tb_export_cmyk_pdf)) },
+                            onClick = {
+                                showExportMenu = false
+                                onExportCmykPdf()
                             },
                         )
                         DropdownMenuItem(

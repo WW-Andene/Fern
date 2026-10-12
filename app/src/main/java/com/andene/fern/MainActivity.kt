@@ -107,6 +107,7 @@ import com.andene.fern.canvas.startSelectionDrag
 import com.andene.fern.canvas.QuickMenuButton
 import com.andene.fern.canvas.QuickMenuOverlay
 import com.andene.fern.canvas.PinMeta
+import com.andene.fern.canvas.ColorManagement
 import com.andene.fern.canvas.SymbolLibrary
 import com.andene.fern.canvas.Rulers
 import com.andene.fern.canvas.readFileLayerImage
@@ -127,6 +128,7 @@ import com.andene.fern.canvas.Mp4Encoder
 import com.andene.fern.canvas.exportReplayMp4
 import com.andene.fern.canvas.exportAnimatedPng
 import com.andene.fern.canvas.exportLottie
+import com.andene.fern.canvas.exportDocumentCmykPdf
 import com.andene.fern.canvas.exportDocumentDxf
 import com.andene.fern.canvas.exportDocumentExr
 import com.andene.fern.canvas.exportSlicesZip
@@ -242,6 +244,8 @@ class MainActivity : ComponentActivity() {
                     val switchMutex = remember { Mutex() }
                     var showAudioNotes by remember { mutableStateOf(false) }
                     val audioNotes = remember { AudioNotes(context) }
+                    // The CMYK profile and spot colours (roadmap item 102), app-wide.
+                    LaunchedEffect(Unit) { withContext(Dispatchers.IO) { ColorManagement.load(context) } }
                     // The voice note playing on the canvas in step with its ink (roadmap item 130).
                     var playingNote by remember { mutableStateOf<java.io.File?>(null) }
                     // Recording carries on while drawing, but not past leaving the app's screen.
@@ -434,6 +438,11 @@ class MainActivity : ComponentActivity() {
                         contract = ActivityResultContracts.CreateDocument("image/x-exr"),
                     ) { uri ->
                         if (uri != null) writeExport(uri) { exportDocumentExr(canvasState, textMeasurer, density, imageForExport) }
+                    }
+                    val cmykPdfExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/pdf"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportDocumentCmykPdf(canvasState) }
                     }
                     val dxfExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("image/vnd.dxf"),
@@ -1055,6 +1064,7 @@ class MainActivity : ComponentActivity() {
                                 onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
                                 onExportEps = { epsExportLauncher.launch("${currentDocumentName()}.eps") },
                                 onExportDxf = { dxfExportLauncher.launch("${currentDocumentName()}.dxf") },
+                                onExportCmykPdf = { cmykPdfExportLauncher.launch("${currentDocumentName()} CMYK.pdf") },
                                 onExportExr = { exrExportLauncher.launch("${currentDocumentName()}.exr") },
                                 onExportGif = { gifExportLauncher.launch("${currentDocumentName()}.gif") },
                                 onExportApng = { apngExportLauncher.launch("${currentDocumentName()}.png") },
