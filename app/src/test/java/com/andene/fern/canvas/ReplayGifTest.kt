@@ -29,7 +29,6 @@ class ReplayGifTest {
         var frames = 0
         for (i in 0 until gif.size - 3) if (gif[i] == 0x21.toByte() && gif[i + 1] == 0xF9.toByte() && gif[i + 2] == 4.toByte()) frames++
         assertEquals(48 + 16, frames)
-        java.io.File("/tmp/claude-0/-home-user-Fern/ee016339-5940-5ac4-9efb-a6c2bb7fd87d/scratchpad/replay.gif").writeBytes(gif)
         assertTrue(state.replayCount == null) // the live document's replay state is untouched
     }
 
