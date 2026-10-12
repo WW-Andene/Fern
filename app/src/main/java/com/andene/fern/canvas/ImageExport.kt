@@ -113,6 +113,25 @@ fun exportDocumentPng(
     return out.toByteArray()
 }
 
+/**
+ * The whole document as OpenEXR (roadmap item 139): rendered like the PNG export, at
+ * [EXPORT_MAX_EDGE_PX], and stored as linear-light half floats, the form compositing and
+ * grading software expects. Null for an empty document.
+ */
+fun exportDocumentExr(
+    source: CanvasState,
+    textMeasurer: TextMeasurer,
+    density: Density,
+    imageFor: (String) -> ImageBitmap?,
+    transparent: Boolean = false,
+): ByteArray? {
+    val frame = frameForExport(source, EXPORT_MAX_EDGE_PX) ?: return null
+    val image = ImageBitmap(frame.widthPx, frame.heightPx)
+    frame.drawOn(Canvas(image), density, textMeasurer, imageFor, transparent)
+    val argb = IntArray(frame.widthPx * frame.heightPx).also { image.readPixels(it) }
+    return OpenExr.write(exrImageFromArgb(argb, frame.widthPx, frame.heightPx))
+}
+
 // Each frame's cell in a sprite sheet; 512 px keeps a 24-frame sheet (5x5 grid) at 2560 px.
 internal const val SPRITE_FRAME_EDGE_PX = 512
 

@@ -271,11 +271,15 @@ object ProcreateFormat {
 /** Reads a PSD, Krita or Procreate file, recognised by its contents (roadmap item 95). */
 fun readLayeredFile(bytes: ByteArray): ImportedDocument {
     if (bytes.size >= 4 && String(bytes, 0, 4, Charsets.ISO_8859_1) == "8BPS") return PsdFormat.read(bytes)
+    // OpenEXR's magic number, 20000630 little-endian (roadmap item 139).
+    if (bytes.size >= 4 && bytes[0] == 0x76.toByte() && bytes[1] == 0x2F.toByte() && bytes[2] == 0x31.toByte() && bytes[3] == 0x01.toByte()) {
+        return OpenExr.read(bytes).toImportedDocument("OpenEXR")
+    }
     val names = HashSet<String>()
     ZipInputStream(bytes.inputStream()).use { zip -> while (true) names.add((zip.nextEntry ?: break).name) }
     return when {
         "maindoc.xml" in names -> KraFormat.read(bytes)
         names.any { it.equals("QuickLook/Thumbnail.png", ignoreCase = true) } -> ProcreateFormat.read(bytes)
-        else -> throw IOException("Not a PSD, Krita or Procreate file")
+        else -> throw IOException("Not a PSD, Krita, Procreate or OpenEXR file")
     }
 }

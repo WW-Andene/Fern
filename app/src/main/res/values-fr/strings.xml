@@ -313,7 +313,7 @@
     <string name="menu_insert_image">Insérer une image</string>
     <string name="menu_import_pdf">Importer un PDF à annoter</string>
     <string name="menu_import_spine">Importer un squelette Spine</string>
-    <string name="menu_import_layered">Importer PSD, Krita ou Procreate</string>
+    <string name="menu_import_layered">Importer PSD, Krita, Procreate ou OpenEXR</string>
     <string name="tb_export_psd">Photoshop (.psd)</string>
     <string name="tb_export_kra">Krita (.kra)</string>
     <string name="toast_bad_layered">Aucun calque lisible dans ce fichier</string>
@@ -563,6 +563,7 @@
     <string name="toast_trace_nothing">Aucune forme sombre à vectoriser</string>
     <string name="tb_export_eps">Vectoriel pour l\'impression (EPS)</string>
     <string name="tb_export_dxf">Dessin CAO (DXF)</string>
+    <string name="tb_export_exr">Grande gamme dynamique (OpenEXR)</string>
     <string name="color_cmyk">CMJN % (non calibré)</string>
     <string name="tb_indexed_on">Palette indexée : activée (les pixels n\'utilisent que les couleurs enregistrées)</string>
     <string name="tb_indexed_off">Palette indexée : désactivée</string>

@@ -313,7 +313,7 @@
     <string name="menu_insert_image">Insert image</string>
     <string name="menu_import_pdf">Import PDF to annotate</string>
     <string name="menu_import_spine">Import Spine skeleton</string>
-    <string name="menu_import_layered">Import PSD, Krita or Procreate</string>
+    <string name="menu_import_layered">Import PSD, Krita, Procreate or OpenEXR</string>
     <string name="tb_export_psd">Photoshop (.psd)</string>
     <string name="tb_export_kra">Krita (.kra)</string>
     <string name="toast_bad_layered">No layers could be read from that file</string>
@@ -561,6 +561,7 @@
     <string name="toast_trace_nothing">No dark shapes found to trace</string>
     <string name="tb_export_eps">Print vector (EPS)</string>
     <string name="tb_export_dxf">CAD drawing (DXF)</string>
+    <string name="tb_export_exr">High dynamic range (OpenEXR)</string>
     <string name="color_cmyk">CMYK % (uncalibrated)</string>
     <string name="tb_indexed_on">Indexed palette: on (pixels use saved colours only)</string>
     <string name="tb_indexed_off">Indexed palette: off</string>

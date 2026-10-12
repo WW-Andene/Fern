@@ -189,6 +189,7 @@ fun Toolbar(
     onExportSvg: () -> Unit = {},
     onExportEps: () -> Unit = {},
     onExportDxf: () -> Unit = {},
+    onExportExr: () -> Unit = {},
     onShare: () -> Unit = {},
     onExportBundle: () -> Unit = {},
     onExportSpriteSheet: () -> Unit = {},
@@ -1164,6 +1165,13 @@ fun Toolbar(
                             onClick = {
                                 showExportMenu = false
                                 onExportDxf()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.tb_export_exr)) },
+                            onClick = {
+                                showExportMenu = false
+                                onExportExr()
                             },
                         )
                         DropdownMenuItem(

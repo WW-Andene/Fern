@@ -126,6 +126,7 @@ import com.andene.fern.canvas.exportReplayMp4
 import com.andene.fern.canvas.exportAnimatedPng
 import com.andene.fern.canvas.exportLottie
 import com.andene.fern.canvas.exportDocumentDxf
+import com.andene.fern.canvas.exportDocumentExr
 import com.andene.fern.canvas.exportSlicesZip
 import com.andene.fern.canvas.exportDocumentEps
 import com.andene.fern.canvas.exportReplayGif
@@ -424,6 +425,11 @@ class MainActivity : ComponentActivity() {
                         contract = ActivityResultContracts.CreateDocument("application/postscript"),
                     ) { uri ->
                         if (uri != null) writeExport(uri) { exportDocumentEps(canvasState)?.toByteArray() }
+                    }
+                    val exrExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("image/x-exr"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportDocumentExr(canvasState, textMeasurer, density, imageForExport) }
                     }
                     val dxfExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("image/vnd.dxf"),
@@ -1027,6 +1033,7 @@ class MainActivity : ComponentActivity() {
                                 onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
                                 onExportEps = { epsExportLauncher.launch("${currentDocumentName()}.eps") },
                                 onExportDxf = { dxfExportLauncher.launch("${currentDocumentName()}.dxf") },
+                                onExportExr = { exrExportLauncher.launch("${currentDocumentName()}.exr") },
                                 onExportGif = { gifExportLauncher.launch("${currentDocumentName()}.gif") },
                                 onExportApng = { apngExportLauncher.launch("${currentDocumentName()}.png") },
                                 onExportLottie = { lottieExportLauncher.launch("${currentDocumentName()}.json") },
