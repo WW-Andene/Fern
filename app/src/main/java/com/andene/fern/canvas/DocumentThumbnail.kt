@@ -21,7 +21,8 @@ private const val THUMBNAIL_PADDING_PX = 8
  * to run on every save.
  */
 fun renderThumbnailPng(strokes: List<Stroke>): ByteArray? {
-    val drawn = strokes.filter { it.points.isNotEmpty() }
+    // First animation frame only (all strokes outside animation): overlaid frames would be a smudge.
+    val drawn = strokes.filter { it.points.isNotEmpty() && it.animFrame == 0 }
     if (drawn.isEmpty()) return null
     val minX = drawn.minOf { it.minX }
     val minY = drawn.minOf { it.minY }
