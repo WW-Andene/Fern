@@ -997,4 +997,8 @@
     <string name="shortcut_press_key">Appuyez sur une touche…</string>
     <string name="shortcut_sheet_title">Raccourcis clavier</string>
     <string name="settings_shortcuts">Raccourcis clavier</string>
+    <string name="color_current">Couleur actuelle : ouvrir le sélecteur</string>
+    <string name="color_saved">Couleur enregistrée</string>
+    <string name="color_recent">Couleur récente</string>
+    <string name="color_palette">Couleur de la palette</string>
 </resources>

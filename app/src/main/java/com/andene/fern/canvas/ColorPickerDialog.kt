@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+
 import com.andene.fern.FernScale
 
 import com.andene.fern.R
@@ -57,6 +59,8 @@ fun ColorPickerDialog(
     onSaveColor: ((Color) -> Unit)? = null,
     /** When set, an "Import palette" button imports a .gpl or .ase palette file into the saved colours. */
     onImportPalette: (() -> Unit)? = null,
+    /** A non-blocking panel that applies each change as it's made, instead of a dialog with Select (design roadmap D20). */
+    live: Boolean = false,
 ) {
     var hue by remember { mutableFloatStateOf(0f) }
     var saturation by remember { mutableFloatStateOf(1f) }
@@ -86,10 +90,8 @@ fun ColorPickerDialog(
         }
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.color_title)) },
-        text = {
+    val pickerTitle: @Composable () -> Unit = { Text(stringResource(R.string.color_title)) }
+    val pickerText: @Composable () -> Unit = {
             // Scrolls: with the harmony rows the picker is taller than a landscape phone screen.
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Surface(
@@ -243,13 +245,13 @@ fun ColorPickerDialog(
                     }) { Text(stringResource(R.string.color_spot_save)) }
                 }
             }
-        },
-        confirmButton = {
+        }
+    val pickerConfirm: @Composable () -> Unit = {
             TextButton(onClick = { onColorSelected(currentColor()) }) {
                 Text(stringResource(R.string.action_select))
             }
-        },
-        dismissButton = {
+        }
+    val pickerDismiss: @Composable () -> Unit = {
             Row {
                 if (onImportPalette != null) {
                     TextButton(onClick = onImportPalette) { Text(stringResource(R.string.color_import_palette)) }
@@ -261,8 +263,19 @@ fun ColorPickerDialog(
                     Text(stringResource(R.string.action_cancel))
                 }
             }
-        },
-    )
+        }
+    if (live) {
+        // Inline and live (design roadmap D20): each change applies at once, the canvas stays usable.
+        LaunchedEffect(hue, saturation, value) { if (hexText.isNotEmpty()) onColorSelected(currentColor()) }
+        FernPanel(onDismissRequest = onDismiss, title = pickerTitle, text = pickerText, confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } }, dismissButton = {
+            Row {
+                if (onImportPalette != null) TextButton(onClick = onImportPalette) { Text(stringResource(R.string.color_import_palette)) }
+                if (onSaveColor != null) TextButton(onClick = { onSaveColor(currentColor()) }) { Text(stringResource(R.string.color_save_palette)) }
+            }
+        })
+    } else {
+        AlertDialog(onDismissRequest = onDismiss, title = pickerTitle, text = pickerText, confirmButton = pickerConfirm, dismissButton = pickerDismiss)
+    }
 }
 
 /** Hue offsets in degrees from the current colour, per harmony rule. */

@@ -231,9 +231,10 @@ Goal: switching tools and adjusting without looking or opening anything.
 - [~] D19. **On-canvas adjusting.** Drag up or down on a rail tool to change its size, sideways
   for opacity, with a live preview ring at the cursor. Sizes snap to user presets.
   Written, not yet compiled or tested: dragging up/down on the rail's pen or eraser scales its size (96 px doubles it), sideways sets opacity, with a ring of the brush's size and colour in the middle of the canvas; sizes settle on 1, 2, 4, 8, 12, 16, 24 or 32 when within 8 %. User-defined presets come with D84.
-- [ ] D20. **One colour flow.** A single inline colour strip (current, recent, saved swatches,
+- [~] D20. **One colour flow.** A single inline colour strip (current, recent, saved swatches,
   harmonies) that expands in place to the full picker. "Change everywhere" becomes a visible
   action, not a hidden long-press.
+  Written, not yet compiled or tested: `ColorStrip.kt` in the properties bar for pen, shape, Bézier and fill: current colour (tap: the full picker as a live, non-blocking panel), saved, recent, five harmonies, the palette. While the current colour is a saved one, "Change everywhere" and "Remove" show as buttons. The toolbar's separate colour rows and button are gone.
 - [ ] D21. **The quick menu becomes a radial menu** that opens from any gesture, key or button,
   holds any action, and supports flick selection without looking.
 - [ ] D80. **Last-tool toggle.** One tap (or gesture) swaps between the current and the previous

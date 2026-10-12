@@ -994,4 +994,8 @@
     <string name="shortcut_press_key">Press a key…</string>
     <string name="shortcut_sheet_title">Keyboard shortcuts</string>
     <string name="settings_shortcuts">Keyboard shortcuts</string>
+    <string name="color_current">Current colour: open the picker</string>
+    <string name="color_saved">Saved colour</string>
+    <string name="color_recent">Recent colour</string>
+    <string name="color_palette">Palette colour</string>
 </resources>

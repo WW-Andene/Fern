@@ -418,7 +418,6 @@ fun Toolbar(
             onDismiss = { symbols = null },
         )
     }
-    var savedColorMenu by remember { mutableStateOf<Color?>(null) }
     var editingSavedColor by remember { mutableStateOf<Color?>(null) }
     editingSavedColor?.let { old ->
         ColorPickerDialog(
@@ -546,6 +545,10 @@ fun Toolbar(
     // Contextual properties (design roadmap D9): only the active tool's settings and the
     // selection's actions, in their own bar beside the rail instead of mixed into the toolbar.
     val properties: @Composable () -> Unit = {
+                // One colour strip for every tool that draws in colour (design roadmap D20).
+                if (state.activeTool == Tool.PEN || state.activeTool == Tool.SHAPE || state.activeTool == Tool.BEZIER || state.activeTool == Tool.FILL) {
+                    ColorStrip(state, palette, ToolbarGroup.PALETTE !in hiddenGroups, onOpenPicker = { showColorPicker = true }, onChangeEverywhere = { editingSavedColor = it })
+                }
                 if (state.activeTool == Tool.PEN || state.activeTool == Tool.SHAPE || state.activeTool == Tool.BEZIER) {
                 Box {
                     IconButton(onClick = { showPenTypeMenu = true }) {
@@ -1128,70 +1131,6 @@ fun Toolbar(
         shadowElevation = FernScale.s4,
     ) {
         Column(modifier = Modifier.padding(horizontal = FernScale.s12, vertical = FernScale.s8)) {
-            // Saved palette colours (squares; long-press removes one), then recently used colours
-            // (circles) not already shown - both smaller than the fixed palette's swatches.
-            val recents = state.recentColors.filter { it !in palette && it !in state.savedColors }
-            if (state.savedColors.isNotEmpty() || recents.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .horizontalScroll(rememberScrollState())
-                        .padding(bottom = FernScale.s8),
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(FernScale.s8),
-                ) {
-                    for (color in state.savedColors) {
-                        Box {
-                            Surface(
-                                modifier = Modifier
-                                    .minimumInteractiveComponentSize().size(FernScale.s24)
-                                    .pointerInput(color) {
-                                        detectTapGestures(
-                                            onTap = {
-                                                state.activeColor = color
-                                                state.activeTool = Tool.PEN
-                                            },
-                                            onLongPress = {
-                                                FernHaptics.press(view)
-                                                savedColorMenu = color
-                                            },
-                                        )
-                                    },
-                                shape = RoundedCornerShape(FernScale.s6), // §7.3: 0.24 × 24 = 5.8, nearest scale value 6
-                                color = color,
-                            ) {}
-                            // Touch and hold: change this colour everywhere it's used (a shared colour
-                            // style, roadmap item 100), or remove it from the palette.
-                            DropdownMenu(expanded = savedColorMenu == color, onDismissRequest = { savedColorMenu = null }) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.color_change_everywhere)) },
-                                    onClick = {
-                                        editingSavedColor = color
-                                        savedColorMenu = null
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.color_remove_saved)) },
-                                    onClick = {
-                                        state.removeSavedColor(color)
-                                        savedColorMenu = null
-                                    },
-                                )
-                            }
-                        }
-                    }
-                    for (color in recents) {
-                        Surface(
-                            modifier = Modifier
-                                .minimumInteractiveComponentSize().size(FernScale.s24)
-                                .clickable {
-                                    state.activeColor = color
-                                    state.activeTool = Tool.PEN
-                                },
-                            shape = CircleShape,
-                            color = color,
-                        ) {}
-                    }
-                }
-            }
             // Every tool, in toolbar order. On a phone they scroll sideways: they add up to far
             // more than its width, and without scrolling everything past the edge was unreachable.
             // On a wide window (roadmap item 74) they wrap onto further rows instead, all in view.
@@ -1203,27 +1142,6 @@ fun Toolbar(
                 if (ToolbarGroup.FAVOURITES !in hiddenGroups) {
                     for (index in 0 until TOOL_SLOT_COUNT) ToolSlotButton(state, index)
                 }
-                if (ToolbarGroup.PALETTE !in hiddenGroups) {
-                    for (color in palette) {
-                        val selected = state.activeTool == Tool.PEN && state.activeColor == color
-                        Surface(
-                            modifier = Modifier
-                                // A 48dp touch target like the buttons beside it, so wrapped rows line up (design roadmap D3).
-                                .minimumInteractiveComponentSize().size(FernScale.s32)
-                                .clickable {
-                                    state.activeColor = color
-                                    state.activeTool = Tool.PEN // picking a color implies "draw", per §6 baseline expectations
-                                }
-                                .then(
-                                    if (selected) Modifier.border(FernScale.s2, MaterialTheme.colorScheme.primary, CircleShape)
-                                    else Modifier
-                                ),
-                            shape = CircleShape,
-                            color = color,
-                        ) {}
-                    }
-                }
-                IconButton(onClick = { showColorPicker = true }) {
                     Icon(Icons.Filled.Palette, contentDescription = stringResource(R.string.tb_custom_color))
                 }
 
@@ -1488,11 +1406,8 @@ fun Toolbar(
         ColorPickerDialog(
             initialColor = state.activeColor,
             onDismiss = { showColorPicker = false },
-            onColorSelected = { color ->
-                state.activeColor = color
-                state.activeTool = Tool.PEN
-                showColorPicker = false
-            },
+            onColorSelected = { color -> state.activeColor = color },
+            live = true,
             onSaveColor = { color -> state.addSavedColor(color) },
             onImportPalette = {
                 showColorPicker = false
