@@ -206,9 +206,22 @@ class CanvasState(
         currentAnimFrame = frame.coerceIn(0, animFrameCount - 1)
     }
 
-    /** Next frame for playback, wrapping to the first. */
+    /** Playback bounces back and forth (1-2-3-2-1...) instead of looping (1-2-3-1-2-3...). */
+    var pingPong by mutableStateOf(false)
+
+    private var playingBackwards = false
+
+    /** Next frame for playback: wraps to the first when looping, reverses at either end in ping-pong. */
     fun advanceAnimFrame() {
-        currentAnimFrame = (currentAnimFrame + 1) % animFrameCount
+        if (animFrameCount <= 1) return
+        if (!pingPong) {
+            playingBackwards = false
+            currentAnimFrame = (currentAnimFrame + 1) % animFrameCount
+            return
+        }
+        if (currentAnimFrame == animFrameCount - 1) playingBackwards = true
+        if (currentAnimFrame == 0) playingBackwards = false
+        currentAnimFrame += if (playingBackwards) -1 else 1
     }
 
     /**

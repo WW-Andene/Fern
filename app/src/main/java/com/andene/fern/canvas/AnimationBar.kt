@@ -13,6 +13,8 @@ import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.LayersClear
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -73,6 +75,12 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
                 Icon(
                     if (state.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     contentDescription = if (state.playing) "Pause" else "Play",
+                )
+            }
+            IconButton(onClick = { state.pingPong = !state.pingPong }) {
+                Icon(
+                    if (state.pingPong) Icons.Filled.SyncAlt else Icons.Filled.Repeat,
+                    contentDescription = if (state.pingPong) "Playback: ping-pong" else "Playback: loop",
                 )
             }
             TextButton(onClick = {
