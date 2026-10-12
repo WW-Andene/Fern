@@ -710,6 +710,15 @@ internal fun DrawScope.drawScene(
                 if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
                 val points = stroke.points
                 if (points.isEmpty()) continue
+                // Level of detail: a stroke smaller than a pixel on screen (far zoomed out) is
+                // drawn as one dot, skipping the per-point transform and path building that
+                // dominate the cost of drawing thousands of distant strokes.
+                val extentScreen = maxOf(stroke.maxX - stroke.minX, stroke.maxY - stroke.minY) * state.scale
+                if (extentScreen < 1.0) {
+                    val center = state.worldToScreen(WorldPoint((stroke.minX + stroke.maxX) / 2.0, (stroke.minY + stroke.maxY) / 2.0), screenCenter)
+                    drawCircle(color = stroke.color, radius = 0.5f, center = center)
+                    continue
+                }
                 val screenPoints = points.map { state.worldToScreen(it, screenCenter) }
                 if (stroke.filled) {
                     val path = Path()
