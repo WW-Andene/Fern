@@ -111,6 +111,7 @@ import com.andene.fern.canvas.WorldPoint
 import com.andene.fern.canvas.exportAnimatedGif
 import com.andene.fern.canvas.exportAnimatedPng
 import com.andene.fern.canvas.exportLottie
+import com.andene.fern.canvas.exportDocumentEps
 import com.andene.fern.canvas.exportReplayGif
 import com.andene.fern.canvas.exportDocumentBundle
 import com.andene.fern.canvas.exportDocumentPdf
@@ -327,6 +328,11 @@ class MainActivity : ComponentActivity() {
                         contract = ActivityResultContracts.CreateDocument("image/apng"),
                     ) { uri ->
                         if (uri != null) writeExport(uri) { exportAnimatedPng(canvasState, textMeasurer, density, imageForExport) }
+                    }
+                    val epsExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/postscript"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportDocumentEps(canvasState)?.toByteArray() }
                     }
                     val lottieExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("application/json"),
@@ -780,6 +786,7 @@ class MainActivity : ComponentActivity() {
                                 onExportTransparentPng = { transparentPngExportLauncher.launch("${currentDocumentName()}.png") },
                                 onExportPdf = { pdfExportLauncher.launch("${currentDocumentName()}.pdf") },
                                 onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
+                                onExportEps = { epsExportLauncher.launch("${currentDocumentName()}.eps") },
                                 onExportGif = { gifExportLauncher.launch("${currentDocumentName()}.gif") },
                                 onExportApng = { apngExportLauncher.launch("${currentDocumentName()}.png") },
                                 onExportLottie = { lottieExportLauncher.launch("${currentDocumentName()}.json") },

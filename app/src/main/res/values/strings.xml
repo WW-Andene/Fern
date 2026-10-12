@@ -384,4 +384,5 @@
     <string name="symbols_default_name">Symbol %1$d</string>
     <string name="tb_trace_image">Trace the image into shapes</string>
     <string name="toast_trace_nothing">No dark shapes found to trace</string>
+    <string name="tb_export_eps">Print vector (EPS)</string>
 </resources>

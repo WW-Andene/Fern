@@ -165,7 +165,7 @@ All deferred: they need a server or cloud platform.
 - [~] 100. Shared colour styles (a saved colour changed everywhere it's used, opacity kept), symbol library across documents (save a selection, place copies); placed symbols are copies, not linked instances
 - [x] 101. Image trace: a selected image's dark shapes (Otsu threshold) become filled vector outlines, holes kept, in the active colour over the image; one colour (no colour separation)
 - [ ] 102. CMYK, spot colours, ICC, print-ready PDF
-- [ ] 103. AI / EPS / Figma import and export (SVG export done in 57)
+- [~] 103. EPS export (paths, fills, caps, joins, dashes; checked by rendering); no AI import/export, Figma ⏸ (external platform); SVG export done in 57
 
 ## Phase 12 — Specialty modes
 

@@ -172,6 +172,7 @@ fun Toolbar(
     onExportTransparentPng: () -> Unit = {},
     onExportSelection: () -> Unit = {},
     onExportSvg: () -> Unit = {},
+    onExportEps: () -> Unit = {},
     onShare: () -> Unit = {},
     onExportBundle: () -> Unit = {},
     onExportSpriteSheet: () -> Unit = {},
@@ -971,6 +972,13 @@ fun Toolbar(
                             onClick = {
                                 showExportMenu = false
                                 onExportSvg()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.tb_export_eps)) },
+                            onClick = {
+                                showExportMenu = false
+                                onExportEps()
                             },
                         )
                         DropdownMenuItem(
