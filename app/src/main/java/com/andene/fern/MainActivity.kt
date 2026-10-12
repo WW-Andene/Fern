@@ -57,11 +57,14 @@ import com.andene.fern.canvas.PinsDialog
 import com.andene.fern.canvas.PresentationControls
 import com.andene.fern.canvas.Toolbar
 import com.andene.fern.canvas.VersionsDialog
+import com.andene.fern.canvas.WelcomeDialog
 import com.andene.fern.canvas.WorldPoint
 import com.andene.fern.canvas.exportDocumentPdf
 import com.andene.fern.canvas.exportDocumentPng
 import com.andene.fern.canvas.exportDocumentSvg
 import com.andene.fern.canvas.importPdfPages
+import com.andene.fern.canvas.markWelcomeSeen
+import com.andene.fern.canvas.shouldShowWelcome
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
@@ -90,6 +93,7 @@ class MainActivity : ComponentActivity() {
                     var pins by remember { mutableStateOf(emptyList<PinMeta>()) }
                     var showPinsDialog by remember { mutableStateOf(false) }
                     var showFramesDialog by remember { mutableStateOf(false) }
+                    var showWelcome by remember { mutableStateOf(shouldShowWelcome(context)) }
                     var presentingIndex by remember { mutableStateOf<Int?>(null) } // non-null = presenting that frame
                     var frameToExport by remember { mutableStateOf<Frame?>(null) }
                     var versions by remember { mutableStateOf<List<Long>?>(null) } // non-null = dialog open
@@ -454,6 +458,13 @@ class MainActivity : ComponentActivity() {
                             },
                             onDismiss = { versions = null },
                         )
+                    }
+
+                    if (showWelcome) {
+                        WelcomeDialog(onDismiss = {
+                            markWelcomeSeen(context)
+                            showWelcome = false
+                        })
                     }
 
                     if (showFramesDialog) {
