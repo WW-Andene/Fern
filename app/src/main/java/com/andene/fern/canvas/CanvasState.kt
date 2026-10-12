@@ -6069,6 +6069,13 @@ class CanvasState(
     var rotation by mutableDoubleStateOf(0.0)
         private set
 
+    /** Puts the view back exactly as it was: a three-finger swipe moves the fingers, not the view (design roadmap D15). */
+    fun restoreView(pan: WorldPoint, zoom: Double, turn: Double) {
+        panWorld = pan
+        scale = zoom
+        rotation = turn
+    }
+
     /** Maps a raw on-screen position into unrotated view space by turning it back about [screenCenter]. */
     fun unrotateScreen(screen: Offset, screenCenter: Offset): Offset {
         if (rotation == 0.0) return screen

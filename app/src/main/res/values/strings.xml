@@ -968,4 +968,15 @@
     <string name="palette_location_rail">Tool rail</string>
     <string name="palette_location_toolbar">Toolbar</string>
     <string name="palette_location_documents">Documents</string>
+    <string name="gesture_two_finger_tap">Two-finger tap</string>
+    <string name="gesture_three_finger_tap">Three-finger tap</string>
+    <string name="gesture_four_finger_tap">Four-finger tap</string>
+    <string name="gesture_long_press">Finger held still</string>
+    <string name="gesture_three_finger_swipe">Three-finger swipe</string>
+    <string name="gesture_action_none">Nothing</string>
+    <string name="gesture_action_toggle_eraser">Switch pen / eraser</string>
+    <string name="gesture_action_fit">Fit to screen</string>
+    <string name="gesture_action_toggle_chrome">Hide or show the bars</string>
+    <string name="chrome_show">Show the bars</string>
+    <string name="settings_gestures">Gestures</string>
 </resources>

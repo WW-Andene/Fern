@@ -971,4 +971,15 @@
     <string name="palette_location_rail">Rail d’outils</string>
     <string name="palette_location_toolbar">Barre d’outils</string>
     <string name="palette_location_documents">Documents</string>
+    <string name="gesture_two_finger_tap">Tap à deux doigts</string>
+    <string name="gesture_three_finger_tap">Tap à trois doigts</string>
+    <string name="gesture_four_finger_tap">Tap à quatre doigts</string>
+    <string name="gesture_long_press">Doigt maintenu immobile</string>
+    <string name="gesture_three_finger_swipe">Balayage à trois doigts</string>
+    <string name="gesture_action_none">Rien</string>
+    <string name="gesture_action_toggle_eraser">Basculer stylo / gomme</string>
+    <string name="gesture_action_fit">Ajuster à l’écran</string>
+    <string name="gesture_action_toggle_chrome">Masquer ou afficher les barres</string>
+    <string name="chrome_show">Afficher les barres</string>
+    <string name="settings_gestures">Gestes</string>
 </resources>

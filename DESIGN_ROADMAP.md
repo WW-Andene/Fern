@@ -213,9 +213,10 @@ Goal: the screen layout that replaces the single scrolling toolbar and the ⋮ j
 
 Goal: switching tools and adjusting without looking or opening anything.
 
-- [ ] D15. **A gesture map you can change.** Taps with two, three or four fingers; a pinch with a
+- [~] D15. **A gesture map you can change.** Taps with two, three or four fingers; a pinch with a
   rotation lock; long-press on the canvas as the eyedropper; a three-finger swipe to the quick
   menu; an edge swipe to show or hide panels. Each one is assigned in Settings.
+  Written, not yet compiled or tested: `GestureMap.kt` (two-, three- and four-finger taps, finger held still, three-finger swipe, each assignable in Settings > Gestures). Edge swipes are left out: Android's back and home gestures own the screen edges.
 - [ ] D16. **Stylus mapping.** Barrel buttons, the eraser end and double-tap (where the hardware
   has it) assigned to actions. Hover preview of the brush cursor. Palm rejection with a
   sensitivity setting.

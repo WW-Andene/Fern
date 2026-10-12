@@ -43,6 +43,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -94,6 +96,7 @@ import com.andene.fern.canvas.AudioBar
 import com.andene.fern.canvas.CanvasHaptics
 import com.andene.fern.canvas.ToolRail
 import com.andene.fern.canvas.CommandPaletteState
+import com.andene.fern.canvas.GestureAction
 import com.andene.fern.canvas.PaletteCommand
 import com.andene.fern.canvas.BackgroundStyle
 import com.andene.fern.canvas.CanvasState
@@ -254,6 +257,8 @@ class MainActivity : ComponentActivity() {
                     var showWelcome by remember { mutableStateOf(shouldShowWelcome(context)) }
                     var showSettings by remember { mutableStateOf(false) }
                     var showQuickMenu by remember { mutableStateOf(false) }
+                    // Every bar and panel hidden for a clear canvas (design roadmap D15 and D78).
+                    var chromeHidden by remember { mutableStateOf(false) }
                     // True while a document is being read: the canvas is covered so nothing can be
                     // drawn onto (and then autosaved over) a document that isn't loaded yet.
                     var loadingDocument by remember { mutableStateOf(true) }
@@ -1068,6 +1073,14 @@ class MainActivity : ComponentActivity() {
                                     },
                                 ),
                             linkChoices = LinkChoices(pins, documents.filter { it.trashedAt == null && it.id != currentDocumentId }),
+                            onGestureAction = { action ->
+                                when (action) {
+                                    GestureAction.QUICK_MENU -> showQuickMenu = true
+                                    GestureAction.COMMAND_PALETTE -> CommandPaletteState.open = true
+                                    GestureAction.TOGGLE_CHROME -> chromeHidden = !chromeHidden
+                                    else -> {}
+                                }
+                            },
                             onFollowLink = { target ->
                                 when (target) {
                                     is LinkTarget.Pin -> {
@@ -1117,6 +1130,16 @@ class MainActivity : ComponentActivity() {
                             }
                             // The game playing (roadmap item 155): editing chrome hidden.
                             PlayOverlay(canvasState)
+                        } else if (chromeHidden) {
+                            // The one way back that needs no gesture.
+                            IconButton(
+                                onClick = { chromeHidden = false },
+                                modifier = Modifier
+                                    .align(if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(FernScale.s8),
+                            ) { Icon(Icons.Filled.FullscreenExit, contentDescription = stringResource(R.string.chrome_show)) }
+                            if (showQuickMenu) QuickMenuOverlay(state = canvasState, onDismiss = { showQuickMenu = false }, actions = quickMenuActions)
                         } else {
                             // The tool rail (design roadmap D8): along the bottom of an upright phone, in
                             // thumb reach; along the free hand's side otherwise. Other bars keep clear of it.

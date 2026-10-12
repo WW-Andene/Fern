@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntSize
 import androidx.input.motionprediction.MotionEventPredictor
 import kotlinx.coroutines.delay
+import android.os.SystemClock
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -105,6 +106,8 @@ fun DrawingCanvas(
     /** Pins and documents a text label can link to (see [LinkTarget]). */
     linkChoices: LinkChoices = LinkChoices(),
     onFollowLink: (LinkTarget) -> Unit = {},
+    /** Gesture actions for the screen around the canvas: quick menu, palette, hiding the bars (design roadmap D15). */
+    onGestureAction: (GestureAction) -> Unit = {},
 ) {
     // Side-channel for stylus pressure/tilt/orientation: Compose's own pointer-input APIs
     // (used below, unchanged) don't expose tilt at all, and pressure only patchily, so this
@@ -125,6 +128,7 @@ fun DrawingCanvas(
     val context = LocalContext.current
     // Decoded lazily and cached by file name: re-decoding from disk every frame would be
     // wasteful, and images never change once placed (a new image is a new ImageItem/file).
+    val gestures by GestureSettings.state(context)
     val imageBitmapCache = remember { mutableMapOf<String, ImageBitmap>() }
     // Low-latency ink (see FrontBufferedInk): a transparent front-buffered surface above the
     // canvas. Placed first in the Box so the canvas, not the surface, receives touches; the
@@ -211,6 +215,26 @@ fun DrawingCanvas(
                     val historyDepthAtStart = state.historyDepth
                     var maxPointers = 0
                     var navigationTravel = 0f
+                    // Configurable gestures (design roadmap D15): a finger held still, and a three-finger swipe.
+                    val downClock = SystemClock.uptimeMillis()
+                    var longPressArmed = firstDown.type == PointerType.Touch && gestures.getValue(CanvasGesture.LONG_PRESS) != GestureAction.NONE
+                    var longPressed = false
+                    var swipeStart: Offset? = null
+                    var swipeLast = Offset.Zero
+                    var swipeStartSpan = 0f
+                    var swipeSpanChange = 0f
+                    val viewAtStart = Triple(state.panWorld, state.scale, state.rotation)
+                    fun runGesture(action: GestureAction, at: Offset) {
+                        when (action) {
+                            GestureAction.NONE -> {}
+                            GestureAction.UNDO -> state.undo()
+                            GestureAction.REDO -> state.redo()
+                            GestureAction.EYEDROPPER -> state.pickColorAt(state.screenToWorld(state.unrotateScreen(at, screenCenter), screenCenter))
+                            GestureAction.TOGGLE_ERASER -> state.toggleEraser()
+                            GestureAction.FIT_VIEW -> state.zoomToFit()
+                            else -> onGestureAction(action)
+                        }
+                    }
 
                     var mode = Mode.NONE
                     var prevCentroid = Offset.Zero
@@ -245,7 +269,22 @@ fun DrawingCanvas(
                     }
 
                     while (true) {
-                        val event = awaitPointerEvent(PointerEventPass.Main)
+                        val holding = longPressArmed && maxPointers <= 1
+                        val event = if (holding) {
+                            withTimeoutOrNull((LONG_PRESS_MILLIS - (SystemClock.uptimeMillis() - downClock)).coerceAtLeast(1L)) { awaitPointerEvent(PointerEventPass.Main) }
+                        } else {
+                            awaitPointerEvent(PointerEventPass.Main)
+                        }
+                        if (event == null) {
+                            // Held still: whatever the first touch began (a dot) wasn't meant.
+                            longPressArmed = false
+                            longPressed = true
+                            if (mode == Mode.DRAW) endActiveDrawAction()
+                            state.discardActionsSince(historyDepthAtStart)
+                            mode = Mode.NONE
+                            runGesture(gestures.getValue(CanvasGesture.LONG_PRESS), firstDown.position)
+                            continue
+                        }
                         val allPressed = event.changes.filter { it.pressed }
                         // Palm rejection: once a stylus is down, ignore finger pointers
                         // entirely (a resting palm reads as ordinary touch input) rather
@@ -273,6 +312,12 @@ fun DrawingCanvas(
                         val count = pointers.size
                         if (count == 0) break
                         maxPointers = maxOf(maxPointers, count)
+                        if (longPressed) {
+                            // The rest of a long press does nothing more.
+                            pointers.forEach { it.consume() }
+                            continue
+                        }
+                        if (count > 1 || (pointers[0].position - firstDown.position).getDistance() > LONG_PRESS_SLOP_PX) longPressArmed = false
 
                         if (count == 1) {
                             if (mode != Mode.DRAW) {
@@ -353,6 +398,14 @@ fun DrawingCanvas(
                                 (pointers[1].position.y - pointers[0].position.y).toDouble(),
                                 (pointers[1].position.x - pointers[0].position.x).toDouble(),
                             )
+                            if (count == 3) {
+                                if (swipeStart == null) {
+                                    swipeStart = centroid
+                                    swipeStartSpan = span
+                                }
+                                swipeLast = centroid
+                                swipeSpanChange = maxOf(swipeSpanChange, abs(span - swipeStartSpan))
+                            }
 
                             if (mode != Mode.NAVIGATE) {
                                 // Just transitioned into navigation: establish baseline, no jump this frame.
@@ -383,10 +436,25 @@ fun DrawingCanvas(
                     if (mode == Mode.DRAW) endActiveDrawAction()
                     if (mode == Mode.NAVIGATE) state.snapRotation()
                     val tapDuration = (currentEvent.changes.firstOrNull()?.uptimeMillis ?: gestureStartMillis) - gestureStartMillis
-                    if (maxPointers in 2..3 && tapDuration <= MULTI_FINGER_TAP_MAX_MILLIS && navigationTravel <= MULTI_FINGER_TAP_SLOP_PX) {
+                    val swipeFrom = swipeStart
+                    if (longPressed) {
+                        // Handled when it fired.
+                    } else if (maxPointers in 2..4 && tapDuration <= MULTI_FINGER_TAP_MAX_MILLIS && navigationTravel <= MULTI_FINGER_TAP_SLOP_PX) {
                         // The first finger may have begun a stroke before the others landed; that wasn't drawing.
                         state.discardActionsSince(historyDepthAtStart)
-                        if (maxPointers == 2) state.undo() else state.redo()
+                        val gesture = when (maxPointers) {
+                            2 -> CanvasGesture.TWO_FINGER_TAP
+                            3 -> CanvasGesture.THREE_FINGER_TAP
+                            else -> CanvasGesture.FOUR_FINGER_TAP
+                        }
+                        runGesture(gestures.getValue(gesture), firstDown.position)
+                    } else if (maxPointers == 3 && swipeFrom != null && (swipeLast - swipeFrom).getDistance() >= SWIPE_MIN_PX &&
+                        swipeSpanChange <= SWIPE_SPAN_SLOP_PX && tapDuration <= SWIPE_MAX_MILLIS &&
+                        gestures.getValue(CanvasGesture.THREE_FINGER_SWIPE) != GestureAction.NONE
+                    ) {
+                        // A swipe, not a pan: the view goes back to where it was.
+                        state.restoreView(viewAtStart.first, viewAtStart.second, viewAtStart.third)
+                        runGesture(gestures.getValue(CanvasGesture.THREE_FINGER_SWIPE), swipeLast)
                     }
                 }
             }
@@ -1582,6 +1650,13 @@ private const val WHEEL_ZOOM_STEP = 1.1
 // Two/three-finger tap to undo/redo, the convention of Procreate and most iPad/Android drawing apps.
 private const val MULTI_FINGER_TAP_MAX_MILLIS = 250L
 private const val MULTI_FINGER_TAP_SLOP_PX = 24f // on the §7 scale
+// A finger held this long within this distance is a long press (design roadmap D15); Android's own long-press time.
+private const val LONG_PRESS_MILLIS = 500L
+private const val LONG_PRESS_SLOP_PX = 24f
+// A three-finger swipe: this far, quickly, without pinching.
+private const val SWIPE_MIN_PX = 192f
+private const val SWIPE_SPAN_SLOP_PX = 48f
+private const val SWIPE_MAX_MILLIS = 768L
 
 // Translucent teal so the axes guide without competing with the drawing.
 private val SYMMETRY_COLOR: Color get() = FernColors.current.measure.copy(alpha = 0.4f)
