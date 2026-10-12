@@ -6,6 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AddBox
+import androidx.compose.material.icons.filled.AutoAwesomeMotion
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Layers
@@ -22,6 +23,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+
+// In-betweens generated per tap: 3 turns two keyframes into a smooth 5-frame move.
+private const val IN_BETWEEN_COUNT = 3
 
 // Playback speeds offered by tapping the fps label, the common hand-drawn animation rates.
 private val FPS_CHOICES = listOf(6, 8, 12, 24)
@@ -51,6 +55,10 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
             }
             IconButton(onClick = { state.insertAnimFrame(copyCurrent = true) }, enabled = !state.playing) {
                 Icon(Icons.Filled.ContentCopy, contentDescription = "Duplicate this frame")
+            }
+            // Fills the gap to the next frame with 3 morphed in-betweens.
+            IconButton(onClick = { state.generateInBetweens(IN_BETWEEN_COUNT) }, enabled = !state.playing && state.currentAnimFrame < state.animFrameCount - 1) {
+                Icon(Icons.Filled.AutoAwesomeMotion, contentDescription = "Generate in-between frames to the next frame")
             }
             IconButton(onClick = { state.deleteAnimFrame() }, enabled = !state.playing && state.animFrameCount > 1) {
                 Icon(Icons.Filled.Delete, contentDescription = "Delete this frame")

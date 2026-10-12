@@ -77,3 +77,24 @@ fun smoothPoints(points: List<WorldPoint>, passes: Int): List<WorldPoint> {
     }
     return current
 }
+
+/** [count] points evenly spaced by arc length along the polyline through [points] (endpoints kept). */
+fun resamplePolyline(points: List<WorldPoint>, count: Int): List<WorldPoint> {
+    if (points.size < 2 || count < 2) return List(count.coerceAtLeast(1)) { points.firstOrNull() ?: WorldPoint.Zero }
+    val cumulative = DoubleArray(points.size)
+    for (i in 1 until points.size) {
+        cumulative[i] = cumulative[i - 1] + hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
+    }
+    val total = cumulative.last()
+    if (total == 0.0) return List(count) { points.first() }
+    var segment = 1
+    return List(count) { i ->
+        val target = total * i / (count - 1)
+        while (segment < points.size - 1 && cumulative[segment] < target) segment++
+        val span = cumulative[segment] - cumulative[segment - 1]
+        val t = if (span == 0.0) 0.0 else (target - cumulative[segment - 1]) / span
+        val a = points[segment - 1]
+        val b = points[segment]
+        WorldPoint(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
+    }
+}

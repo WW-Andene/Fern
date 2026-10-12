@@ -228,6 +228,43 @@ class CanvasState(
         onChanged(strokes.toList())
     }
 
+    /**
+     * Automatic in-betweens: inserts [count] frames between the current frame and the next,
+     * morphing each stroke of the current frame into the stroke at the same position (drawing
+     * order) in the next frame. Both strokes are resampled to the same number of points by arc
+     * length and interpolated linearly, along with width and colour. Strokes without a partner
+     * (the frames have different stroke counts) are left out of the in-betweens. Undoable.
+     */
+    fun generateInBetweens(count: Int) {
+        val from = currentAnimFrame
+        val to = from + 1
+        if (count < 1 || to >= animFrameCount) return
+        val start = strokes.filter { it.animFrame == from && !it.filled }
+        val end = strokes.filter { it.animFrame == to && !it.filled }
+        val pairs = start.zip(end)
+        if (pairs.isEmpty()) return
+        recordHistory()
+        clearSelectionState()
+        // Make room: everything from the next frame on moves up by [count].
+        for (i in strokes.indices) {
+            if (strokes[i].animFrame >= to) strokes[i] = strokes[i].onAnimFrame(strokes[i].animFrame + count)
+        }
+        for (step in 1..count) {
+            val t = step.toDouble() / (count + 1)
+            for ((a, b) in pairs) {
+                val samples = maxOf(a.points.size, b.points.size, 2)
+                val pa = resamplePolyline(a.points, samples)
+                val pb = resamplePolyline(b.points, samples)
+                val color = androidx.compose.ui.graphics.lerp(a.color, b.color, t.toFloat())
+                val tween = Stroke(color, a.widthWorld + (b.widthWorld - a.widthWorld) * t, a.penType, blendMode = a.blendMode, layerId = a.layerId, animFrame = from + step)
+                for (i in 0 until samples) tween.addPoint(WorldPoint(pa[i].x + (pb[i].x - pa[i].x) * t, pa[i].y + (pb[i].y - pa[i].y) * t))
+                strokes.add(tween)
+            }
+        }
+        animFrameCount += count
+        onChanged(strokes.toList())
+    }
+
     /** Deletes the current frame and its strokes; later frames shift down. The last frame can't be deleted. */
     fun deleteAnimFrame() {
         if (animFrameCount <= 1) return
