@@ -196,6 +196,7 @@ object CanvasStorage {
         symbolInstancesFile(context, id).delete()
         framesFile(context, id).delete()
         drawingScaleFile(context, id).delete()
+        branchesFile(context, id).delete()
         AudioNotes.deleteAll(context, id)
         versionsDir(context, id).deleteRecursively()
         // Deliberately not deleting files under images/: they're shared/immutable and may
@@ -219,6 +220,7 @@ object CanvasStorage {
         val symbolInstances = loadSymbolInstances(context, id)
         val frames = loadFrames(context, id)
         val drawingScale = loadDrawingScale(context, id)
+        val branches = branchesFile(context, id).takeIf { it.exists() }?.readBytes()
         val meta = createDocument(context, newName)
         save(context, meta.id, strokes)
         saveTextItems(context, meta.id, textItems)
@@ -237,6 +239,7 @@ object CanvasStorage {
         if (symbolInstances.isNotEmpty()) saveSymbolInstances(context, meta.id, symbolInstances)
         if (frames.isNotEmpty()) saveFrames(context, meta.id, frames)
         if (drawingScale != null) saveDrawingScale(context, meta.id, drawingScale)
+        if (branches != null) writeAtomically(branchesFile(context, meta.id), branches)
         return meta
     }
 
@@ -743,6 +746,21 @@ object CanvasStorage {
         }
     }
 
+    /**
+     * Saves the document's animation branches (roadmap item 153) and which one is current. The
+     * current branch's own latest content is the document itself, so its stored copy may lag.
+     */
+    fun saveBranches(context: Context, documentId: String, branches: List<AnimationBranch>, currentId: String) {
+        writeAtomically(branchesFile(context, documentId), AnimationBranchFile.write(branches, currentId))
+    }
+
+    /** The saved branches and the current one's id, or nothing for a document without branches (or a damaged file). */
+    fun loadBranches(context: Context, documentId: String): Pair<List<AnimationBranch>, String?> {
+        val file = branchesFile(context, documentId)
+        if (!file.exists()) return emptyList<AnimationBranch>() to null
+        return runCatching { AnimationBranchFile.read(file.readBytes()) }.getOrNull()?.let { (b, c) -> b to c } ?: (emptyList<AnimationBranch>() to null)
+    }
+
     /** Saves the document's drawing scale (roadmap item 143); null removes it (world units). */
     fun saveDrawingScale(context: Context, documentId: String, scale: DrawingScale?) {
         val file = drawingScaleFile(context, documentId)
@@ -1093,6 +1111,7 @@ object CanvasStorage {
         "symbols.json" to symbolInstancesFile(context, documentId),
         "frames.json" to framesFile(context, documentId),
         "scale.json" to drawingScaleFile(context, documentId),
+        "branches.bin" to branchesFile(context, documentId),
     )
 
     /** Adds an index entry for files already written under [id] (used by bundle import). */
@@ -1128,6 +1147,7 @@ object CanvasStorage {
 
     private fun framesFile(context: Context, documentId: String) = File(context.filesDir, "frames_$documentId.json")
     private fun drawingScaleFile(context: Context, documentId: String) = File(context.filesDir, "scale_$documentId.json")
+    private fun branchesFile(context: Context, documentId: String) = File(context.filesDir, "branches_$documentId.bin")
 
     private fun layersFile(context: Context, documentId: String) = File(context.filesDir, "layers_$documentId.json")
 

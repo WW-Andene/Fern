@@ -95,6 +95,8 @@ class CanvasState(
     private val onLayerCompsChanged: (List<LayerComp>) -> Unit = {},
     private val onStatsChanged: (DocumentStats) -> Unit = {},
     private val onGuidesChanged: (List<Guide>) -> Unit = {},
+    /** The animation branches changed (roadmap item 153): the branches and the current one's id. */
+    private val onBranchesChanged: (List<AnimationBranch>, String) -> Unit = { _, _ -> },
     /** The document's drawing scale changed (roadmap item 143). */
     private val onDrawingScaleChanged: (DrawingScale?) -> Unit = {},
     private val onSymbolInstancesChanged: (List<SymbolInstance>) -> Unit = {},
@@ -497,6 +499,123 @@ class CanvasState(
         playingBackwards = tag.direction == TagDirection.REVERSE
         heldTicks = 0
         playing = true
+    }
+
+    /**
+     * Animation branches (roadmap item 153); empty until the first branch is made, when the work
+     * so far becomes the [MAIN_BRANCH_NAME] branch. The document always shows the current branch.
+     */
+    val branches = mutableStateListOf<AnimationBranch>()
+
+    /** The id of the branch the document shows; null while there are no branches. */
+    var currentBranchId by mutableStateOf<String?>(null)
+        private set
+
+    fun loadBranches(loaded: List<AnimationBranch>, currentId: String?) {
+        branches.clear()
+        branches.addAll(loaded)
+        currentBranchId = currentId?.takeIf { id -> loaded.any { it.id == id } }
+    }
+
+    /** The animation as it is now: strokes (copied), bones, holds and frame count. */
+    fun animationSnapshot() = AnimationSnapshot(strokes.map { it.deepCopy() }, bones.toList(), frameHolds.toMap(), animFrameCount)
+
+    private fun reportBranches() {
+        currentBranchId?.let { onBranchesChanged(branches.toList(), it) }
+    }
+
+    /** Stores the work on the current branch as its latest content. */
+    private fun saveCurrentHead() {
+        val index = branches.indexOfFirst { it.id == currentBranchId }
+        if (index != -1) branches[index] = AnimationBranch(branches[index].id, branches[index].name, branches[index].base, animationSnapshot())
+    }
+
+    /** Starts branch [name] from the animation as it is now and moves onto it; the content doesn't change. */
+    fun createBranch(name: String) {
+        val snapshot = animationSnapshot()
+        if (branches.isEmpty()) {
+            val main = AnimationBranch(UUID.randomUUID().toString(), MAIN_BRANCH_NAME, snapshot, snapshot)
+            branches.add(main)
+        } else {
+            saveCurrentHead()
+        }
+        val branch = AnimationBranch(UUID.randomUUID().toString(), name, snapshot, snapshot)
+        branches.add(branch)
+        currentBranchId = branch.id
+        reportBranches()
+    }
+
+    /**
+     * Moves onto branch [id]: the work on the current branch is kept as its latest content and
+     * [id]'s is shown. The undo history belonged to the other branch, so it's cleared, as on
+     * opening another document.
+     */
+    fun switchBranch(id: String) {
+        if (id == currentBranchId) return
+        val target = branches.firstOrNull { it.id == id } ?: return
+        saveCurrentHead()
+        showSnapshot(target.head)
+        currentBranchId = id
+        undoStack.clear()
+        redoStack.clear()
+        openLog(null)
+        reportBranches()
+    }
+
+    private fun showSnapshot(snapshot: AnimationSnapshot) {
+        clearSelectionState()
+        playing = false
+        strokes.clear()
+        strokes.addAll(snapshot.strokes.map { it.deepCopy() })
+        bones.clear()
+        bones.addAll(snapshot.bones)
+        frameHolds.clear()
+        frameHolds.putAll(snapshot.holds)
+        animFrameCount = snapshot.frameCount
+        currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
+        onBonesChanged(bones.toList())
+        onAnimationSettingsChanged(animationSettings())
+        strokesChanged()
+    }
+
+    /**
+     * Merges branch [id] into the current one (see [planMerge]): each frame it changed since it
+     * branched off is taken, unless ours changed too - a conflict, settled by [preference].
+     * Taken frames bring their strokes, bones and hold. One undo step. Frames are matched by
+     * number, so frames inserted or deleted mid-animation on one side shift the rest out of line.
+     */
+    fun mergeBranch(id: String, preference: MergePreference): MergeReport {
+        val other = branches.firstOrNull { it.id == id && it.id != currentBranchId } ?: return MergeReport(emptyList(), emptyList())
+        val ours = animationSnapshot()
+        val report = planMerge(other.base, ours, other.head, preference)
+        if (report.taken.isEmpty()) return report
+        recordHistory()
+        clearSelectionState()
+        val taken = report.taken.toSet()
+        strokes.removeWhere { it.animFrame in taken }
+        strokes.addAll(other.head.strokes.filter { it.animFrame in taken }.map { it.deepCopy() })
+        bones.removeWhere { it.animFrame in taken }
+        bones.addAll(other.head.bones.filter { it.animFrame in taken })
+        for (frame in taken) {
+            val hold = other.head.holds[frame]
+            if (hold == null) frameHolds.remove(frame) else frameHolds[frame] = hold
+        }
+        // A frame exists after the merge if the side it came from had it.
+        val last = (0 until maxOf(ours.frameCount, other.head.frameCount)).lastOrNull { f ->
+            if (f in taken) f < other.head.frameCount else f < ours.frameCount
+        } ?: 0
+        animFrameCount = last + 1
+        currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
+        onBonesChanged(bones.toList())
+        onAnimationSettingsChanged(animationSettings())
+        strokesChanged()
+        return report
+    }
+
+    /** Deletes branch [id]; the current branch can't be deleted. */
+    fun deleteBranch(id: String) {
+        if (id == currentBranchId) return
+        if (branches.removeWhere { it.id == id }) reportBranches()
     }
 
     /**

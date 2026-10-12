@@ -236,7 +236,7 @@ Shared, multiplayer parts need a server and are deferred ⏸; single-player part
 - [ ] 150. Live presence on the timeline and rig ⏸
 - [ ] 151. Shared rig library ⏸
 - [ ] 152. Roles and permissions ⏸
-- [ ] 153. Branches and merges for animations
+- [x] 153. Branches and merges for animations — branch an animation into alternative takes (the work so far becomes "main"), switch between them, and merge one into another frame by frame against the frame as it was when the branch began (frames only it changed are taken; frames both changed are kept or taken as chosen); strokes, bones and holds; saved with the document and in bundles. Frames are matched by number, so a frame inserted mid-animation on one side shifts the rest; switching clears the undo history
 - [ ] 154. Voice and text chat in the canvas ⏸
 
 **From drawing to logic**

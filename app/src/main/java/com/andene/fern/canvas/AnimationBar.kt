@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material3.LocalContentColor
@@ -58,6 +59,8 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
     if (showSway) SwayDialog(state, onDismiss = { showSway = false })
     var showDopesheet by remember { mutableStateOf(false) }
     if (showDopesheet) DopesheetDialog(state, onDismiss = { showDopesheet = false })
+    var showBranches by remember { mutableStateOf(false) }
+    if (showBranches) BranchesDialog(state, onDismiss = { showBranches = false })
     var showTags by remember { mutableStateOf(false) }
     if (showTags) FrameTagsDialog(state, onDismiss = { showTags = false })
     var showOnionSettings by remember { mutableStateOf(false) }
@@ -141,6 +144,10 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
                 IconButton(onClick = { showSway = true }) {
                     Icon(Icons.Filled.Animation, contentDescription = stringResource(R.string.sway_title))
                 }
+            }
+            // Branches (roadmap item 153): alternative takes of the animation.
+            IconButton(onClick = { showBranches = true }, enabled = !state.playing) {
+                Icon(Icons.Filled.AccountTree, contentDescription = stringResource(R.string.branches_title))
             }
             IconButton(onClick = { showXSheet = true }) {
                 Icon(Icons.Filled.TableRows, contentDescription = stringResource(R.string.xsheet_title))

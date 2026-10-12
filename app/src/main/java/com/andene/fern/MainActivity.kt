@@ -288,6 +288,11 @@ class MainActivity : ComponentActivity() {
                             onStatsChanged = { stats -> CanvasStorage.saveStats(context, currentDocumentId, stats) },
                             onGuidesChanged = { guides -> CanvasStorage.saveGuides(context, currentDocumentId, guides) },
                             onDrawingScaleChanged = { scale -> CanvasStorage.saveDrawingScale(context, currentDocumentId, scale) },
+                            // Branch snapshots can be large: written off the main thread (roadmap item 153).
+                            onBranchesChanged = { branches, current ->
+                                val documentId = currentDocumentId
+                                coroutineScope.launch(Dispatchers.IO) { CanvasStorage.saveBranches(context, documentId, branches, current) }
+                            },
                             onSymbolInstancesChanged = { instances -> CanvasStorage.saveSymbolInstances(context, currentDocumentId, instances) },
                             onBonesChanged = { bones -> CanvasStorage.saveBones(context, currentDocumentId, bones) },
                             onAnimationSettingsChanged = { settings -> CanvasStorage.saveAnimationSettings(context, currentDocumentId, settings) },
@@ -811,6 +816,7 @@ class MainActivity : ComponentActivity() {
                                 },
                                 frames = CanvasStorage.loadFrames(context, documentId),
                                 drawingScale = CanvasStorage.loadDrawingScale(context, documentId),
+                                branches = CanvasStorage.loadBranches(context, documentId),
                                 history = CanvasStorage.loadHistory(context, documentId),
                                 texts = CanvasStorage.loadTextItems(context, documentId),
                                 connectors = CanvasStorage.loadConnectors(context, documentId),
@@ -834,6 +840,7 @@ class MainActivity : ComponentActivity() {
                         canvasState.loadStats(loaded.stats)
                         canvasState.loadGuides(loaded.guides)
                         canvasState.loadDrawingScale(loaded.drawingScale)
+                        canvasState.loadBranches(loaded.branches.first, loaded.branches.second)
                         canvasState.loadSymbolInstances(loaded.symbolInstances)
                         // Symbols redefined since this document was last open: catch its instances up.
                         if (loaded.symbolInstances.isNotEmpty()) {

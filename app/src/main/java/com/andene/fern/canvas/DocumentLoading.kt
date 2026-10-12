@@ -27,6 +27,7 @@ class LoadedDocument(
     val rasters: Map<String, RasterSurface>,
     val frames: List<Frame>,
     val drawingScale: DrawingScale?,
+    val branches: Pair<List<AnimationBranch>, String?>,
     val history: Pair<List<List<Stroke>>, List<List<Stroke>>>,
     val texts: List<TextItem>,
     val connectors: List<Connector>,
