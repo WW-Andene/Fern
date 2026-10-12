@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -49,7 +50,7 @@ fun GradientFillDialog(
 ) {
     var mode by remember { mutableStateOf(initialMode) }
     var endColor by remember { mutableStateOf(initialGradient?.endColor ?: Color.White) }
-    var angle by remember { mutableStateOf(initialGradient?.angleDegrees ?: 90) }
+    var angle by remember { mutableIntStateOf(initialGradient?.angleDegrees ?: 90) }
     var pickingEndColor by remember { mutableStateOf(false) }
 
     AlertDialog(
