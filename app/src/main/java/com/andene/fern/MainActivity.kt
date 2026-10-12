@@ -691,6 +691,8 @@ class MainActivity : ComponentActivity() {
                                     event.key == Key.E -> canvasState.activeTool = Tool.ERASER
                                     event.key == Key.V -> canvasState.activeTool = Tool.SELECT
                                     event.key == Key.Zero -> canvasState.zoomToFit()
+                                    // Stylus barrel and tail buttons arrive as key events (API 34+ USI pens).
+                                    event.nativeKeyEvent.keyCode in STYLUS_BUTTON_KEYCODES -> canvasState.toggleEraser()
                                     else -> return@onPreviewKeyEvent false
                                 }
                                 true
@@ -1109,3 +1111,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+/**
+ * KEYCODE_STYLUS_BUTTON_PRIMARY, _SECONDARY, _TERTIARY and _TAIL (API 34). Literal values so the
+ * mapping compiles against older platforms; older devices simply never send them.
+ */
+private val STYLUS_BUTTON_KEYCODES = setOf(308, 309, 310, 311)

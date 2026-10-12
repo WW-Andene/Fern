@@ -57,7 +57,7 @@ Goal: a full, professional tool set.
 - [x] 24. Stylus pressure and tilt; palm rejection
 - [x] 25. Shapes (line, rectangle, ellipse, arrow, speech bubble), vector fill, text, images
 - [x] 26. Ruler/guide; opacity and blend modes; background styles
-- [~] 27. Stylus eraser end and side button erase; no double-tap/squeeze gestures yet
+- [x] 27. Stylus eraser end and side button erase; stylus barrel/tail buttons (Android 14 key events) toggle eraser and previous tool, the platform counterpart of double-tap/squeeze
 - [x] 28. Shape recognition: draw-and-hold snaps to a clean line, rectangle or ellipse
 - [~] 29. Brush engine — airbrush and crayon procedural textures; stamp brush (circle, soft, square, star tips) with a brush editor for spacing, scatter, size/angle jitter and direction following, and named brush presets; no image-based tips
 - [x] 30. Colour workflow — eyedropper, touch-and-hold pick, recent colours, saved palette, .gpl and .ase import

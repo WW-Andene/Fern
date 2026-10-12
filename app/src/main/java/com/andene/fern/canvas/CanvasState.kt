@@ -244,6 +244,21 @@ class CanvasState(
         }
     var activePenType by mutableStateOf(PenType.MARKER)
 
+    private var toolBeforeEraserToggle = Tool.PEN
+
+    /**
+     * Swaps to the eraser and back to the previous tool - the action of a stylus button press
+     * (Android's counterpart of Apple Pencil's double-tap/squeeze, roadmap item 27).
+     */
+    fun toggleEraser() {
+        if (activeTool == Tool.ERASER) {
+            activeTool = toolBeforeEraserToggle
+        } else {
+            toolBeforeEraserToggle = activeTool
+            activeTool = Tool.ERASER
+        }
+    }
+
     /** Brush settings new [PenType.STAMP] strokes are drawn with; edited in the brush editor. */
     var activeBrush by mutableStateOf(StampBrush())
         private set
