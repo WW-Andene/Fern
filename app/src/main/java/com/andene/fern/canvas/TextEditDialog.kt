@@ -43,6 +43,7 @@ data class TextEditResult(
     val keepBox: Boolean,
     val link: LinkTarget?,
     val outlined: Boolean = false,
+    val features: Set<OpenTypeFeature> = emptySet(),
 )
 
 /**
@@ -65,6 +66,7 @@ fun TextEditDialog(
     var italic by remember { mutableStateOf(pending.initialItalic) }
     var sticky by remember { mutableStateOf(pending.initialSticky) }
     var outlined by remember { mutableStateOf(pending.initialOutlined) }
+    var features by remember { mutableStateOf(pending.initialFeatures) }
     // Snap to the nearest offered size, so an existing label shows its closest size selected.
     var sizePx by remember { mutableStateOf(TEXT_SIZES_PX.minBy { kotlin.math.abs(it - pending.initialSizePx) }) }
     var font by remember { mutableStateOf(pending.initialFont) }
@@ -72,7 +74,7 @@ fun TextEditDialog(
     var keepBox by remember { mutableStateOf(true) }
     var link by remember { mutableStateOf(pending.initialLink) }
     var linkMenu by remember { mutableStateOf<LinkMenu?>(null) }
-    fun result() = TextEditResult(text, bold, italic, sticky, sizePx, font, alignment, keepBox, link, outlined)
+    fun result() = TextEditResult(text, bold, italic, sticky, sizePx, font, alignment, keepBox, link, outlined, features)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -88,8 +90,20 @@ fun TextEditDialog(
                         fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
                         fontFamily = font.fontFamily,
                         textAlign = alignment.textAlign,
+                        fontFeatureSettings = featureSettings(features),
                     ),
                 )
+                // OpenType features (roadmap item 98).
+                Row(modifier = Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState())) {
+                    for (feature in OpenTypeFeature.entries) {
+                        FilterChip(
+                            selected = feature in features,
+                            onClick = { features = if (feature in features) features - feature else features + feature },
+                            label = { Text(stringResource(feature.label)) },
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                    }
+                }
                 Row(modifier = Modifier.padding(top = 8.dp)) {
                     FilterChip(
                         selected = bold,

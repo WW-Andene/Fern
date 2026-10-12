@@ -470,6 +470,11 @@
     <string name="profile_taper_start">Taper the start</string>
     <string name="profile_taper_end">Taper the end</string>
     <string name="text_outlined">Outline</string>
+    <string name="otf_no_ligatures">No ligatures</string>
+    <string name="otf_small_caps">Small caps</string>
+    <string name="otf_oldstyle">Oldstyle figures</string>
+    <string name="otf_tabular">Tabular figures</string>
+    <string name="otf_fractions">Fractions</string>
     <string name="tb_text_on_path">Text along the selected line</string>
     <string name="transform_title">Position, size and rotation</string>
     <string name="transform_width">Width</string>

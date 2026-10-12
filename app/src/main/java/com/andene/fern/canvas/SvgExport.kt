@@ -105,7 +105,7 @@ fun exportDocumentSvg(source: CanvasState, imageBytesFor: (String) -> ByteArray?
             val id = "tp${textPathCount++}"
             val d = path.mapIndexed { i, p -> (if (i == 0) "M" else "L") + "${n(item.position.x + p.x)} ${n(item.position.y + p.y)}" }.joinToString(" ")
             svg.append("""<defs><path id="$id" d="$d"/></defs>""")
-            svg.append("""<text font-size="${n(item.fontSizeWorld)}" $paint font-family="${item.font.svgFamily}"""")
+            svg.append("""<text font-size="${n(item.fontSizeWorld)}" $paint font-family="${item.font.svgFamily}"${svgFeatureStyle(item.features)}""")
             if (item.bold) svg.append(""" font-weight="bold"""")
             if (item.italic) svg.append(""" font-style="italic"""")
             svg.append("""><textPath href="#$id">${escapeXml(item.text.replace('\n', ' '))}</textPath></text>""").append('\n')
@@ -124,7 +124,7 @@ fun exportDocumentSvg(source: CanvasState, imageBytesFor: (String) -> ByteArray?
             item.alignment == TextAlignment.END -> item.position.x + box
             else -> item.position.x
         }
-        svg.append("""<text x="${n(x)}" y="${n(baseline)}" font-size="${n(item.fontSizeWorld)}" """)
+        svg.append("""<text x="${n(x)}" y="${n(baseline)}" font-size="${n(item.fontSizeWorld)}"${svgFeatureStyle(item.features)} """)
         svg.append("""$paint font-family="${item.font.svgFamily}"""")
         if (box != null) svg.append(""" text-anchor="${item.alignment.svgAnchor}"""")
         if (item.bold) svg.append(""" font-weight="bold"""")
@@ -150,3 +150,13 @@ private fun hex(color: Color): String = String.format(
 
 private fun escapeXml(text: String): String =
     text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+
+/** A label's OpenType features as an SVG style attribute (CSS quotes each tag), or nothing. */
+private fun svgFeatureStyle(features: Set<OpenTypeFeature>): String {
+    val settings = featureSettings(features) ?: return ""
+    val css = settings.split(", ").joinToString(", ") { tag ->
+        val name = tag.substringBefore(' ')
+        if (tag.endsWith(" 0")) "'$name' 0" else "'$name'"
+    }
+    return """ style="font-feature-settings: $css""""
+}
