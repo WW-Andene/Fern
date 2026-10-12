@@ -121,6 +121,7 @@ import com.andene.fern.canvas.Mp4Encoder
 import com.andene.fern.canvas.exportReplayMp4
 import com.andene.fern.canvas.exportAnimatedPng
 import com.andene.fern.canvas.exportLottie
+import com.andene.fern.canvas.exportDocumentDxf
 import com.andene.fern.canvas.exportDocumentEps
 import com.andene.fern.canvas.exportReplayGif
 import com.andene.fern.canvas.StrokeChunkFile
@@ -388,6 +389,11 @@ class MainActivity : ComponentActivity() {
                         contract = ActivityResultContracts.CreateDocument("application/postscript"),
                     ) { uri ->
                         if (uri != null) writeExport(uri) { exportDocumentEps(canvasState)?.toByteArray() }
+                    }
+                    val dxfExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("image/vnd.dxf"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportDocumentDxf(canvasState)?.toByteArray() }
                     }
                     val lottieExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("application/json"),
@@ -972,6 +978,7 @@ class MainActivity : ComponentActivity() {
                                 onExportPdf = { pdfExportLauncher.launch("${currentDocumentName()}.pdf") },
                                 onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
                                 onExportEps = { epsExportLauncher.launch("${currentDocumentName()}.eps") },
+                                onExportDxf = { dxfExportLauncher.launch("${currentDocumentName()}.dxf") },
                                 onExportGif = { gifExportLauncher.launch("${currentDocumentName()}.gif") },
                                 onExportApng = { apngExportLauncher.launch("${currentDocumentName()}.png") },
                                 onExportLottie = { lottieExportLauncher.launch("${currentDocumentName()}.json") },

@@ -506,6 +506,7 @@
     <string name="tb_trace_image">Trace the image into shapes</string>
     <string name="toast_trace_nothing">No dark shapes found to trace</string>
     <string name="tb_export_eps">Print vector (EPS)</string>
+    <string name="tb_export_dxf">CAD drawing (DXF)</string>
     <string name="color_cmyk">CMYK % (uncalibrated)</string>
     <string name="tb_indexed_on">Indexed palette: on (pixels use saved colours only)</string>
     <string name="tb_indexed_off">Indexed palette: off</string>

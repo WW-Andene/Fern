@@ -508,6 +508,7 @@
     <string name="tb_trace_image">Vectoriser l\'image en formes</string>
     <string name="toast_trace_nothing">Aucune forme sombre à vectoriser</string>
     <string name="tb_export_eps">Vectoriel pour l\'impression (EPS)</string>
+    <string name="tb_export_dxf">Dessin CAO (DXF)</string>
     <string name="color_cmyk">CMJN % (non calibré)</string>
     <string name="tb_indexed_on">Palette indexée : activée (les pixels n\'utilisent que les couleurs enregistrées)</string>
     <string name="tb_indexed_off">Palette indexée : désactivée</string>

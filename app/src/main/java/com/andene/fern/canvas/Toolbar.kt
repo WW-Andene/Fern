@@ -185,6 +185,7 @@ fun Toolbar(
     onExportSelection: () -> Unit = {},
     onExportSvg: () -> Unit = {},
     onExportEps: () -> Unit = {},
+    onExportDxf: () -> Unit = {},
     onShare: () -> Unit = {},
     onExportBundle: () -> Unit = {},
     onExportSpriteSheet: () -> Unit = {},
@@ -1124,6 +1125,13 @@ fun Toolbar(
                             onClick = {
                                 showExportMenu = false
                                 onExportEps()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.tb_export_dxf)) },
+                            onClick = {
+                                showExportMenu = false
+                                onExportDxf()
                             },
                         )
                         DropdownMenuItem(
