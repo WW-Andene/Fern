@@ -390,7 +390,7 @@ class MainActivity : ComponentActivity() {
                             colors.forEach { canvasState.addSavedColor(it) }
                             Toast.makeText(
                                 context,
-                                if (colors.isEmpty()) context.getString(R.string.toast_bad_palette) else context.getString(R.string.toast_imported_colours, colors.size),
+                                if (colors.isEmpty()) context.getString(R.string.toast_bad_palette) else context.resources.getQuantityString(R.plurals.toast_imported_colours, colors.size, colors.size),
                                 Toast.LENGTH_SHORT,
                             ).show()
                         }

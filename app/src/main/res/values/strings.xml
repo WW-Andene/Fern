@@ -267,7 +267,7 @@
     <string name="tb_slot_save">Save current pen here</string>
     <string name="action_clear">Clear</string>
     <string name="gradient_choose_end">Choose the end colour</string>
-    <string name="gradient_direction">Direction %1$d degrees</string>
+    <string name="gradient_direction">Direction %1$d°</string>
     <string name="gradient_preview">Gradient preview</string>
     <string name="brush_preview">Brush preview</string>
     <string name="brush_slider_value">%1$s: %2$.2f</string>
@@ -292,7 +292,10 @@
     <string name="toast_bad_backup">That isn\'t a Fern backup</string>
     <string name="default_document_name">My Canvas</string>
     <string name="crash_subject">Fern crash report</string>
-    <string name="toast_imported_colours">Imported %1$d colours</string>
+    <plurals name="toast_imported_colours">
+        <item quantity="one">Imported %1$d colour</item>
+        <item quantity="other">Imported %1$d colours</item>
+    </plurals>
     <string name="name_selection">%1$s selection</string>
     <string name="name_timelapse">%1$s time-lapse</string>
     <string name="name_sprites">%1$s sprites</string>

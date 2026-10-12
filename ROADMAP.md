@@ -130,7 +130,7 @@ All deferred: they need a server or cloud platform.
 - [x] 74. Keyboard shortcuts, mouse wheel and trackpad; large-screen layout: from 768dp wide the toolbar wraps onto several rows with every tool in view instead of scrolling
 - [x] 75. Multi-window drag-and-drop: images, text and Fern strokes dropped onto the canvas; a selection dragged out from its handle to other apps (as a PNG) or another Fern window (as strokes). The cross-window drag itself is untested here (needs a device)
 - [ ] 76. Generative assists ⏸ (hosted AI)
-- [ ] 77. Release work: Play Store listing, privacy policy, staged rollouts
+- [ ] 77. Release work: Play Store listing, privacy policy, staged rollouts ⏸ (owner: the listing and rollouts are Play Console steps; a privacy-policy document is a new top-level file needing approval; R8 shrinking needs device testing, since saved documents store enum names)
 
 ## Phase 9 — Animation & skeletal rigging
 

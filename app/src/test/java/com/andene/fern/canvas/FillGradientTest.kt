@@ -53,7 +53,7 @@ class FillGradientTest {
             GradientFillDialog(Color.Black, GradientMode.NONE, null, onApply = { m, g -> result = m to g }, onDismiss = {})
         }
         compose.onNodeWithText("Two colours").performClick()
-        compose.onNodeWithContentDescription("Direction 0 degrees").performClick()
+        compose.onNodeWithContentDescription("Direction 0°").performClick()
         compose.onNodeWithText("Apply").performClick()
         assertEquals(GradientMode.TWO_COLOURS, result?.first)
         assertEquals(0, result?.second?.angleDegrees)
