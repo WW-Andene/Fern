@@ -310,6 +310,18 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                         ?.also { imageBitmapCache[fileName] = it }
             }
 
+            state.textItems.firstOrNull { it.id == state.selectedTextId }?.let { item ->
+                val (min, max) = state.textBounds(item)
+                val topLeft = state.worldToScreen(min, screenCenter)
+                val bottomRight = state.worldToScreen(max, screenCenter)
+                drawRect(
+                    color = SELECTION_HIGHLIGHT_COLOR,
+                    topLeft = topLeft,
+                    size = Size(bottomRight.x - topLeft.x, bottomRight.y - topLeft.y),
+                    style = DrawStyle(width = 2f),
+                )
+            }
+
             state.imageItems.firstOrNull { it.id == state.selectedImageId }?.let { image ->
                 val topLeft = state.worldToScreen(image.position, screenCenter)
                 val bottomRight = state.worldToScreen(

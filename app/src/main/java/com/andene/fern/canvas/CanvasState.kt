@@ -900,16 +900,17 @@ class CanvasState(
     /** Finds the topmost text label whose approximate bounding box contains [worldPoint], or null. */
     private fun findTextItemAt(worldPoint: WorldPoint): TextItem? {
         for (item in textItems.asReversed()) {
-            val width = item.text.length * item.fontSizeWorld * 0.55
-            val height = item.fontSizeWorld * 1.3
-            if (worldPoint.x in item.position.x..(item.position.x + width) &&
-                worldPoint.y in item.position.y..(item.position.y + height)
-            ) {
-                return item
-            }
+            val (min, max) = textBounds(item)
+            if (worldPoint.x in min.x..max.x && worldPoint.y in min.y..max.y) return item
         }
         return null
     }
+
+    /** Approximate world-space box of a text label (average glyph width), for hit-testing and the selection highlight. */
+    fun textBounds(item: TextItem): Pair<WorldPoint, WorldPoint> = item.position to WorldPoint(
+        item.position.x + item.text.length * item.fontSizeWorld * 0.55,
+        item.position.y + item.fontSizeWorld * 1.3,
+    )
 
     /** Replaces every text item with [loaded] (e.g. from [CanvasStorage.loadTextItems] on document load/switch). */
     fun loadTextItems(loaded: List<TextItem>) {
@@ -998,11 +999,24 @@ class CanvasState(
 
     private var isMovingImage = false
 
+    /** The text label picked with the SELECT tool (same tap/drag/delete model as images), or null. */
+    var selectedTextId by mutableStateOf<String?>(null)
+        private set
+
+    private var isMovingText = false
+
     private fun imageContains(image: ImageItem, point: WorldPoint) =
         point.x >= image.position.x && point.x <= image.position.x + image.widthWorld &&
             point.y >= image.position.y && point.y <= image.position.y + image.heightWorld
 
     fun beginSelectGesture(worldPoint: WorldPoint) {
+        val pickedText = textItems.firstOrNull { it.id == selectedTextId }
+        if (pickedText != null && findTextItemAt(worldPoint)?.id == pickedText.id) {
+            isMovingText = true
+            lastDragPoint = worldPoint
+            return
+        }
+        selectedTextId = null
         val pickedImage = imageItems.firstOrNull { it.id == selectedImageId }
         if (pickedImage != null && imageContains(pickedImage, worldPoint)) {
             recordHistory()
@@ -1025,6 +1039,13 @@ class CanvasState(
     }
 
     fun continueSelectGesture(worldPoint: WorldPoint) {
+        if (isMovingText) {
+            val last = lastDragPoint ?: return
+            val index = textItems.indexOfFirst { it.id == selectedTextId }
+            if (index != -1) textItems[index] = textItems[index].copy(position = textItems[index].position + (worldPoint - last))
+            lastDragPoint = worldPoint
+            return
+        }
         if (isMovingImage) {
             val last = lastDragPoint ?: return
             val index = imageItems.indexOfFirst { it.id == selectedImageId }
@@ -1046,6 +1067,12 @@ class CanvasState(
     }
 
     fun endSelectGesture() {
+        if (isMovingText) {
+            isMovingText = false
+            lastDragPoint = null
+            onTextChanged(textItems.toList())
+            return
+        }
         if (isMovingImage) {
             isMovingImage = false
             lastDragPoint = null
@@ -1084,7 +1111,9 @@ class CanvasState(
         // topmost image under it instead.
         val tapSlopWorld = TAP_SLOP_SCREEN / scale.coerceAtLeast(1e-300)
         if (selection.isEmpty() && right - left <= tapSlopWorld && bottom - top <= tapSlopWorld) {
-            selectedImageId = imageItems.lastOrNull { imageContains(it, start) }?.id
+            // Text is drawn above images, so it wins when both are under the tap.
+            selectedTextId = findTextItemAt(start)?.id
+            if (selectedTextId == null) selectedImageId = imageItems.lastOrNull { imageContains(it, start) }?.id
         }
     }
 
@@ -1287,6 +1316,13 @@ class CanvasState(
     }
 
     fun deleteSelection() {
+        val textId = selectedTextId
+        if (textId != null) {
+            textItems.removeAll { it.id == textId }
+            selectedTextId = null
+            onTextChanged(textItems.toList())
+            return
+        }
         val imageId = selectedImageId
         if (imageId != null) {
             recordHistory()
@@ -1322,6 +1358,7 @@ class CanvasState(
     private fun clearSelectionState() {
         selection.clear()
         selectedImageId = null
+        selectedTextId = null
         gestureSnapshot = emptyMap()
         gestureSnapshotWidths = emptyMap()
     }
