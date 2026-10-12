@@ -3,6 +3,9 @@ package com.andene.fern.canvas
 import com.andene.fern.R
 import android.graphics.BitmapFactory
 import android.view.MotionEvent
+import android.view.SurfaceView
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -107,9 +110,21 @@ fun DrawingCanvas(
     // Decoded lazily and cached by file name: re-decoding from disk every frame would be
     // wasteful, and images never change once placed (a new image is a new ImageItem/file).
     val imageBitmapCache = remember { mutableMapOf<String, ImageBitmap>() }
+    // Low-latency ink (see FrontBufferedInk): a transparent front-buffered surface above the
+    // canvas. Placed first in the Box so the canvas, not the surface, receives touches; the
+    // surface is still composited on top because it's ordered above the window.
+    var frontInk by remember { mutableStateOf<FrontBufferedInk?>(null) }
 
+    Box(modifier) {
+    if (FrontBufferedInk.isSupported) {
+        AndroidView(
+            factory = { ctx -> SurfaceView(ctx).also { FrontBufferedInk.prepare(it); frontInk = FrontBufferedInk(it) } },
+            modifier = Modifier.matchParentSize(),
+            onRelease = { frontInk?.release(); frontInk = null },
+        )
+    }
     Canvas(
-        modifier = modifier
+        modifier = Modifier.matchParentSize()
             // Screen readers otherwise announce nothing for the drawing surface.
             .semantics {
                 contentDescription = context.resources.getQuantityString(R.plurals.canvas_description, state.strokes.size, state.strokes.size)
@@ -123,6 +138,7 @@ fun DrawingCanvas(
                     stylusSample.eraserEnd = event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER
                     stylusSample.buttonPressed = isStylus && (event.buttonState and MotionEvent.BUTTON_STYLUS_PRIMARY) != 0
                     predictor.record(event)
+                    frontInk?.onTouchEvent(event, state.strokeInProgress?.takeIf { state.activeStabilization <= 0.0 }, state.scale)
                     predictedScreen = when (event.actionMasked) {
                         MotionEvent.ACTION_MOVE -> predictor.predict()?.let { predicted ->
                             Offset(predicted.x, predicted.y).also { predicted.recycle() }
@@ -615,6 +631,7 @@ fun DrawingCanvas(
                 }
             }
         }
+    }
     }
 
     state.pendingTextEdit?.let { pending ->

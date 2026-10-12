@@ -27,7 +27,7 @@ Goal: ink that feels like it comes straight out of the pen tip.
 - [x] 4. Stroke smoothing (midpoint quadratic Béziers)
 - [x] 5. Undo / redo (snapshot-based: reverts any action, including erase, move, fill, clear, images and text)
 - [x] 6. Brush width and full HSV/hex colour picker
-- [ ] 7. Low-latency ink: front-buffered rendering (`GLFrontBufferedRenderer` / Ink API), under 20 ms pen-to-pixel
+- [x] 7. Low-latency ink: front-buffered rendering (`CanvasFrontBufferedRenderer`, API 29+) for opaque marker strokes, plus motion prediction; pen-to-pixel latency not yet measured on a device
 - [x] 8. Motion prediction (`androidx.input` `MotionEventPredictor`)
 - [x] 9. Variable-width stroke geometry (tessellated outlines instead of per-segment lines) — pressure/tilt and calligraphy strokes filled as one mitred outline
 - [x] 10. Zoom-level-aware simplification — sub-pixel strokes drawn as a dot; points under a screen pixel apart skipped at render time
