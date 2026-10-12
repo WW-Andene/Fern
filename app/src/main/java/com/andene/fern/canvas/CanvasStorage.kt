@@ -189,6 +189,7 @@ object CanvasStorage {
         legacyHistoryFile(context, id).delete()
         layersFile(context, id).delete()
         layerCompsFile(context, id).delete()
+        statsFile(context, id).delete()
         framesFile(context, id).delete()
         AudioNotes.deleteAll(context, id)
         versionsDir(context, id).deleteRecursively()
@@ -686,6 +687,30 @@ object CanvasStorage {
         writeStored(layersFile(context, documentId), root)
     }
 
+    /** Saves the document's usage statistics (roadmap item 132). */
+    fun saveStats(context: Context, documentId: String, stats: DocumentStats) {
+        writeStored(
+            statsFile(context, documentId),
+            JSONObject()
+                .put("activeMillis", stats.activeMillis)
+                .put("strokesDrawn", stats.strokesDrawn)
+                .put("erases", stats.erases)
+                .put("firstAction", stats.firstAction)
+                .put("lastAction", stats.lastAction),
+        )
+    }
+
+    fun loadStats(context: Context, documentId: String): DocumentStats {
+        val root = readStored(statsFile(context, documentId)) { it as JSONObject } ?: return DocumentStats()
+        return DocumentStats(
+            activeMillis = root.optLong("activeMillis"),
+            strokesDrawn = root.optLong("strokesDrawn"),
+            erases = root.optLong("erases"),
+            firstAction = root.optLong("firstAction"),
+            lastAction = root.optLong("lastAction"),
+        )
+    }
+
     /** Saves the document's layer comps (roadmap item 123). */
     fun saveLayerComps(context: Context, documentId: String, comps: List<LayerComp>) {
         val root = JSONArray()
@@ -963,6 +988,7 @@ object CanvasStorage {
         "background.json" to backgroundFile(context, documentId),
         "layers.json" to layersFile(context, documentId),
         "layercomps.json" to layerCompsFile(context, documentId),
+        "stats.json" to statsFile(context, documentId),
         "frames.json" to framesFile(context, documentId),
     )
 
@@ -1002,6 +1028,8 @@ object CanvasStorage {
     private fun layersFile(context: Context, documentId: String) = File(context.filesDir, "layers_$documentId.json")
 
     private fun layerCompsFile(context: Context, documentId: String) = File(context.filesDir, "layercomps_$documentId.json")
+
+    private fun statsFile(context: Context, documentId: String) = File(context.filesDir, "stats_$documentId.json")
 
     private fun historyFile(context: Context, documentId: String) = File(context.filesDir, "history_$documentId.bin")
 

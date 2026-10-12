@@ -21,6 +21,7 @@ class LoadedDocument(
     val strokes: List<Stroke>,
     val layers: List<Layer>,
     val layerComps: List<LayerComp>,
+    val stats: DocumentStats,
     val rasters: Map<String, RasterSurface>,
     val frames: List<Frame>,
     val history: Pair<List<List<Stroke>>, List<List<Stroke>>>,

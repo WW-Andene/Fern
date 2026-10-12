@@ -91,6 +91,7 @@ class CanvasState(
     private val onConnectorsChanged: (List<Connector>) -> Unit = {},
     private val onBonesChanged: (List<Bone>) -> Unit = {},
     private val onLayerCompsChanged: (List<LayerComp>) -> Unit = {},
+    private val onStatsChanged: (DocumentStats) -> Unit = {},
     /** Playback speed and frame holds changed (see [AnimationSettings]). */
     private val onAnimationSettingsChanged: (AnimationSettings) -> Unit = {},
     /**
@@ -635,6 +636,26 @@ class CanvasState(
      * stroke. Purely a view: nothing is changed or saved.
      */
     var replayCount by mutableStateOf<Int?>(null)
+
+    /** This document's usage statistics (roadmap item 132); see [DocumentStats]. */
+    var stats by mutableStateOf(DocumentStats())
+        private set
+
+    // When the last counted action ended, this session; null until one has.
+    private var lastStatsAction: Long? = null
+
+    /** Replaces the statistics (from [CanvasStorage.loadStats]) when a document is opened. */
+    fun loadStats(loaded: DocumentStats) {
+        stats = loaded
+        lastStatsAction = null
+    }
+
+    private fun countAction(action: StatsAction, startedAt: Long) {
+        val now = System.currentTimeMillis()
+        stats = stats.after(action, startedAt, now, lastStatsAction)
+        lastStatsAction = now
+        onStatsChanged(stats)
+    }
 
     /** A voice note playing in step with its ink (roadmap item 130); null otherwise. Purely a view. */
     var audioReplay by mutableStateOf<AudioReplay?>(null)
@@ -2917,6 +2938,7 @@ class CanvasState(
         }
         if (rasterLast != null) {
             endRasterStroke()
+            countAction(StatsAction.DRAW, strokeStartMillis)
             return
         }
         val stroke = currentStroke
@@ -2950,6 +2972,7 @@ class CanvasState(
         lastRawPoint = null
         holdAnchor = null
         currentStroke = null
+        if (stroke != null) countAction(StatsAction.DRAW, strokeStartMillis)
         rebaseIfNeeded()
         strokesChanged()
     }
@@ -2990,6 +3013,7 @@ class CanvasState(
 
     fun beginErase(worldPoint: WorldPoint) {
         isErasing = true
+        eraseStartMillis = System.currentTimeMillis()
         eraseStartDepth = undoStack.size
         recordHistory()
         clearSelectionState() // avoid a stale selection referencing strokes this erase is about to split/remove
@@ -3017,6 +3041,7 @@ class CanvasState(
         isErasing = false
         if (rasterLast != null) {
             endRasterStroke()
+            countAction(StatsAction.ERASE, eraseStartMillis)
             return
         }
         if (lassoErase) {
@@ -3028,9 +3053,12 @@ class CanvasState(
                 return
             }
         }
+        countAction(StatsAction.ERASE, eraseStartMillis)
         strokesChanged()
         onImageChanged(imageItems.toList())
     }
+
+    private var eraseStartMillis = 0L
 
     /**
      * Lasso eraser: instead of rubbing out where the eraser passes, the eraser gesture draws a
@@ -3182,6 +3210,7 @@ class CanvasState(
         )
         for (point in generateShapePoints(activeShapeKind, start, end)) stroke.addPoint(point)
         strokes.add(stroke)
+        countAction(StatsAction.DRAW, System.currentTimeMillis())
         strokesChanged()
     }
 

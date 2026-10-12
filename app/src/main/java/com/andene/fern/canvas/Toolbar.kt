@@ -80,6 +80,7 @@ import androidx.compose.material.icons.filled.FlipToBack
 import androidx.compose.material.icons.filled.FlipToFront
 import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.FormatPaint
+import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.VerticalSplit
 import androidx.compose.material.icons.filled.SportsGymnastics
 import androidx.compose.material.icons.filled.FormatShapes
@@ -228,6 +229,8 @@ fun Toolbar(
     var showSearchDialog by remember { mutableStateOf(false) }
     var showSymmetryMenu by remember { mutableStateOf(false) }
     var showAlignMenu by remember { mutableStateOf(false) }
+    var showStatsDialog by remember { mutableStateOf(false) }
+    if (showStatsDialog) StatsDialog(state, onDismiss = { showStatsDialog = false })
     var showSignatureDialog by remember { mutableStateOf(false) }
     if (showSignatureDialog) {
         val context = LocalContext.current
@@ -1045,6 +1048,7 @@ fun Toolbar(
                             Triple(R.string.second_view_title, Icons.Filled.VerticalSplit) { state.secondViewOpen = !state.secondViewOpen },
                             Triple(R.string.audio_title, Icons.Filled.Mic, onOpenAudioNotes),
                             Triple(R.string.versions_title, Icons.Filled.History, onOpenVersions),
+                            Triple(R.string.stats_title, Icons.Filled.QueryStats) { showStatsDialog = true },
                             Triple(R.string.symbols_title, Icons.Filled.Category) { openSymbols() },
                             Triple(R.string.signature_title, Icons.Filled.Draw) { showSignatureDialog = true },
                             Triple(R.string.script_title, Icons.Filled.Code) { showScriptDialog = true },

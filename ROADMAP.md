@@ -208,7 +208,7 @@ Concepts, GoodNotes, Notability, Infinite Painter, Aseprite, Spine and Affinity 
 | 129 | Document signing, markup | Concepts | 6 | done: a signature pad (⋮ > Sign) that saves the signature and places it as selected strokes; markup with the existing tools on imported PDF pages |
 | 130 | Audio recording with notes | GoodNotes, Notability | 8 | done: recording carries on while drawing; playback fades ink not yet reached and a tap on ink jumps to when it was drawn |
 | 131 | AI over notes | GoodNotes, Notability | 8 | ⏸ |
-| 132 | Usage statistics | Clip Studio | 8 | not started |
+| 132 | Usage statistics | Clip Studio | 8 | done: per-document time drawing (idle gaps capped at a minute), strokes drawn, erasures, first and last worked on, and what the document holds; ⋮ > Statistics |
 | 133 | Customisable panels and QuickMenu | Krita, Procreate | 8 | partly (More menu) |
 | 134 | Dopesheet and curve editor | Spine | 9 | not started |
 | 135 | Free-form deformation, procedural animation | Spine | 9 | not started |
