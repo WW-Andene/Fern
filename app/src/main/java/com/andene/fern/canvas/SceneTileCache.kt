@@ -108,6 +108,7 @@ class SceneTileCache {
             loadStrokes(state.strokes.map { it.deepCopy() })
             loadLayers(state.layers.toList())
             loadTextItems(state.textItems.toList())
+            loadConnectors(state.connectors.toList())
             loadImageItems(state.imageItems.toList())
             loadBackground(state.backgroundColor, state.backgroundStyle)
             goToAnimFrame(state.currentAnimFrame)

@@ -71,6 +71,24 @@ fun exportDocumentSvg(source: CanvasState, imageBytesFor: (String) -> ByteArray?
         svg.append('\n')
     }
 
+    // Connectors under the labels, as on the canvas: a line and a triangular arrowhead.
+    for (connector in camera.connectors) {
+        val (from, to) = camera.connectorEnds(connector) ?: continue
+        val (a, b) = connectorSegment(from.first, from.second, to.first, to.second) ?: continue
+        val dx = b.x - a.x
+        val dy = b.y - a.y
+        val length = kotlin.math.hypot(dx, dy).coerceAtLeast(1e-9)
+        val ux = dx / length
+        val uy = dy / length
+        val head = 12.0 / camera.scale.coerceAtLeast(1e-300) // same 12 px arrowhead as on screen at the export zoom
+        val side = head / 2
+        val bx = b.x - ux * head
+        val by = b.y - uy * head
+        val stroke = 2.0 / camera.scale.coerceAtLeast(1e-300)
+        svg.append("""<line x1="${n(a.x)}" y1="${n(a.y)}" x2="${n(b.x)}" y2="${n(b.y)}" stroke="#455a64" stroke-width="${n(stroke)}" stroke-linecap="round"/>""")
+        svg.append("""<polygon points="${n(b.x)},${n(b.y)} ${n(bx - uy * side)},${n(by + ux * side)} ${n(bx + uy * side)},${n(by - ux * side)}" fill="#455a64"/>""").append('\n')
+    }
+
     for (item in camera.textItems) {
         // SVG text is positioned by its baseline; the canvas anchors text at its top-left. Each
         // line is its own tspan at 1.3 em spacing (the canvas's approximate line height).

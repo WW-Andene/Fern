@@ -172,6 +172,7 @@ object CanvasStorage {
         synchronized(this) { lastSaved.remove(id) }
         pinsFile(context, id).delete()
         textItemsFile(context, id).delete()
+        connectorsFile(context, id).delete()
         imageItemsFile(context, id).delete()
         backgroundFile(context, id).delete()
         thumbnailFile(context, id).delete()
@@ -191,6 +192,7 @@ object CanvasStorage {
     fun duplicateDocument(context: Context, id: String, newName: String): DocumentMeta {
         val strokes = load(context, id)
         val textItems = loadTextItems(context, id)
+        val connectors = loadConnectors(context, id)
         val imageItems = loadImageItems(context, id)
         val (backgroundColor, backgroundStyle) = loadBackground(context, id)
         val layers = loadLayers(context, id)
@@ -198,6 +200,7 @@ object CanvasStorage {
         val meta = createDocument(context, newName)
         save(context, meta.id, strokes)
         saveTextItems(context, meta.id, textItems)
+        saveConnectors(context, meta.id, connectors)
         saveImageItems(context, meta.id, imageItems)
         saveBackground(context, meta.id, backgroundColor, backgroundStyle)
         if (layers.isNotEmpty()) saveLayers(context, meta.id, layers)
@@ -277,6 +280,20 @@ object CanvasStorage {
             )
         }
         writeStored(pinsFile(context, documentId), root)
+    }
+
+    fun saveConnectors(context: Context, documentId: String, connectors: List<Connector>) {
+        val root = JSONArray()
+        for (c in connectors) root.put(JSONObject().put("id", c.id).put("from", c.fromId).put("to", c.toId))
+        writeStored(connectorsFile(context, documentId), root)
+    }
+
+    fun loadConnectors(context: Context, documentId: String): List<Connector> {
+        val root = readStored(connectorsFile(context, documentId)) { it as JSONArray } ?: return emptyList()
+        return (0 until root.length()).map { i ->
+            val entry = root.getJSONObject(i)
+            Connector(entry.getString("id"), entry.getString("from"), entry.getString("to"))
+        }
     }
 
     fun loadTextItems(context: Context, documentId: String): List<TextItem> {
@@ -668,6 +685,7 @@ object CanvasStorage {
         LEGACY_BUNDLE_STROKES_ENTRY to legacyStrokesFile(context, documentId),
         "pins.json" to pinsFile(context, documentId),
         "text.json" to textItemsFile(context, documentId),
+        "connectors.json" to connectorsFile(context, documentId),
         "images.json" to imageItemsFile(context, documentId),
         "background.json" to backgroundFile(context, documentId),
         "layers.json" to layersFile(context, documentId),
@@ -694,6 +712,8 @@ object CanvasStorage {
     private fun pinsFile(context: Context, documentId: String) = File(context.filesDir, "pins_$documentId.json")
 
     private fun textItemsFile(context: Context, documentId: String) = File(context.filesDir, "text_$documentId.json")
+
+    private fun connectorsFile(context: Context, documentId: String) = File(context.filesDir, "connectors_$documentId.json")
 
     private fun imageItemsFile(context: Context, documentId: String) = File(context.filesDir, "images_$documentId.json")
 

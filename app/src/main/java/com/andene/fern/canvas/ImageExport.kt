@@ -65,6 +65,7 @@ fun frameForExport(source: CanvasState, maxEdgePx: Int, region: Frame? = null): 
     camera.loadLayers(source.layers.toList())
     camera.loadFrames(source.frames.toList())
     camera.loadTextItems(source.textItems.toList())
+    camera.loadConnectors(source.connectors.toList())
     camera.loadImageItems(source.imageItems.toList())
     camera.loadBackground(source.backgroundColor, source.backgroundStyle)
     camera.jumpTo(WorldPoint((min.x + max.x) / 2.0, (min.y + max.y) / 2.0), scale)

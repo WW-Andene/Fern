@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AlignHorizontalLeft
+import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Approval
@@ -495,6 +496,16 @@ fun Toolbar(
                         Icons.Filled.TextFields,
                         contentDescription = "Text",
                         tint = if (state.activeTool == Tool.TEXT) MaterialTheme.colorScheme.primary
+                        else LocalContentColor.current,
+                    )
+                }
+                IconButton(onClick = {
+                    state.activeTool = if (state.activeTool == Tool.CONNECT) Tool.PEN else Tool.CONNECT
+                }) {
+                    Icon(
+                        Icons.Filled.AccountTree,
+                        contentDescription = "Connect labels (drag from one to another; press a connector to remove it)",
+                        tint = if (state.activeTool == Tool.CONNECT) MaterialTheme.colorScheme.primary
                         else LocalContentColor.current,
                     )
                 }

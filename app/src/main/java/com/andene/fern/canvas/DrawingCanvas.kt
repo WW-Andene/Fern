@@ -40,6 +40,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -173,6 +174,7 @@ fun DrawingCanvas(
                             Tool.FILL -> {} // one-shot on pointer-down, nothing to end
                             Tool.TEXT -> state.endTextGesture()
                             Tool.EYEDROPPER -> {} // one-shot on pointer-down, nothing to end
+                            Tool.CONNECT -> state.endConnect()
                             Tool.RULER -> state.endRulerGesture()
                             Tool.SELECT -> when (selectionGestureKind) {
                                 SelectionGestureKind.SCALE -> state.endScaleSelection()
@@ -232,6 +234,7 @@ fun DrawingCanvas(
                                     Tool.FILL -> state.fillAt(world)
                                     Tool.TEXT -> state.beginTextGesture(world)
                                     Tool.EYEDROPPER -> state.pickColorAt(world)
+                                    Tool.CONNECT -> state.beginConnect(world)
                                     Tool.RULER -> state.beginRulerGesture(world)
                                     Tool.SELECT -> {
                                         val handles = selectionHandles(state, screenCenter)
@@ -263,6 +266,7 @@ fun DrawingCanvas(
                                         Tool.FILL -> {} // one-shot; ignore drag
                                         Tool.TEXT -> state.continueTextGesture(world)
                                         Tool.EYEDROPPER -> {} // one-shot; ignore drag
+                                        Tool.CONNECT -> state.continueConnect(world)
                                         Tool.RULER -> state.continueRulerGesture(world)
                                         Tool.SELECT -> when (selectionGestureKind) {
                                             SelectionGestureKind.SCALE -> state.continueScaleSelection(world)
@@ -490,6 +494,15 @@ fun DrawingCanvas(
                     val p = state.worldToScreen(stroke.points[index], screenCenter)
                     drawRect(Color.White, topLeft = p - Offset(6f, 6f), size = Size(12f, 12f))
                     drawRect(HANDLE_COLOR, topLeft = p - Offset(6f, 6f), size = Size(12f, 12f), style = DrawStyle(width = 2f))
+                }
+            }
+
+            // Connector being dragged out: from its label's box edge to the finger.
+            state.connectorDraft?.let { (fromId, point) ->
+                state.textItems.firstOrNull { it.id == fromId }?.let { from ->
+                    val (min, max) = state.textBounds(from)
+                    val start = state.worldToScreen(WorldPoint((min.x + max.x) / 2, (min.y + max.y) / 2), screenCenter)
+                    drawConnector(start, state.worldToScreen(point, screenCenter), MARQUEE_BORDER_COLOR)
                 }
             }
 
@@ -1013,6 +1026,27 @@ private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
 // Widest a text box is laid out on screen; beyond this (deep zoom) the box is cropped to it.
 private const val MAX_TEXT_BOX_PX = 65536.0
 
+private val CONNECTOR_COLOR = Color(0xFF455A64)
+
+/** A connector arrow from [a] to [b] in screen space: a 2 px line and an arrowhead at [b]. */
+internal fun DrawScope.drawConnector(a: Offset, b: Offset, color: Color = CONNECTOR_COLOR) {
+    drawLine(color, a, b, strokeWidth = 2f, cap = StrokeCap.Round)
+    val direction = b - a
+    val length = direction.getDistance()
+    if (length < 1f) return
+    val unit = direction / length
+    val normal = Offset(-unit.y, unit.x)
+    // A 12 px long arrowhead, 6 px each side of the line (both on the §7 scale).
+    val back = b - unit * 12f
+    val head = Path().apply {
+        moveTo(b.x, b.y)
+        lineTo(back.x + normal.x * 6f, back.y + normal.y * 6f)
+        lineTo(back.x - normal.x * 6f, back.y - normal.y * 6f)
+        close()
+    }
+    drawPath(head, color)
+}
+
 // Classic sticky-note yellow.
 private val STICKY_NOTE_COLOR = Color(0xFFFFF59D)
 
@@ -1177,10 +1211,12 @@ internal fun DrawScope.drawScene(
         if (translucent) drawContext.canvas.restore()
     }
 
-    for (item in state.textItems) {
-        val screenPos = state.worldToScreen(item.position, screenCenter)
+    // Labels are measured first: connectors run to the boxes actually drawn (measured text plus a
+    // sticky note's paper), and are drawn under the labels so arrows never cover a note's text.
+    class MeasuredLabel(val item: TextItem, val position: Offset, val layout: TextLayoutResult, val pad: Float)
+    val labels = state.textItems.mapNotNull { item ->
         val fontSizePx = (item.fontSizeWorld * state.scale)
-        if (!fontSizePx.isFinite() || fontSizePx <= 0.0) continue
+        if (!fontSizePx.isFinite() || fontSizePx <= 0.0) return@mapNotNull null
         val fontSizeSp = fontSizePx.toFloat().toSp() // DrawScope is a Density
         // A boxed label lays out at exactly its box width (so wrapping and alignment are within the
         // box); capped because layout constraints can't hold an arbitrarily large zoomed-in width.
@@ -1199,15 +1235,30 @@ internal fun DrawScope.drawScene(
             ),
             constraints = if (boxPx != null) Constraints.fixedWidth(boxPx) else Constraints(),
         )
-        if (item.sticky) {
-            // The note extends half a line around the text, like paper around handwriting.
-            val pad = layout.size.height / 2f
+        // A sticky note extends half a line around the text, like paper around handwriting.
+        MeasuredLabel(item, state.worldToScreen(item.position, screenCenter), layout, if (item.sticky) layout.size.height / 2f else 0f)
+    }
+    val labelBoxes = labels.associate { label ->
+        val topLeft = label.position - Offset(label.pad, label.pad)
+        val bottomRight = label.position + Offset(label.layout.size.width + label.pad, label.layout.size.height + label.pad)
+        label.item.id to (WorldPoint(topLeft.x.toDouble(), topLeft.y.toDouble()) to WorldPoint(bottomRight.x.toDouble(), bottomRight.y.toDouble()))
+    }
+    for (connector in state.connectors) {
+        // Screen-space boxes, so the same edge-to-edge geometry applies.
+        val from = labelBoxes[connector.fromId] ?: continue
+        val to = labelBoxes[connector.toId] ?: continue
+        val (a, b) = connectorSegment(from.first, from.second, to.first, to.second) ?: continue
+        drawConnector(Offset(a.x.toFloat(), a.y.toFloat()), Offset(b.x.toFloat(), b.y.toFloat()))
+    }
+
+    for (label in labels) {
+        if (label.item.sticky) {
             drawRect(
                 color = STICKY_NOTE_COLOR,
-                topLeft = screenPos - Offset(pad, pad),
-                size = Size(layout.size.width + 2 * pad, layout.size.height + 2 * pad),
+                topLeft = label.position - Offset(label.pad, label.pad),
+                size = Size(label.layout.size.width + 2 * label.pad, label.layout.size.height + 2 * label.pad),
             )
         }
-        drawText(textLayoutResult = layout, topLeft = screenPos)
+        drawText(textLayoutResult = label.layout, topLeft = label.position)
     }
 }

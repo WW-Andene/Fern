@@ -221,6 +221,7 @@ class MainActivity : ComponentActivity() {
                             onBrushChanged = { brush -> AppSettings.setStampBrush(context, brush) },
                             onToolSlotsChanged = { slots -> AppSettings.setToolSlots(context, slots) },
                             onBrushPresetsChanged = { presets -> AppSettings.setBrushPresets(context, presets) },
+                            onConnectorsChanged = { connectors -> CanvasStorage.saveConnectors(context, currentDocumentId, connectors) },
                             onFramesChanged = { frames -> CanvasStorage.saveFrames(context, currentDocumentId, frames) },
                             onLayersChanged = { layers -> CanvasStorage.saveLayers(context, currentDocumentId, layers) },
                             onRebased = { offset ->
@@ -485,6 +486,7 @@ class MainActivity : ComponentActivity() {
                                 frames = CanvasStorage.loadFrames(context, documentId),
                                 history = CanvasStorage.loadHistory(context, documentId),
                                 texts = CanvasStorage.loadTextItems(context, documentId),
+                                connectors = CanvasStorage.loadConnectors(context, documentId),
                                 images = CanvasStorage.loadImageItems(context, documentId),
                                 background = CanvasStorage.loadBackground(context, documentId),
                                 pins = CanvasStorage.listPins(context, documentId),
@@ -495,6 +497,7 @@ class MainActivity : ComponentActivity() {
                         canvasState.loadFrames(loaded.frames)
                         canvasState.loadHistory(loaded.history.first, loaded.history.second)
                         canvasState.loadTextItems(loaded.texts)
+                        canvasState.loadConnectors(loaded.connectors)
                         canvasState.loadImageItems(loaded.images)
                         canvasState.loadBackground(loaded.background.first, loaded.background.second)
                         pins = loaded.pins

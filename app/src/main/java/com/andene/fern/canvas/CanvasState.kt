@@ -29,7 +29,7 @@ enum class StrokeAlignment(val label: String) {
     DISTRIBUTE_Y("Distribute vertically"),
 }
 
-enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER, EYEDROPPER }
+enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER, EYEDROPPER, CONNECT }
 
 /**
  * Camera + document model for the infinite canvas.
@@ -83,6 +83,7 @@ class CanvasState(
     private val onBrushChanged: (StampBrush) -> Unit = {},
     private val onToolSlotsChanged: (List<ToolPreset?>) -> Unit = {},
     private val onBrushPresetsChanged: (List<BrushPreset>) -> Unit = {},
+    private val onConnectorsChanged: (List<Connector>) -> Unit = {},
     /**
      * False for an off-screen camera that renders the document (the tile cache's): it never
      * needs the floating origin, and rebasing would shift and re-index its whole copy of the
@@ -129,6 +130,9 @@ class CanvasState(
 
         // Touch radius of a node handle in node editing; on the §7 scale.
         private const val NODE_HANDLE_SCREEN = 16.0
+
+        // How close (screen px) a press must be to a connector to remove it; on the §7 scale.
+        private const val CONNECTOR_HIT_SCREEN = 12.0
         private const val PERSPECTIVE_DECIDE_SCREEN = 16.0
 
         // Assumed view width before the first layout pass reports the real one.
@@ -819,6 +823,7 @@ class CanvasState(
         var images: List<ImageItem>?,
         var texts: List<TextItem>? = null,
         var shift: WorldPoint = WorldPoint.Zero,
+        val connectors: List<Connector>? = null,
     ) {
         /** Independent strokes holding this entry's geometry (shift applied), e.g. for saving. */
         fun materialize(): List<Stroke> = strokes.indices.map { i ->
@@ -826,8 +831,8 @@ class CanvasState(
         }
 
         companion object {
-            fun of(strokes: List<Stroke>, images: List<ImageItem>?, texts: List<TextItem>? = null) =
-                HistoryEntry(strokes.toTypedArray(), Array(strokes.size) { strokes[it].captureState() }, images, texts)
+            fun of(strokes: List<Stroke>, images: List<ImageItem>?, texts: List<TextItem>? = null, connectors: List<Connector>? = null) =
+                HistoryEntry(strokes.toTypedArray(), Array(strokes.size) { strokes[it].captureState() }, images, texts, connectors = connectors)
         }
     }
 
@@ -884,8 +889,81 @@ class CanvasState(
 
     /** What the rendered scene depends on, for [SceneTileCache]; comparing two is O(1). */
     fun sceneVersion() = SceneVersion(
-        listOf(strokes.toList(), geometryEpoch, layers.toList(), textItems.toList(), imageItems.toList(), backgroundColor, backgroundStyle, currentAnimFrame),
+        listOf(strokes.toList(), geometryEpoch, layers.toList(), textItems.toList(), imageItems.toList(), connectors.toList(), backgroundColor, backgroundStyle, currentAnimFrame),
     )
+
+    /** Arrows between text labels and sticky notes; see [Connector]. */
+    val connectors = mutableStateListOf<Connector>()
+
+    /** Replaces the connectors, keeping only those whose two labels exist (call after [loadTextItems]). */
+    fun loadConnectors(loaded: List<Connector>) {
+        val ids = textItems.mapTo(HashSet()) { it.id }
+        connectors.clear()
+        connectors.addAll(loaded.filter { it.fromId in ids && it.toId in ids })
+    }
+
+    /** While dragging out a connector with the CONNECT tool: the label it starts from and the finger's point. */
+    var connectorDraft: Pair<String, WorldPoint>? by mutableStateOf(null)
+        private set
+
+    /**
+     * CONNECT tool: press on a label and drag to another to connect them (a connector between
+     * the same two labels in the same direction isn't added twice). Pressing on an existing
+     * connector, away from any label, removes it.
+     */
+    fun beginConnect(worldPoint: WorldPoint) {
+        val from = findTextItemAt(worldPoint)
+        if (from != null) {
+            connectorDraft = from.id to worldPoint
+            return
+        }
+        val hit = connectorAt(worldPoint) ?: return
+        recordHistory()
+        connectors.remove(hit)
+        onConnectorsChanged(connectors.toList())
+    }
+
+    fun continueConnect(worldPoint: WorldPoint) {
+        val draft = connectorDraft ?: return
+        connectorDraft = draft.first to worldPoint
+    }
+
+    fun endConnect() {
+        val (fromId, point) = connectorDraft ?: return
+        connectorDraft = null
+        val to = findTextItemAt(point) ?: return
+        if (to.id == fromId || connectors.any { it.fromId == fromId && it.toId == to.id }) return
+        recordHistory()
+        connectors.add(Connector(UUID.randomUUID().toString(), fromId, to.id))
+        onConnectorsChanged(connectors.toList())
+    }
+
+    /**
+     * The two labels' boxes for [connector] as drawn, or null if either label is gone. A sticky
+     * note's paper extends half its text height around the text (see drawScene), so its box
+     * does too - otherwise the arrowhead ends under the note and is hidden by it.
+     */
+    fun connectorEnds(connector: Connector): Pair<Pair<WorldPoint, WorldPoint>, Pair<WorldPoint, WorldPoint>>? {
+        val from = textItems.firstOrNull { it.id == connector.fromId } ?: return null
+        val to = textItems.firstOrNull { it.id == connector.toId } ?: return null
+        return drawnBounds(from) to drawnBounds(to)
+    }
+
+    private fun drawnBounds(item: TextItem): Pair<WorldPoint, WorldPoint> {
+        val (min, max) = textBounds(item)
+        if (!item.sticky) return min to max
+        val pad = (max.y - min.y) / 2
+        return WorldPoint(min.x - pad, min.y - pad) to WorldPoint(max.x + pad, max.y + pad)
+    }
+
+    private fun connectorAt(point: WorldPoint): Connector? {
+        val tolerance = CONNECTOR_HIT_SCREEN / scale.coerceAtLeast(1e-300)
+        return connectors.lastOrNull { connector ->
+            val (from, to) = connectorEnds(connector) ?: return@lastOrNull false
+            val (a, b) = connectorSegment(from.first, from.second, to.first, to.second) ?: return@lastOrNull false
+            distanceToPolyline(listOf(a, b), point) <= tolerance
+        }
+    }
 
     /**
      * Whether the scene may be drawn from [SceneTileCache]: a large document, and nothing that
@@ -901,7 +979,7 @@ class CanvasState(
     private val undoStack = ArrayDeque<HistoryEntry>()
     private val redoStack = ArrayDeque<HistoryEntry>()
 
-    private fun currentEntry() = HistoryEntry.of(strokes, imageItems.toList(), textItems.toList())
+    private fun currentEntry() = HistoryEntry.of(strokes, imageItems.toList(), textItems.toList(), connectors.toList())
 
     /** Called at the start of every stroke-changing action; also invalidates redo, standard editor semantics. */
     private fun recordHistory() {
@@ -944,6 +1022,12 @@ class CanvasState(
             imageItems.clear()
             imageItems.addAll(images)
             onImageChanged(imageItems.toList())
+        }
+        val savedConnectors = entry.connectors
+        if (savedConnectors != null && savedConnectors != connectors.toList()) {
+            connectors.clear()
+            connectors.addAll(savedConnectors)
+            onConnectorsChanged(connectors.toList())
         }
         // The entry's own stroke objects come back with its geometry: O(1) each unless a rebase
         // happened since (then each is shifted, copying its arrays once).
