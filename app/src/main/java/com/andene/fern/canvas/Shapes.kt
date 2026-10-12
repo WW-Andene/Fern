@@ -11,7 +11,7 @@ import kotlin.math.sign
 import kotlin.math.sin
 
 /** The shape a [Tool.SHAPE] drag commits, as regular stroke points - see [generateShapePoints]. */
-enum class ShapeKind { LINE, RECTANGLE, ELLIPSE, ARROW }
+enum class ShapeKind { LINE, RECTANGLE, ELLIPSE, ARROW, SPEECH_BUBBLE }
 
 private const val ELLIPSE_SEGMENTS = 48
 private const val ANGLE_SNAP_STEP_DEGREES = 15.0
@@ -49,7 +49,7 @@ private fun snapAspect(start: WorldPoint, end: WorldPoint): WorldPoint {
 /** The actual end point to use for [kind]'s live preview/final commit, after any relevant snapping. */
 fun snappedShapeEnd(kind: ShapeKind, start: WorldPoint, end: WorldPoint): WorldPoint = when (kind) {
     ShapeKind.LINE, ShapeKind.ARROW -> snapLineEnd(start, end)
-    ShapeKind.RECTANGLE, ShapeKind.ELLIPSE -> snapAspect(start, end)
+    ShapeKind.RECTANGLE, ShapeKind.ELLIPSE, ShapeKind.SPEECH_BUBBLE -> snapAspect(start, end)
 }
 
 /**
@@ -82,6 +82,25 @@ fun generateShapePoints(kind: ShapeKind, start: WorldPoint, end: WorldPoint): Li
             val angle = 2.0 * PI * i / ELLIPSE_SEGMENTS
             WorldPoint(centerX + radiusX * cos(angle), centerY + radiusY * sin(angle))
         }
+    }
+
+    ShapeKind.SPEECH_BUBBLE -> {
+        // A comic speech balloon: an ellipse filling the dragged box, with a tail leaving the
+        // lower-left of the outline and pointing down-left beyond the box, toward the speaker.
+        val centerX = (start.x + end.x) / 2.0
+        val centerY = (start.y + end.y) / 2.0
+        val radiusX = abs(end.x - start.x) / 2.0
+        val radiusY = abs(end.y - start.y) / 2.0
+        fun onEllipse(angle: Double) = WorldPoint(centerX + radiusX * cos(angle), centerY + radiusY * sin(angle))
+        // The tail spans 110-130 degrees (y grows downward, so that's lower-left).
+        val tailStart = Math.toRadians(110.0)
+        val tailEnd = Math.toRadians(130.0)
+        val tip = WorldPoint(centerX - radiusX * 1.1, centerY + radiusY * 1.5)
+        val outline = (0..ELLIPSE_SEGMENTS).map { 2.0 * PI * it / ELLIPSE_SEGMENTS }
+            .filter { it <= tailStart || it >= tailEnd }
+        val before = outline.filter { it <= tailStart }.map(::onEllipse)
+        val after = outline.filter { it >= tailEnd }.map(::onEllipse)
+        before + onEllipse(tailStart) + tip + onEllipse(tailEnd) + after
     }
 
     ShapeKind.ARROW -> {

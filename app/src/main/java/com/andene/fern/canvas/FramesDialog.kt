@@ -40,6 +40,7 @@ fun FramesDialog(
     onDelete: (Frame) -> Unit,
     onCreate: (name: String) -> Unit,
     onPresent: () -> Unit,
+    onAddComicPage: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     var newFrameName by remember { mutableStateOf("") }
@@ -101,7 +102,10 @@ fun FramesDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onPresent, enabled = frames.isNotEmpty()) { Text("Present") }
+            Row {
+                TextButton(onClick = onAddComicPage) { Text("Comic page") }
+                TextButton(onClick = onPresent, enabled = frames.isNotEmpty()) { Text("Present") }
+            }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Close") }

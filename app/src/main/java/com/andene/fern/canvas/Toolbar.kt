@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.AutoFixNormal
 import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.CenterFocusStrong
+import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.ColorLens
@@ -682,6 +683,7 @@ private fun shapeKindIcon(kind: ShapeKind) = when (kind) {
     ShapeKind.RECTANGLE -> Icons.Filled.CropSquare
     ShapeKind.ELLIPSE -> Icons.Filled.Circle
     ShapeKind.ARROW -> Icons.AutoMirrored.Filled.ArrowForward
+    ShapeKind.SPEECH_BUBBLE -> Icons.Filled.ChatBubbleOutline
 }
 
 private fun shapeKindLabel(kind: ShapeKind) = when (kind) {
@@ -689,6 +691,7 @@ private fun shapeKindLabel(kind: ShapeKind) = when (kind) {
     ShapeKind.RECTANGLE -> "Rectangle"
     ShapeKind.ELLIPSE -> "Ellipse"
     ShapeKind.ARROW -> "Arrow"
+    ShapeKind.SPEECH_BUBBLE -> "Speech bubble"
 }
 
 private fun blendModeLabel(mode: StrokeBlendMode) = when (mode) {

@@ -653,6 +653,10 @@ class MainActivity : ComponentActivity() {
                             },
                             onDelete = { frame -> canvasState.deleteFrame(frame.id) },
                             onCreate = { name -> canvasState.addFrameFromView(name) },
+                            onAddComicPage = {
+                                canvasState.insertComicPage()
+                                showFramesDialog = false
+                            },
                             onPresent = {
                                 showFramesDialog = false
                                 presentingIndex = 0

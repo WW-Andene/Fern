@@ -102,6 +102,9 @@ class CanvasState(
         // Holding the pen still this long before lifting turns a rough stroke into a clean shape.
         private const val SHAPE_HOLD_MILLIS = 500L
 
+        // Comic panel borders, in screen px at the zoom they're inserted at; on the §7 scale.
+        private const val PANEL_BORDER_SCREEN = 3.0
+
         // Movement under this many screen px still counts as a tap; on the §7 scale.
         private const val TAP_SLOP_SCREEN = 8.0
 
@@ -291,6 +294,44 @@ class CanvasState(
         val max = screenToWorld(Offset(viewportSize.width, viewportSize.height), center)
         frames.add(Frame(UUID.randomUUID().toString(), name, min, max))
         onFramesChanged(frames.toList())
+    }
+
+    /**
+     * Comic page template: a 2:3 page centred in the view, ruled into five panels (two, one
+     * wide, two) as ordinary rectangle strokes on the active layer, plus a frame named
+     * "Page N" so it can be presented and exported as a page. Undoable for the panels.
+     */
+    fun insertComicPage() {
+        if (!activeLayerEditable || viewportSize.width <= 0f) return
+        recordHistory()
+        val s = scale.coerceAtLeast(1e-300)
+        // The page fills most of the screen's height at the current zoom.
+        val pageHeight = viewportSize.height * 0.8 / s
+        val pageWidth = pageHeight * 2.0 / 3.0
+        val left = panWorld.x - pageWidth / 2.0
+        val top = panWorld.y - pageHeight / 2.0
+        val margin = pageWidth * 0.06
+        val gutter = pageWidth * 0.03
+        val innerWidth = pageWidth - 2 * margin
+        val rowHeight = (pageHeight - 2 * margin - 2 * gutter) / 3.0
+        val halfWidth = (innerWidth - gutter) / 2.0
+        val panels = listOf(
+            Triple(0, 0.0, halfWidth), Triple(0, halfWidth + gutter, halfWidth),
+            Triple(1, 0.0, innerWidth),
+            Triple(2, 0.0, halfWidth), Triple(2, halfWidth + gutter, halfWidth),
+        )
+        for ((row, x, width) in panels) {
+            val panelLeft = left + margin + x
+            val panelTop = top + margin + row * (rowHeight + gutter)
+            val border = Stroke(Color.Black, PANEL_BORDER_SCREEN / s, PenType.MARKER, layerId = activeLayerId, animFrame = currentAnimFrame)
+            for (point in generateShapePoints(ShapeKind.RECTANGLE, WorldPoint(panelLeft, panelTop), WorldPoint(panelLeft + width, panelTop + rowHeight))) {
+                border.addPoint(point)
+            }
+            strokes.add(border)
+        }
+        frames.add(Frame(UUID.randomUUID().toString(), "Page ${frames.size + 1}", WorldPoint(left, top), WorldPoint(left + pageWidth, top + pageHeight)))
+        onFramesChanged(frames.toList())
+        onChanged(strokes.toList())
     }
 
     fun deleteFrame(id: String) {
