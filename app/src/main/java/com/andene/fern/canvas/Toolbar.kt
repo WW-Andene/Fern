@@ -190,6 +190,9 @@ fun Toolbar(
     onExportMp4: () -> Unit = {},
     onExportWebm: () -> Unit = {},
     onImportPdf: () -> Unit = {},
+    onImportSpine: () -> Unit = {},
+    onExportSpine: () -> Unit = {},
+    onExportDragonBones: () -> Unit = {},
     onOpenFrames: () -> Unit = {},
     onImportPalette: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
@@ -982,6 +985,7 @@ fun Toolbar(
                         val moreItems = listOf(
                             Triple(R.string.menu_insert_image, Icons.Filled.Image, onInsertImage),
                             Triple(R.string.menu_import_pdf, Icons.Filled.PictureAsPdf, onImportPdf),
+                            Triple(R.string.menu_import_spine, Icons.Filled.AccessibilityNew, onImportSpine),
                             Triple(R.string.search_title, Icons.Filled.Search) { showSearchDialog = true },
                             Triple(R.string.pins_title, Icons.Filled.PushPin, onOpenPins),
                             Triple(R.string.frames_title, Icons.Filled.CropFree, onOpenFrames),
@@ -1111,6 +1115,22 @@ fun Toolbar(
                                     onExportWebm()
                                 },
                             )
+                            if (state.bones.isNotEmpty()) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.tb_export_spine)) },
+                                    onClick = {
+                                        showExportMenu = false
+                                        onExportSpine()
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.tb_export_dragonbones)) },
+                                    onClick = {
+                                        showExportMenu = false
+                                        onExportDragonBones()
+                                    },
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.tb_export_lottie)) },
                                 onClick = {

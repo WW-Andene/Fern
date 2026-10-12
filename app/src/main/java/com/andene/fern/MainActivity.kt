@@ -117,6 +117,9 @@ import com.andene.fern.canvas.exportLottie
 import com.andene.fern.canvas.exportDocumentEps
 import com.andene.fern.canvas.exportReplayGif
 import com.andene.fern.canvas.StrokeChunkFile
+import com.andene.fern.canvas.SpineImport
+import com.andene.fern.canvas.exportSpine
+import com.andene.fern.canvas.exportDragonBones
 import com.andene.fern.canvas.exportDocumentBundle
 import com.andene.fern.canvas.exportDocumentPdf
 import com.andene.fern.canvas.exportDocumentPng
@@ -395,6 +398,34 @@ class MainActivity : ComponentActivity() {
                         if (uri != null) writeExport(uri) { exportDocumentPdf(canvasState, textMeasurer, imageForExport) }
                     }
 
+                    val spineExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/zip"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportSpine(canvasState, textMeasurer, density, imageForExport) }
+                    }
+                    val dragonBonesExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/zip"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportDragonBones(canvasState, textMeasurer, density, imageForExport) }
+                    }
+                    val spineImportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocument(),
+                    ) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val poses = withContext(Dispatchers.IO) {
+                                runCatching {
+                                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
+                                    SpineImport.read(bytes, canvasState.animFps)
+                                }.getOrNull()
+                            }
+                            if (poses.isNullOrEmpty()) {
+                                Toast.makeText(context, context.getString(R.string.toast_bad_spine), Toast.LENGTH_SHORT).show()
+                            } else {
+                                canvasState.importSkeleton(poses)
+                            }
+                        }
+                    }
                     val pdfImportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.OpenDocument(),
                     ) { uri ->
@@ -877,6 +908,9 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onImportPdf = { pdfImportLauncher.launch(arrayOf("application/pdf")) },
+                                onImportSpine = { spineImportLauncher.launch(arrayOf("application/json", "application/zip", "application/octet-stream")) },
+                                onExportSpine = { spineExportLauncher.launch("${currentDocumentName()} (Spine).zip") },
+                                onExportDragonBones = { dragonBonesExportLauncher.launch("${currentDocumentName()} (DragonBones).zip") },
                                 onInsertImage = {
                                     imagePickerLauncher.launch(
                                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)

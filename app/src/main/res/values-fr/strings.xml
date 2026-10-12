@@ -202,6 +202,10 @@
     <string name="tb_slot">Favori %1$d : %2$s</string>
     <string name="menu_insert_image">Insérer une image</string>
     <string name="menu_import_pdf">Importer un PDF à annoter</string>
+    <string name="menu_import_spine">Importer un squelette Spine</string>
+    <string name="tb_export_spine">Squelette Spine (zip)</string>
+    <string name="tb_export_dragonbones">Squelette DragonBones (zip)</string>
+    <string name="toast_bad_spine">Aucun squelette Spine lisible dans ce fichier</string>
     <string name="tb_custom_color">Couleur personnalisée</string>
     <string name="tb_eyedropper">Pipette</string>
     <string name="brush_settings">Réglages du pinceau</string>

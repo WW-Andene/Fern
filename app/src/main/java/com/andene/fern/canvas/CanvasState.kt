@@ -922,6 +922,22 @@ class CanvasState(
         bones.clear()
         bones.addAll(loaded)
         selectedBoneId = null
+        // A frame holding only a pose (no ink yet, e.g. an imported animation) still counts.
+        animFrameCount = maxOf(animFrameCount, (loaded.maxOfOrNull { it.animFrame } ?: 0) + 1)
+    }
+
+    /**
+     * Adds a skeleton posed frame by frame (from [SpineImport]): [poses] holds frame 0's bones,
+     * then frame 1's, and so on, each bone keeping its id across frames. Frames are added as
+     * needed. One undo step.
+     */
+    fun importSkeleton(poses: List<List<Bone>>) {
+        if (poses.isEmpty() || poses.all { it.isEmpty() }) return
+        recordHistory()
+        poses.forEachIndexed { frame, pose -> bones.addAll(pose.map { it.copy(animFrame = frame) }) }
+        animFrameCount = maxOf(animFrameCount, poses.size)
+        onBonesChanged(bones.toList())
+        strokesChanged()
     }
 
     private fun shiftBoneFrames(from: Int, by: Int) {
@@ -2037,7 +2053,7 @@ class CanvasState(
             strokes.addAll(entry.strokes)
         }
         // Undoing a frame insert/delete changes how many frames have strokes; keep the count in step.
-        animFrameCount = (strokes.maxOfOrNull { it.animFrame } ?: 0) + 1
+        animFrameCount = maxOf(strokes.maxOfOrNull { it.animFrame } ?: 0, bones.maxOfOrNull { it.animFrame } ?: 0) + 1
         currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
     }
 
