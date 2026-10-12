@@ -135,6 +135,9 @@ import com.andene.fern.canvas.exportSlicesZip
 import com.andene.fern.canvas.exportDocumentEps
 import com.andene.fern.canvas.exportDocumentAi
 import com.andene.fern.canvas.embedVideo
+import com.andene.fern.canvas.newModel
+import com.andene.fern.canvas.readObj
+import com.andene.fern.canvas.storeModel
 import com.andene.fern.canvas.readPdfVectors
 import com.andene.fern.canvas.exportReplayGif
 import com.andene.fern.canvas.StrokeChunkFile
@@ -656,6 +659,23 @@ class MainActivity : ComponentActivity() {
                         canvasState.addImage(fileName, position, widthWorld, heightWorld)
                     }
 
+                    // An OBJ model to paint in 3D (roadmap item 108).
+                    val objImportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocument(),
+                    ) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val stored = withContext(Dispatchers.Default) {
+                                runCatching {
+                                    val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+                                    text?.let(::readObj)?.let { mesh -> storeModel(context, newModel(mesh)) }
+                                }.getOrNull()
+                            }
+                            if (stored == null) Toast.makeText(context, context.getString(R.string.toast_bad_obj), Toast.LENGTH_SHORT).show()
+                            else canvasState.placeModel(stored)
+                        }
+                    }
+
                     // Embedded video (roadmap item 107): copied in, shown by its first frame.
                     val videoPickerLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.OpenDocument(),
@@ -1094,6 +1114,7 @@ class MainActivity : ComponentActivity() {
                                 onCopySelection = { copySelectionToClipboard() },
                                 onDragSelectionOut = { dragSelectionOut() },
                                 onInsertVideo = { videoPickerLauncher.launch(arrayOf("video/*")) },
+                                onImportObj = { objImportLauncher.launch(arrayOf("*/*")) },
                                 onTraceImage = { traceSelectedImage() },
                                 onPaste = { pasteFromClipboard() },
                                 onOpenAudioNotes = {

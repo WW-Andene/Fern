@@ -1,5 +1,8 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled._3dRotation
+import android.content.Context
+
 import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.ViewQuilt
@@ -15,6 +18,7 @@ import androidx.compose.material.icons.filled.EmojiPeople
 import androidx.compose.material.icons.filled.InvertColors
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.AutoFixHigh
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -238,6 +242,8 @@ fun Toolbar(
     onTraceImage: () -> Unit = {},
     /** Embeds a video (roadmap item 107). */
     onInsertVideo: () -> Unit = {},
+    /** Imports an OBJ model to paint in 3D (roadmap item 108). */
+    onImportObj: () -> Unit = {},
 ) {
     val dragOutLabel = stringResource(R.string.tb_drag_out)
     var showExportMenu by remember { mutableStateOf(false) }
@@ -255,6 +261,50 @@ fun Toolbar(
     if (showStatsDialog) StatsDialog(state, onDismiss = { showStatsDialog = false })
     var showSignatureDialog by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
+    // 3D painting (roadmap item 108): adding a model, and the model open in the editor.
+    var showInsert3d by remember { mutableStateOf(false) }
+    var editingModel by remember { mutableStateOf<Pair<ImageItem, Model3d>?>(null) }
+    run {
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        if (showInsert3d) {
+            Insert3dDialog(
+                onPrimitive = { primitive ->
+                    showInsert3d = false
+                    scope.launch {
+                        val stored = withContext(Dispatchers.Default) { storeModel(context, newModel(primitiveMesh(primitive))) }
+                        state.placeModel(stored)
+                    }
+                },
+                onImportObj = {
+                    showInsert3d = false
+                    onImportObj()
+                },
+                onDismiss = { showInsert3d = false },
+            )
+        }
+        editingModel?.let { (item, model) ->
+            Model3dEditor(
+                model,
+                initialColor = state.activeColor,
+                onSave = { painted ->
+                    editingModel = null
+                    scope.launch {
+                        val stored = withContext(Dispatchers.Default) { storeModel(context, painted) }
+                        state.replaceImageModel(item.id, stored.posterFileName, stored.modelFileName, stored.aspect)
+                    }
+                },
+                onDismiss = { editingModel = null },
+            )
+        }
+    }
+    fun openModel(item: ImageItem, context: Context, scope: CoroutineScope) {
+        val name = item.modelFileName ?: return
+        scope.launch {
+            val model = withContext(Dispatchers.IO) { runCatching { Model3dFile.read(CanvasStorage.modelFile(context, name).readBytes()) }.getOrNull() }
+            if (model != null) editingModel = item to model
+        }
+    }
     var playingVideo by remember { mutableStateOf<ImageItem?>(null) }
     playingVideo?.let { VideoPlayerDialog(it, onDismiss = { playingVideo = null }) }
     var showComicDialog by remember { mutableStateOf(false) }
@@ -959,6 +1009,15 @@ fun Toolbar(
                                 Icon(Icons.Filled.PlayCircle, contentDescription = stringResource(R.string.video_play))
                             }
                         }
+                        // A 3D model (roadmap item 108) opens for painting from here.
+                        val modelItem = state.imageItems.firstOrNull { it.id == state.selectedImageId && it.modelFileName != null }
+                        if (modelItem != null) {
+                            val context = LocalContext.current
+                            val scope = rememberCoroutineScope()
+                            IconButton(onClick = { openModel(modelItem, context, scope) }) {
+                                Icon(Icons.Filled._3dRotation, contentDescription = stringResource(R.string.model_paint))
+                            }
+                        }
                         IconButton(onClick = onTraceImage) {
                             Icon(Icons.Filled.AutoFixHigh, contentDescription = stringResource(R.string.tb_trace_image))
                         }
@@ -1193,6 +1252,7 @@ fun Toolbar(
                         val moreItems = listOf(
                             Triple(R.string.menu_insert_image, Icons.Filled.Image, onInsertImage),
                             Triple(R.string.menu_insert_video, Icons.Filled.VideoFile, onInsertVideo),
+                            Triple(R.string.model_insert_title, Icons.Filled._3dRotation) { showInsert3d = true },
                             Triple(R.string.menu_import_pdf, Icons.Filled.PictureAsPdf, onImportPdf),
                             Triple(R.string.menu_import_spine, Icons.Filled.AccessibilityNew, onImportSpine),
                             Triple(R.string.menu_import_layered, Icons.Filled.Layers, onImportLayered),

@@ -226,6 +226,8 @@ class CanvasState(
         private const val FILL_CLOSE_TOLERANCE_SCREEN = 24.0
         // Gaps in line art up to about twice this (screen px) are closed by the fill.
         private const val FILL_GAP_SCREEN = 4.0
+        // How wide (screen px) a newly placed 3D model's picture is (roadmap item 108).
+        private const val MODEL_PLACED_SCREEN = 256.0
         // World units (points) between pages of an imported vector PDF (roadmap item 103).
         private const val IMPORTED_PAGE_GAP = 32.0
         // How wide (screen px) a placed QR code is, quiet zone included (roadmap item 144).
@@ -3880,9 +3882,35 @@ class CanvasState(
      * `MainActivity`'s photo-picker flow) at [position], sized to [widthWorld] x [heightWorld].
      */
     /** Places an image; undoable. Pass [recordUndo] = false for all but the first of a batch (e.g. PDF pages) so the batch undoes in one step. */
-    fun addImage(fileName: String, position: WorldPoint, widthWorld: Double, heightWorld: Double, recordUndo: Boolean = true, videoFileName: String? = null) {
+    fun addImage(fileName: String, position: WorldPoint, widthWorld: Double, heightWorld: Double, recordUndo: Boolean = true, videoFileName: String? = null, modelFileName: String? = null) {
         if (recordUndo) recordHistory()
-        imageItems.add(ImageItem(UUID.randomUUID().toString(), fileName, position, widthWorld, heightWorld, videoFileName))
+        imageItems.add(ImageItem(UUID.randomUUID().toString(), fileName, position, widthWorld, heightWorld, videoFileName, modelFileName))
+        onImageChanged(imageItems.toList())
+    }
+
+    /**
+     * Places a saved 3D model (roadmap item 108) in the middle of the view as an image item,
+     * [MODEL_PLACED_SCREEN] screen pixels wide, selected so "Paint in 3D" can open it. Undoable.
+     */
+    fun placeModel(stored: StoredModel) {
+        val width = MODEL_PLACED_SCREEN / scale.coerceAtLeast(1e-300)
+        val height = width * stored.aspect
+        addImage(stored.posterFileName, WorldPoint(panWorld.x - width / 2, panWorld.y - height / 2), width, height, modelFileName = stored.modelFileName)
+        clearSelectionState()
+        selectedImageId = imageItems.last().id
+    }
+
+    /**
+     * Swaps image [id]'s picture for [fileName] and its 3D model for [modelFileName] (roadmap
+     * item 108: a painted model saved as new files), keeping its place and width; its height
+     * follows the new picture's [aspect] (height / width). One undo step.
+     */
+    fun replaceImageModel(id: String, fileName: String, modelFileName: String, aspect: Double) {
+        val index = imageItems.indexOfFirst { it.id == id }
+        if (index == -1) return
+        recordHistory()
+        val old = imageItems[index]
+        imageItems[index] = old.copy(fileName = fileName, modelFileName = modelFileName, heightWorld = old.widthWorld * aspect)
         onImageChanged(imageItems.toList())
     }
 

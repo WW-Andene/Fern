@@ -43,6 +43,7 @@ data class PinMeta(
 /** Where a document's placed images live and how their metadata is named. */
 private const val IMAGES_DIR_NAME = "images"
 private const val VIDEOS_DIR_NAME = "videos"
+private const val MODELS_DIR_NAME = "models"
 
 /**
  * Persists canvas documents to local app storage: an index file listing every document's
@@ -505,6 +506,7 @@ object CanvasStorage {
                     widthWorld = entry.getDouble("width"),
                     heightWorld = entry.getDouble("height"),
                     videoFileName = entry.optString("video").takeIf { it.isNotEmpty() },
+                    modelFileName = entry.optString("model").takeIf { it.isNotEmpty() },
                 )
             )
         }
@@ -552,6 +554,7 @@ object CanvasStorage {
                     put("width", item.widthWorld)
                     put("height", item.heightWorld)
                     item.videoFileName?.let { put("video", it) }
+                    item.modelFileName?.let { put("model", it) }
                 }
             )
         }
@@ -933,6 +936,11 @@ object CanvasStorage {
     fun videosDir(context: Context): File = File(context.filesDir, VIDEOS_DIR_NAME).also { if (!it.exists()) it.mkdirs() }
 
     fun videoFile(context: Context, fileName: String): File = File(videosDir(context), fileName)
+
+    /** Directory holding 3D models (roadmap item 108), shared and immutable like [imagesDir]. */
+    fun modelsDir(context: Context): File = File(context.filesDir, MODELS_DIR_NAME).also { if (!it.exists()) it.mkdirs() }
+
+    fun modelFile(context: Context, fileName: String): File = File(modelsDir(context), fileName)
 
     /**
      * One-time upgrade from the pre-multi-document single `canvas.json` file: wraps its

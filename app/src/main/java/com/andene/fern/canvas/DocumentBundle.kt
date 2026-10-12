@@ -13,6 +13,7 @@ import java.util.zip.ZipOutputStream
 private const val META_ENTRY = "meta.json"
 private const val IMAGES_PREFIX = "images/"
 private const val VIDEOS_PREFIX = "videos/"
+private const val MODELS_PREFIX = "models/"
 private const val RASTER_PREFIX = "raster/"
 private const val SOUNDTRACK_PREFIX = "soundtrack/"
 // 2: strokes travel as the binary strokes.bin (StrokeCodec) instead of canvas.json.
@@ -51,6 +52,10 @@ fun exportDocumentBundle(context: Context, documentId: String, name: String): By
             val video = CanvasStorage.videoFile(context, name)
             if (video.exists()) put(VIDEOS_PREFIX + name, video.readBytes())
         }
+        for (name in CanvasStorage.loadImageItems(context, documentId).mapNotNull { it.modelFileName }.distinct()) {
+            val model = CanvasStorage.modelFile(context, name)
+            if (model.exists()) put(MODELS_PREFIX + name, model.readBytes())
+        }
     }
     return out.toByteArray()
 }
@@ -83,6 +88,15 @@ fun importDocumentBundle(context: Context, input: InputStream): DocumentMeta? {
                     val fileName = entryName.removePrefix(VIDEOS_PREFIX)
                     if (fileName.matches(Regex("[A-Za-z0-9-]+\\.(mp4|webm|3gp|mkv)"))) {
                         val target = CanvasStorage.videoFile(context, fileName)
+                        val bytes = zip.readBytes()
+                        if (!target.exists()) target.writeBytes(bytes)
+                    }
+                }
+                // 3D models (roadmap item 108): generated names as well.
+                entryName.startsWith(MODELS_PREFIX) -> {
+                    val fileName = entryName.removePrefix(MODELS_PREFIX)
+                    if (fileName.matches(Regex("[A-Za-z0-9-]+\\.fmodel"))) {
+                        val target = CanvasStorage.modelFile(context, fileName)
                         val bytes = zip.readBytes()
                         if (!target.exists()) target.writeBytes(bytes)
                     }

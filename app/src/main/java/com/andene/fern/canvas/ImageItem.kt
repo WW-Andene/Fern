@@ -13,6 +13,10 @@ package com.andene.fern.canvas
  * An embedded video (roadmap item 107) is an image item whose picture is the video's first
  * frame, with [videoFileName] naming the video under the app's private `videos/` directory
  * (shared and immutable the same way); it plays from the selection bar.
+ *
+ * A 3D model (roadmap item 108) is an image item whose picture is the model's render, with
+ * [modelFileName] naming its [Model3dFile] under `models/` (also shared and immutable: an edit
+ * saves a new file and a new picture); it opens for painting from the selection bar.
  */
 data class ImageItem(
     val id: String,
@@ -21,4 +25,5 @@ data class ImageItem(
     val widthWorld: Double,
     val heightWorld: Double,
     val videoFileName: String? = null,
+    val modelFileName: String? = null,
 )
