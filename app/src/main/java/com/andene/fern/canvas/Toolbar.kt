@@ -115,6 +115,7 @@ fun Toolbar(
     onInsertImage: () -> Unit = {},
     onExportPng: () -> Unit = {},
     onExportPdf: () -> Unit = {},
+    onExportTransparentPng: () -> Unit = {},
     onExportSvg: () -> Unit = {},
     onShare: () -> Unit = {},
     onExportBundle: () -> Unit = {},
@@ -512,6 +513,13 @@ fun Toolbar(
                             onClick = {
                                 showExportMenu = false
                                 onExportPng()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Image, transparent (PNG)") },
+                            onClick = {
+                                showExportMenu = false
+                                onExportTransparentPng()
                             },
                         )
                         DropdownMenuItem(

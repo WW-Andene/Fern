@@ -254,6 +254,11 @@ class MainActivity : ComponentActivity() {
                     ) { uri ->
                         if (uri != null) writeExport(uri) { exportAnimatedGif(canvasState, textMeasurer, density, imageForExport) }
                     }
+                    val transparentPngExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("image/png"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportDocumentPng(canvasState, textMeasurer, density, imageForExport, transparent = true) }
+                    }
                     val pdfExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("application/pdf"),
                     ) { uri ->
@@ -479,6 +484,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onExportPng = { pngExportLauncher.launch("${currentDocumentName()}.png") },
+                                onExportTransparentPng = { transparentPngExportLauncher.launch("${currentDocumentName()}.png") },
                                 onExportPdf = { pdfExportLauncher.launch("${currentDocumentName()}.pdf") },
                                 onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
                                 onExportGif = { gifExportLauncher.launch("${currentDocumentName()}.gif") },

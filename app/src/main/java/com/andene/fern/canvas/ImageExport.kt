@@ -30,11 +30,12 @@ private const val EXPORT_MARGIN_RATIO = 0.05
  */
 class ExportFrame(val camera: CanvasState, val widthPx: Int, val heightPx: Int) {
     /** Draws the framed document with the same [drawScene] as the live canvas, so exports match the screen. */
-    fun drawOn(canvas: Canvas, density: Density, textMeasurer: TextMeasurer, imageFor: (String) -> ImageBitmap?) {
+    /** With [transparent], the paper colour and pattern are left out, leaving only the content on a clear background. */
+    fun drawOn(canvas: Canvas, density: Density, textMeasurer: TextMeasurer, imageFor: (String) -> ImageBitmap?, transparent: Boolean = false) {
         val size = Size(widthPx.toFloat(), heightPx.toFloat())
         val center = Offset(size.width / 2f, size.height / 2f)
         CanvasDrawScope().draw(density, LayoutDirection.Ltr, canvas, size) {
-            drawRect(color = camera.backgroundColor, size = size)
+            if (!transparent) drawRect(color = camera.backgroundColor, size = size)
             drawScene(
                 camera,
                 center,
@@ -42,6 +43,7 @@ class ExportFrame(val camera: CanvasState, val widthPx: Int, val heightPx: Int) 
                 camera.screenToWorld(Offset(size.width, size.height), center),
                 textMeasurer,
                 imageFor,
+                drawPaper = !transparent,
             )
         }
     }
@@ -80,10 +82,11 @@ fun exportDocumentPng(
     density: Density,
     imageFor: (String) -> ImageBitmap?,
     region: Frame? = null,
+    transparent: Boolean = false,
 ): ByteArray? {
     val frame = frameForExport(source, EXPORT_MAX_EDGE_PX, region) ?: return null
     val image = ImageBitmap(frame.widthPx, frame.heightPx)
-    frame.drawOn(Canvas(image), density, textMeasurer, imageFor)
+    frame.drawOn(Canvas(image), density, textMeasurer, imageFor, transparent)
     val out = ByteArrayOutputStream()
     image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
     return out.toByteArray()

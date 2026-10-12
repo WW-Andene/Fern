@@ -865,8 +865,9 @@ internal fun DrawScope.drawScene(
     bottomRightWorld: WorldPoint,
     textMeasurer: TextMeasurer,
     imageFor: (String) -> ImageBitmap?,
+    drawPaper: Boolean = true,
 ) {
-    drawBackgroundPattern(state, screenCenter, topLeftWorld, bottomRightWorld)
+    if (drawPaper) drawBackgroundPattern(state, screenCenter, topLeftWorld, bottomRightWorld)
 
     // Drawn first (behind strokes/text), matching the common "insert a reference image,
     // draw over it" workflow.
