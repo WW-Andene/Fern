@@ -1512,30 +1512,92 @@ class CanvasState(
         onChanged(strokes.toList())
     }
 
-    // Bumped by strokesChanged() and by rebases; the spatial index is rebuilt when it moves on.
+    // Bumped by strokesChanged() and whenever strokes move in place; part of [sceneVersion].
     private var geometryEpoch = 0
     private var spatialIndex: StrokeSpatialIndex? = null
     private var indexedStrokes: List<Stroke>? = null
-    private var indexedEpoch = -1
+    // The list and epoch [patchPrefix]/[patchSuffix]/[patchDirty] were worked out for.
+    private var validatedList: List<Stroke>? = null
+    private var validatedEpoch = -1
+    // Common prefix/suffix of the current list with the indexed one, and the positions (in the
+    // current list, ascending) of strokes the index can't vouch for: new, or edited in place.
+    private var patchPrefix = 0
+    private var patchSuffix = 0
+    private var patchDirty = IntArray(0)
+
+    /**
+     * The spatial index, reused across edits where possible. Rebuilding costs ~0.35 s at a
+     * million strokes (roadmap item 18), so after a change only the strokes that differ from
+     * what was indexed - by identity or by [Stroke.plainRevision] - are found (an O(n) scan of
+     * plain fields) and tested directly; the index is rebuilt once more than [MAX_INDEX_PATCH]
+     * of them have piled up.
+     */
+    private fun validIndexFor(list: List<Stroke>): StrokeSpatialIndex {
+        val index = spatialIndex
+        val base = indexedStrokes
+        if (index == null || base == null) return rebuildIndex(list)
+        if (list === validatedList && geometryEpoch == validatedEpoch) return index
+        val shorter = minOf(base.size, list.size)
+        var prefix = 0
+        while (prefix < shorter && base[prefix] === list[prefix]) prefix++
+        var suffix = 0
+        while (suffix < shorter - prefix && base[base.size - 1 - suffix] === list[list.size - 1 - suffix]) suffix++
+        if (list.size - prefix - suffix > MAX_INDEX_PATCH) return rebuildIndex(list)
+        val dirty = IntArrayList()
+        for (i in 0 until prefix) {
+            if (list[i].plainRevision != index.revisionAt(i)) dirty.add(i)
+            if (dirty.size > MAX_INDEX_PATCH) return rebuildIndex(list)
+        }
+        for (j in prefix until list.size - suffix) dirty.add(j)
+        for (k in 0 until suffix) {
+            if (list[list.size - suffix + k].plainRevision != index.revisionAt(base.size - suffix + k)) dirty.add(list.size - suffix + k)
+            if (dirty.size > MAX_INDEX_PATCH) return rebuildIndex(list)
+        }
+        validatedList = list
+        validatedEpoch = geometryEpoch
+        patchPrefix = prefix
+        patchSuffix = suffix
+        patchDirty = dirty.toSortedArray()
+        return index
+    }
+
+    private fun rebuildIndex(list: List<Stroke>): StrokeSpatialIndex = StrokeSpatialIndex(list).also {
+        spatialIndex = it
+        indexedStrokes = list
+        validatedList = list
+        validatedEpoch = geometryEpoch
+        patchPrefix = list.size
+        patchSuffix = 0
+        patchDirty = IntArray(0)
+    }
 
     /**
      * Strokes that may intersect the world rectangle, in drawing order - what rendering needs,
      * in time proportional to what's nearby instead of the whole document (roadmap item 49).
-     * The index is rebuilt when the list or the geometry epoch changed; strokes being edited
+     * The index is reused across edits (see [validIndexFor]); strokes being edited
      * right now (the stroke being drawn, its symmetry copies, the selection) can change shape
      * before their action completes, so they're always included. Candidates only: callers
      * still test [Stroke.intersects].
      */
     fun strokesNear(left: Double, top: Double, right: Double, bottom: Double): List<Stroke> {
         val list = strokes.toList() // the list's immutable snapshot: same instance until it changes
-        var index = spatialIndex
-        if (index == null || indexedStrokes !== list || indexedEpoch != geometryEpoch) {
-            index = StrokeSpatialIndex(list)
-            spatialIndex = index
-            indexedStrokes = list
-            indexedEpoch = geometryEpoch
+        val index = validIndexFor(list)
+        val found = if (patchDirty.isEmpty() && indexedStrokes === list) index.query(left, top, right, bottom) else {
+            val baseSize = indexedStrokes!!.size
+            val shift = list.size - baseSize
+            val positions = IntArrayList()
+            for (i in index.query(left, top, right, bottom)) {
+                val at = when {
+                    i < patchPrefix -> i
+                    i >= baseSize - patchSuffix -> i + shift
+                    else -> continue // in the replaced run, gone from the list
+                }
+                if (java.util.Arrays.binarySearch(patchDirty, at) < 0) positions.add(at)
+            }
+            // Changed strokes aren't where the index thinks: tested directly.
+            for (j in patchDirty) if (list[j].intersects(left, top, right, bottom)) positions.add(j)
+            positions.toSortedArray()
         }
-        val found = index.query(left, top, right, bottom)
         val live = buildList {
             currentStroke?.let(::add)
             symmetryCopies.forEach { add(it.first) }
@@ -3436,3 +3498,21 @@ class CanvasState(
 
 /** A document's animation timing (saved per document): playback speed and the X-sheet's holds. */
 data class AnimationSettings(val fps: Int = 12, val holds: Map<Int, Int> = emptyMap())
+
+// Changed strokes tested directly before [CanvasState.strokesNear] rebuilds its index instead.
+private const val MAX_INDEX_PATCH = 4096
+
+/** A growable int list, so collecting candidate positions doesn't box each one. */
+private class IntArrayList {
+    private var data = IntArray(16)
+    var size = 0
+        private set
+
+    fun add(value: Int) {
+        if (size == data.size) data = data.copyOf(size * 2)
+        data[size++] = value
+    }
+
+    fun toSortedArray(): IntArray = data.copyOf(size).also { it.sort() }
+}
+

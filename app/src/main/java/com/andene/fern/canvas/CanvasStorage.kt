@@ -794,7 +794,7 @@ object CanvasStorage {
         val added = saved?.appendedTo(strokes)
         if (saved != null && added != null && saved.journalBlocks < MAX_JOURNAL_BLOCKS && strokesFile(context, documentId).exists()) {
             if (added.isNotEmpty()) appendJournal(journalFile(context, documentId), added)
-            lastSaved[documentId] = SavedStrokes(strokes, saved.journalBlocks + if (added.isEmpty()) 0 else 1)
+            lastSaved[documentId] = saved.withAppended(added, saved.journalBlocks + if (added.isEmpty()) 0 else 1)
             return@synchronized
         }
         writeBinary(strokesFile(context, documentId)) { StrokeCodec.write(it, strokes) }
@@ -810,15 +810,27 @@ object CanvasStorage {
      * shifts every point in place, a transform rewrites them - so identity alone can't tell an
      * unchanged stroke from an edited one; the revision can.
      */
-    private class SavedStrokes(strokes: List<Stroke>, val journalBlocks: Int) {
-        private val strokes = strokes.toList()
-        private val revisions = IntArray(strokes.size) { strokes[it].revision }
+    private class SavedStrokes private constructor(
+        private val strokes: List<Stroke>,
+        private val revisions: IntArray,
+        val journalBlocks: Int,
+    ) {
+        constructor(strokes: List<Stroke>, journalBlocks: Int) :
+            this(strokes.toList(), IntArray(strokes.size) { strokes[it].plainRevision }, journalBlocks)
+
+        /** This record plus [added] at the end, without re-reading what was already recorded. */
+        fun withAppended(added: List<Stroke>, journalBlocks: Int): SavedStrokes {
+            if (added.isEmpty()) return SavedStrokes(strokes, revisions, journalBlocks)
+            val revs = revisions.copyOf(revisions.size + added.size)
+            for (i in added.indices) revs[revisions.size + i] = added[i].plainRevision
+            return SavedStrokes(strokes + added, revs, journalBlocks)
+        }
 
         /** The strokes [current] adds after an untouched copy of what was saved, or null if anything saved changed. */
         fun appendedTo(current: List<Stroke>): List<Stroke>? {
             if (current.size < strokes.size) return null
             for (i in strokes.indices) {
-                if (current[i] !== strokes[i] || current[i].revision != revisions[i]) return null
+                if (current[i] !== strokes[i] || current[i].plainRevision != revisions[i]) return null
             }
             return current.subList(strokes.size, current.size).toList()
         }

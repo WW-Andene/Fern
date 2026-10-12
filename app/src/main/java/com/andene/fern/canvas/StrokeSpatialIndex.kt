@@ -38,6 +38,11 @@ class StrokeSpatialIndex(strokes: List<Stroke>) {
     // Always returned: strokes past the index's capacity, and any whose cell range came out wider
     // than the 2 x 2 a stroke should touch (only possible from overflow at extreme coordinates).
     private val alwaysCandidates: IntArray
+    // Each stroke's [Stroke.plainRevision] when indexed, so a caller can tell which moved since.
+    private val revisions = IntArray(count) { strokes[it].plainRevision }
+
+    /** The revision stroke [index] had when this index was built. */
+    fun revisionAt(index: Int): Int = revisions[index]
 
     init {
         val packed = LongArray(minOf(count, MAX_INDEXED) * 4)

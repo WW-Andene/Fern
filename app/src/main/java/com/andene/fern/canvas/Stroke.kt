@@ -124,13 +124,17 @@ class Stroke(
 
     /** This stroke's current geometry as an immutable [State]; O(1). */
     fun captureState(): State {
-        cachedState?.let { if (it.revision == revision) return it }
+        // Plain revision: undo snapshots capture every stroke, and a million snapshot-state reads per action add up.
+        cachedState?.let { if (it.revision == plainRevision) return it }
         dataShared = true
-        return State(xs, ys, pressureData, tiltData, orientationData, size, widthWorld, minX, minY, maxX, maxY, revision).also { cachedState = it }
+        return State(xs, ys, pressureData, tiltData, orientationData, size, widthWorld, minX, minY, maxX, maxY, plainRevision).also { cachedState = it }
     }
 
     /** Sets this stroke's geometry back to [state] (an undo); O(1), the arrays stay shared until written. */
     fun restoreState(state: State) {
+        // Untouched since that capture: already this geometry. Skipping keeps the revision, so
+        // the spatial index and incremental save still recognise the stroke as unchanged.
+        if (state === cachedState && state.revision == plainRevision) return
         xs = state.xs
         ys = state.ys
         pressureData = state.pressures
@@ -195,7 +199,20 @@ class Stroke(
      * observed). Reading [revision] inside the draw loop is what makes new points show
      * up immediately, point by point, as the finger moves.
      */
-    var revision by mutableIntStateOf(0)
+    var revision: Int
+        get() = revisionState.intValue
+        private set(value) {
+            plainRevision = value
+            revisionState.intValue = value
+        }
+    private val revisionState = mutableIntStateOf(0)
+
+    /**
+     * The same counter as [revision], read without touching the snapshot system: for code that
+     * scans every stroke outside composition (incremental saves), where a million state reads
+     * cost far more than the scan itself.
+     */
+    var plainRevision: Int = 0
         private set
 
     // Cached bounding box in world space, expanded as points are added.
