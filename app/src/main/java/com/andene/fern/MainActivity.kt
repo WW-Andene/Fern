@@ -2,6 +2,8 @@
 
 package com.andene.fern
 
+import android.os.SystemClock
+
 import com.andene.fern.canvas.GameInputState
 import android.view.MotionEvent
 import android.view.KeyEvent
@@ -262,6 +264,8 @@ class MainActivity : ComponentActivity() {
                     var showQuickMenu by remember { mutableStateOf(false) }
                     // Every bar and panel hidden for a clear canvas (design roadmap D15 and D78).
                     var chromeHidden by remember { mutableStateOf(false) }
+                    // A tool key being held: the key, the tool before it, when it went down (design roadmap D17).
+                    var toolKeyHold by remember { mutableStateOf<Triple<Key, Tool, Long>?>(null) }
                     // True while a document is being read: the canvas is covered so nothing can be
                     // drawn onto (and then autosaved over) a document that isn't loaded yet.
                     var loadingDocument by remember { mutableStateOf(true) }
@@ -1033,7 +1037,25 @@ class MainActivity : ComponentActivity() {
                             .focusRequester(shortcutFocus)
                             .focusable()
                             .onPreviewKeyEvent { event ->
+                                // A tool key held down borrows its tool until released (design roadmap D17).
+                                if (event.type == KeyEventType.KeyUp) {
+                                    val hold = toolKeyHold
+                                    if (hold != null && hold.first == event.key) {
+                                        if (SystemClock.uptimeMillis() - hold.third >= TOOL_KEY_HOLD_MILLIS) canvasState.activeTool = hold.second
+                                        toolKeyHold = null
+                                        return@onPreviewKeyEvent true
+                                    }
+                                    return@onPreviewKeyEvent false
+                                }
                                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                                val toolKey = mapOf(Key.P to Tool.PEN, Key.E to Tool.ERASER, Key.V to Tool.SELECT)[event.key]
+                                if (toolKey != null && !event.isCtrlPressed && !event.isMetaPressed) {
+                                    if (event.nativeKeyEvent.repeatCount == 0) {
+                                        toolKeyHold = Triple(event.key, canvasState.activeTool, SystemClock.uptimeMillis())
+                                        canvasState.activeTool = toolKey
+                                    }
+                                    return@onPreviewKeyEvent true
+                                }
                                 val ctrl = event.isCtrlPressed || event.isMetaPressed
                                 when {
                                     ctrl && event.key == Key.K -> CommandPaletteState.open = true
@@ -1047,9 +1069,6 @@ class MainActivity : ComponentActivity() {
                                         canvasState.deleteSelection()
                                         FernMessages.show(context.getString(R.string.msg_deleted), context.getString(R.string.action_undo)) { canvasState.undo() }
                                     }
-                                    event.key == Key.P -> canvasState.activeTool = Tool.PEN
-                                    event.key == Key.E -> canvasState.activeTool = Tool.ERASER
-                                    event.key == Key.V -> canvasState.activeTool = Tool.SELECT
                                     event.key == Key.Zero -> canvasState.zoomToFit()
                                     // Stylus barrel and tail buttons arrive as key events (API 34+ USI pens).
                                     event.nativeKeyEvent.keyCode in STYLUS_BUTTON_KEYCODES -> canvasState.runGestureAction(
@@ -1658,6 +1677,9 @@ private val STYLUS_BUTTON_KEYCODES = setOf(308, 309, 310, 311)
 
 // Room the rulers leave for the toolbar when it's along the top (its 48 dp buttons and padding).
 private const val TOOLBAR_CLEARANCE_DP = 64
+
+// A tool key held this long borrows the tool instead of switching to it (design roadmap D17).
+private const val TOOL_KEY_HOLD_MILLIS = 500L
 
 /** How many recent documents the command palette offers (design roadmap D14). */
 private const val RECENT_IN_PALETTE = 8

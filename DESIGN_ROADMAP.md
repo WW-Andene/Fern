@@ -221,8 +221,9 @@ Goal: switching tools and adjusting without looking or opening anything.
   has it) assigned to actions. Hover preview of the brush cursor. Palm rejection with a
   sensitivity setting.
   Written, not yet compiled or tested: the stylus key button runs the action set for it in Settings > Gestures (default: pen/eraser); the pen's and eraser's footprint follows a hovering stylus; palm rejection off, while the stylus touches (default), or also while it's near. The barrel button held while drawing still erases for that stroke. Double-tap has no public Android API and is not done.
-- [ ] D17. **Hold to switch for a moment.** Hold a key, a stylus button or a rail tool to use
+- [~] D17. **Hold to switch for a moment.** Hold a key, a stylus button or a rail tool to use
   another tool (eraser, eyedropper, pan); release to go back.
+  Written, not yet compiled or tested: holding a rail tool for half a second borrows it until released (with a haptic press); holding P, E or V does the same on a keyboard, a quick press still switches; the stylus barrel button held while drawing erases for that stroke (existing).
 - [ ] D18. **(after phone) Keyboard shortcuts.** A full default set (B pen, E eraser, V select, Z/Y undo/redo,
   [ ] size, space pan, and so on), all of them remappable, with a cheat sheet that appears while
   you hold Ctrl.

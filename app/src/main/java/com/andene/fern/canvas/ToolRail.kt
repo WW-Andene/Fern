@@ -1,6 +1,23 @@
 package com.andene.fern.canvas
 
 import android.content.Context
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import com.andene.fern.FernHaptics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -23,7 +40,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -140,15 +156,53 @@ fun ToolRail(state: CanvasState, vertical: Boolean, modifier: Modifier = Modifie
     }
 }
 
-/** One tool on the rail, highlighted while it's the active tool. */
+/**
+ * One tool on the rail, highlighted while it's the active tool. A tap switches to it; holding it
+ * uses it only while held, then the previous tool comes back (design roadmap D17) - e.g. hold
+ * the eraser with one hand and erase with the other.
+ */
 @Composable
 private fun RailButton(state: CanvasState, tool: Tool) {
     val active = state.activeTool == tool
-    IconButton(
-        onClick = { state.activeTool = tool },
-        modifier = Modifier.toolSelected(active),
-        colors = if (active) IconButtonDefaults.filledTonalIconButtonColors() else IconButtonDefaults.iconButtonColors(),
+    val view = LocalView.current
+    val label = stringResource(toolName(tool))
+    Box(
+        modifier = Modifier
+            .size(FernSize.touchTarget)
+            .clip(CircleShape)
+            .background(if (active) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+            .toolSelected(active)
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                onClick(label) {
+                    state.activeTool = tool
+                    true
+                }
+            }
+            .pointerInput(tool) {
+                awaitEachGesture {
+                    awaitFirstDown()
+                    val released = withTimeoutOrNull(HOLD_TO_SWITCH_MILLIS) { waitForUpOrCancellation() }
+                    if (released != null) {
+                        state.activeTool = tool
+                    } else {
+                        val previous = state.activeTool
+                        state.activeTool = tool
+                        FernHaptics.press(view)
+                        waitForUpOrCancellation()
+                        state.activeTool = previous
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center,
     ) {
-        Icon(railIcon(state, tool), contentDescription = stringResource(toolName(tool)))
+        Icon(
+            railIcon(state, tool),
+            contentDescription = label,
+            tint = if (active) MaterialTheme.colorScheme.onSecondaryContainer else LocalContentColor.current,
+        )
     }
 }
+
+// Held this long, a rail tool is borrowed instead of switched to (Android's long-press time).
+private const val HOLD_TO_SWITCH_MILLIS = 500L
