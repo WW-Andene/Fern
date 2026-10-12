@@ -21,17 +21,19 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStyle
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -393,7 +395,9 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
     state.pendingTextEdit?.let { pending ->
         TextEditDialog(
             initialText = pending.initialText,
-            onConfirm = { text -> state.confirmTextEdit(text) },
+            initialBold = pending.initialBold,
+            initialItalic = pending.initialItalic,
+            onConfirm = { text, bold, italic -> state.confirmTextEdit(text, bold, italic) },
             onDismiss = { state.cancelTextEdit() },
         )
     }
@@ -742,7 +746,12 @@ internal fun DrawScope.drawScene(
         val fontSizePx = (item.fontSizeWorld * state.scale)
         if (!fontSizePx.isFinite() || fontSizePx <= 0.0) continue
         val fontSizeSp = fontSizePx.toFloat().toSp() // DrawScope is a Density
-        val layout = textMeasurer.measure(text = item.text, style = TextStyle(color = item.color, fontSize = fontSizeSp))
+        val layout = textMeasurer.measure(text = item.text, style = TextStyle(
+                color = item.color,
+                fontSize = fontSizeSp,
+                fontWeight = if (item.bold) FontWeight.Bold else FontWeight.Normal,
+                fontStyle = if (item.italic) FontStyle.Italic else FontStyle.Normal,
+            ))
         drawText(textLayoutResult = layout, topLeft = screenPos)
     }
 }

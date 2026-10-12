@@ -340,7 +340,13 @@ class CanvasState(
     val textItems = mutableStateListOf<TextItem>()
 
     /** A tap with the TEXT tool that's waiting on the entry dialog: which item (if any, by id) is being edited, and where a new one would go. */
-    data class PendingTextEdit(val id: String?, val worldPoint: WorldPoint, val initialText: String)
+    data class PendingTextEdit(
+        val id: String?,
+        val worldPoint: WorldPoint,
+        val initialText: String,
+        val initialBold: Boolean = false,
+        val initialItalic: Boolean = false,
+    )
 
     var pendingTextEdit: PendingTextEdit? by mutableStateOf(null)
         private set
@@ -700,7 +706,7 @@ class CanvasState(
     fun beginTextEdit(worldPoint: WorldPoint) {
         val existing = findTextItemAt(worldPoint)
         pendingTextEdit = if (existing != null) {
-            PendingTextEdit(existing.id, existing.position, existing.text)
+            PendingTextEdit(existing.id, existing.position, existing.text, existing.bold, existing.italic)
         } else {
             PendingTextEdit(null, worldPoint, "")
         }
@@ -711,7 +717,7 @@ class CanvasState(
      * if this was a fresh placement), otherwise creates a new label or updates the edited
      * one's text in place.
      */
-    fun confirmTextEdit(text: String) {
+    fun confirmTextEdit(text: String, bold: Boolean = false, italic: Boolean = false) {
         val pending = pendingTextEdit ?: return
         pendingTextEdit = null
         if (text.isBlank()) {
@@ -722,7 +728,7 @@ class CanvasState(
         }
         val existingIndex = pending.id?.let { id -> textItems.indexOfFirst { it.id == id } } ?: -1
         if (existingIndex != -1) {
-            textItems[existingIndex] = textItems[existingIndex].copy(text = text)
+            textItems[existingIndex] = textItems[existingIndex].copy(text = text, bold = bold, italic = italic)
         } else {
             textItems.add(
                 TextItem(
@@ -731,6 +737,8 @@ class CanvasState(
                     position = pending.worldPoint,
                     fontSizeWorld = activeTextSizeWorld / scale.coerceAtLeast(1e-300),
                     color = activeColor,
+                    bold = bold,
+                    italic = italic,
                 )
             )
         }

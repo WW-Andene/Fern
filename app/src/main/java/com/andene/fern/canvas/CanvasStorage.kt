@@ -256,6 +256,9 @@ object CanvasStorage {
                     position = WorldPoint(entry.getDouble("x"), entry.getDouble("y")),
                     fontSizeWorld = entry.getDouble("fontSize"),
                     color = Color(entry.getInt("color")),
+                    // Labels saved before text styling are plain.
+                    bold = entry.optBoolean("bold", false),
+                    italic = entry.optBoolean("italic", false),
                 )
             )
         }
@@ -273,6 +276,8 @@ object CanvasStorage {
                     put("y", item.position.y)
                     put("fontSize", item.fontSizeWorld)
                     put("color", item.color.toArgb())
+                    put("bold", item.bold)
+                    put("italic", item.italic)
                 }
             )
         }

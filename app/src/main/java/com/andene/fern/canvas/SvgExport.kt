@@ -61,7 +61,10 @@ fun exportDocumentSvg(source: CanvasState, imageBytesFor: (String) -> ByteArray?
         // SVG text is positioned by its baseline; the canvas anchors text at its top-left.
         val baseline = item.position.y + item.fontSizeWorld
         svg.append("""<text x="${n(item.position.x)}" y="${n(baseline)}" font-size="${n(item.fontSizeWorld)}" """)
-        svg.append("""fill="${hex(item.color)}" font-family="sans-serif">${escapeXml(item.text)}</text>""").append('\n')
+        svg.append("""fill="${hex(item.color)}" font-family="sans-serif"""")
+        if (item.bold) svg.append(""" font-weight="bold"""")
+        if (item.italic) svg.append(""" font-style="italic"""")
+        svg.append(""">${escapeXml(item.text)}</text>""").append('\n')
     }
     svg.append("</svg>\n")
     return svg.toString()

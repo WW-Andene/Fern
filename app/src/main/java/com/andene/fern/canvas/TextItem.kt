@@ -18,4 +18,6 @@ data class TextItem(
     val position: WorldPoint,
     val fontSizeWorld: Double,
     val color: Color,
+    val bold: Boolean = false,
+    val italic: Boolean = false,
 )
