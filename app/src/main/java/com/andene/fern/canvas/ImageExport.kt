@@ -68,6 +68,8 @@ fun frameForExport(source: CanvasState, maxEdgePx: Int, region: Frame? = null): 
     camera.loadConnectors(source.connectors.toList())
     camera.loadImageItems(source.imageItems.toList())
     camera.loadBackground(source.backgroundColor, source.backgroundStyle)
+    // The animation frame on screen; the per-frame exports step through the others themselves.
+    camera.goToAnimFrame(source.currentAnimFrame)
     camera.jumpTo(WorldPoint((min.x + max.x) / 2.0, (min.y + max.y) / 2.0), scale)
     return ExportFrame(
         camera,

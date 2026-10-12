@@ -40,7 +40,9 @@ fun exportDocumentSvg(source: CanvasState, imageBytesFor: (String) -> ByteArray?
     // Same layer order and visibility as the canvas. Layer opacity is folded into each stroke's
     // opacity, which only differs from the canvas where strokes on one layer overlap.
     val layerIndex = camera.layers.withIndex().associate { (index, layer) -> layer.id to index }
+    // Only the animation frame on screen, as the canvas shows it (before, every frame's strokes were drawn on top of each other).
     val ordered = camera.strokes.withIndex()
+        .filter { it.value.animFrame == camera.currentAnimFrame }
         .sortedWith(compareBy({ layerIndex[it.value.layerId] ?: 0 }, { it.index }))
         .map { it.value }
     var gradientCount = 0
