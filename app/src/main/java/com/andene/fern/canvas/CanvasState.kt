@@ -3538,6 +3538,10 @@ class CanvasState(
             }
             surface.clip = null
             warpSource = pixels
+            // The hook kept each tile as it was before the lift (that's what undo needs); later
+            // steps must restore the lifted state instead, or the original picture comes back
+            // under the warped copy from the second drag event on.
+            for (key in warpBase.keys) warpBase[key] = surface.tileAt(key)?.copy()
         }
         val warped = warpPixels(surface, source, width, height, box[0], box[1], meshMin, meshMax, meshNodes.toList())
         if (warped != null) {
