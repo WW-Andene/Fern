@@ -501,15 +501,15 @@ class CanvasState(
     // after (redo) an action. The previous design popped the last stroke, which was only
     // correct for drawing - undoing an erase, move, fill or clear removed an unrelated stroke
     // instead of reverting the action. Snapshots make every stroke action undoable the same way.
-    // Images are recorded too, so erasing an image is undoable. They're immutable values, so
-    // the list itself is the copy. Null means "not recorded" (history reloaded from disk, which
-    // stores strokes only) and leaves the current images as they are.
-    private class HistoryEntry(val strokes: List<Stroke>, var images: List<ImageItem>?)
+    // Images and text labels are recorded too, so removing or moving one is undoable. They're
+    // immutable values, so the list itself is the copy. Null means "not recorded" (history
+    // reloaded from disk, which stores strokes only) and leaves the current ones as they are.
+    private class HistoryEntry(val strokes: List<Stroke>, var images: List<ImageItem>?, var texts: List<TextItem>? = null)
 
     private val undoStack = ArrayDeque<HistoryEntry>()
     private val redoStack = ArrayDeque<HistoryEntry>()
 
-    private fun currentEntry() = HistoryEntry(strokes.map { it.deepCopy() }, imageItems.toList())
+    private fun currentEntry() = HistoryEntry(strokes.map { it.deepCopy() }, imageItems.toList(), textItems.toList())
 
     /** Called at the start of every stroke-changing action; also invalidates redo, standard editor semantics. */
     private fun recordHistory() {
@@ -533,6 +533,12 @@ class CanvasState(
     private fun restore(snapshot: List<Stroke>) = restore(HistoryEntry(snapshot, null))
 
     private fun restore(entry: HistoryEntry) {
+        val texts = entry.texts
+        if (texts != null && texts != textItems.toList()) {
+            textItems.clear()
+            textItems.addAll(texts)
+            onTextChanged(textItems.toList())
+        }
         val images = entry.images
         if (images != null && images != imageItems.toList()) {
             imageItems.clear()
@@ -868,6 +874,7 @@ class CanvasState(
     fun confirmTextEdit(text: String, bold: Boolean = false, italic: Boolean = false) {
         val pending = pendingTextEdit ?: return
         pendingTextEdit = null
+        recordHistory()
         if (text.isBlank()) {
             if (pending.id != null && textItems.removeAll { it.id == pending.id }) {
                 onTextChanged(textItems.toList())
@@ -1012,6 +1019,7 @@ class CanvasState(
     fun beginSelectGesture(worldPoint: WorldPoint) {
         val pickedText = textItems.firstOrNull { it.id == selectedTextId }
         if (pickedText != null && findTextItemAt(worldPoint)?.id == pickedText.id) {
+            recordHistory()
             isMovingText = true
             lastDragPoint = worldPoint
             return
@@ -1318,6 +1326,7 @@ class CanvasState(
     fun deleteSelection() {
         val textId = selectedTextId
         if (textId != null) {
+            recordHistory()
             textItems.removeAll { it.id == textId }
             selectedTextId = null
             onTextChanged(textItems.toList())
@@ -1426,7 +1435,7 @@ class CanvasState(
     }
 
     fun clear() {
-        recordHistory() // strokes only: text and images aren't part of undo history yet
+        recordHistory() // records strokes, images and text, so Clear is fully undoable
         strokes.clear()
         clearSelectionState()
         onChanged(strokes.toList())
@@ -1566,6 +1575,7 @@ class CanvasState(
         for (entry in undoStack + redoStack) {
             for (stroke in entry.strokes) stroke.shiftBy(offset)
             entry.images = entry.images?.map { it.copy(position = it.position - offset) }
+            entry.texts = entry.texts?.map { it.copy(position = it.position - offset) }
         }
         // Everything else positioned in world space moves too. Previously only strokes did,
         // so after panning past the threshold, text, images, the ruler and pins jumped away
