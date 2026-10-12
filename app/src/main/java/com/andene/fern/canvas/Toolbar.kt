@@ -60,6 +60,7 @@ import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.LineStyle
 import androidx.compose.material.icons.filled.LineWeight
 import androidx.compose.material.icons.filled.LinearScale
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.Palette
@@ -147,6 +148,7 @@ fun Toolbar(
     var showSearchDialog by remember { mutableStateOf(false) }
     var showSymmetryMenu by remember { mutableStateOf(false) }
     var showAlignMenu by remember { mutableStateOf(false) }
+    var showMoreMenu by remember { mutableStateOf(false) }
     var showBlendModeMenu by remember { mutableStateOf(false) }
     var showBackgroundStyleMenu by remember { mutableStateOf(false) }
     var showBackgroundColorPicker by remember { mutableStateOf(false) }
@@ -375,9 +377,6 @@ fun Toolbar(
                         tint = if (state.animationMode) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
                 }
-                IconButton(onClick = { showSearchDialog = true }) {
-                    Icon(Icons.Filled.Search, contentDescription = "Search text")
-                }
                 IconButton(onClick = { showLayersDialog = true }) {
                     Icon(Icons.Filled.Layers, contentDescription = "Layers")
                 }
@@ -519,11 +518,33 @@ fun Toolbar(
                 IconButton(onClick = onOpenDocuments) {
                     Icon(Icons.Filled.Description, contentDescription = "Documents")
                 }
-                IconButton(onClick = onOpenPins) {
-                    Icon(Icons.Filled.PushPin, contentDescription = "Pins")
-                }
-                IconButton(onClick = onOpenFrames) {
-                    Icon(Icons.Filled.CropFree, contentDescription = "Frames")
+                // Occasional, dialog-opening actions live in an overflow menu so the toolbar row
+                // keeps the tools used while drawing within reach.
+                Box {
+                    IconButton(onClick = { showMoreMenu = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "More")
+                    }
+                    DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
+                        val moreItems = listOf(
+                            Triple("Insert image", Icons.Filled.Image, onInsertImage),
+                            Triple("Import PDF to annotate", Icons.Filled.PictureAsPdf, onImportPdf),
+                            Triple("Search text", Icons.Filled.Search) { showSearchDialog = true },
+                            Triple("Pins", Icons.Filled.PushPin, onOpenPins),
+                            Triple("Frames", Icons.Filled.CropFree, onOpenFrames),
+                            Triple("Version history", Icons.Filled.History, onOpenVersions),
+                            Triple("Settings", Icons.Filled.Settings, onOpenSettings),
+                        )
+                        for ((label, icon, action) in moreItems) {
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                leadingIcon = { Icon(icon, contentDescription = null) },
+                                onClick = {
+                                    showMoreMenu = false
+                                    action()
+                                },
+                            )
+                        }
+                    }
                 }
                 IconButton(onClick = { state.replayCount = if (state.replayCount == null) 0 else null }) {
                     Icon(
@@ -531,18 +552,6 @@ fun Toolbar(
                         contentDescription = if (state.replayCount == null) "Replay how this drawing was made" else "Stop replay",
                         tint = if (state.replayCount != null) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
-                }
-                IconButton(onClick = onOpenSettings) {
-                    Icon(Icons.Filled.Settings, contentDescription = "Settings")
-                }
-                IconButton(onClick = onOpenVersions) {
-                    Icon(Icons.Filled.History, contentDescription = "Version history")
-                }
-                IconButton(onClick = onInsertImage) {
-                    Icon(Icons.Filled.Image, contentDescription = "Insert image")
-                }
-                IconButton(onClick = onImportPdf) {
-                    Icon(Icons.Filled.PictureAsPdf, contentDescription = "Import PDF to annotate")
                 }
                 Box {
                     IconButton(onClick = { showExportMenu = true }) {
