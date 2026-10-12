@@ -56,6 +56,7 @@ import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Tonality
+import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -375,6 +376,9 @@ fun Toolbar(
                     }
                     IconButton(onClick = { state.reorderSelection(toFront = false) }) {
                         Icon(Icons.Filled.FlipToBack, contentDescription = "Send selection to back")
+                    }
+                    IconButton(onClick = { state.smoothSelection() }) {
+                        Icon(Icons.Filled.Waves, contentDescription = "Smooth selected strokes")
                     }
                     IconButton(onClick = { state.recolorSelection() }) {
                         Icon(Icons.Filled.FormatPaint, contentDescription = "Apply current colour to selection")

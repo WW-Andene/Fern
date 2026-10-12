@@ -73,6 +73,9 @@ class CanvasState(
         const val MIN_SCALE = 1e-250
         const val MAX_SCALE = 1e250
 
+        // Passes per Smooth tap: visibly smoother without collapsing small details in one tap.
+        private const val SMOOTH_PASSES = 3
+
         // A full row of small swatches on a phone; 16 is on the §7 scale.
         private const val MAX_SAVED_COLORS = 16
 
@@ -1018,6 +1021,16 @@ class CanvasState(
         strokes.addAll(pasted)
         clearSelectionState()
         selection.addAll(pasted)
+        onChanged(strokes.toList())
+    }
+
+    /** Smooths the selected strokes' wobble after the fact; repeatable for a stronger effect. Filled shapes are left alone. */
+    fun smoothSelection() {
+        if (selection.isEmpty()) return
+        recordHistory()
+        for (stroke in selection) {
+            if (!stroke.filled) stroke.setPoints(smoothPoints(stroke.points, SMOOTH_PASSES))
+        }
         onChanged(strokes.toList())
     }
 

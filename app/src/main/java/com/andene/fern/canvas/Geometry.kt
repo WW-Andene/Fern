@@ -57,3 +57,23 @@ fun distanceToPolyline(points: List<WorldPoint>, point: WorldPoint): Double {
     }
     return best
 }
+
+/**
+ * Moving-average smoothing that keeps the point count (so per-point pressure/tilt stay paired
+ * by index) and pins both endpoints. Each pass replaces every interior point with the average
+ * of itself and its neighbours; more passes give a smoother line.
+ */
+fun smoothPoints(points: List<WorldPoint>, passes: Int): List<WorldPoint> {
+    if (points.size < 3) return points
+    var current = points
+    repeat(passes) {
+        current = current.mapIndexed { i, p ->
+            if (i == 0 || i == current.size - 1) p
+            else WorldPoint(
+                (current[i - 1].x + p.x + current[i + 1].x) / 3.0,
+                (current[i - 1].y + p.y + current[i + 1].y) / 3.0,
+            )
+        }
+    }
+    return current
+}
