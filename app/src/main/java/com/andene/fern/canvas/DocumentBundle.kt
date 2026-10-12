@@ -30,6 +30,7 @@ fun exportDocumentBundle(context: Context, documentId: String, name: String): By
             zip.closeEntry()
         }
         put(META_ENTRY, JSONObject().put("name", name).put("bundleVersion", BUNDLE_VERSION).toString().toByteArray())
+        CanvasStorage.compactStrokes(context, documentId)
         for ((entry, file) in CanvasStorage.portableFiles(context, documentId)) {
             if (file.exists()) put(entry, file.readBytes())
         }

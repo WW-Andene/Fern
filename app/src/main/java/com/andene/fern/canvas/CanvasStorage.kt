@@ -167,7 +167,9 @@ object CanvasStorage {
         }
         writeIndex(context, kept)
         strokesFile(context, id).delete()
+        journalFile(context, id).delete()
         legacyStrokesFile(context, id).delete()
+        synchronized(this) { lastSaved.remove(id) }
         pinsFile(context, id).delete()
         textItemsFile(context, id).delete()
         imageItemsFile(context, id).delete()
@@ -204,8 +206,10 @@ object CanvasStorage {
     }
 
     /**
-     * Saves [strokes]. [withThumbnail] re-renders the library thumbnail too; autosave (after
-     * every action) passes false, since rendering every stroke again each time adds up on big
+     * Saves [strokes]. When the only change since the last save is strokes added at the end (the
+     * usual case: something was just drawn), just those are appended to a journal instead of
+     * rewriting the whole file; see [saveStrokesFile]. [withThumbnail] re-renders the library
+     * thumbnail too; autosave (after every action) passes false, since rendering every stroke again each time adds up on big
      * documents - the thumbnail is refreshed when leaving the document or opening the library.
      */
     fun save(context: Context, documentId: String, strokes: List<Stroke>, withThumbnail: Boolean = true) {
@@ -222,10 +226,22 @@ object CanvasStorage {
         writeIndex(context, index)
     }
 
-    fun load(context: Context, documentId: String): List<Stroke> {
-        readBinary(strokesFile(context, documentId)) { StrokeCodec.read(it) }?.let { return it }
-        // Documents saved before the binary format; converted by the next save.
-        return readStored(legacyStrokesFile(context, documentId)) { parseStrokes(it as JSONArray) } ?: emptyList()
+    fun load(context: Context, documentId: String): List<Stroke> = synchronized(this) {
+        // Whatever was remembered from an earlier load or save no longer describes these objects.
+        lastSaved.remove(documentId)
+        val base = readBinary(strokesFile(context, documentId)) { StrokeCodec.read(it) }
+            // Documents saved before the binary format; converted by the next save.
+            ?: readStored(legacyStrokesFile(context, documentId)) { parseStrokes(it as JSONArray) }
+            ?: emptyList()
+        val journal = readJournal(journalFile(context, documentId))
+        val strokes = base + journal.strokes
+        if (journal.damagedTail) {
+            // A crash mid-append left a partial block; rewrite cleanly so later appends aren't
+            // stranded behind it.
+            saveStrokesFile(context, documentId, strokes)
+        }
+        lastSaved[documentId] = SavedStrokes(strokes, journal.blocks)
+        strokes
     }
 
     fun listPins(context: Context, documentId: String): List<PinMeta> {
@@ -621,6 +637,14 @@ object CanvasStorage {
      * bundle; see DocumentBundle). Excludes what can be regenerated or is device-local:
      * thumbnail, undo history and version snapshots.
      */
+    /** Folds the append journal into the strokes file, so [portableFiles]' strokes entry is complete. */
+    internal fun compactStrokes(context: Context, documentId: String): Unit = synchronized(this) {
+        if (!journalFile(context, documentId).exists()) return@synchronized
+        val strokes = load(context, documentId)
+        lastSaved.remove(documentId)
+        saveStrokesFile(context, documentId, strokes)
+    }
+
     internal fun portableFiles(context: Context, documentId: String): Map<String, File> = mapOf(
         BUNDLE_STROKES_ENTRY to strokesFile(context, documentId),
         // Bundles exported before the binary format carry this instead; load() still reads it.
@@ -643,6 +667,9 @@ object CanvasStorage {
     }
 
     private fun strokesFile(context: Context, documentId: String) = File(context.filesDir, "strokes_$documentId.bin")
+
+    /** Strokes appended since [strokesFile] was last written in full; see [saveStrokesFile]. */
+    private fun journalFile(context: Context, documentId: String) = File(context.filesDir, "strokes_$documentId.journal")
 
     /** The JSON strokes file documents used before [StrokeCodec]; read as a fallback, deleted on the next save. */
     private fun legacyStrokesFile(context: Context, documentId: String) = File(context.filesDir, "canvas_$documentId.json")
@@ -667,9 +694,86 @@ object CanvasStorage {
 
     private fun backgroundFile(context: Context, documentId: String) = File(context.filesDir, "background_$documentId.json")
 
-    private fun saveStrokesFile(context: Context, documentId: String, strokes: List<Stroke>) {
+    private fun saveStrokesFile(context: Context, documentId: String, strokes: List<Stroke>): Unit = synchronized(this) {
+        val saved = lastSaved[documentId]
+        val added = saved?.appendedTo(strokes)
+        if (saved != null && added != null && saved.journalBlocks < MAX_JOURNAL_BLOCKS && strokesFile(context, documentId).exists()) {
+            if (added.isNotEmpty()) appendJournal(journalFile(context, documentId), added)
+            lastSaved[documentId] = SavedStrokes(strokes, saved.journalBlocks + if (added.isEmpty()) 0 else 1)
+            return@synchronized
+        }
         writeBinary(strokesFile(context, documentId)) { StrokeCodec.write(it, strokes) }
+        // The full file now holds everything the journal did.
+        journalFile(context, documentId).delete()
         legacyStrokesFile(context, documentId).delete()
+        lastSaved[documentId] = SavedStrokes(strokes, 0)
+    }
+
+    /**
+     * What was last written for a document, for incremental saves: the strokes (by identity) and
+     * each one's [Stroke.revision] at that moment. Strokes are mutable - a floating-origin rebase
+     * shifts every point in place, a transform rewrites them - so identity alone can't tell an
+     * unchanged stroke from an edited one; the revision can.
+     */
+    private class SavedStrokes(strokes: List<Stroke>, val journalBlocks: Int) {
+        private val strokes = strokes.toList()
+        private val revisions = IntArray(strokes.size) { strokes[it].revision }
+
+        /** The strokes [current] adds after an untouched copy of what was saved, or null if anything saved changed. */
+        fun appendedTo(current: List<Stroke>): List<Stroke>? {
+            if (current.size < strokes.size) return null
+            for (i in strokes.indices) {
+                if (current[i] !== strokes[i] || current[i].revision != revisions[i]) return null
+            }
+            return current.subList(strokes.size, current.size).toList()
+        }
+    }
+
+    // In-memory only: after a restart the first save is a full one (load() re-seeds this too).
+    private val lastSaved = HashMap<String, SavedStrokes>()
+
+    /**
+     * Appended blocks before the journal is folded into a full rewrite: 64 keeps load-time block
+     * parsing trivial and the full rewrite rare (once per 64 drawing actions at most).
+     */
+    private const val MAX_JOURNAL_BLOCKS = 64
+
+    /**
+     * Appends one [StrokeCodec] block of newly drawn strokes, then syncs it to disk. A crash
+     * mid-append leaves a partial final block, which [readJournal] drops (losing only that last
+     * action) while every earlier block stays readable.
+     */
+    private fun appendJournal(file: File, strokes: List<Stroke>) {
+        val bytes = java.io.ByteArrayOutputStream().also { StrokeCodec.write(DataOutputStream(it), strokes) }.toByteArray()
+        java.io.FileOutputStream(file, true).use { stream ->
+            stream.write(bytes)
+            stream.fd.sync()
+        }
+    }
+
+    private class Journal(val strokes: List<Stroke>, val blocks: Int, val damagedTail: Boolean)
+
+    private fun readJournal(file: File): Journal {
+        if (!file.exists()) return Journal(emptyList(), 0, false)
+        val strokes = mutableListOf<Stroke>()
+        var blocks = 0
+        var damaged = false
+        DataInputStream(BufferedInputStream(file.inputStream())).use { input ->
+            while (true) {
+                input.mark(1)
+                if (input.read() == -1) break
+                input.reset()
+                try {
+                    strokes += StrokeCodec.read(input)
+                    blocks++
+                } catch (e: Exception) {
+                    Log.e("CanvasStorage", "Dropping damaged tail of ${file.name} after $blocks blocks", e)
+                    damaged = true
+                    break
+                }
+            }
+        }
+        return Journal(strokes, blocks, damaged)
     }
 
     /** [writeAtomically] for a binary payload, streamed rather than built in memory first. */
