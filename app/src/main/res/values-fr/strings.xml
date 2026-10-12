@@ -79,6 +79,9 @@
     <string name="brush_delete_preset">Supprimer le préréglage %1$s</string>
     <string name="layers_title">Calques</string>
     <string name="layers_skins">Skins</string>
+    <string name="layers_add_file">Ajouter un calque fichier</string>
+    <string name="layers_reload_file">Recharger depuis le fichier</string>
+    <string name="layers_file_unreadable">Cette image n\'a pas pu être lue.</string>
     <string name="second_view_title">Seconde vue</string>
     <string name="wrap_on">Mode tuile répétée</string>
     <string name="wrap_off">Désactiver la tuile répétée</string>

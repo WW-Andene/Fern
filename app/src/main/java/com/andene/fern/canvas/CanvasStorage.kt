@@ -682,6 +682,7 @@ object CanvasStorage {
                 if (layer.alphaLocked) put("alphaLocked", true)
                 if (layer.blend != LayerBlend.NORMAL) put("blend", layer.blend.name)
                 layer.adjustment?.let { put("adjustment", adjustmentToJson(it)) }
+                layer.fileSource?.let { put("file", it) }
             })
         }
         writeStored(layersFile(context, documentId), root)
@@ -768,6 +769,7 @@ object CanvasStorage {
                 alphaLocked = entry.optBoolean("alphaLocked", false),
                 blend = LayerBlend.entries.firstOrNull { it.name == entry.optString("blend") } ?: LayerBlend.NORMAL,
                 adjustment = entry.optJSONObject("adjustment")?.let(::adjustmentFromJson),
+                fileSource = entry.optString("file").ifEmpty { null },
             )
         }
     }

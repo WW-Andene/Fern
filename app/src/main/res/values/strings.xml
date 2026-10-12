@@ -79,6 +79,9 @@
     <string name="brush_delete_preset">Delete preset %1$s</string>
     <string name="layers_title">Layers</string>
     <string name="layers_skins">Skins</string>
+    <string name="layers_add_file">Add file layer</string>
+    <string name="layers_reload_file">Reload from file</string>
+    <string name="layers_file_unreadable">That image couldn\'t be read.</string>
     <string name="second_view_title">Second view</string>
     <string name="wrap_on">Wrap-around tile mode</string>
     <string name="wrap_off">Turn off wrap-around</string>

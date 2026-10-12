@@ -107,6 +107,7 @@ import com.andene.fern.canvas.startSelectionDrag
 import com.andene.fern.canvas.QuickMenuButton
 import com.andene.fern.canvas.QuickMenuOverlay
 import com.andene.fern.canvas.PinMeta
+import com.andene.fern.canvas.readFileLayerImage
 import com.andene.fern.canvas.QuickMenuCustomizeDialog
 import com.andene.fern.canvas.SecondView
 import com.andene.fern.canvas.PinsDialog
@@ -757,6 +758,12 @@ class MainActivity : ComponentActivity() {
                         canvasState.loadStrokes(loaded.strokes)
                         canvasState.loadLayers(loaded.layers)
                         canvasState.loadLayerComps(loaded.layerComps)
+                        // File layers (roadmap item 138) show their files as they are now; one
+                        // that can't be read keeps the pixels saved with the document.
+                        for (layer in loaded.layers.filter { it.fileSource != null }) {
+                            val image = withContext(Dispatchers.IO) { readFileLayerImage(context, Uri.parse(layer.fileSource)) } ?: continue
+                            canvasState.reloadFileLayer(layer.id, image.argb, image.width, image.height, recordUndo = false)
+                        }
                         canvasState.loadStats(loaded.stats)
                         canvasState.loadRasters(loaded.rasters)
                         canvasState.loadFrames(loaded.frames)

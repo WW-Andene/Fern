@@ -1,6 +1,18 @@
 package com.andene.fern.canvas
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.filled.Refresh
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import android.provider.OpenableColumns
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.widget.Toast
+import android.net.Uri
+import android.content.Intent
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material.icons.filled.FormatColorFill
 import com.andene.fern.R
@@ -70,6 +82,32 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
         )
     }
     var renameText by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    // File layers (roadmap item 138): the picked image's permission is kept, so it reloads later.
+    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        scope.launch {
+            val image = withContext(Dispatchers.IO) { readFileLayerImage(context, uri) }
+            if (image == null) {
+                Toast.makeText(context, context.getString(R.string.layers_file_unreadable), Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val name = runCatching {
+                context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+            }.getOrNull()?.substringBeforeLast('.') ?: ""
+            state.addFileLayer(name, uri.toString(), image.argb, image.width, image.height)
+        }
+    }
+    fun reload(layer: Layer) {
+        val source = layer.fileSource ?: return
+        scope.launch {
+            val image = withContext(Dispatchers.IO) { readFileLayerImage(context, Uri.parse(source)) }
+            if (image == null) Toast.makeText(context, context.getString(R.string.layers_file_unreadable), Toast.LENGTH_SHORT).show()
+            else state.reloadFileLayer(layer.id, image.argb, image.width, image.height)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -94,6 +132,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                         }
                     }
                 }
+                TextButton(onClick = { pickFile.launch(arrayOf("image/*")) }) { Text(stringResource(R.string.layers_add_file)) }
                 LayerCompsSection(state)
                 for (layer in state.layers.reversed()) {
                     val active = layer.id == state.activeLayerId
@@ -151,6 +190,11 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (layer.fileSource != null) {
+                            IconButton(onClick = { reload(layer) }) {
+                                Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.layers_reload_file))
+                            }
+                        }
                         IconButton(onClick = { state.moveLayer(layer.id, up = true) }, enabled = layer != state.layers.last()) {
                             Icon(Icons.Filled.ArrowUpward, contentDescription = stringResource(R.string.layers_up))
                         }

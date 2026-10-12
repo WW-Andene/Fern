@@ -1865,6 +1865,57 @@ class CanvasState(
         onLayersChanged(layers.toList())
     }
 
+    /**
+     * Adds a file layer (roadmap item 138) showing [argb] (non-premultiplied ARGB, [width] x
+     * [height], read from [source]) centred in the view, one image pixel per screen pixel at the
+     * current zoom, locked against painting. Its surface's origin is the image's top-left, so a
+     * reload repaints from pixel (0, 0).
+     */
+    fun addFileLayer(name: String, source: String, argb: IntArray, width: Int, height: Int) {
+        val pixelWorld = 1.0 / scale.coerceAtLeast(1e-300)
+        val surface = RasterSurface(8, pixelWorld, panWorld.x - width / 2.0 * pixelWorld, panWorld.y - height / 2.0 * pixelWorld)
+        val layer = Layer(UUID.randomUUID().toString(), name.ifBlank { "File ${layers.size + 1}" }, locked = true, raster = true, fileSource = source)
+        attachRaster(layer.id, surface)
+        paintImage(surface, argb, width, height)
+        layers.add(layer)
+        activeLayerId = layer.id
+        markRasterDirty(layer.id, surface.tiles.keys.toSet())
+        onLayersChanged(layers.toList())
+    }
+
+    /**
+     * Replaces file layer [id]'s pixels with the file as it is now. [recordUndo] false for the
+     * automatic reload when a document opens, which isn't an edit to undo.
+     */
+    fun reloadFileLayer(id: String, argb: IntArray, width: Int, height: Int, recordUndo: Boolean = true) {
+        val surface = rasters[id] ?: return
+        if (layers.none { it.id == id && it.fileSource != null }) return
+        if (recordUndo) recordHistory()
+        val old = surface.tiles.keys.toSet()
+        for (key in old) {
+            surface.beforeTileChange(key)
+            surface.setTile(key, null)
+        }
+        paintImage(surface, argb, width, height)
+        markRasterDirty(id, old + surface.tiles.keys)
+    }
+
+    /** Paints [argb] (non-premultiplied) onto [surface] with its top-left at pixel (0, 0). */
+    private fun paintImage(surface: RasterSurface, argb: IntArray, width: Int, height: Int) {
+        surface.forEachPixelIn(0.0, 0.0, (width - 1).toDouble(), (height - 1).toDouble()) { tile, index, px, py ->
+            if (px !in 0 until width || py !in 0 until height) return@forEachPixelIn
+            val c = argb[py * width + px]
+            val a = c ushr 24
+            if (a == 0) return@forEachPixelIn
+            fun premultiplied(shift: Int) = (((c shr shift) and 0xFF) * a * 65535L / (255 * 255)).toInt().toShort()
+            tile.data[index] = premultiplied(16)
+            tile.data[index + 1] = premultiplied(8)
+            tile.data[index + 2] = premultiplied(0)
+            tile.data[index + 3] = (a * 257).toShort()
+        }
+        surface.tiles.entries.removeAll { it.value.isEmpty() }
+    }
+
     /** Adds an adjustment layer applying [adjustment] to everything beneath it (roadmap item 93). */
     fun addAdjustmentLayer(adjustment: Adjustment) {
         val layer = Layer(UUID.randomUUID().toString(), "Adjustment ${layers.size + 1}", adjustment = adjustment)
