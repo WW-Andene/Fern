@@ -95,6 +95,8 @@ class CanvasState(
     private val onLayerCompsChanged: (List<LayerComp>) -> Unit = {},
     private val onStatsChanged: (DocumentStats) -> Unit = {},
     private val onGuidesChanged: (List<Guide>) -> Unit = {},
+    /** The game objects changed (roadmap item 155). */
+    private val onGameObjectsChanged: (List<GameObject>) -> Unit = {},
     /** The animation branches changed (roadmap item 153): the branches and the current one's id. */
     private val onBranchesChanged: (List<AnimationBranch>, String) -> Unit = { _, _ -> },
     /** The document's drawing scale changed (roadmap item 143). */
@@ -499,6 +501,110 @@ class CanvasState(
         playingBackwards = tag.direction == TagDirection.REVERSE
         heldTicks = 0
         playing = true
+    }
+
+    /** The document's game objects (roadmap item 155); see [GameObject]. Not part of undo, like frames and layers. */
+    val gameObjects = mutableStateListOf<GameObject>()
+
+    fun loadGameObjects(loaded: List<GameObject>) {
+        play = null // a game of another document stops
+        gameObjects.clear()
+        gameObjects.addAll(loaded)
+    }
+
+    /** The object the selection belongs to, if it's all one object's strokes. */
+    val selectedObject: GameObject?
+        get() = selection.map { it.groupId }.distinct().singleOrNull()?.let { id -> gameObjects.firstOrNull { it.id == id } }
+
+    /**
+     * Makes the selection a game object called [name] (roadmap item 155), or returns the object
+     * it already is. Strokes not yet in one group are grouped first (one undo step), since an
+     * object is a group - it then takes in the group's strokes on every frame.
+     */
+    fun makeObject(name: String): GameObject? {
+        selectedObject?.let { return it }
+        if (selection.isEmpty()) return null
+        val group = selection.map { it.groupId }.distinct().singleOrNull() ?: run {
+            val id = UUID.randomUUID().toString()
+            regroupSelection(id)
+            id
+        }
+        val made = GameObject(group, name)
+        gameObjects.add(made)
+        onGameObjectsChanged(gameObjects.toList())
+        return made
+    }
+
+    /** Replaces the object with [updated]'s id. */
+    fun updateObject(updated: GameObject) {
+        val index = gameObjects.indexOfFirst { it.id == updated.id }
+        if (index == -1) return
+        gameObjects[index] = updated
+        onGameObjectsChanged(gameObjects.toList())
+    }
+
+    /** Turns object [id] back into a plain drawing; its strokes stay (still grouped). */
+    fun removeObject(id: String) {
+        if (gameObjects.removeWhere { it.id == id }) onGameObjectsChanged(gameObjects.toList())
+    }
+
+    /**
+     * The object to edit for the selection (roadmap item 155), made from it when it isn't one yet
+     * (named [newName]), and a path for a FOLLOW_PATH behaviour: the one other stroke selected
+     * with the object, outside any object - a line drawn to show the way. Null when the selection
+     * spans several objects or is empty.
+     */
+    fun objectForEditing(newName: String): Pair<GameObject, List<WorldPoint>?>? {
+        val ids = gameObjects.map { it.id }.toSet()
+        val owned = selection.mapNotNull { it.groupId }.filter { it in ids }.distinct()
+        return when (owned.size) {
+            0 -> makeObject(newName)?.let { it to null }
+            1 -> {
+                val target = gameObjects.first { it.id == owned[0] }
+                val path = selection.filter { it.groupId != target.id }.singleOrNull()
+                    ?.takeIf { s -> s.groupId !in ids && s.points.size >= 2 }?.points?.toList()
+                target to path
+            }
+            else -> null
+        }
+    }
+
+    /** The game being played (roadmap items 155 and 161), or null while editing. */
+    var play by mutableStateOf<GameWorld?>(null)
+        private set
+
+    /** Bumped on every game step, so the canvas redraws the moved objects. */
+    var playRevision by mutableIntStateOf(0)
+        private set
+
+    /** Starts the game: every object, as drawn on the current frame, playing inside the view. */
+    fun startPlay() {
+        if (gameObjects.isEmpty() || viewportSize.width <= 0f) return
+        clearSelectionState()
+        val boxes = HashMap<String, WorldBox>()
+        for (def in gameObjects) {
+            val own = strokes.filter { it.groupId == def.id && it.animFrame == currentAnimFrame && it.points.isNotEmpty() }
+            if (own.isEmpty()) continue
+            boxes[def.id] = WorldBox(WorldPoint(own.minOf { it.minX }, own.minOf { it.minY }), WorldPoint(own.maxOf { it.maxX }, own.maxOf { it.maxY }))
+        }
+        val center = Offset(viewportSize.width / 2f, viewportSize.height / 2f)
+        val corners = listOf(Offset.Zero, Offset(viewportSize.width, 0f), Offset(0f, viewportSize.height), Offset(viewportSize.width, viewportSize.height)).map { screenToWorld(it, center) }
+        val scene = WorldBox(WorldPoint(corners.minOf { it.x }, corners.minOf { it.y }), WorldPoint(corners.maxOf { it.x }, corners.maxOf { it.y }))
+        play = GameWorld(gameObjects.toList(), boxes, scene)
+        playRevision++
+    }
+
+    /** Advances the game by [dt] seconds. */
+    fun stepPlay(dt: Double) {
+        val world = play ?: return
+        world.step(dt)
+        playRevision++
+    }
+
+    /** Ends the game; everything is back where it was drawn. */
+    fun stopPlay() {
+        play = null
+        playRevision++
     }
 
     /**
@@ -3197,7 +3303,8 @@ class CanvasState(
      */
     val tileCacheEligible: Boolean
         get() = strokes.size >= TILE_CACHE_MIN_STROKES && currentStroke == null && selection.isEmpty() &&
-            !isErasing && !isMovingImage && !isMovingText && !animationMode && replayCount == null && audioReplay == null
+            !isErasing && !isMovingImage && !isMovingText && !animationMode && replayCount == null && audioReplay == null &&
+            play == null // objects move while a game plays
 
     private var isErasing = false
 

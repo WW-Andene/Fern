@@ -28,6 +28,7 @@ class LoadedDocument(
     val frames: List<Frame>,
     val drawingScale: DrawingScale?,
     val branches: Pair<List<AnimationBranch>, String?>,
+    val gameObjects: List<GameObject>,
     val history: Pair<List<List<Stroke>>, List<List<Stroke>>>,
     val texts: List<TextItem>,
     val connectors: List<Connector>,

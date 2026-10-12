@@ -82,6 +82,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.andene.fern.canvas.AnimationBar
+import com.andene.fern.canvas.PlayOverlay
 import com.andene.fern.canvas.AppSettings
 import com.andene.fern.canvas.AudioNotes
 import com.andene.fern.canvas.AudioNotesDialog
@@ -288,6 +289,7 @@ class MainActivity : ComponentActivity() {
                             onStatsChanged = { stats -> CanvasStorage.saveStats(context, currentDocumentId, stats) },
                             onGuidesChanged = { guides -> CanvasStorage.saveGuides(context, currentDocumentId, guides) },
                             onDrawingScaleChanged = { scale -> CanvasStorage.saveDrawingScale(context, currentDocumentId, scale) },
+                            onGameObjectsChanged = { objects -> CanvasStorage.saveGameObjects(context, currentDocumentId, objects) },
                             // Branch snapshots can be large: written off the main thread (roadmap item 153).
                             onBranchesChanged = { branches, current ->
                                 val documentId = currentDocumentId
@@ -817,6 +819,7 @@ class MainActivity : ComponentActivity() {
                                 frames = CanvasStorage.loadFrames(context, documentId),
                                 drawingScale = CanvasStorage.loadDrawingScale(context, documentId),
                                 branches = CanvasStorage.loadBranches(context, documentId),
+                                gameObjects = CanvasStorage.loadGameObjects(context, documentId),
                                 history = CanvasStorage.loadHistory(context, documentId),
                                 texts = CanvasStorage.loadTextItems(context, documentId),
                                 connectors = CanvasStorage.loadConnectors(context, documentId),
@@ -841,6 +844,7 @@ class MainActivity : ComponentActivity() {
                         canvasState.loadGuides(loaded.guides)
                         canvasState.loadDrawingScale(loaded.drawingScale)
                         canvasState.loadBranches(loaded.branches.first, loaded.branches.second)
+                        canvasState.loadGameObjects(loaded.gameObjects)
                         canvasState.loadSymbolInstances(loaded.symbolInstances)
                         // Symbols redefined since this document was last open: catch its instances up.
                         if (loaded.symbolInstances.isNotEmpty()) {
@@ -1075,6 +1079,9 @@ class MainActivity : ComponentActivity() {
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(16.dp),
                             )
+                        } else if (canvasState.play != null) {
+                            // The game playing (roadmap item 155): editing chrome hidden.
+                            PlayOverlay(canvasState, Modifier.padding(WindowInsets.systemBars.asPaddingValues()))
                         } else {
                             Toolbar(
                                 state = canvasState,

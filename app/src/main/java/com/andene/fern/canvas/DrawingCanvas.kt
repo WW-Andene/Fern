@@ -1638,8 +1638,13 @@ internal fun DrawScope.drawScene(
     } else {
         emptyList()
     }.filter { (frame, _) -> frame in 0 until state.animFrameCount }
-    // Only strokes near the view, from the spatial index - not a pass over the whole document.
-    val nearby = state.strokesNear(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)
+    // Only strokes near the view, from the spatial index - not a pass over the whole document -
+    // plus, while a game plays (roadmap item 155), every object's strokes wherever they've gone.
+    val world = state.play
+    state.playRevision // redraw on each game step
+    val nearby = state.strokesNear(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y).let { near ->
+        if (world == null) near else (near + state.strokes.filter { world.instanceOf(it.groupId) != null }).distinct()
+    }
     // Replay draws the first replayCount strokes of the document, in drawing order.
     val replayedOrAll = state.replayCount?.let { count -> state.strokes.take(count).toHashSet().let { shown -> nearby.filter { it in shown } } } ?: nearby
     // Audio sync (roadmap item 130): ink the playing voice note hasn't reached yet is drawn
@@ -1696,57 +1701,74 @@ internal fun DrawScope.drawScene(
             return
         }
         val layerStrokes = strokesByLayer[index] ?: return
+        // One stroke where it's drawn; [culled] skips it when it's off screen (not for a playing
+        // object, which may have moved anywhere).
+        fun DrawScope.drawOne(stroke: Stroke, culled: Boolean) {
+            // Reading revision here (and only here) is what subscribes this draw phase to
+            // the stroke's mutations, so a redraw is triggered as each new point is added
+            // mid-stroke rather than waiting for an unrelated pan/zoom to happen to redraw.
+            stroke.revision
+            if (culled && !stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) return
+            val points = stroke.points
+            if (points.isEmpty()) return
+            // Level of detail: a stroke smaller than a pixel on screen (far zoomed out) is
+            // drawn as one dot, skipping the per-point transform and path building that
+            // dominate the cost of drawing thousands of distant strokes.
+            // Width counts too: a single-point dot has zero extent but can be large on screen.
+            val extentScreen = (maxOf(stroke.maxX - stroke.minX, stroke.maxY - stroke.minY) + stroke.widthWorld) * state.scale
+            if (extentScreen < 1.0) {
+                val center = state.worldToScreen(WorldPoint((stroke.minX + stroke.maxX) / 2.0, (stroke.minY + stroke.maxY) / 2.0), screenCenter)
+                drawCircle(color = stroke.color, radius = 0.5f, center = center)
+                return
+            }
+            // Points closer together than a pixel on screen add path-building cost but no
+            // visible detail, so only those at least MIN_POINT_SPACING_SCREEN apart are drawn;
+            // [source] maps each drawn point back to its index for pressure/tilt lookups.
+            val source = stroke.decimatedIndices(MIN_POINT_SPACING_SCREEN / state.scale)
+            val screenPoints = source.map { state.worldToScreen(points[it], screenCenter) }
+            if (stroke.filled) {
+                val path = Path()
+                path.moveTo(screenPoints[0].x, screenPoints[0].y)
+                for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
+                path.close()
+                if (stroke.screentone) {
+                    drawScreentone(path, stroke.color, screenPoints)
+                } else if (stroke.gradient != null) {
+                    val (start, end) = gradientEndpoints(screenPoints, stroke.gradient.angleDegrees)
+                    drawPath(path = path, brush = Brush.linearGradient(listOf(stroke.color, stroke.gradient.endColor), start = start, end = end))
+                } else if (stroke.fadeFill) {
+                    // Gradient spans the fill's own height on screen, so it zooms with the shape.
+                    val top = screenPoints.minOf { it.y }
+                    val bottom = screenPoints.maxOf { it.y }
+                    drawPath(
+                        path = path,
+                        brush = Brush.verticalGradient(listOf(stroke.color, stroke.color.copy(alpha = 0f)), startY = top, endY = bottom),
+                    )
+                } else {
+                    drawPath(path = path, color = stroke.color)
+                }
+                return
+            }
+            val rawWidthScreen = stroke.widthWorld * state.scale
+            if (!rawWidthScreen.isFinite()) return
+            val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
+            if (stroke.penType == PenType.PIXEL) drawPixelStroke(stroke, state, screenCenter)
+            else drawStroke(stroke, screenPoints, source, widthScreen, stroke.blendMode.toComposeBlendMode())
+        }
         for (stroke in layerStrokes) {
-                // Reading revision here (and only here) is what subscribes this draw phase to
-                // the stroke's mutations, so a redraw is triggered as each new point is added
-                // mid-stroke rather than waiting for an unrelated pan/zoom to happen to redraw.
-                stroke.revision
-                if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
-                val points = stroke.points
-                if (points.isEmpty()) continue
-                // Level of detail: a stroke smaller than a pixel on screen (far zoomed out) is
-                // drawn as one dot, skipping the per-point transform and path building that
-                // dominate the cost of drawing thousands of distant strokes.
-                // Width counts too: a single-point dot has zero extent but can be large on screen.
-                val extentScreen = (maxOf(stroke.maxX - stroke.minX, stroke.maxY - stroke.minY) + stroke.widthWorld) * state.scale
-                if (extentScreen < 1.0) {
-                    val center = state.worldToScreen(WorldPoint((stroke.minX + stroke.maxX) / 2.0, (stroke.minY + stroke.maxY) / 2.0), screenCenter)
-                    drawCircle(color = stroke.color, radius = 0.5f, center = center)
-                    continue
-                }
-                // Points closer together than a pixel on screen add path-building cost but no
-                // visible detail, so only those at least MIN_POINT_SPACING_SCREEN apart are drawn;
-                // [source] maps each drawn point back to its index for pressure/tilt lookups.
-                val source = stroke.decimatedIndices(MIN_POINT_SPACING_SCREEN / state.scale)
-                val screenPoints = source.map { state.worldToScreen(points[it], screenCenter) }
-                if (stroke.filled) {
-                    val path = Path()
-                    path.moveTo(screenPoints[0].x, screenPoints[0].y)
-                    for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
-                    path.close()
-                    if (stroke.screentone) {
-                        drawScreentone(path, stroke.color, screenPoints)
-                    } else if (stroke.gradient != null) {
-                        val (start, end) = gradientEndpoints(screenPoints, stroke.gradient.angleDegrees)
-                        drawPath(path = path, brush = Brush.linearGradient(listOf(stroke.color, stroke.gradient.endColor), start = start, end = end))
-                    } else if (stroke.fadeFill) {
-                        // Gradient spans the fill's own height on screen, so it zooms with the shape.
-                        val top = screenPoints.minOf { it.y }
-                        val bottom = screenPoints.maxOf { it.y }
-                        drawPath(
-                            path = path,
-                            brush = Brush.verticalGradient(listOf(stroke.color, stroke.color.copy(alpha = 0f)), startY = top, endY = bottom),
-                        )
-                    } else {
-                        drawPath(path = path, color = stroke.color)
-                    }
-                    continue
-                }
-                val rawWidthScreen = stroke.widthWorld * state.scale
-                if (!rawWidthScreen.isFinite()) continue
-                val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
-                if (stroke.penType == PenType.PIXEL) drawPixelStroke(stroke, state, screenCenter)
-                else drawStroke(stroke, screenPoints, source, widthScreen, stroke.blendMode.toComposeBlendMode())
+            // While a game plays (roadmap item 155), an object's strokes are drawn where it is now.
+            val playing = world?.instanceOf(stroke.groupId)
+            if (playing == null) {
+                drawOne(stroke, culled = true)
+                continue
+            }
+            if (!playing.visible || playing.removed) continue
+            val pivot = state.worldToScreen(playing.pivot, screenCenter)
+            withTransform({
+                translate(((playing.x + playing.swingX) * state.scale).toFloat(), ((playing.y + playing.swingY) * state.scale).toFloat())
+                rotate(playing.angle.toFloat(), pivot)
+                scale(playing.scale.toFloat(), playing.scale.toFloat(), pivot)
+            }) { drawOne(stroke, culled = false) }
         }
     }
 

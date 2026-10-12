@@ -241,7 +241,7 @@ Shared, multiplayer parts need a server and are deferred ⏸; single-player part
 
 **From drawing to logic**
 
-- [ ] 155. Turn a drawing into an object with properties and behaviours
+- [x] 155. Turn a drawing into an object with properties and behaviours — a selection (grouped, so its strokes on every frame go together) becomes a named object with number properties and behaviours (move, rotate, swing, follow a drawn path, bounce off or wrap around the edges, blink, pulse) with their settings; Play runs them in the view, editing hidden, the drawing untouched; saved with the document and in bundles. Objects aren't part of undo, like frames and layers
 - [ ] 156. Visual scripting (nodes / blocks)
 - [~] 157. Drawn behaviours — a drawn path becomes motion (animate along path); hitboxes and links not started
 - [ ] 158. State machines linking rig animations to logic

@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.Toys
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled._3dRotation
@@ -263,6 +265,9 @@ fun Toolbar(
     if (showStatsDialog) StatsDialog(state, onDismiss = { showStatsDialog = false })
     var showSignatureDialog by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
+    // Game objects (roadmap item 155).
+    var editingObject by remember { mutableStateOf<Pair<GameObject, List<WorldPoint>?>?>(null) }
+    editingObject?.let { (target, path) -> GameObjectDialog(state, target, path, onDismiss = { editingObject = null }) }
     var showPlugins by remember { mutableStateOf(false) }
     if (showPlugins) PluginsDialog(state, onDismiss = { showPlugins = false })
     // 3D painting (roadmap item 108): adding a model, and the model open in the editor.
@@ -1095,6 +1100,11 @@ fun Toolbar(
                             }
                         }
                     }
+                    // Game object (roadmap item 155): the selection as an object with properties and behaviours.
+                    val newObjectName = stringResource(R.string.object_default_name, state.gameObjects.size + 1)
+                    IconButton(onClick = { editingObject = state.objectForEditing(newObjectName) }, enabled = state.selection.isNotEmpty()) {
+                        Icon(Icons.Filled.Toys, contentDescription = stringResource(R.string.object_title))
+                    }
                     // Constraints (roadmap item 144): how the selection follows a resized frame.
                     IconButton(onClick = { showConstraintsDialog = true }, enabled = state.selection.isNotEmpty()) {
                         Icon(Icons.Filled.PushPin, contentDescription = stringResource(R.string.constraints_title))
@@ -1242,6 +1252,12 @@ fun Toolbar(
                     }
                 }
 
+                // Play the game (roadmap item 155) once something is an object.
+                if (state.gameObjects.isNotEmpty()) {
+                    IconButton(onClick = { state.startPlay() }) {
+                        Icon(Icons.Filled.SportsEsports, contentDescription = stringResource(R.string.play_start))
+                    }
+                }
                 IconButton(onClick = { state.undo() }) {
                     Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.action_undo))
                 }

@@ -197,6 +197,7 @@ object CanvasStorage {
         framesFile(context, id).delete()
         drawingScaleFile(context, id).delete()
         branchesFile(context, id).delete()
+        gameObjectsFile(context, id).delete()
         AudioNotes.deleteAll(context, id)
         versionsDir(context, id).deleteRecursively()
         // Deliberately not deleting files under images/: they're shared/immutable and may
@@ -221,6 +222,7 @@ object CanvasStorage {
         val frames = loadFrames(context, id)
         val drawingScale = loadDrawingScale(context, id)
         val branches = branchesFile(context, id).takeIf { it.exists() }?.readBytes()
+        val gameObjects = loadGameObjects(context, id)
         val meta = createDocument(context, newName)
         save(context, meta.id, strokes)
         saveTextItems(context, meta.id, textItems)
@@ -240,6 +242,7 @@ object CanvasStorage {
         if (frames.isNotEmpty()) saveFrames(context, meta.id, frames)
         if (drawingScale != null) saveDrawingScale(context, meta.id, drawingScale)
         if (branches != null) writeAtomically(branchesFile(context, meta.id), branches)
+        if (gameObjects.isNotEmpty()) saveGameObjects(context, meta.id, gameObjects)
         return meta
     }
 
@@ -746,6 +749,14 @@ object CanvasStorage {
         }
     }
 
+    /** Saves the document's game objects (roadmap item 155). */
+    fun saveGameObjects(context: Context, documentId: String, objects: List<GameObject>) {
+        if (objects.isEmpty()) gameObjectsFile(context, documentId).delete() else writeStored(gameObjectsFile(context, documentId), GameObjectsJson.write(objects))
+    }
+
+    fun loadGameObjects(context: Context, documentId: String): List<GameObject> =
+        readStored(gameObjectsFile(context, documentId)) { it as JSONArray }?.let(GameObjectsJson::read).orEmpty()
+
     /**
      * Saves the document's animation branches (roadmap item 153) and which one is current. The
      * current branch's own latest content is the document itself, so its stored copy may lag.
@@ -1112,6 +1123,7 @@ object CanvasStorage {
         "frames.json" to framesFile(context, documentId),
         "scale.json" to drawingScaleFile(context, documentId),
         "branches.bin" to branchesFile(context, documentId),
+        "objects.json" to gameObjectsFile(context, documentId),
     )
 
     /** Adds an index entry for files already written under [id] (used by bundle import). */
@@ -1148,6 +1160,7 @@ object CanvasStorage {
     private fun framesFile(context: Context, documentId: String) = File(context.filesDir, "frames_$documentId.json")
     private fun drawingScaleFile(context: Context, documentId: String) = File(context.filesDir, "scale_$documentId.json")
     private fun branchesFile(context: Context, documentId: String) = File(context.filesDir, "branches_$documentId.bin")
+    private fun gameObjectsFile(context: Context, documentId: String) = File(context.filesDir, "objects_$documentId.json")
 
     private fun layersFile(context: Context, documentId: String) = File(context.filesDir, "layers_$documentId.json")
 
