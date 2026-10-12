@@ -332,4 +332,9 @@
     <string name="easing_in">Accélération</string>
     <string name="easing_out">Décélération</string>
     <string name="easing_in_out">Accél.-décél.</string>
+    <string name="tb_bones">Os</string>
+    <string name="tb_bones_pose">Pose des os (touchez pour ajouter des os)</string>
+    <string name="tb_bones_add">Ajout d\'os (touchez pour les poser)</string>
+    <string name="tb_bones_bind">Lier les traits aux os les plus proches</string>
+    <string name="tb_bones_delete">Supprimer l\'os</string>
 </resources>

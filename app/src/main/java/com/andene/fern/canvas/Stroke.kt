@@ -71,6 +71,8 @@ class Stroke(
     val gradient: FillGradient? = null,
     /** Strokes sharing a group id are selected, moved and edited together; null when not grouped. */
     val groupId: String? = null,
+    /** The skeleton bone this stroke is bound to and moves with (roadmap item 83); null when unbound. */
+    val boneId: String? = null,
 ) {
     /** Mutable so a SELECT-tool scale gesture can resize the stroke proportionally with its geometry. */
     var widthWorld: Double = widthWorld
@@ -340,8 +342,11 @@ class Stroke(
     /** A deep copy in group [newGroupId] (null = ungrouped). */
     fun inGroup(newGroupId: String?): Stroke = restyled(color, layerId, newGroupId = newGroupId)
 
-    private fun restyled(newColor: Color, newLayerId: String, newFrame: Int = animFrame, newGroupId: String? = groupId): Stroke {
-        val copy = Stroke(newColor, widthWorld, penType, filled, blendMode, newLayerId, newFrame, dashed, fadeFill, screentone, brush, gradient, newGroupId)
+    /** A deep copy bound to bone [newBoneId] (null = unbound). */
+    fun onBone(newBoneId: String?): Stroke = restyled(color, layerId, newBoneId = newBoneId)
+
+    private fun restyled(newColor: Color, newLayerId: String, newFrame: Int = animFrame, newGroupId: String? = groupId, newBoneId: String? = boneId): Stroke {
+        val copy = Stroke(newColor, widthWorld, penType, filled, blendMode, newLayerId, newFrame, dashed, fadeFill, screentone, brush, gradient, newGroupId, newBoneId)
         // Shares the point arrays copy-on-write: O(1), and neither stroke sees the other's later edits.
         copy.restoreState(captureState())
         return copy
@@ -352,7 +357,7 @@ class Stroke(
 
     /** A new stroke with this one's attributes and [state]'s geometry, e.g. to persist an undo snapshot. */
     fun withState(state: State): Stroke =
-        Stroke(color, state.widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush, gradient, groupId)
+        Stroke(color, state.widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush, gradient, groupId, boneId)
             .also { it.restoreState(state) }
 
     /** Sets this stroke's width directly, for a SELECT-tool scale gesture. */
@@ -410,7 +415,7 @@ class Stroke(
         }
         if (!anyRemoved) return null
         return runs.filter { it.size >= 2 }.map { run ->
-            val piece = Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush, gradient, groupId)
+            val piece = Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush, gradient, groupId, boneId)
             for (index in run) piece.addPoint(WorldPoint(xs[index], ys[index]), pressureData[index], tiltData[index], orientationData[index])
             piece
         }

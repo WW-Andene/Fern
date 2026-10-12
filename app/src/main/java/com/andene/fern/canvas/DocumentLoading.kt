@@ -24,6 +24,7 @@ class LoadedDocument(
     val history: Pair<List<List<Stroke>>, List<List<Stroke>>>,
     val texts: List<TextItem>,
     val connectors: List<Connector>,
+    val bones: List<Bone>,
     val images: List<ImageItem>,
     val background: Pair<Color, BackgroundStyle>,
     val pins: List<PinMeta>,

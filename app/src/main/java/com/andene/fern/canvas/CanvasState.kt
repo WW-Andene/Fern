@@ -31,7 +31,7 @@ enum class StrokeAlignment(@StringRes val label: Int) {
     DISTRIBUTE_Y(R.string.align_distribute_y),
 }
 
-enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER, EYEDROPPER, CONNECT }
+enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER, EYEDROPPER, CONNECT, BONE }
 
 /**
  * Camera + document model for the infinite canvas.
@@ -86,6 +86,7 @@ class CanvasState(
     private val onToolSlotsChanged: (List<ToolPreset?>) -> Unit = {},
     private val onBrushPresetsChanged: (List<BrushPreset>) -> Unit = {},
     private val onConnectorsChanged: (List<Connector>) -> Unit = {},
+    private val onBonesChanged: (List<Bone>) -> Unit = {},
     /**
      * False for an off-screen camera that renders the document (the tile cache's): it never
      * needs the floating origin, and rebasing would shift and re-index its whole copy of the
@@ -120,6 +121,9 @@ class CanvasState(
 
         // Comic panel borders, in screen px at the zoom they're inserted at; on the §7 scale.
         private const val PANEL_BORDER_SCREEN = 3.0
+        // Bone tool reach and the shortest bone an add drag makes, in screen px (§7 scale).
+        private const val BONE_HIT_SCREEN = 24.0
+        private const val BONE_MIN_SCREEN = 16.0
         // Template text sizes and spacing in screen px at the zoom the template is inserted at (§7 scale).
         private const val PLANNER_LABEL_SCREEN = 16.0
         private const val MIND_MAP_CENTRAL_SCREEN = 24.0
@@ -356,6 +360,9 @@ class CanvasState(
         if (copyCurrent) {
             strokes.addAll(strokes.filter { it.animFrame == currentAnimFrame }.map { it.onAnimFrame(insertAt) })
         }
+        shiftBoneFrames(from = insertAt, by = 1)
+        if (copyCurrent) bones.addAll(bones.filter { it.animFrame == currentAnimFrame }.map { it.copy(animFrame = insertAt) })
+        if (bones.isNotEmpty()) onBonesChanged(bones.toList())
         animFrameCount++
         currentAnimFrame = insertAt
         strokesChanged()
@@ -383,6 +390,14 @@ class CanvasState(
         for (i in strokes.indices) {
             if (strokes[i].animFrame >= to) strokes[i] = strokes[i].onAnimFrame(strokes[i].animFrame + count)
         }
+        // The skeleton's pose is tweened too, so in-betweens can be posed further.
+        val poseFrom = bones.filter { it.animFrame == from }
+        val poseTo = bones.filter { it.animFrame == to }
+        shiftBoneFrames(from = to, by = count)
+        if (poseFrom.isNotEmpty() && poseTo.isNotEmpty()) {
+            for (step in 1..count) bones.addAll(interpolatePose(poseFrom, poseTo, motionEasing.at(step.toDouble() / (count + 1)), from + step))
+        }
+        if (bones.isNotEmpty()) onBonesChanged(bones.toList())
         // Matched once per pair, shared by every in-between.
         val matched = pairs.map { (a, b) -> tweenSamples(a, b, maxOf(a.points.size, b.points.size, 2)) }
         for (step in 1..count) {
@@ -392,7 +407,7 @@ class CanvasState(
                 val (pa, pb) = matched[index]
                 val samples = pa.size
                 val color = androidx.compose.ui.graphics.lerp(a.color, b.color, t.toFloat())
-                val tween = Stroke(color, a.widthWorld + (b.widthWorld - a.widthWorld) * t, a.penType, blendMode = a.blendMode, layerId = a.layerId, animFrame = from + step, dashed = a.dashed, brush = a.brush)
+                val tween = Stroke(color, a.widthWorld + (b.widthWorld - a.widthWorld) * t, a.penType, blendMode = a.blendMode, layerId = a.layerId, animFrame = from + step, dashed = a.dashed, brush = a.brush, boneId = a.boneId.takeIf { it == b.boneId })
                 for (i in 0 until samples) tween.addPoint(WorldPoint(pa[i].x + (pb[i].x - pa[i].x) * t, pa[i].y + (pb[i].y - pa[i].y) * t))
                 strokes.add(tween)
             }
@@ -447,6 +462,11 @@ class CanvasState(
         strokes.removeWhere { it.animFrame == removed }
         for (i in strokes.indices) {
             if (strokes[i].animFrame > removed) strokes[i] = strokes[i].onAnimFrame(strokes[i].animFrame - 1)
+        }
+        if (bones.isNotEmpty()) {
+            bones.removeWhere { it.animFrame == removed }
+            shiftBoneFrames(from = removed + 1, by = -1)
+            onBonesChanged(bones.toList())
         }
         animFrameCount--
         currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
@@ -604,6 +624,163 @@ class CanvasState(
         for (branch in branches) connectors.add(Connector(UUID.randomUUID().toString(), central.id, branch.id))
         onTextChanged(textItems.toList())
         onConnectorsChanged(connectors.toList())
+    }
+
+    // ---- Skeleton (roadmap item 83) ----
+
+    /** Every frame's bones; each frame's are its pose (see [Bone]). */
+    val bones = mutableStateListOf<Bone>()
+
+    /** The bone tapped last with the bone tool, for deleting; null when none. */
+    var selectedBoneId by mutableStateOf<String?>(null)
+
+    /** With [Tool.BONE]: true to pose (rotate, move) the skeleton, false to add bones. */
+    var posingBones by mutableStateOf(false)
+
+    /** The bones of the frame on screen. */
+    val currentBones: List<Bone> get() = bones.filter { it.animFrame == currentAnimFrame }
+
+    private enum class BoneGestureKind { ADD, ROTATE, MOVE, NONE }
+
+    private data class BoneGesture(val kind: BoneGestureKind, val boneId: String?, val last: WorldPoint, val parentId: String? = null, val head: WorldPoint = last)
+
+    private var boneGesture: BoneGesture? = null
+
+    /** The bone being drawn by an add drag, for the overlay; null otherwise. */
+    var boneDraft by mutableStateOf<Pair<WorldPoint, WorldPoint>?>(null)
+        private set
+
+    fun loadBones(loaded: List<Bone>) {
+        bones.clear()
+        bones.addAll(loaded)
+        selectedBoneId = null
+    }
+
+    private fun shiftBoneFrames(from: Int, by: Int) {
+        for (i in bones.indices) if (bones[i].animFrame >= from) bones[i] = bones[i].copy(animFrame = bones[i].animFrame + by)
+    }
+
+    /**
+     * Bone tool press. Adding: starts a new bone here, chained to a bone whose tail is within
+     * reach (its joint snaps onto that tail). Posing: a press near a bone's tail turns that bone
+     * about its joint; a press elsewhere on a root bone moves its whole skeleton. A press on a
+     * bone also selects it.
+     */
+    fun beginBone(world: WorldPoint) {
+        val reach = BONE_HIT_SCREEN / scale.coerceAtLeast(1e-300)
+        val frameBones = currentBones
+        val hit = boneAt(frameBones, world, reach)
+        selectedBoneId = hit?.id
+        if (!posingBones) {
+            val parent = frameBones.filter { hypot(it.tail.x - world.x, it.tail.y - world.y) <= reach }.minByOrNull { hypot(it.tail.x - world.x, it.tail.y - world.y) }
+            val head = parent?.tail ?: world
+            boneGesture = BoneGesture(BoneGestureKind.ADD, null, world, parent?.id, head)
+            boneDraft = head to world
+            return
+        }
+        val tipBone = frameBones.filter { hypot(it.tail.x - world.x, it.tail.y - world.y) <= reach }.minByOrNull { hypot(it.tail.x - world.x, it.tail.y - world.y) }
+        val gesture = when {
+            tipBone != null -> BoneGesture(BoneGestureKind.ROTATE, tipBone.id, world)
+            hit != null && hit.parentId == null -> BoneGesture(BoneGestureKind.MOVE, hit.id, world)
+            hit != null -> BoneGesture(BoneGestureKind.ROTATE, hit.id, world)
+            else -> BoneGesture(BoneGestureKind.NONE, null, world)
+        }
+        if (gesture.kind != BoneGestureKind.NONE) recordHistory()
+        boneGesture = gesture
+    }
+
+    fun continueBone(world: WorldPoint) {
+        val gesture = boneGesture ?: return
+        when (gesture.kind) {
+            BoneGestureKind.ADD -> {
+                boneDraft = gesture.head to world
+                boneGesture = gesture.copy(last = world)
+            }
+            BoneGestureKind.ROTATE -> {
+                val bone = currentBones.firstOrNull { it.id == gesture.boneId } ?: return
+                val turn = atan2(world.y - bone.head.y, world.x - bone.head.x) - atan2(gesture.last.y - bone.head.y, gesture.last.x - bone.head.x)
+                transformRig(bone.id) { rotateAbout(it, bone.head, turn) }
+                boneGesture = gesture.copy(last = world)
+            }
+            BoneGestureKind.MOVE -> {
+                val delta = world - gesture.last
+                transformRig(gesture.boneId ?: return) { it + delta }
+                boneGesture = gesture.copy(last = world)
+            }
+            BoneGestureKind.NONE -> {}
+        }
+    }
+
+    fun endBone() {
+        val gesture = boneGesture ?: return
+        boneGesture = null
+        boneDraft = null
+        when (gesture.kind) {
+            BoneGestureKind.ADD -> {
+                val tail = gesture.last
+                // Too short to be a deliberate bone (a tap): nothing is added.
+                if (hypot(tail.x - gesture.head.x, tail.y - gesture.head.y) < BONE_MIN_SCREEN / scale.coerceAtLeast(1e-300)) return
+                recordHistory()
+                val bone = Bone(UUID.randomUUID().toString(), gesture.parentId, gesture.head, tail, currentAnimFrame)
+                bones.add(bone)
+                selectedBoneId = bone.id
+                onBonesChanged(bones.toList())
+            }
+            BoneGestureKind.ROTATE, BoneGestureKind.MOVE -> {
+                onBonesChanged(bones.toList())
+                strokesChanged()
+            }
+            BoneGestureKind.NONE -> {}
+        }
+    }
+
+    // Applies [transform] to bone [rootId], the bones hanging from it, and every stroke bound to
+    // one of them, on the current frame.
+    private fun transformRig(rootId: String, transform: (WorldPoint) -> WorldPoint) {
+        val frame = currentAnimFrame
+        val moved = boneSubtree(bones.filter { it.animFrame == frame }, rootId)
+        for (i in bones.indices) {
+            val b = bones[i]
+            if (b.animFrame == frame && b.id in moved) bones[i] = b.copy(head = transform(b.head), tail = transform(b.tail))
+        }
+        for (stroke in strokes) {
+            if (stroke.animFrame == frame && stroke.boneId in moved) stroke.setPoints(stroke.points.map(transform))
+        }
+        geometryEpoch++
+    }
+
+    /**
+     * Binds every stroke on the current frame to its nearest bone (by distance from the
+     * stroke's centre to the bone), the usual automatic binding. Strokes on frames without
+     * bones are left as they are. Undoable.
+     */
+    fun bindStrokesToNearestBones() {
+        val frameBones = currentBones
+        if (frameBones.isEmpty()) return
+        recordHistory()
+        for (i in strokes.indices) {
+            val stroke = strokes[i]
+            if (stroke.animFrame != currentAnimFrame || stroke.points.isEmpty()) continue
+            val center = WorldPoint((stroke.minX + stroke.maxX) / 2, (stroke.minY + stroke.maxY) / 2)
+            val nearest = frameBones.minBy { distanceToBone(it, center) }
+            if (stroke.boneId != nearest.id) strokes[i] = stroke.onBone(nearest.id)
+        }
+        strokesChanged()
+    }
+
+    /**
+     * Deletes the selected bone and the bones hanging from it, on every frame (a bone is one
+     * limb throughout the animation). Strokes bound to them are unbound, not deleted. Undoable.
+     */
+    fun deleteSelectedBone() {
+        val id = selectedBoneId ?: return
+        recordHistory()
+        val removed = bones.map { it.animFrame }.distinct().flatMap { frame -> boneSubtree(bones.filter { it.animFrame == frame }, id) }.toSet()
+        bones.removeWhere { it.id in removed }
+        for (i in strokes.indices) if (strokes[i].boneId in removed) strokes[i] = strokes[i].onBone(null)
+        selectedBoneId = null
+        onBonesChanged(bones.toList())
+        strokesChanged()
     }
 
     fun deleteFrame(id: String) {
@@ -926,6 +1103,7 @@ class CanvasState(
         var texts: List<TextItem>? = null,
         var shift: WorldPoint = WorldPoint.Zero,
         val connectors: List<Connector>? = null,
+        var bones: List<Bone>? = null,
     ) {
         /** Independent strokes holding this entry's geometry (shift applied), e.g. for saving. */
         fun materialize(): List<Stroke> = strokes.indices.map { i ->
@@ -933,8 +1111,8 @@ class CanvasState(
         }
 
         companion object {
-            fun of(strokes: List<Stroke>, images: List<ImageItem>?, texts: List<TextItem>? = null, connectors: List<Connector>? = null) =
-                HistoryEntry(strokes.toTypedArray(), Array(strokes.size) { strokes[it].captureState() }, images, texts, connectors = connectors)
+            fun of(strokes: List<Stroke>, images: List<ImageItem>?, texts: List<TextItem>? = null, connectors: List<Connector>? = null, bones: List<Bone>? = null) =
+                HistoryEntry(strokes.toTypedArray(), Array(strokes.size) { strokes[it].captureState() }, images, texts, connectors = connectors, bones = bones)
         }
     }
 
@@ -1099,7 +1277,7 @@ class CanvasState(
     private val undoStack = ArrayDeque<HistoryEntry>()
     private val redoStack = ArrayDeque<HistoryEntry>()
 
-    private fun currentEntry() = HistoryEntry.of(strokes, imageItems.toList(), textItems.toList(), connectors.toList())
+    private fun currentEntry() = HistoryEntry.of(strokes, imageItems.toList(), textItems.toList(), connectors.toList(), bones.toList())
 
     /** Called at the start of every stroke-changing action; also invalidates redo, standard editor semantics. */
     private fun recordHistory() {
@@ -1148,6 +1326,13 @@ class CanvasState(
             connectors.clear()
             connectors.addAll(savedConnectors)
             onConnectorsChanged(connectors.toList())
+        }
+        val savedBones = entry.bones
+        if (savedBones != null && savedBones != bones.toList()) {
+            bones.clear()
+            bones.addAll(savedBones)
+            selectedBoneId = selectedBoneId?.takeIf { id -> bones.any { it.id == id } }
+            onBonesChanged(bones.toList())
         }
         // The entry's own stroke objects come back with its geometry: O(1) each unless a rebase
         // happened since (then each is shifted, copying its arrays once).
@@ -2480,6 +2665,11 @@ class CanvasState(
         onTextChanged(textItems.toList())
         imageItems.clear()
         onImageChanged(imageItems.toList())
+        if (bones.isNotEmpty()) {
+            bones.clear()
+            selectedBoneId = null
+            onBonesChanged(bones.toList())
+        }
     }
 
     /** Pan by a screen-space delta (drag). Only call while no stroke is in progress. */
@@ -2617,6 +2807,7 @@ class CanvasState(
             entry.shift += offset
             entry.images = entry.images?.map { it.copy(position = it.position - offset) }
             entry.texts = entry.texts?.map { it.copy(position = it.position - offset) }
+            entry.bones = entry.bones?.map { it.shiftedBy(offset) }
         }
         // Everything else positioned in world space moves too. Previously only strokes did,
         // so after panning past the threshold, text, images, the ruler and pins jumped away
@@ -2629,6 +2820,11 @@ class CanvasState(
             for (i in imageItems.indices) imageItems[i] = imageItems[i].copy(position = imageItems[i].position - offset)
             onImageChanged(imageItems.toList())
         }
+        if (bones.isNotEmpty()) {
+            for (i in bones.indices) bones[i] = bones[i].shiftedBy(offset)
+            onBonesChanged(bones.toList())
+        }
+        boneGesture = boneGesture?.let { it.copy(last = it.last - offset) }
         if (frames.isNotEmpty()) {
             for (i in frames.indices) frames[i] = frames[i].copy(min = frames[i].min - offset, max = frames[i].max - offset)
             onFramesChanged(frames.toList())

@@ -173,6 +173,7 @@ object CanvasStorage {
         pinsFile(context, id).delete()
         textItemsFile(context, id).delete()
         connectorsFile(context, id).delete()
+        bonesFile(context, id).delete()
         imageItemsFile(context, id).delete()
         backgroundFile(context, id).delete()
         thumbnailFile(context, id).delete()
@@ -193,6 +194,7 @@ object CanvasStorage {
         val strokes = load(context, id)
         val textItems = loadTextItems(context, id)
         val connectors = loadConnectors(context, id)
+        val bones = loadBones(context, id)
         val imageItems = loadImageItems(context, id)
         val (backgroundColor, backgroundStyle) = loadBackground(context, id)
         val layers = loadLayers(context, id)
@@ -201,6 +203,7 @@ object CanvasStorage {
         save(context, meta.id, strokes)
         saveTextItems(context, meta.id, textItems)
         saveConnectors(context, meta.id, connectors)
+        saveBones(context, meta.id, bones)
         saveImageItems(context, meta.id, imageItems)
         saveBackground(context, meta.id, backgroundColor, backgroundStyle)
         if (layers.isNotEmpty()) saveLayers(context, meta.id, layers)
@@ -293,6 +296,31 @@ object CanvasStorage {
         return (0 until root.length()).map { i ->
             val entry = root.getJSONObject(i)
             Connector(entry.getString("id"), entry.getString("from"), entry.getString("to"))
+        }
+    }
+
+    /** Saves every frame's skeleton bones (roadmap item 83). */
+    fun saveBones(context: Context, documentId: String, bones: List<Bone>) {
+        val root = JSONArray()
+        for (b in bones) {
+            root.put(
+                JSONObject().put("id", b.id).put("parent", b.parentId ?: JSONObject.NULL).put("frame", b.animFrame)
+                    .put("hx", b.head.x).put("hy", b.head.y).put("tx", b.tail.x).put("ty", b.tail.y)
+            )
+        }
+        writeStored(bonesFile(context, documentId), root)
+    }
+
+    fun loadBones(context: Context, documentId: String): List<Bone> {
+        val root = readStored(bonesFile(context, documentId)) { it as JSONArray } ?: return emptyList()
+        return (0 until root.length()).mapNotNull { i ->
+            val e = root.optJSONObject(i) ?: return@mapNotNull null
+            runCatching {
+                Bone(
+                    e.getString("id"), if (e.isNull("parent")) null else e.getString("parent"),
+                    WorldPoint(e.getDouble("hx"), e.getDouble("hy")), WorldPoint(e.getDouble("tx"), e.getDouble("ty")), e.optInt("frame", 0),
+                )
+            }.getOrNull()
         }
     }
 
@@ -686,6 +714,7 @@ object CanvasStorage {
         "pins.json" to pinsFile(context, documentId),
         "text.json" to textItemsFile(context, documentId),
         "connectors.json" to connectorsFile(context, documentId),
+        "bones.json" to bonesFile(context, documentId),
         "images.json" to imageItemsFile(context, documentId),
         "background.json" to backgroundFile(context, documentId),
         "layers.json" to layersFile(context, documentId),
@@ -714,6 +743,7 @@ object CanvasStorage {
     private fun textItemsFile(context: Context, documentId: String) = File(context.filesDir, "text_$documentId.json")
 
     private fun connectorsFile(context: Context, documentId: String) = File(context.filesDir, "connectors_$documentId.json")
+    private fun bonesFile(context: Context, documentId: String) = File(context.filesDir, "bones_$documentId.json")
 
     private fun imageItemsFile(context: Context, documentId: String) = File(context.filesDir, "images_$documentId.json")
 

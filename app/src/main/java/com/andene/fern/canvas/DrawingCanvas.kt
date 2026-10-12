@@ -177,6 +177,7 @@ fun DrawingCanvas(
                             Tool.TEXT -> state.endTextGesture()
                             Tool.EYEDROPPER -> {} // one-shot on pointer-down, nothing to end
                             Tool.CONNECT -> state.endConnect()
+                            Tool.BONE -> state.endBone()
                             Tool.RULER -> state.endRulerGesture()
                             Tool.SELECT -> when (selectionGestureKind) {
                                 SelectionGestureKind.SCALE -> state.endScaleSelection()
@@ -237,6 +238,7 @@ fun DrawingCanvas(
                                     Tool.TEXT -> state.beginTextGesture(world)
                                     Tool.EYEDROPPER -> state.pickColorAt(world)
                                     Tool.CONNECT -> state.beginConnect(world)
+                                    Tool.BONE -> state.beginBone(world)
                                     Tool.RULER -> state.beginRulerGesture(world)
                                     Tool.SELECT -> {
                                         val handles = selectionHandles(state, screenCenter)
@@ -269,6 +271,7 @@ fun DrawingCanvas(
                                         Tool.TEXT -> state.continueTextGesture(world)
                                         Tool.EYEDROPPER -> {} // one-shot; ignore drag
                                         Tool.CONNECT -> state.continueConnect(world)
+                                        Tool.BONE -> state.continueBone(world)
                                         Tool.RULER -> state.continueRulerGesture(world)
                                         Tool.SELECT -> when (selectionGestureKind) {
                                             SelectionGestureKind.SCALE -> state.continueScaleSelection(world)
@@ -497,6 +500,15 @@ fun DrawingCanvas(
                     drawRect(Color.White, topLeft = p - Offset(6f, 6f), size = Size(12f, 12f))
                     drawRect(HANDLE_COLOR, topLeft = p - Offset(6f, 6f), size = Size(12f, 12f), style = DrawStyle(width = 2f))
                 }
+            }
+
+            // The skeleton (roadmap item 83): a guide, never exported. Shown while the bone tool is
+            // in use, or in animation mode, where it's what poses each frame.
+            if (state.activeTool == Tool.BONE || (state.animationMode && state.bones.isNotEmpty())) {
+                for (bone in state.currentBones) {
+                    drawBone(state.worldToScreen(bone.head, screenCenter), state.worldToScreen(bone.tail, screenCenter), bone.id == state.selectedBoneId)
+                }
+                state.boneDraft?.let { (head, tail) -> drawBone(state.worldToScreen(head, screenCenter), state.worldToScreen(tail, screenCenter), true) }
             }
 
             // Connector being dragged out: from its label's box edge to the finger.
@@ -1033,6 +1045,32 @@ private const val MAX_TEXT_BOX_PX = 65536.0
 private val CONNECTOR_COLOR = Color(0xFF455A64)
 
 /** A connector arrow from [a] to [b] in screen space: a 2 px line and an arrowhead at [b]. */
+// Bone overlay: a tapered wedge from joint to tail, with a ring on the joint (sizes in px on the §7 scale).
+private val BONE_COLOR = Color(0xCC5E35B1)
+private val SELECTED_BONE_COLOR = Color(0xFFFF6F00)
+private const val BONE_HALF_WIDTH_PX = 6f
+private const val BONE_JOINT_RADIUS_PX = 6f
+
+private fun DrawScope.drawBone(head: Offset, tail: Offset, selected: Boolean) {
+    val color = if (selected) SELECTED_BONE_COLOR else BONE_COLOR
+    val direction = tail - head
+    val length = direction.getDistance()
+    if (length > 0f) {
+        val normal = Offset(-direction.y / length, direction.x / length) * BONE_HALF_WIDTH_PX
+        val shoulder = head + direction * 0.2f
+        val path = Path().apply {
+            moveTo(head.x, head.y)
+            lineTo(shoulder.x + normal.x, shoulder.y + normal.y)
+            lineTo(tail.x, tail.y)
+            lineTo(shoulder.x - normal.x, shoulder.y - normal.y)
+            close()
+        }
+        drawPath(path, color.copy(alpha = color.alpha * 0.5f))
+        drawPath(path, color, style = DrawStyle(width = 2f))
+    }
+    drawCircle(color, BONE_JOINT_RADIUS_PX, head, style = DrawStyle(width = 2f))
+}
+
 internal fun DrawScope.drawConnector(a: Offset, b: Offset, color: Color = CONNECTOR_COLOR) {
     drawLine(color, a, b, strokeWidth = 2f, cap = StrokeCap.Round)
     val direction = b - a

@@ -1,5 +1,10 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.PanTool
+import androidx.compose.material.icons.filled.AccessibilityNew
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.material.icons.filled.OpenWith
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -457,6 +462,28 @@ fun Toolbar(
                             contentDescription = if (state.animationMode) stringResource(R.string.tb_anim_on) else stringResource(R.string.tb_anim_off),
                             tint = if (state.animationMode) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
+                    }
+                    // Skeleton (roadmap item 83): draw bones, then pose them frame by frame.
+                    IconButton(onClick = { state.activeTool = if (state.activeTool == Tool.BONE) Tool.PEN else Tool.BONE }) {
+                        Icon(
+                            Icons.Filled.AccessibilityNew,
+                            contentDescription = stringResource(R.string.tb_bones),
+                            tint = if (state.activeTool == Tool.BONE) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
+                    if (state.activeTool == Tool.BONE) {
+                        IconButton(onClick = { state.posingBones = !state.posingBones }) {
+                            Icon(
+                                if (state.posingBones) Icons.Filled.PanTool else Icons.Filled.AddCircleOutline,
+                                contentDescription = if (state.posingBones) stringResource(R.string.tb_bones_pose) else stringResource(R.string.tb_bones_add),
+                            )
+                        }
+                        IconButton(onClick = { state.bindStrokesToNearestBones() }, enabled = state.currentBones.isNotEmpty()) {
+                            Icon(Icons.Filled.Link, contentDescription = stringResource(R.string.tb_bones_bind))
+                        }
+                        IconButton(onClick = { state.deleteSelectedBone() }, enabled = state.selectedBoneId != null) {
+                            Icon(Icons.Filled.DeleteOutline, contentDescription = stringResource(R.string.tb_bones_delete))
+                        }
                     }
                 }
                 if (ToolbarGroup.LAYERS !in hiddenGroups) {
