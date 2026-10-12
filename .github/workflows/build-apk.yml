@@ -1,6 +1,9 @@
 name: Build debug APK
 
 on:
+  # A merged pull request lands on main as a push, so this builds every merge.
+  push:
+    branches: [main]
   workflow_dispatch: {}
 
 jobs:
