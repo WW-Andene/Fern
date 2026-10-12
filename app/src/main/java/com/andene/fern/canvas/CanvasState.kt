@@ -1353,7 +1353,7 @@ class CanvasState(
 
     /** Drawing tools do nothing on a hidden or locked active layer, rather than adding invisible or "locked" content. */
     private val activeLayerEditable: Boolean
-        get() = layers.firstOrNull { it.id == activeLayerId }?.let { it.visible && !it.locked } ?: false
+        get() = layers.firstOrNull { it.id == activeLayerId }?.let { it.visible && !it.locked && it.adjustment == null } ?: false
 
     fun addLayer() {
         val layer = Layer(UUID.randomUUID().toString(), "Layer ${layers.size + 1}")
@@ -1717,6 +1717,14 @@ class CanvasState(
         markRasterDirty(activeLayerId, emptySet())
     }
 
+    /** Adds an adjustment layer applying [adjustment] to everything beneath it (roadmap item 93). */
+    fun addAdjustmentLayer(adjustment: Adjustment) {
+        val layer = Layer(UUID.randomUUID().toString(), "Adjustment ${layers.size + 1}", adjustment = adjustment)
+        layers.add(layer)
+        activeLayerId = layer.id
+        onLayersChanged(layers.toList())
+    }
+
     /** The document's skins (roadmap item 86), in layer order. */
     val skins: List<String> get() = layers.mapNotNull { it.skin }.distinct()
 
@@ -1810,7 +1818,7 @@ class CanvasState(
     /** Removes layers with no strokes in any animation frame, keeping at least one layer. */
     fun deleteEmptyLayers() {
         // A raster layer with paint isn't empty, though it has no strokes.
-        val used = strokes.map { it.layerId }.toSet() + rasters.filterValues { it.tiles.isNotEmpty() }.keys
+        val used = strokes.map { it.layerId }.toSet() + rasters.filterValues { it.tiles.isNotEmpty() }.keys + layers.filter { it.adjustment != null }.map { it.id }
         val keep = layers.filter { it.id in used }.ifEmpty { listOf(layers.first()) }
         if (keep.size == layers.size) return
         for (layer in layers) if (layer !in keep) dropRaster(layer.id)

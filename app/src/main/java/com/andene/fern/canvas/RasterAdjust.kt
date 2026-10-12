@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.math.abs
 import kotlin.math.pow
 
@@ -145,3 +147,23 @@ internal fun hslToRgb(h: Float, s: Float, l: Float): FloatArray {
     }
     return floatArrayOf(hue(h + 1f / 3), hue(h), hue(h - 1f / 3))
 }
+
+/** An adjustment as JSON, for adjustment layers' storage. */
+fun adjustmentToJson(adjustment: Adjustment): JSONObject = when (adjustment) {
+    is Levels -> JSONObject().put("type", "levels").put("inBlack", adjustment.inBlack.toDouble()).put("inWhite", adjustment.inWhite.toDouble())
+        .put("gamma", adjustment.gamma.toDouble()).put("outBlack", adjustment.outBlack.toDouble()).put("outWhite", adjustment.outWhite.toDouble())
+    is Curves -> JSONObject().put("type", "curves").put("points", JSONArray().apply { for ((x, y) in adjustment.points) put(JSONArray().put(x.toDouble()).put(y.toDouble())) })
+    is HueSaturation -> JSONObject().put("type", "hue").put("hue", adjustment.hueDegrees.toDouble())
+        .put("saturation", adjustment.saturation.toDouble()).put("lightness", adjustment.lightness.toDouble())
+}
+
+/** The adjustment [adjustmentToJson] wrote, or null for an unknown or damaged one. */
+fun adjustmentFromJson(json: JSONObject): Adjustment? = runCatching {
+    when (json.getString("type")) {
+        "levels" -> Levels(json.getDouble("inBlack").toFloat(), json.getDouble("inWhite").toFloat(), json.getDouble("gamma").toFloat(), json.getDouble("outBlack").toFloat(), json.getDouble("outWhite").toFloat())
+        "curves" -> json.getJSONArray("points").let { a -> Curves((0 until a.length()).map { i -> a.getJSONArray(i).let { it.getDouble(0).toFloat() to it.getDouble(1).toFloat() } }) }
+        "hue" -> HueSaturation(json.getDouble("hue").toFloat(), json.getDouble("saturation").toFloat(), json.getDouble("lightness").toFloat())
+        else -> null
+    }
+}.getOrNull()
+

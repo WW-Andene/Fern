@@ -31,6 +31,9 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
@@ -55,6 +58,16 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
     var renamingId by remember { mutableStateOf<String?>(null) }
+    // The adjustment layer being edited, and its adjustment before editing (restored on cancel).
+    var editingAdjustment by remember { mutableStateOf<Pair<String, Adjustment>?>(null) }
+    editingAdjustment?.let { (id, before) ->
+        AdjustmentsDialog(
+            initial = before,
+            onPreview = { a -> state.updateLayer(id) { it.copy(adjustment = a) } },
+            onApply = { a -> state.updateLayer(id) { it.copy(adjustment = a) }; editingAdjustment = null },
+            onCancel = { state.updateLayer(id) { it.copy(adjustment = before) }; editingAdjustment = null },
+        )
+    }
     var renameText by remember { mutableStateOf("") }
 
     AlertDialog(
@@ -150,6 +163,30 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                         }
                     }
                     if (active) {
+                        // Blend mode (roadmap item 93), and an adjustment layer's settings.
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            var blendMenu by remember { mutableStateOf(false) }
+                            Box {
+                                TextButton(onClick = { blendMenu = true }) {
+                                    Text(stringResource(R.string.layers_blend) + ": " + stringResource(layer.blend.label))
+                                }
+                                DropdownMenu(expanded = blendMenu, onDismissRequest = { blendMenu = false }) {
+                                    for (mode in LayerBlend.entries) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(mode.label)) },
+                                            onClick = {
+                                                state.updateLayer(layer.id) { it.copy(blend = mode) }
+                                                blendMenu = false
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                            val adjustment = layer.adjustment
+                            if (adjustment != null) {
+                                TextButton(onClick = { editingAdjustment = layer.id to adjustment }) { Text(stringResource(R.string.layers_edit_adjustment)) }
+                            }
+                        }
                         // Masks, clipping and alpha lock (roadmap item 91).
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { if (layer.masked) state.removeLayerMask(layer.id) else state.addLayerMask(layer.id) }) {
@@ -212,6 +249,10 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                 // Raster layers hold pixels; 16 bits per channel for smooth gradients.
                 TextButton(onClick = { state.addRasterLayer(8) }) { Text(stringResource(R.string.layers_new_raster)) }
                 TextButton(onClick = { state.addRasterLayer(16) }) { Text(stringResource(R.string.layers_new_raster_16)) }
+                TextButton(onClick = {
+                    state.addAdjustmentLayer(Levels())
+                    editingAdjustment = state.activeLayerId to Levels()
+                }) { Text(stringResource(R.string.layers_new_adjustment)) }
             }
         },
         dismissButton = {

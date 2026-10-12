@@ -47,10 +47,23 @@ private enum class AdjustmentKind(val label: Int) {
  */
 @Composable
 fun AdjustmentsDialog(state: CanvasState, onDismiss: () -> Unit) {
-    var kind by remember { mutableStateOf(AdjustmentKind.LEVELS) }
-    var levels by remember { mutableStateOf(Levels()) }
-    var curves by remember { mutableStateOf(Curves()) }
-    var hue by remember { mutableStateOf(HueSaturation()) }
+    AdjustmentsDialog(
+        initial = null,
+        onPreview = state::previewAdjustment,
+        onApply = { state.previewAdjustment(it); state.commitAdjustment(); onDismiss() },
+        onCancel = { state.cancelAdjustment(); onDismiss() },
+    )
+}
+
+/** The same editor for any adjustment: [onPreview] as it changes, then [onApply] or [onCancel] (roadmap items 92, 93). */
+@Composable
+fun AdjustmentsDialog(initial: Adjustment?, onPreview: (Adjustment) -> Unit, onApply: (Adjustment) -> Unit, onCancel: () -> Unit) {
+    var kind by remember {
+        mutableStateOf(when (initial) { is Curves -> AdjustmentKind.CURVES; is HueSaturation -> AdjustmentKind.HUE; else -> AdjustmentKind.LEVELS })
+    }
+    var levels by remember { mutableStateOf(initial as? Levels ?: Levels()) }
+    var curves by remember { mutableStateOf(initial as? Curves ?: Curves()) }
+    var hue by remember { mutableStateOf(initial as? HueSaturation ?: HueSaturation()) }
     val current: Adjustment = when (kind) {
         AdjustmentKind.LEVELS -> levels
         AdjustmentKind.CURVES -> curves
@@ -59,10 +72,10 @@ fun AdjustmentsDialog(state: CanvasState, onDismiss: () -> Unit) {
     // Previewed after a short pause, so dragging a slider doesn't recompute every pixel per step.
     LaunchedEffect(current) {
         delay(PREVIEW_DELAY_MILLIS)
-        state.previewAdjustment(current)
+        onPreview(current)
     }
     AlertDialog(
-        onDismissRequest = { state.cancelAdjustment(); onDismiss() },
+        onDismissRequest = onCancel,
         title = { Text(stringResource(R.string.adjust_title)) },
         text = {
             Column {
@@ -89,13 +102,9 @@ fun AdjustmentsDialog(state: CanvasState, onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                state.previewAdjustment(current)
-                state.commitAdjustment()
-                onDismiss()
-            }) { Text(stringResource(R.string.adjust_apply)) }
+            TextButton(onClick = { onApply(current) }) { Text(stringResource(R.string.adjust_apply)) }
         },
-        dismissButton = { TextButton(onClick = { state.cancelAdjustment(); onDismiss() }) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 

@@ -152,7 +152,7 @@ All deferred: they need a server or cloud platform.
 - [x] 90. Pixel brush engine: wet mixing (the brush picks up and carries colour), smudge, blur, tip-shaped dabs; brush tips imported from Photoshop .abr (sampled brushes) and Procreate .brush (shape); Procreate grain and brush dynamics not read
 - [x] 91. Raster selections (lasso or rectangle: painting stays inside; clear, fill, copy to a new layer, drag to move pixels), layer masks on raster or vector layers (pen hides, eraser reveals), clipping masks, alpha lock
 - [x] 92. Adjustments on raster layers (or their selection), previewed live: curves (monotone), levels, hue/saturation/lightness; liquify brush; warp with the 4 x 4 lattice (drawn at 8 bits per channel)
-- [ ] 93. Full Photoshop blend modes and adjustment layers
+- [x] 93. Full Photoshop blend modes (all 27; the ten the GPU lacks composited per pixel) and adjustment layers (levels, curves, hue/saturation, editable, at the layer's opacity)
 - [x] 94. Reference layers (fills take their boundaries from them), gap-closing bucket fill (areas closed by several strokes, gaps up to ~8 px bridged, within the view)
 - [ ] 95. PSD / Procreate / Krita import and export
 
