@@ -475,6 +475,12 @@
     <string name="tb_ik_off">Inverse kinematics: off</string>
     <string name="tb_export_lottie">Lottie animation (JSON)</string>
     <string name="xsheet_title">Exposure sheet (frame timing)</string>
+    <string name="sway_title">Procedural sway</string>
+    <string name="sway_no_bone">Select a bone with the bone tool first.</string>
+    <string name="sway_sine">Sine</string>
+    <string name="sway_wiggle">Wiggle</string>
+    <string name="sway_amplitude">Swing: %1$d°</string>
+    <string name="sway_period">Frames per swing: %1$d</string>
     <string name="dopesheet_title">Dopesheet</string>
     <string name="dopesheet_bone">Bone</string>
     <string name="dopesheet_cell">%1$s, frame %2$d</string>

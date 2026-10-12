@@ -477,6 +477,12 @@
     <string name="tb_ik_off">Cinématique inverse : désactivée</string>
     <string name="tb_export_lottie">Animation Lottie (JSON)</string>
     <string name="xsheet_title">Feuille d\'exposition (durée des images)</string>
+    <string name="sway_title">Balancement procédural</string>
+    <string name="sway_no_bone">Sélectionnez d\'abord un os avec l\'outil os.</string>
+    <string name="sway_sine">Sinus</string>
+    <string name="sway_wiggle">Frétillement</string>
+    <string name="sway_amplitude">Amplitude : %1$d°</string>
+    <string name="sway_period">Images par oscillation : %1$d</string>
     <string name="dopesheet_title">Feuille d\'exposition</string>
     <string name="dopesheet_bone">Os</string>
     <string name="dopesheet_cell">%1$s, image %2$d</string>

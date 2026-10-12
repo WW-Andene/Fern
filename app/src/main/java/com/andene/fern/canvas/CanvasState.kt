@@ -1193,6 +1193,26 @@ class CanvasState(
         strokesChanged()
     }
 
+    /**
+     * Procedural motion (roadmap item 135): turns bone [boneId] in every frame it's in by
+     * [offset] (frame -> radians, see [proceduralSway]), on top of the pose already there,
+     * carrying its children and ink, within its joint limits. One undo step.
+     */
+    fun swayBone(boneId: String, offset: (Int) -> Double) {
+        val frames = bones.filter { it.id == boneId }.map { it.animFrame }.distinct()
+        if (frames.isEmpty()) return
+        recordHistory()
+        for (frame in frames) {
+            val frameBones = bones.filter { it.animFrame == frame }
+            val bone = frameBones.firstOrNull { it.id == boneId } ?: continue
+            val parent = bone.parentId?.let { id -> frameBones.firstOrNull { it.id == id } }
+            val turn = limitedTurn(bone, parent, offset(frame))
+            if (abs(turn) > 1e-12) applyTurn(startTurn(bone, bone.tail, frame), turn, frame)
+        }
+        onBonesChanged(bones.toList())
+        strokesChanged()
+    }
+
     fun endBone() {
         val gesture = boneGesture ?: return
         boneGesture = null
