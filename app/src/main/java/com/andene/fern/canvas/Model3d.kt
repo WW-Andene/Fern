@@ -27,7 +27,8 @@ class Model3d(val mesh: Mesh, val maps: SurfaceMaps, val camera: OrbitCamera = O
 object Model3dFile {
     private const val MAGIC = 0x464D3344 // "FM3D"
     // 2: an optional hand pose after the light (roadmap item 146).
-    private const val VERSION = 2
+    // 3: the light's colour and exposure after the pose (roadmap item 147).
+    private const val VERSION = 3
     // Guards a damaged size from allocating gigabytes before failing.
     private const val MAX_MAP_SIZE = 4096
     private const val MAX_VERTICES = 3 * MAX_OBJ_TRIANGLES
@@ -62,6 +63,8 @@ object Model3dFile {
                 out.writeDouble(pose.thumbAcross)
                 out.writeBoolean(pose.left)
             }
+            out.writeInt(model.light.color)
+            out.writeDouble(model.light.exposure)
         }
         return bytes.toByteArray()
     }
@@ -93,12 +96,13 @@ object Model3dFile {
             } else {
                 null
             }
+            val lit = if (version >= 3) light.copy(color = input.readInt(), exposure = input.readDouble().coerceIn(0.1, 4.0)) else light
             val mesh = try {
                 Mesh(positions, normals, uvs, indices)
             } catch (e: IllegalArgumentException) {
                 throw IOException("Damaged mesh", e)
             }
-            return Model3d(mesh, SurfaceMaps(size, color, roughness, metallic), camera, light, handPose)
+            return Model3d(mesh, SurfaceMaps(size, color, roughness, metallic), camera, lit, handPose)
         }
     }
 }

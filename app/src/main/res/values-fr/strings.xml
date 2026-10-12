@@ -694,6 +694,16 @@
     <string name="model_scan_camera">Scanner une main avec l’appareil photo</string>
     <string name="model_scan_photo">Scanner une main depuis une photo</string>
     <string name="toast_no_hand">Aucune main trouvée sur cette image</string>
+    <string name="model_exposure">Exposition : %1$d %%</string>
+    <string name="light_white">Lumière blanche</string>
+    <string name="light_warm">Chaude</string>
+    <string name="light_cool">Froide</string>
+    <string name="light_sunset">Coucher de soleil</string>
+    <string name="model_export_glb">Exporter pour la RA (.glb)</string>
+    <string name="model_export_usdz">Exporter pour la RA (.usdz)</string>
+    <string name="model_export_maps">Exporter les textures</string>
+    <string name="model_import_texture">Importer une texture de couleur</string>
+    <string name="toast_export_failed">L’export n’a pas pu être écrit</string>
     <string name="tb_line_style">Style de trait</string>
     <string name="cap_round">Extrémités rondes</string>
     <string name="cap_square">Extrémités carrées</string>

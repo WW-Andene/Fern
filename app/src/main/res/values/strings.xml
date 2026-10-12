@@ -692,6 +692,16 @@
     <string name="model_scan_camera">Scan a hand with the camera</string>
     <string name="model_scan_photo">Scan a hand from a photo</string>
     <string name="toast_no_hand">No hand found in that picture</string>
+    <string name="model_exposure">Exposure: %1$d %%</string>
+    <string name="light_white">White light</string>
+    <string name="light_warm">Warm</string>
+    <string name="light_cool">Cool</string>
+    <string name="light_sunset">Sunset</string>
+    <string name="model_export_glb">Export for AR (.glb)</string>
+    <string name="model_export_usdz">Export for AR (.usdz)</string>
+    <string name="model_export_maps">Export texture maps</string>
+    <string name="model_import_texture">Import colour texture</string>
+    <string name="toast_export_failed">The export couldn\'t be written</string>
     <string name="tb_line_style">Line style</string>
     <string name="cap_round">Round ends</string>
     <string name="cap_square">Square ends</string>

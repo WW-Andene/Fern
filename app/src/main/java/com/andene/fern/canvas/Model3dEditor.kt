@@ -238,6 +238,23 @@ fun Model3dEditor(model: Model3d, initialColor: Color, onSave: (Model3d) -> Unit
                     Slider(value = light.intensity.toFloat(), onValueChange = { light = light.copy(intensity = it.toDouble()) }, valueRange = 0f..1.5f)
                     Text(stringResource(R.string.model_light_ambient, (light.ambient * 100).roundToInt()))
                     Slider(value = light.ambient.toFloat(), onValueChange = { light = light.copy(ambient = it.toDouble()) }, valueRange = 0f..1f)
+                    // The light's colour and the exposure (roadmap item 147).
+                    FlowRow {
+                        for ((tint, label) in LIGHT_TINTS) {
+                            FilterChip(selected = light.color == tint, onClick = { light = light.copy(color = tint) }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = 8.dp))
+                        }
+                    }
+                    Text(stringResource(R.string.model_exposure, (light.exposure * 100).roundToInt()))
+                    Slider(value = light.exposure.toFloat(), onValueChange = { light = light.copy(exposure = it.toDouble()) }, valueRange = 0.25f..2.5f)
+                    ModelFileActions(
+                        current = { Model3d(mesh, maps, camera, light, handPose) },
+                        onTextureImported = { argb, w, h ->
+                            if (undo.size >= MAX_UNDO) undo.removeFirst()
+                            undo.addLast(maps.copy())
+                            importColorMap(maps, argb, w, h)
+                            revision++
+                        },
+                    )
                     Row(Modifier.fillMaxWidth()) {
                         TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
                         TextButton(onClick = { onSave(Model3d(mesh, maps, camera, light, handPose)) }) { Text(stringResource(R.string.model_done)) }
@@ -324,3 +341,49 @@ private fun handPresetLabel(preset: HandPreset) = when (preset) {
     HandPreset.THUMBS_UP -> R.string.hand_thumbs_up
     HandPreset.GRIP -> R.string.hand_grip
 }
+
+/**
+ * Model files (roadmap item 147): export for augmented reality and 3D apps as .glb or .usdz,
+ * export the texture maps, or bring a colour texture in from a picture.
+ */
+@Composable
+private fun ModelFileActions(current: () -> Model3d, onTextureImported: (IntArray, Int, Int) -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    fun writer(make: (Model3d) -> ByteArray) = { uri: android.net.Uri? ->
+        if (uri != null) {
+            val model = current()
+            scope.launch {
+                val ok = withContext(Dispatchers.IO) {
+                    runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(make(model)) } != null }.getOrDefault(false)
+                }
+                Toast.makeText(context, context.getString(if (ok) R.string.toast_exported else R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    val glb = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/gltf-binary"), writer(::exportGlb))
+    val usdz = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/vnd.usdz+zip"), writer(::exportUsdz))
+    val mapsZip = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip"), writer(::exportMapsZip))
+    val texture = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) scope.launch {
+            val bitmap = withContext(Dispatchers.IO) { decodeDownsampled(context, uri, MODEL_MAP_SIZE) } ?: return@launch
+            val pixels = IntArray(bitmap.width * bitmap.height).also { bitmap.getPixels(it, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height) }
+            onTextureImported(pixels, bitmap.width, bitmap.height)
+        }
+    }
+    @OptIn(ExperimentalLayoutApi::class)
+    FlowRow {
+        TextButton(onClick = { glb.launch("model.glb") }) { Text(stringResource(R.string.model_export_glb)) }
+        TextButton(onClick = { usdz.launch("model.usdz") }) { Text(stringResource(R.string.model_export_usdz)) }
+        TextButton(onClick = { mapsZip.launch("model maps.zip") }) { Text(stringResource(R.string.model_export_maps)) }
+        TextButton(onClick = { texture.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { Text(stringResource(R.string.model_import_texture)) }
+    }
+}
+
+// Light colours offered (roadmap item 147): neutral, warm, cool and a low evening sun.
+private val LIGHT_TINTS = listOf(
+    0xFFFFFFFF.toInt() to R.string.light_white,
+    0xFFFFE0B2.toInt() to R.string.light_warm,
+    0xFFBBDEFB.toInt() to R.string.light_cool,
+    0xFFFFAB91.toInt() to R.string.light_sunset,
+)

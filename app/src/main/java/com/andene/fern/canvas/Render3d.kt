@@ -48,8 +48,19 @@ data class OrbitCamera(val yaw: Double = 0.6, val pitch: Double = 0.35, val dist
     }
 }
 
-/** A light from the direction [yaw], [pitch] (as for the camera), at [intensity], over [ambient] light from everywhere. */
-data class Light3d(val yaw: Double = -0.7, val pitch: Double = 0.8, val intensity: Double = 0.9, val ambient: Double = 0.3) {
+/**
+ * A light from the direction [yaw], [pitch] (as for the camera), at [intensity] in [color]
+ * (RGB, roadmap item 147), over [ambient] light from everywhere; the whole picture brightened or
+ * darkened by [exposure] (1 = as is).
+ */
+data class Light3d(
+    val yaw: Double = -0.7,
+    val pitch: Double = 0.8,
+    val intensity: Double = 0.9,
+    val ambient: Double = 0.3,
+    val color: Int = 0xFFFFFFFF.toInt(),
+    val exposure: Double = 1.0,
+) {
     val direction: Vec3 get() = Vec3(cos(pitch) * sin(yaw), sin(pitch), cos(pitch) * cos(yaw)).normalized()
 }
 
@@ -170,9 +181,11 @@ private fun shade(maps: SurfaceMaps, u: Double, v: Double, normal: Vec3, toEye: 
     val specular = if (diffuse > 0) max(0.0, normal dot half).pow(max(1.0, shininess)) * light.intensity * (1 - roughness * 0.9) else 0.0
     fun channel(shift: Int): Int {
         val base = ((albedo shr shift) and 0xFF) / 255.0
+        val tint = ((light.color shr shift) and 0xFF) / 255.0
         // Metals have no diffuse colour and tint their highlight; dielectrics reflect ~4 % white.
-        val lit = base * (light.ambient + (1 - metal) * diffuse) + specular * (0.04 * (1 - metal) + base * metal) * 4
-        return (lit.coerceIn(0.0, 1.0) * 255 + 0.5).toInt()
+        // The light's colour tints what it lights; the ambient light stays neutral.
+        val lit = base * (light.ambient + (1 - metal) * diffuse * tint) + specular * tint * (0.04 * (1 - metal) + base * metal) * 4
+        return ((lit * light.exposure).coerceIn(0.0, 1.0) * 255 + 0.5).toInt()
     }
     return (0xFF shl 24) or (channel(16) shl 16) or (channel(8) shl 8) or channel(0)
 }
