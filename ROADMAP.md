@@ -180,10 +180,10 @@ All deferred: they need a server or cloud platform.
 ## Phase 13 — Ecosystem
 
 - [ ] 111. Plugin and scripting API
-- [ ] 112. Marketplace
-- [ ] 113. Community gallery and live-streaming
+- [ ] 112. Marketplace ⏸ (hosted service)
+- [ ] 113. Community gallery and live-streaming ⏸ (hosted service)
 - [ ] 114. Team workspaces ⏸
-- [ ] 115. iOS, Windows, macOS and web versions
+- [ ] 115. iOS, Windows, macOS and web versions (separate apps, outside this Android project)
 
 ## Competitor parity additions (116–148)
 
