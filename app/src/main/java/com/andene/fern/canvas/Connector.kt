@@ -38,3 +38,54 @@ fun connectorSegment(
     if (start >= end) return null
     return WorldPoint(a.x + dx * start, a.y + dy * start) to WorldPoint(a.x + dx * end, a.y + dy * end)
 }
+
+/**
+ * Flowchart cleanup: new top-left positions for the labels joined by [connectors], laid out in
+ * layers (a simple Sugiyama-style layout). Each label's layer is its longest path from a root
+ * (a label nothing points to; in a cycle, the earliest-placed label stands in), so arrows run
+ * downward; layers are rows [rowGap] apart, labels in a row [columnGap] apart and centred on
+ * the diagram's original centre, keeping their order by current x. Labels not in any
+ * connector aren't moved. [sizes] gives each label's width and height.
+ */
+fun tidyDiagram(
+    positions: Map<String, WorldPoint>,
+    sizes: Map<String, Pair<Double, Double>>,
+    connectors: List<Connector>,
+    columnGap: Double,
+    rowGap: Double,
+): Map<String, WorldPoint> {
+    val edges = connectors.filter { it.fromId in positions && it.toId in positions && it.fromId != it.toId }
+    val nodes = edges.flatMap { listOf(it.fromId, it.toId) }.distinct()
+    if (nodes.isEmpty()) return emptyMap()
+    val layer = HashMap<String, Int>()
+    // Longest-path layering by repeated relaxation, bounded so a cycle can't loop forever.
+    val roots = nodes.filter { n -> edges.none { it.toId == n } }.ifEmpty { listOf(nodes.minBy { positions.getValue(it).y }) }
+    roots.forEach { layer[it] = 0 }
+    repeat(nodes.size) {
+        var changed = false
+        for (e in edges) {
+            val from = layer[e.fromId] ?: continue
+            if ((layer[e.toId] ?: -1) < from + 1 && from + 1 < nodes.size) {
+                layer[e.toId] = from + 1
+                changed = true
+            }
+        }
+        if (!changed) return@repeat
+    }
+    nodes.forEach { layer.putIfAbsent(it, 0) }
+    val centerX = nodes.map { positions.getValue(it).x + sizes.getValue(it).first / 2 }.average()
+    val top = nodes.minOf { positions.getValue(it).y }
+    val result = HashMap<String, WorldPoint>()
+    var y = top
+    for ((_, row) in nodes.groupBy { layer.getValue(it) }.toSortedMap()) {
+        val ordered = row.sortedBy { positions.getValue(it).x }
+        val width = ordered.sumOf { sizes.getValue(it).first } + columnGap * (ordered.size - 1)
+        var x = centerX - width / 2
+        for (id in ordered) {
+            result[id] = WorldPoint(x, y)
+            x += sizes.getValue(id).first + columnGap
+        }
+        y += ordered.maxOf { sizes.getValue(it).second } + rowGap
+    }
+    return result
+}

@@ -90,4 +90,29 @@ class ConnectorTest {
         val svg = exportDocumentSvg(state) { null }!!
         assertTrue(svg.contains("<line") && svg.contains("<polygon"))
     }
+
+    @Test
+    fun tidyLaysAChainOutInLayersAndHandlesCycles() {
+        val positions = mapOf("a" to WorldPoint(500.0, 300.0), "b" to WorldPoint(0.0, 0.0), "c" to WorldPoint(90.0, 900.0), "lone" to WorldPoint(7.0, 7.0))
+        val sizes = positions.mapValues { 40.0 to 20.0 }
+        val laid = tidyDiagram(positions, sizes, listOf(Connector("1", "a", "b"), Connector("2", "b", "c"), Connector("3", "a", "c")), 10.0, 30.0)
+        assertTrue("lone" !in laid)
+        // a is the root; c is two steps down (longest path), b between.
+        assertTrue(laid.getValue("a").y < laid.getValue("b").y && laid.getValue("b").y < laid.getValue("c").y)
+        assertEquals(50.0, laid.getValue("b").y - laid.getValue("a").y, 1e-9) // height 20 + gap 30
+        val cycle = tidyDiagram(positions, sizes, listOf(Connector("1", "a", "b"), Connector("2", "b", "a")), 10.0, 30.0)
+        assertEquals(2, cycle.size) // terminates and places both
+    }
+
+    @Test
+    fun tidyIsOneUndoStep() {
+        val state = twoNotes()
+        state.loadTextItems(state.textItems.map { if (it.id == "b") it.copy(position = WorldPoint(-400.0, -300.0)) else it })
+        connect(state, WorldPoint(5.0, 5.0), WorldPoint(-395.0, -295.0))
+        val before = state.textItems.toList()
+        state.tidyDiagram()
+        assertTrue(state.textItems.single { it.id == "b" }.position.y > state.textItems.single { it.id == "a" }.position.y)
+        state.undo()
+        assertEquals(before, state.textItems.toList())
+    }
 }

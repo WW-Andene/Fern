@@ -76,6 +76,7 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Schema
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
@@ -508,6 +509,11 @@ fun Toolbar(
                         tint = if (state.activeTool == Tool.CONNECT) MaterialTheme.colorScheme.primary
                         else LocalContentColor.current,
                     )
+                }
+                if (state.activeTool == Tool.CONNECT) {
+                    IconButton(onClick = { state.tidyDiagram() }, enabled = state.connectors.isNotEmpty()) {
+                        Icon(Icons.Filled.Schema, contentDescription = "Tidy diagram into layers")
+                    }
                 }
                 if (state.activeTool == Tool.SELECT) {
                     IconButton(onClick = { state.selectAllOnActiveLayer() }) {

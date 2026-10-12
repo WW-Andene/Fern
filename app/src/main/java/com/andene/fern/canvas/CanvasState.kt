@@ -133,6 +133,9 @@ class CanvasState(
 
         // How close (screen px) a press must be to a connector to remove it; on the §7 scale.
         private const val CONNECTOR_HIT_SCREEN = 12.0
+
+        // Spacing between laid-out diagram boxes, in screen px; on the §7 scale.
+        private const val DIAGRAM_GAP_SCREEN = 48.0
         private const val PERSPECTIVE_DECIDE_SCREEN = 16.0
 
         // Assumed view width before the first layout pass reports the real one.
@@ -936,6 +939,24 @@ class CanvasState(
         recordHistory()
         connectors.add(Connector(UUID.randomUUID().toString(), fromId, to.id))
         onConnectorsChanged(connectors.toList())
+    }
+
+    /** Lays out the connected labels as a layered flowchart ([tidyDiagram]); one undo step. */
+    fun tidyDiagram() {
+        if (connectors.isEmpty()) return
+        val boxes = textItems.associate { it.id to drawnBounds(it) }
+        val positions = boxes.mapValues { it.value.first }
+        val sizes = boxes.mapValues { (_, b) -> (b.second.x - b.first.x) to (b.second.y - b.first.y) }
+        val gap = DIAGRAM_GAP_SCREEN / scale.coerceAtLeast(1e-300)
+        val laid = tidyDiagram(positions, sizes, connectors.toList(), gap, gap)
+        if (laid.isEmpty()) return
+        recordHistory()
+        for (i in textItems.indices) {
+            val item = textItems[i]
+            // Layout is of drawn boxes; keep each label's offset from its box.
+            laid[item.id]?.let { textItems[i] = item.copy(position = it + (item.position - boxes.getValue(item.id).first)) }
+        }
+        onTextChanged(textItems.toList())
     }
 
     /**
