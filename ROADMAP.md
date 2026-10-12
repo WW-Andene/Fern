@@ -105,7 +105,7 @@ Goal: work can leave the app and come back.
 - [x] 57. Vector export: SVG and multi-page PDF (one page per frame)
 - [x] 58. `.fern` backup format: export and import a whole document
 - [x] 59. Import PDFs to annotate; drag and drop images and text from other apps onto the canvas
-- [~] 60. Share sheet and in-app time-lapse replay; replay exports as an animated GIF; no MP4 video (MediaCodec needs on-device verification)
+- [x] 60. Share sheet and in-app time-lapse replay; replay exports as an animated GIF or an MP4 video (platform H.264 encoder; not yet verified on a device)
 
 ## Phase 7 — Sync & collaboration ⏸
 

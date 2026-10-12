@@ -262,6 +262,8 @@
     <string name="tb_export_svg">Vectoriel (SVG)</string>
     <string name="tb_export_replay">Accéléré de la création (GIF)</string>
     <string name="tb_export_gif">GIF animé</string>
+    <string name="tb_export_replay_mp4">Time-lapse en vidéo (MP4)</string>
+    <string name="tb_export_mp4">Animation en vidéo (MP4)</string>
     <string name="tb_export_sprites">Planche de sprites (PNG)</string>
     <string name="tb_export_fern">Sauvegarde Fern (.fern)</string>
     <string name="tb_background_color">Couleur de fond…</string>

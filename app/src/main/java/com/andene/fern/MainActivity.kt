@@ -109,6 +109,8 @@ import com.andene.fern.canvas.VersionsDialog
 import com.andene.fern.canvas.WelcomeDialog
 import com.andene.fern.canvas.WorldPoint
 import com.andene.fern.canvas.exportAnimatedGif
+import com.andene.fern.canvas.exportAnimationMp4
+import com.andene.fern.canvas.exportReplayMp4
 import com.andene.fern.canvas.exportAnimatedPng
 import com.andene.fern.canvas.exportLottie
 import com.andene.fern.canvas.exportDocumentEps
@@ -357,6 +359,16 @@ class MainActivity : ComponentActivity() {
                         contract = ActivityResultContracts.CreateDocument("image/gif"),
                     ) { uri ->
                         if (uri != null) writeExport(uri) { exportReplayGif(canvasState, textMeasurer, density, imageForExport) }
+                    }
+                    val replayMp4ExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("video/mp4"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportReplayMp4(canvasState, textMeasurer, density, imageForExport, context.cacheDir) }
+                    }
+                    val mp4ExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("video/mp4"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportAnimationMp4(canvasState, textMeasurer, density, imageForExport, context.cacheDir) }
                     }
                     val transparentPngExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("image/png"),
@@ -828,6 +840,8 @@ class MainActivity : ComponentActivity() {
                                 onExportApng = { apngExportLauncher.launch("${currentDocumentName()}.png") },
                                 onExportLottie = { lottieExportLauncher.launch("${currentDocumentName()}.json") },
                                 onExportReplayGif = { replayGifExportLauncher.launch(context.getString(R.string.name_timelapse, currentDocumentName()) + ".gif") },
+                                onExportReplayMp4 = { replayMp4ExportLauncher.launch(context.getString(R.string.name_timelapse, currentDocumentName()) + ".mp4") },
+                                onExportMp4 = { mp4ExportLauncher.launch("${currentDocumentName()}.mp4") },
                                 onExportSpriteSheet = { spriteSheetExportLauncher.launch(context.getString(R.string.name_sprites, currentDocumentName()) + ".png") },
                                 onExportBundle = { bundleExportLauncher.launch("${currentDocumentName()}.fern") },
                                 onShare = {

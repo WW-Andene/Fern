@@ -184,6 +184,8 @@ fun Toolbar(
     onExportApng: () -> Unit = {},
     onExportLottie: () -> Unit = {},
     onExportReplayGif: () -> Unit = {},
+    onExportReplayMp4: () -> Unit = {},
+    onExportMp4: () -> Unit = {},
     onImportPdf: () -> Unit = {},
     onOpenFrames: () -> Unit = {},
     onImportPalette: () -> Unit = {},
@@ -1018,6 +1020,13 @@ fun Toolbar(
                                 onExportReplayGif()
                             },
                         )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.tb_export_replay_mp4)) },
+                            onClick = {
+                                showExportMenu = false
+                                onExportReplayMp4()
+                            },
+                        )
                         if (state.animFrameCount > 1) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.tb_export_gif)) },
@@ -1031,6 +1040,13 @@ fun Toolbar(
                                 onClick = {
                                     showExportMenu = false
                                     onExportApng()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.tb_export_mp4)) },
+                                onClick = {
+                                    showExportMenu = false
+                                    onExportMp4()
                                 },
                             )
                             DropdownMenuItem(
