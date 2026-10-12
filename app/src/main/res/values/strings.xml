@@ -935,4 +935,6 @@
     <string name="rail_more_tools">More tools</string>
     <string name="rail_pin">Pin %1$s to the rail</string>
     <string name="rail_unpin">Unpin %1$s from the rail</string>
+    <string name="panel_collapse">Collapse panel</string>
+    <string name="panel_expand">Expand panel</string>
 </resources>

@@ -181,11 +181,12 @@ Goal: the screen layout that replaces the single scrolling toolbar and the ⋮ j
   fill tolerance; text style; the selection's transform and style. This replaces the stroke
   options, fill and text toolbar groups.
   Done: a separate bar above the rail (bottom centre) shows only the active tool's settings: pen kind, brush, size, opacity, line options and stabiliser for drawing tools; eraser, shape, measure, Bézier, bone, fill and connector options; the selection's actions with the select tool. Hidden for text, eyedropper and ruler. The settings still open from buttons and sliders in the bar, not dialogs; brush editing and the gradient are dialogs until D27.
-- [ ] D10. **Docked side panels instead of modal dialogs** for layers, frames, symbols,
+- [x] D10. **Docked side panels instead of modal dialogs** for layers, frames, symbols,
   pins, versions, objects and game logic. They're non-modal, can be resized or collapsed, and
   stay open while you draw. On a phone (the reference) they're bottom sheets with peek heights
   that leave the drawing visible; side docking comes on larger screens (after phone). These are the
   dialogs that today block the canvas.
+  Done: `FernPanel`/`FernPanelHost`. Layers, frames, symbols, pins, versions, the object panel and its states, rules and script open as non-modal panels: a bottom sheet of at most half the screen above the rail on an upright phone (collapsible to its header), docked beside the rail otherwise; panels stack, Back closes the top one. Footer "Close" buttons removed (the header has one). Resizing by drag is left to D42.
 - [ ] D11. **A workspace switcher**: Draw, Paint (raster), Design (vector), Animate, Game, Notes
   (PDF and audio). Each one shows the tools and panels its work needs. The user can edit
   workspaces or create new ones. Animation, replay and guides stop crowding a drawing session.

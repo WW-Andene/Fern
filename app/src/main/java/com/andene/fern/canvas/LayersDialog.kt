@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+
 import com.andene.fern.FernMessages
 
 import com.andene.fern.FernScale
@@ -44,7 +46,6 @@ import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MergeType
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.DropdownMenuItem
@@ -111,7 +112,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
         }
     }
 
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.layers_title)) },
         text = {
@@ -304,9 +305,6 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                     editingAdjustment = state.activeLayerId to Levels()
                 }) { Text(stringResource(R.string.layers_new_adjustment)) }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         },
     )
 }

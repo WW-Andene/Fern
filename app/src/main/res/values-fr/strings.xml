@@ -938,4 +938,6 @@
     <string name="rail_more_tools">Plus d’outils</string>
     <string name="rail_pin">Épingler %1$s au rail</string>
     <string name="rail_unpin">Retirer %1$s du rail</string>
+    <string name="panel_collapse">Replier le panneau</string>
+    <string name="panel_expand">Déplier le panneau</string>
 </resources>

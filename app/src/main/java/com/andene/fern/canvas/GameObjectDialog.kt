@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+
 import com.andene.fern.FernScale
 
 import androidx.compose.material3.Switch
@@ -18,7 +20,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -57,7 +58,7 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
     var showStates by remember { mutableStateOf(false) }
     var showRules by remember { mutableStateOf(false) }
     var showScript by remember { mutableStateOf(false) }
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.object_title)) },
         text = {
@@ -165,7 +166,6 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
         dismissButton = {
             TextButton(onClick = {
                 state.removeObject(current.id)

@@ -1307,6 +1307,8 @@ class MainActivity : ComponentActivity() {
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(FernScale.s8),
                             )
+                            // Panels (design roadmap D10): beside the rail, never covering the canvas.
+                            FernPanelHost(railOnLeft = !leftHanded, railInset = railInset, railSide = railSide)
                             if (showQuickMenu) QuickMenuOverlay(state = canvasState, onDismiss = { showQuickMenu = false }, actions = quickMenuActions)
                             if (loadingDocument) DocumentLoadingOverlay()
                         }

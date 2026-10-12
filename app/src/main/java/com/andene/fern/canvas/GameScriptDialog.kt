@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+
 import com.andene.fern.FernScale
 
 import androidx.compose.foundation.layout.Column
@@ -8,7 +10,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -35,7 +36,7 @@ fun GameScriptDialog(state: CanvasState, objectId: String, onDismiss: () -> Unit
     val target = state.gameObjects.firstOrNull { it.id == objectId } ?: return onDismiss()
     var source by remember { mutableStateOf(target.script.ifEmpty { EXAMPLE_GAME_SCRIPT }) }
     var error by remember { mutableStateOf<ScriptError?>(null) }
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.game_script_title)) },
         text = {

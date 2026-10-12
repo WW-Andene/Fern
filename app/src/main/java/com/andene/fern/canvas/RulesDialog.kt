@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+
 import com.andene.fern.FernScale
 
 import androidx.compose.foundation.layout.Column
@@ -12,7 +14,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,7 +37,7 @@ fun RulesDialog(state: CanvasState, objectId: String, onDismiss: () -> Unit) {
     val target = state.gameObjects.firstOrNull { it.id == objectId } ?: return onDismiss()
     val rules = target.rules
     fun save(updated: List<Rule>) = state.updateObject(target.copy(rules = updated))
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.rules_title)) },
         text = {
@@ -71,7 +72,6 @@ fun RulesDialog(state: CanvasState, objectId: String, onDismiss: () -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
 }
 
