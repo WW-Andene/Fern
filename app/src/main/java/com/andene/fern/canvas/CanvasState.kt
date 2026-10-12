@@ -2059,7 +2059,7 @@ class CanvasState(
     var hdrView by mutableStateOf(HdrView())
         private set
 
-    fun setHdrView(view: HdrView) {
+    fun changeHdrView(view: HdrView) {
         hdrView = view
         for (layer in layers) if (layer.hdr) rasters[layer.id]?.hdrView = view
         rasterRevision++

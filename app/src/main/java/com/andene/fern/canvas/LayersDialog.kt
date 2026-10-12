@@ -364,10 +364,10 @@ private fun HdrSection(state: CanvasState) {
     val view = state.hdrView
     Text(stringResource(R.string.hdr_title), style = MaterialTheme.typography.labelLarge)
     Text(stringResource(R.string.hdr_exposure, "%+.1f".format(view.exposureStops)))
-    Slider(value = view.exposureStops, onValueChange = { state.setHdrView(view.copy(exposureStops = it)) }, valueRange = -6f..6f)
+    Slider(value = view.exposureStops, onValueChange = { state.changeHdrView(view.copy(exposureStops = it)) }, valueRange = -6f..6f)
     Row {
         for ((mode, label) in listOf(ToneMap.CLIP to R.string.hdr_clip, ToneMap.FILMIC to R.string.hdr_filmic)) {
-            FilterChip(selected = view.toneMap == mode, onClick = { state.setHdrView(view.copy(toneMap = mode)) }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = 4.dp))
+            FilterChip(selected = view.toneMap == mode, onClick = { state.changeHdrView(view.copy(toneMap = mode)) }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = 4.dp))
         }
     }
     Text(stringResource(R.string.hdr_intensity, "%.1f".format(state.hdrIntensity)))
