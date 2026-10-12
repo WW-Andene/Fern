@@ -677,7 +677,6 @@ class CanvasState(
 
     /** The lasso outline being drawn, in world space; empty when no lasso is in progress. */
     val lassoPath = mutableStateListOf<WorldPoint>()
-        private set
 
     private var isMovingSelection = false
     private var lastDragPoint: WorldPoint? = null

@@ -330,12 +330,12 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
         // Everything below is laid out in unrotated view space (worldToScreen) and turned as a
         // whole here, so text, images and patterns rotate with the strokes.
         rotate(degrees = Math.toDegrees(state.rotation).toFloat(), pivot = screenCenter) {
-            drawScene(state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer) { fileName ->
+            drawScene(state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer, imageFor = { fileName ->
                 imageBitmapCache[fileName]
                     ?: BitmapFactory.decodeFile(CanvasStorage.imageFile(context, fileName).absolutePath)
                         ?.asImageBitmap()
                         ?.also { imageBitmapCache[fileName] = it }
-            }
+            })
 
             state.textItems.firstOrNull { it.id == state.selectedTextId }?.let { item ->
                 val (min, max) = state.textBounds(item)
