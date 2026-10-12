@@ -25,6 +25,7 @@ import java.io.IOException
  *   [if FLAG_GRADIENT: int end colour (ARGB)  short angle in degrees]  (version 3+)
  *   [if FLAG_GROUP: int group-id name]                                   (version 4+)
  *   [if FLAG2_BONE: int bone-id name]                                    (version 5+)
+ *   [if FLAG2_STYLE: byte packed line style (LineStyle.pack)]            (version 5+)
  *   int point count
  *   per point: double x, double y [, float pressure, float tilt, float orientation]
  * ```
@@ -57,6 +58,7 @@ object StrokeCodec {
     private const val FLAG_GROUP = 128
     // Second flags byte (version 5+).
     private const val FLAG2_BONE = 1
+    private const val FLAG2_STYLE = 2
 
     fun write(out: DataOutputStream, strokes: List<Stroke>) {
         val names = LinkedHashMap<String, Int>()
@@ -97,7 +99,8 @@ object StrokeCodec {
             out.writeInt(stroke.animFrame)
             out.writeByte(flags)
             val boneId = stroke.boneId
-            out.writeByte(if (boneId != null) FLAG2_BONE else 0)
+            val lineStyle = stroke.lineStyle
+            out.writeByte((if (boneId != null) FLAG2_BONE else 0) or (if (lineStyle != null) FLAG2_STYLE else 0))
             if (brush != null) {
                 out.writeShort(nameIndex(brush.tip.name))
                 out.writeFloat(brush.spacing)
@@ -112,6 +115,7 @@ object StrokeCodec {
             }
             if (groupId != null) out.writeInt(nameIndex(groupId))
             if (boneId != null) out.writeInt(nameIndex(boneId))
+            if (lineStyle != null) out.writeByte(lineStyle.pack())
             val points = stroke.points
             out.writeInt(points.size)
             for (i in points.indices) {
@@ -168,6 +172,7 @@ object StrokeCodec {
             }
             val groupId = if ((flags and FLAG_GROUP) != 0) name(input.readInt()) else null
             val boneId = if ((flags2 and FLAG2_BONE) != 0) name(input.readInt()) else null
+            val lineStyle = if ((flags2 and FLAG2_STYLE) != 0) LineStyle.unpack(input.readUnsignedByte()) else null
             val stroke = Stroke(
                 color, width, penType,
                 filled = (flags and FLAG_FILLED) != 0,
@@ -181,6 +186,7 @@ object StrokeCodec {
                 gradient = gradient,
                 groupId = groupId,
                 boneId = boneId,
+                lineStyle = lineStyle,
             )
             val stylus = (flags and FLAG_STYLUS) != 0
             repeat(input.readInt().also { checkCount(it) }) {

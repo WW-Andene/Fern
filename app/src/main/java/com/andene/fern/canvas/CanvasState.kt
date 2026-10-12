@@ -395,6 +395,9 @@ class CanvasState(
     /** Playback bounces back and forth (1-2-3-2-1...) instead of looping (1-2-3-1-2-3...). */
     var pingPong by mutableStateOf(false)
 
+    /** Cap, join and width profile for new strokes (roadmap item 97); the default draws as before. */
+    var activeLineStyle by mutableStateOf(LineStyle())
+
     /** Timing of generated in-betweens and motion-path steps. */
     var motionEasing by mutableStateOf(Easing.LINEAR)
 
@@ -479,7 +482,7 @@ class CanvasState(
                 val (pa, pb) = matched[index]
                 val samples = pa.size
                 val color = androidx.compose.ui.graphics.lerp(a.color, b.color, t.toFloat())
-                val tween = Stroke(color, a.widthWorld + (b.widthWorld - a.widthWorld) * t, a.penType, blendMode = a.blendMode, layerId = a.layerId, animFrame = from + step, dashed = a.dashed, brush = a.brush, boneId = a.boneId.takeIf { it == b.boneId })
+                val tween = Stroke(color, a.widthWorld + (b.widthWorld - a.widthWorld) * t, a.penType, blendMode = a.blendMode, layerId = a.layerId, animFrame = from + step, dashed = a.dashed, brush = a.brush, boneId = a.boneId.takeIf { it == b.boneId }, lineStyle = a.lineStyle)
                 for (i in 0 until samples) tween.addPoint(WorldPoint(pa[i].x + (pb[i].x - pa[i].x) * t, pa[i].y + (pb[i].y - pa[i].y) * t))
                 strokes.add(tween)
             }
@@ -754,6 +757,7 @@ class CanvasState(
             layerId = activeLayerId,
             animFrame = currentAnimFrame,
             dashed = activeDashed,
+            lineStyle = activeLineStyle.takeIf { it != LineStyle() },
             brush = if (activePenType == PenType.STAMP) activeBrush else null,
         )
         for (point in flattenBezier(nodes, closed && nodes.size >= 3, BEZIER_SAMPLE_SCREEN / s)) stroke.addPoint(point)
@@ -1625,6 +1629,7 @@ class CanvasState(
             layerId = activeLayerId,
             animFrame = currentAnimFrame,
             dashed = activeDashed,
+            lineStyle = activeLineStyle.takeIf { it != LineStyle() },
             brush = if (activePenType == PenType.STAMP) activeBrush else null,
         )
         stroke.addPoint(snappedToActiveGuide(worldPoint), pressure, tilt, orientation)
@@ -2030,6 +2035,7 @@ class CanvasState(
             layerId = activeLayerId,
             animFrame = currentAnimFrame,
             dashed = activeDashed,
+            lineStyle = activeLineStyle.takeIf { it != LineStyle() },
             brush = if (activePenType == PenType.STAMP) activeBrush else null,
         )
         for (point in generateShapePoints(activeShapeKind, start, end)) stroke.addPoint(point)
@@ -2832,7 +2838,7 @@ class CanvasState(
         val results = loops.map { loop ->
             Stroke(
                 bottom.color, bottom.widthWorld, bottom.penType, bottom.filled, bottom.blendMode, bottom.layerId, bottom.animFrame,
-                bottom.dashed, bottom.fadeFill, bottom.screentone, bottom.brush, bottom.gradient, bottom.groupId, bottom.boneId,
+                bottom.dashed, bottom.fadeFill, bottom.screentone, bottom.brush, bottom.gradient, bottom.groupId, bottom.boneId, bottom.lineStyle,
             ).apply {
                 for (point in loop) addPoint(point)
                 addPoint(loop.first()) // closed, like the shapes it came from

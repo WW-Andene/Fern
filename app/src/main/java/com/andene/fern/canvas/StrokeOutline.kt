@@ -8,7 +8,7 @@ import kotlin.math.hypot
 import kotlin.math.sin
 
 /** How a variable-width outline ends: a half-disc ([ROUND]) or a half-width square extension ([SQUARE]). */
-enum class OutlineCap { ROUND, SQUARE }
+enum class OutlineCap { ROUND, SQUARE, BUTT }
 
 // Half-disc caps as 8 segments: smooth at stroke widths a pen produces, cheap to fill.
 private const val CAP_SEGMENTS = 8
@@ -93,5 +93,7 @@ private fun addCap(outline: MutableList<Offset>, end: Offset, direction: Offset,
             outline.add(end + normal + extension)
             outline.add(end - normal + extension)
         }
+        OutlineCap.BUTT -> {} // the sides meet straight across the end
+
     }
 }

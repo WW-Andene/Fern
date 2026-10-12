@@ -357,4 +357,15 @@
     <string name="combine_intersect">Intersect</string>
     <string name="combine_subtract">Subtract from the bottom shape</string>
     <string name="combine_exclude">Exclude overlaps</string>
+    <string name="tb_line_style">Line style</string>
+    <string name="cap_round">Round ends</string>
+    <string name="cap_square">Square ends</string>
+    <string name="cap_butt">Flat ends</string>
+    <string name="join_round">Round corners</string>
+    <string name="join_miter">Sharp corners</string>
+    <string name="join_bevel">Bevelled corners</string>
+    <string name="profile_uniform">Even width</string>
+    <string name="profile_taper_both">Taper both ends</string>
+    <string name="profile_taper_start">Taper the start</string>
+    <string name="profile_taper_end">Taper the end</string>
 </resources>

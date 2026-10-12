@@ -53,7 +53,10 @@ fun exportLottie(source: CanvasState): String? {
                 JSONObject().put("ty", "fl").put("c", static(rgba(stroke.color))).put("o", static(round(opacity))).put("r", 1)
             } else {
                 JSONObject().put("ty", "st").put("c", static(rgba(stroke.color))).put("o", static(round(opacity)))
-                    .put("w", static(round(stroke.widthWorld * camera.scale))).put("lc", 2).put("lj", 2)
+                    .put("w", static(round(stroke.widthWorld * camera.scale)))
+                    // Lottie: caps 1 butt, 2 round, 3 square; joins 1 miter, 2 round, 3 bevel.
+                    .put("lc", when (stroke.lineStyle?.cap) { LineCap.BUTT -> 1; LineCap.SQUARE -> 3; else -> 2 })
+                    .put("lj", when (stroke.lineStyle?.join) { LineJoin.MITER -> 1; LineJoin.BEVEL -> 3; else -> 2 })
             }
             shapes.put(JSONObject().put("ty", "gr").put("it", JSONArray().put(path).put(paint).put(groupTransform())))
         }

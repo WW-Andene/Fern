@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.filled.JoinFull
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pentagon
@@ -193,6 +194,7 @@ fun Toolbar(
     var showSearchDialog by remember { mutableStateOf(false) }
     var showSymmetryMenu by remember { mutableStateOf(false) }
     var showAlignMenu by remember { mutableStateOf(false) }
+    var showLineStyleMenu by remember { mutableStateOf(false) }
     var showCombineMenu by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
     var showBlendModeMenu by remember { mutableStateOf(false) }
@@ -420,6 +422,42 @@ fun Toolbar(
                             contentDescription = if (state.activeDashed) stringResource(R.string.tb_dashed_on) else stringResource(R.string.tb_dashed_off),
                             tint = if (state.activeDashed) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
+                    }
+                    // Line style (roadmap item 97): caps, joins and width profile for new strokes.
+                    Box {
+                        IconButton(onClick = { showLineStyleMenu = true }) {
+                            Icon(
+                                Icons.Filled.LineStyle,
+                                contentDescription = stringResource(R.string.tb_line_style),
+                                tint = if (state.activeLineStyle != LineStyle()) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                            )
+                        }
+                        DropdownMenu(expanded = showLineStyleMenu, onDismissRequest = { showLineStyleMenu = false }) {
+                            val current = state.activeLineStyle
+                            for (profile in WidthProfile.entries) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(profile.label)) },
+                                    leadingIcon = { if (current.profile == profile) Icon(Icons.Filled.Check, contentDescription = null) },
+                                    onClick = { state.activeLineStyle = current.copy(profile = profile) },
+                                )
+                            }
+                            HorizontalDivider()
+                            for (cap in LineCap.entries) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(cap.label)) },
+                                    leadingIcon = { if (current.cap == cap) Icon(Icons.Filled.Check, contentDescription = null) },
+                                    onClick = { state.activeLineStyle = current.copy(cap = cap) },
+                                )
+                            }
+                            HorizontalDivider()
+                            for (join in LineJoin.entries) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(join.label)) },
+                                    leadingIcon = { if (current.join == join) Icon(Icons.Filled.Check, contentDescription = null) },
+                                    onClick = { state.activeLineStyle = current.copy(join = join) },
+                                )
+                            }
+                        }
                     }
                     IconButton(onClick = { state.velocityDynamics = !state.velocityDynamics }) {
                         Icon(

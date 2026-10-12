@@ -733,10 +733,34 @@ private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, sou
         drawStampStroke(stroke, screenPoints, source, baseWidthScreen, blendMode)
         return
     }
-    val style = penStyle(stroke.penType, stroke.color, baseWidthScreen)
-    if (screenPoints.size >= 2 && hasStylusVariation(stroke)) {
-        val halfWidths = FloatArray(screenPoints.size) { i -> (style.widthScreen * widthFactorAt(stroke, source[i])).coerceAtLeast(1f) / 2f }
-        val cap = if (style.cap == StrokeCap.Square) OutlineCap.SQUARE else OutlineCap.ROUND
+    val penDefaults = penStyle(stroke.penType, stroke.color, baseWidthScreen)
+    // The stroke's own line style (roadmap item 97) overrides the pen's cap and the round join.
+    val line = stroke.lineStyle
+    val style = when (line?.cap) {
+        LineCap.ROUND -> penDefaults.copy(cap = StrokeCap.Round)
+        LineCap.SQUARE -> penDefaults.copy(cap = StrokeCap.Square)
+        LineCap.BUTT -> penDefaults.copy(cap = StrokeCap.Butt)
+        null -> penDefaults
+    }
+    val join = when (line?.join) {
+        LineJoin.MITER -> StrokeJoin.Miter
+        LineJoin.BEVEL -> StrokeJoin.Bevel
+        else -> StrokeJoin.Round
+    }
+    val profile = line?.profile ?: WidthProfile.UNIFORM
+    if (screenPoints.size >= 2 && (hasStylusVariation(stroke) || profile != WidthProfile.UNIFORM)) {
+        // A width profile is applied by length along the stroke, on top of any pen pressure.
+        val along = FloatArray(screenPoints.size)
+        for (i in 1 until screenPoints.size) along[i] = along[i - 1] + (screenPoints[i] - screenPoints[i - 1]).getDistance()
+        val total = along.last().coerceAtLeast(1e-3f)
+        val halfWidths = FloatArray(screenPoints.size) { i ->
+            (style.widthScreen * widthFactorAt(stroke, source[i]) * profile.at(along[i] / total)).coerceAtLeast(1f) / 2f
+        }
+        val cap = when (style.cap) {
+            StrokeCap.Square -> OutlineCap.SQUARE
+            StrokeCap.Butt -> OutlineCap.BUTT
+            else -> OutlineCap.ROUND
+        }
         drawOutline(screenPoints, halfWidths, cap, style.color, blendMode)
         return
     }
@@ -766,7 +790,7 @@ private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, sou
                 style = DrawStyle(
                     width = style.widthScreen,
                     cap = style.cap,
-                    join = StrokeJoin.Round,
+                    join = join,
                     pathEffect = if (stroke.dashed) dashEffect(style.widthScreen) else null,
                 ),
                 blendMode = blendMode,

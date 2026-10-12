@@ -359,4 +359,15 @@
     <string name="combine_intersect">Intersection</string>
     <string name="combine_subtract">Soustraire de la forme du dessous</string>
     <string name="combine_exclude">Exclure les chevauchements</string>
+    <string name="tb_line_style">Style de trait</string>
+    <string name="cap_round">Extrémités rondes</string>
+    <string name="cap_square">Extrémités carrées</string>
+    <string name="cap_butt">Extrémités plates</string>
+    <string name="join_round">Angles arrondis</string>
+    <string name="join_miter">Angles vifs</string>
+    <string name="join_bevel">Angles biseautés</string>
+    <string name="profile_uniform">Épaisseur constante</string>
+    <string name="profile_taper_both">Effiler les deux bouts</string>
+    <string name="profile_taper_start">Effiler le début</string>
+    <string name="profile_taper_end">Effiler la fin</string>
 </resources>

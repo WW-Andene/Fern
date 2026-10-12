@@ -66,7 +66,10 @@ fun exportDocumentSvg(source: CanvasState, imageBytesFor: (String) -> ByteArray?
             svg.append("""<path d="$d Z" fill="${hex(stroke.color)}" fill-opacity="$opacity"/>""")
         } else {
             svg.append("""<path d="$d" fill="none" stroke="${hex(stroke.color)}" stroke-opacity="$opacity" """)
-            svg.append("""stroke-width="${n(stroke.widthWorld)}" stroke-linecap="round" stroke-linejoin="round"""")
+            // Width profiles (tapers) aren't expressible on an SVG stroke; caps and joins are.
+            val cap = when (stroke.lineStyle?.cap) { LineCap.SQUARE -> "square"; LineCap.BUTT -> "butt"; else -> "round" }
+            val join = when (stroke.lineStyle?.join) { LineJoin.MITER -> "miter"; LineJoin.BEVEL -> "bevel"; else -> "round" }
+            svg.append("""stroke-width="${n(stroke.widthWorld)}" stroke-linecap="$cap" stroke-linejoin="$join"""")
             if (stroke.dashed) svg.append(""" stroke-dasharray="${n(stroke.widthWorld * 3)} ${n(stroke.widthWorld * 3)}"""")
             svg.append("/>")
         }
