@@ -80,6 +80,8 @@ import androidx.compose.material.icons.filled.FlipToBack
 import androidx.compose.material.icons.filled.FlipToFront
 import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.FormatPaint
+import androidx.compose.material.icons.filled.SportsGymnastics
+import androidx.compose.material.icons.filled.FormatShapes
 import androidx.compose.material.icons.filled.ContentPasteGo
 import androidx.compose.material.icons.filled.Style
 import androidx.compose.material.icons.filled.FormatSize
@@ -960,12 +962,19 @@ fun Toolbar(
                             tint = if (state.nodeEditing) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
-                    IconButton(onClick = { state.toggleMeshWarp() }) {
-                        Icon(
-                            Icons.Filled.GridOn,
-                            contentDescription = if (state.meshWarping) stringResource(R.string.tb_mesh_stop) else stringResource(R.string.tb_mesh),
-                            tint = if (state.meshWarping) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                        )
+                    for ((kind, icon, labels) in listOf(
+                        Triple(WarpKind.MESH, Icons.Filled.GridOn, R.string.tb_mesh to R.string.tb_mesh_stop),
+                        Triple(WarpKind.DISTORT, Icons.Filled.FormatShapes, R.string.tb_distort to R.string.tb_distort_stop),
+                        Triple(WarpKind.PUPPET, Icons.Filled.SportsGymnastics, R.string.tb_puppet to R.string.tb_puppet_stop),
+                    )) {
+                        val on = state.meshWarping && state.warpKind == kind
+                        IconButton(onClick = { state.toggleWarp(kind) }) {
+                            Icon(
+                                icon,
+                                contentDescription = stringResource(if (on) labels.second else labels.first),
+                                tint = if (on) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                            )
+                        }
                     }
                     val grouped = state.selectionHasGroup
                     IconButton(

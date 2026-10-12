@@ -318,6 +318,10 @@
     <string name="tb_nodes_stop">Terminer l\'édition des nœuds</string>
     <string name="tb_mesh">Déformer par grille</string>
     <string name="tb_mesh_stop">Terminer la déformation</string>
+    <string name="tb_distort">Distordre (coins)</string>
+    <string name="tb_distort_stop">Terminer la distorsion</string>
+    <string name="tb_puppet">Déformation par épingles (toucher pour ajouter une épingle, toucher une épingle pour la retirer)</string>
+    <string name="tb_puppet_stop">Terminer la déformation par épingles</string>
     <string name="tb_weights">Peindre les poids</string>
     <string name="tb_weights_stop">Arrêter de peindre les poids</string>
     <string name="tb_weight_value">Poids %1$d %%</string>

@@ -318,6 +318,10 @@
     <string name="tb_nodes_stop">Stop editing nodes</string>
     <string name="tb_mesh">Mesh warp</string>
     <string name="tb_mesh_stop">Finish mesh warp</string>
+    <string name="tb_distort">Distort (corner pins)</string>
+    <string name="tb_distort_stop">Finish distort</string>
+    <string name="tb_puppet">Puppet warp (tap to add pins, tap a pin to remove it)</string>
+    <string name="tb_puppet_stop">Finish puppet warp</string>
     <string name="tb_weights">Paint joint weights</string>
     <string name="tb_weights_stop">Stop painting weights</string>
     <string name="tb_weight_value">Weight %1$d%%</string>

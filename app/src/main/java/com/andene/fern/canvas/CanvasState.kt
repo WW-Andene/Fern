@@ -3442,15 +3442,30 @@ class CanvasState(
     private var nodeDragStart = WorldPoint.Zero
 
     /**
-     * Mesh warp (roadmap items 84, 122): a [MESH_SIZE] x [MESH_SIZE] lattice over the selection;
-     * dragging a lattice point bends the selected ink smoothly ([meshWarp]). Each drag is one
-     * undo step. Ends when the selection is cleared or changed, or toggled off.
+     * Warping the selection or the raster layer (roadmap items 84, 92, 122), in one of the
+     * [WarpKind]s: handles over the selection's box; dragging one bends the selected ink
+     * smoothly. Each drag is one undo step. Ends when the selection is cleared or changed, or
+     * toggled off.
      */
     var meshWarping by mutableStateOf(false)
         private set
 
-    /** The lattice's control points while [meshWarping], row by row; empty otherwise. */
+    /** Which warp [meshWarping] is doing. */
+    var warpKind by mutableStateOf(WarpKind.MESH)
+        private set
+
+    /**
+     * The warp's handles while [meshWarping]; empty otherwise. The mesh lattice's control points
+     * row by row, the distort's four corners (see [perspectiveDistort]), or the puppet pins
+     * where they've been dragged to.
+     */
     val meshNodes = mutableStateListOf<WorldPoint>()
+
+    // Puppet warp: where each pin in [meshNodes] was stuck in, in the picture as it was then.
+    private val puppetOrigins = mutableListOf<WorldPoint>()
+    // A pin pressed and released without moving is pulled out.
+    private var pinPressedAt: WorldPoint? = null
+    private var pinMoved = false
 
     private var meshMin = WorldPoint.Zero
     private var meshMax = WorldPoint.Zero
@@ -3466,24 +3481,67 @@ class CanvasState(
     private var warpBox = IntArray(4)
     private var warpBase = HashMap<Long, RasterTile?>()
 
-    fun toggleMeshWarp() {
-        if (!meshWarping && activeLayerIsRaster) {
+    fun toggleMeshWarp() = toggleWarp(WarpKind.MESH)
+
+    /** Starts warping in [kind], or stops when that warp is already on (another kind switches to this one). */
+    fun toggleWarp(kind: WarpKind) {
+        if (meshWarping) {
+            val same = warpKind == kind
+            endMeshWarp()
+            if (same) return
+        }
+        warpKind = kind
+        if (activeLayerIsRaster) {
             startRasterWarp()
             return
         }
-        if (meshWarping || selection.isEmpty()) {
-            endMeshWarp()
-            return
-        }
+        if (selection.isEmpty()) return
         val (min, max) = selectionBounds() ?: return
         // A flat selection (a horizontal line) still gets a box to bend.
         val pad = maxOf(max.x - min.x, max.y - min.y) * 0.05 + 1.0 / scale.coerceAtLeast(1e-300)
         meshMin = WorldPoint(min.x - pad, min.y - pad)
         meshMax = WorldPoint(max.x + pad, max.y + pad)
         meshNodes.clear()
-        meshNodes.addAll(meshGrid(meshMin, meshMax))
+        meshNodes.addAll(initialWarpHandles())
         meshOriginals = selection.map { it to it.points.toList() }
         meshWarping = true
+    }
+
+    private fun initialWarpHandles(): List<WorldPoint> = when (warpKind) {
+        WarpKind.MESH -> meshGrid(meshMin, meshMax)
+        WarpKind.DISTORT -> boxCorners(meshMin, meshMax)
+        WarpKind.PUPPET -> emptyList() // pins are stuck in by tapping
+    }
+
+    /** Where the warp as it stands takes each point of the picture it started from. */
+    private fun warpMapping(): (WorldPoint) -> WorldPoint {
+        val nodes = meshNodes.toList()
+        val min = meshMin
+        val max = meshMax
+        return when (warpKind) {
+            WarpKind.MESH -> { p -> meshWarp(p, min, max, nodes) }
+            WarpKind.DISTORT -> { p -> perspectiveDistort(p, min, max, nodes) }
+            WarpKind.PUPPET -> {
+                val origins = puppetOrigins.toList()
+                ({ p -> puppetWarp(p, origins, nodes) })
+            }
+        }
+    }
+
+    /**
+     * Makes the picture as it is now the warp's new starting point, with every pin where it is:
+     * a pin stuck into an already-bent picture holds that spot, since its origin can only be
+     * known in the picture as it is.
+     */
+    private fun rebaseWarp() {
+        puppetOrigins.clear()
+        puppetOrigins.addAll(meshNodes)
+        meshOriginals = meshOriginals.map { (stroke, _) -> stroke to stroke.points.toList() }
+        lastWarped?.let { warped ->
+            // Raster: the warped picture becomes the lifted one, still off the layer underneath.
+            warpSource = warped.pixels
+            warpBox = intArrayOf(warped.left, warped.top, warped.left + warped.width - 1, warped.top + warped.height - 1)
+        }
     }
 
     /** Lays the lattice over the raster selection, or over all the active raster layer's paint. */
@@ -3493,7 +3551,7 @@ class CanvasState(
         meshMin = surface.worldOf(box[0].toDouble(), box[1].toDouble())
         meshMax = surface.worldOf(box[2] + 1.0, box[3] + 1.0)
         meshNodes.clear()
-        meshNodes.addAll(meshGrid(meshMin, meshMax))
+        meshNodes.addAll(initialWarpHandles())
         meshOriginals = emptyList()
         warpSurface = surface
         warpSource = null
@@ -3543,7 +3601,8 @@ class CanvasState(
             // under the warped copy from the second drag event on.
             for (key in warpBase.keys) warpBase[key] = surface.tileAt(key)?.copy()
         }
-        val warped = warpPixels(surface, source, width, height, box[0], box[1], meshMin, meshMax, meshNodes.toList())
+        val warped = warpPixels(surface, source, width, height, box[0], box[1], warpMapping())
+        lastWarped = warped
         if (warped != null) {
             surface.forEachPixelIn(warped.left.toDouble(), warped.top.toDouble(), (warped.left + warped.width - 1).toDouble(), (warped.top + warped.height - 1).toDouble()) { tile, index, px, py ->
                 val x = px - warped.left
@@ -3560,10 +3619,16 @@ class CanvasState(
         rasterRevision++
     }
 
+    // The raster warp's last result, which a puppet rebase takes as its new lifted picture.
+    private var lastWarped: WarpedPixels? = null
+
     private fun endMeshWarp() {
         if (warpSurface != null) markRasterDirty(activeLayerId, emptySet())
         warpSurface = null
         warpSource = null
+        lastWarped = null
+        puppetOrigins.clear()
+        pinPressedAt = null
         warpBase = HashMap()
         meshWarping = false
         meshNodes.clear()
@@ -3580,8 +3645,24 @@ class CanvasState(
             val hit = meshNodes.indices.minByOrNull { k -> hypot(meshNodes[k].x - worldPoint.x, meshNodes[k].y - worldPoint.y) }
                 ?.takeIf { k -> hypot(meshNodes[k].x - worldPoint.x, meshNodes[k].y - worldPoint.y) * scale <= NODE_HANDLE_SCREEN }
             if (hit != null) {
-                recordHistory()
                 meshDragIndex = hit
+                if (warpKind == WarpKind.PUPPET) {
+                    // Maybe a tap to pull the pin out: history waits for the pin to move.
+                    pinPressedAt = worldPoint
+                    pinMoved = false
+                } else {
+                    recordHistory()
+                }
+                return
+            }
+            if (warpKind == WarpKind.PUPPET) {
+                // A tap off the pins sticks a new one in there, ready to drag.
+                rebaseWarp()
+                recordHistory()
+                meshNodes.add(worldPoint)
+                puppetOrigins.add(worldPoint)
+                meshDragIndex = meshNodes.lastIndex
+                pinPressedAt = null
                 return
             }
         }
@@ -3639,14 +3720,21 @@ class CanvasState(
             return
         }
         meshDragIndex?.let { k ->
+            pinPressedAt?.let { pressed ->
+                if (!pinMoved) {
+                    if (hypot(worldPoint.x - pressed.x, worldPoint.y - pressed.y) * scale <= TAP_SLOP_SCREEN) return
+                    pinMoved = true
+                    recordHistory()
+                }
+            }
             meshNodes[k] = worldPoint
             if (warpSurface != null) {
                 applyRasterWarp()
                 return
             }
-            val nodes = meshNodes.toList()
+            val warp = warpMapping()
             for ((stroke, original) in meshOriginals) {
-                if (stroke.points.size == original.size) stroke.setPoints(original.map { meshWarp(it, meshMin, meshMax, nodes) })
+                if (stroke.points.size == original.size) stroke.setPoints(original.map(warp))
             }
             return
         }
@@ -3704,8 +3792,15 @@ class CanvasState(
             }
             return
         }
-        if (meshDragIndex != null) {
+        meshDragIndex?.let { k ->
             meshDragIndex = null
+            if (pinPressedAt != null && !pinMoved) {
+                // A pin tapped without dragging is pulled out; the picture keeps its shape.
+                rebaseWarp()
+                meshNodes.removeAt(k)
+                puppetOrigins.removeAt(k)
+            }
+            pinPressedAt = null
             strokesChanged()
             return
         }
