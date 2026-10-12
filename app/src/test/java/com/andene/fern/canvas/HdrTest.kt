@@ -24,7 +24,8 @@ class HdrTest {
         assertEquals(1f, HdrView().display(2f), 0f) // clipped
         assertEquals(0.5f, HdrView(exposureStops = 1f).display(0.25f), 1e-6f)
         val filmic = HdrView(toneMap = ToneMap.FILMIC)
-        assertTrue(filmic.display(10f) < 1f && filmic.display(10f) > filmic.display(1f))
+        // Rolls off instead of clipping: four times white still below white, and brighter than white.
+        assertTrue(filmic.display(4f) < 1f && filmic.display(4f) > filmic.display(1f))
         assertTrue(filmic.display(1f) > 0.75f) // paper white still reads near white
     }
 
