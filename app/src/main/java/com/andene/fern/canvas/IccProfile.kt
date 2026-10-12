@@ -180,7 +180,7 @@ internal class IccTransform(
                     val aCurves = off(4).takeIf { it >= 0 }?.let { readCurves(bytes, it, if (aToB) i else o) }
                     val clutIn = if (aToB) i else 3
                     val clutOut = if (aToB) 3 else o
-                    val clut = if (clutAt >= 0) {
+                    val clut: ((FloatArray) -> FloatArray)? = if (clutAt >= 0) {
                         val grid = IntArray(clutIn) { bytes[clutAt + it].toInt() and 0xFF }
                         val precision = bytes[clutAt + 16].toInt() and 0xFF
                         val count = grid.fold(1) { a, g -> a * g } * clutOut
@@ -188,15 +188,17 @@ internal class IccTransform(
                             if (precision == 1) (bytes[clutAt + 20 + k].toInt() and 0xFF) / 255f
                             else (buf.getShort(clutAt + 20 + k * 2).toInt() and 0xFFFF) / 65535f
                         }
-                        { v: FloatArray -> lookup(v, grid, data, clutOut) }
+                        val stage: (FloatArray) -> FloatArray = { v -> lookup(v, grid, data, clutOut) }
+                        stage
                     } else null
-                    val matrixStage = matrix?.let { mx ->
+                    val matrixStage: ((FloatArray) -> FloatArray)? = matrix?.let { mx ->
                         { v: FloatArray -> FloatArray(3) { r -> (mx[r * 3] * v[0] + mx[r * 3 + 1] * v[1] + mx[r * 3 + 2] * v[2] + mx[9 + r]).toFloat().coerceIn(0f, 1f) } }
                     }
-                    val stages = if (aToB) {
-                        listOfNotNull(aCurves?.let { c -> { v: FloatArray -> curves(v, c) } }, clut, mCurves?.let { c -> { v: FloatArray -> curves(v, c) } }, matrixStage, bCurves?.let { c -> { v: FloatArray -> curves(v, c) } })
+                    fun curveStage(c: List<(Float) -> Float>?): ((FloatArray) -> FloatArray)? = c?.let { list -> { v: FloatArray -> curves(v, list) } }
+                    val stages: List<(FloatArray) -> FloatArray> = if (aToB) {
+                        listOfNotNull(curveStage(aCurves), clut, curveStage(mCurves), matrixStage, curveStage(bCurves))
                     } else {
-                        listOfNotNull(bCurves?.let { c -> { v: FloatArray -> curves(v, c) } }, matrixStage, mCurves?.let { c -> { v: FloatArray -> curves(v, c) } }, clut, aCurves?.let { c -> { v: FloatArray -> curves(v, c) } })
+                        listOfNotNull(curveStage(bCurves), matrixStage, curveStage(mCurves), clut, curveStage(aCurves))
                     }
                     IccTransform(i, o, legacyLab16 = false, stages = stages, pcsIsInput = !aToB)
                 }

@@ -537,7 +537,7 @@ fun DrawingCanvas(
             for (guide in state.guides) {
                 val a = if (guide.vertical) WorldPoint(guide.position, topLeftWorld.y) else WorldPoint(topLeftWorld.x, guide.position)
                 val b = if (guide.vertical) WorldPoint(guide.position, bottomRightWorld.y) else WorldPoint(bottomRightWorld.x, guide.position)
-                drawLine(GUIDE_COLOR, state.worldToScreen(a, screenCenter), state.worldToScreen(b, screenCenter), strokeWidth = 1f)
+                drawLine(RULER_GUIDE_COLOR, state.worldToScreen(a, screenCenter), state.worldToScreen(b, screenCenter), strokeWidth = 1f)
             }
 
             // A painted selection (roadmap item 138): its coverage tinted, the way Krita shows a selection mask.

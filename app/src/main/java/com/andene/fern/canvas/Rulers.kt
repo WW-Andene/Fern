@@ -87,7 +87,7 @@ fun Rulers(state: CanvasState, modifier: Modifier = Modifier, topInset: Dp = 0.d
                         else { moveTo(0f, at - MARKER_PX); lineTo(0f, at + MARKER_PX); lineTo(MARKER_PX * 1.5f, at) }
                         close()
                     }
-                    drawPath(marker, GUIDE_COLOR)
+                    drawPath(marker, RULER_GUIDE_COLOR)
                 }
             }
         }
@@ -143,4 +143,4 @@ private const val MARKER_PX = 6f
 private const val MARKER_HIT_PX = 24f
 private const val MOVE_SLOP_PX = 8f
 private const val HOLD_TO_REMOVE_MILLIS = 500L
-internal val GUIDE_COLOR = androidx.compose.ui.graphics.Color(0xFF00A3C4)
+internal val RULER_GUIDE_COLOR = androidx.compose.ui.graphics.Color(0xFF00A3C4)
