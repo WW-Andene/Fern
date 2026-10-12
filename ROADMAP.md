@@ -164,7 +164,7 @@ All deferred: they need a server or cloud platform.
 - [~] 99. Smart guides (a moved selection snaps edges/centres to nearby objects, guide lines shown), numeric transform dialog (X, Y, width, height, proportions, rotation), live shape dimensions; no screen rulers
 - [~] 100. Shared colour styles (a saved colour changed everywhere it's used, opacity kept), symbol library across documents (save a selection, place copies); placed symbols are copies, not linked instances
 - [x] 101. Image trace: a selected image's dark shapes (Otsu threshold) become filled vector outlines, holes kept, in the active colour over the image; one colour (no colour separation)
-- [ ] 102. CMYK, spot colours, ICC, print-ready PDF
+- [~] 102. CMYK entry in the colour picker (uncalibrated device CMYK); no spot colours, ICC colour management or CMYK PDF (the platform PDF writer is RGB-only)
 - [~] 103. EPS export (paths, fills, caps, joins, dashes; checked by rendering); no AI import/export, Figma ⏸ (external platform); SVG export done in 57
 
 ## Phase 12 — Specialty modes

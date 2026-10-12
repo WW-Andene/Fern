@@ -64,6 +64,17 @@ fun ColorPickerDialog(
 
     fun currentColor() = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, saturation, value)))
 
+    // Kept as typed while they still describe the colour (within a percent), so typing isn't
+    // overwritten by rounding; recomputed when another control changes the colour.
+    var cmykTexts by remember { mutableStateOf(List(4) { "" }) }
+    LaunchedEffect(hue, saturation, value) {
+        val now = cmykOf(currentColor())
+        val typed = cmykTexts.map { it.trim().replace(',', '.').toFloatOrNull() }
+        if (typed.indices.any { i -> typed[i]?.let { kotlin.math.abs(it - now[i] * 100f) > 1f } ?: true }) {
+            cmykTexts = now.map { "%.0f".format(it * 100f) }
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.color_title)) },
@@ -149,6 +160,32 @@ fun ColorPickerDialog(
                         singleLine = true,
                     )
                 }
+                // CMYK (roadmap item 102): plain device CMYK in percent, not colour-managed - a
+                // way to enter print values, not a promise of how a press will print them.
+                Text(stringResource(R.string.color_cmyk), modifier = Modifier.padding(top = 8.dp))
+                Row {
+                    for ((channel, label) in listOf("C", "M", "Y", "K").withIndex()) {
+                        OutlinedTextField(
+                            value = cmykTexts[channel],
+                            onValueChange = { text ->
+                                cmykTexts = cmykTexts.toMutableList().also { it[channel] = text }
+                                val parts = cmykTexts.map { it.trim().replace(',', '.').toFloatOrNull() }
+                                if (parts.all { it != null }) {
+                                    val hsv = FloatArray(3)
+                                    android.graphics.Color.colorToHSV(colorOfCmyk(parts.map { it!! / 100f }).toArgb(), hsv)
+                                    hue = hsv[0]
+                                    saturation = hsv[1]
+                                    value = hsv[2]
+                                    hexText = hexOf(hue, saturation, value)
+                                }
+                            },
+                            label = { Text(label) },
+                            singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
+                            modifier = Modifier.width(62.dp).padding(end = 4.dp),
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
@@ -212,4 +249,17 @@ fun parseGimpPalette(text: String): List<Color> {
         if (rgb.size < 3 || rgb.any { it == null || it !in 0..255 }) null
         else Color(rgb[0]!!, rgb[1]!!, rgb[2]!!)
     }
+}
+
+/** Uncalibrated device CMYK (0..1 each) of [color]: K = 1 - max(R, G, B), the rest relative to it. */
+internal fun cmykOf(color: Color): List<Float> {
+    val k = 1f - maxOf(color.red, color.green, color.blue)
+    if (k >= 1f) return listOf(0f, 0f, 0f, 1f)
+    return listOf((1f - color.red - k) / (1f - k), (1f - color.green - k) / (1f - k), (1f - color.blue - k) / (1f - k), k)
+}
+
+/** The RGB colour of uncalibrated device [cmyk] (0..1 each, clamped). */
+internal fun colorOfCmyk(cmyk: List<Float>): Color {
+    val (c, m, y, k) = cmyk.map { it.coerceIn(0f, 1f) }
+    return Color((1 - c) * (1 - k), (1 - m) * (1 - k), (1 - y) * (1 - k))
 }
