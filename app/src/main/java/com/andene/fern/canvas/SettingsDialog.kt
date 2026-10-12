@@ -8,6 +8,7 @@ import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import android.content.Context
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -233,7 +234,7 @@ fun SettingsDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.settings_title)) },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8),
                     verticalAlignment = Alignment.CenterVertically,
