@@ -129,6 +129,9 @@ fun DrawingCanvas(
     // Decoded lazily and cached by file name: re-decoding from disk every frame would be
     // wasteful, and images never change once placed (a new image is a new ImageItem/file).
     val gestures by GestureSettings.state(context)
+    val palm by PalmSettings.state(context)
+    // Where a hovering stylus is (design roadmap D16): the brush's footprint shows there before it touches.
+    var hoverPoint by remember { mutableStateOf<Offset?>(null) }
     val imageBitmapCache = remember { mutableMapOf<String, ImageBitmap>() }
     // Low-latency ink (see FrontBufferedInk): a transparent front-buffered surface above the
     // canvas. Placed first in the Box so the canvas, not the surface, receives touches; the
@@ -166,6 +169,20 @@ fun DrawingCanvas(
                     context.getString(toolName(state.activeTool)), (state.scale * 100).roundToInt(), state.selection.size,
                 )
                 liveRegion = LiveRegionMode.Polite
+            }
+            .pointerInput(state) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull() ?: continue
+                        if (change.type == PointerType.Stylus || change.type == PointerType.Eraser) {
+                            stylusSample.lastSeenMillis = SystemClock.uptimeMillis()
+                            hoverPoint = if (!change.pressed && event.type != PointerEventType.Exit) change.position else null
+                        } else if (event.type == PointerEventType.Exit) {
+                            hoverPoint = null
+                        }
+                    }
+                }
             }
             .pointerInteropFilter { event ->
                 if (event.pointerCount > 0) {
@@ -224,17 +241,8 @@ fun DrawingCanvas(
                     var swipeStartSpan = 0f
                     var swipeSpanChange = 0f
                     val viewAtStart = Triple(state.panWorld, state.scale, state.rotation)
-                    fun runGesture(action: GestureAction, at: Offset) {
-                        when (action) {
-                            GestureAction.NONE -> {}
-                            GestureAction.UNDO -> state.undo()
-                            GestureAction.REDO -> state.redo()
-                            GestureAction.EYEDROPPER -> state.pickColorAt(state.screenToWorld(state.unrotateScreen(at, screenCenter), screenCenter))
-                            GestureAction.TOGGLE_ERASER -> state.toggleEraser()
-                            GestureAction.FIT_VIEW -> state.zoomToFit()
-                            else -> onGestureAction(action)
-                        }
-                    }
+                    fun runGesture(action: GestureAction, at: Offset) =
+                        state.runGestureAction(action, state.screenToWorld(state.unrotateScreen(at, screenCenter), screenCenter), onGestureAction)
 
                     var mode = Mode.NONE
                     var prevCentroid = Offset.Zero
@@ -292,7 +300,14 @@ fun DrawingCanvas(
                         // pointer. Consumed so nothing else treats them as unhandled.
                         // The eraser end of a stylus reports its own pointer type; it's still a pen, not a palm.
                         val stylusActive = allPressed.any { it.type == PointerType.Stylus || it.type == PointerType.Eraser }
-                        val pointers = if (stylusActive) {
+                        // Palm rejection (design roadmap D16): off, while the stylus is down, or also while it's near.
+                        val stylusNear = SystemClock.uptimeMillis() - stylusSample.lastSeenMillis < PALM_NEAR_MILLIS
+                        val rejectTouch = when (palm) {
+                            PalmRejection.OFF -> false
+                            PalmRejection.NORMAL -> stylusActive
+                            PalmRejection.STRICT -> stylusActive || stylusNear
+                        }
+                        val pointers = if (rejectTouch) {
                             val (kept, rejected) = allPressed.partition { it.type != PointerType.Touch }
                             rejected.forEach { it.consume() }
                             kept
@@ -910,6 +925,14 @@ fun DrawingCanvas(
             }
         }
     }
+    // The brush's footprint under a hovering stylus (design roadmap D16).
+    hoverPoint?.let { point ->
+        if (state.activeTool == Tool.PEN || state.activeTool == Tool.ERASER) Canvas(Modifier.matchParentSize()) {
+            val radius = (state.activeWidthWorld * state.scale / 2).toFloat().coerceAtLeast(2f)
+            drawCircle(Color.White, radius = radius + 1f, center = point, style = DrawStyle(width = 3f))
+            drawCircle(FernColors.current.selection, radius = radius, center = point, style = DrawStyle(width = 1f))
+        }
+    }
     }
 
     state.pendingTextEdit?.let { pending ->
@@ -1095,6 +1118,8 @@ private class StylusSample {
     var orientation = 0f
     var eraserEnd = false
     var buttonPressed = false
+    /** When a stylus was last seen, hovering or touching (palm rejection, design roadmap D16). */
+    var lastSeenMillis = 0L
 }
 
 /**
@@ -1652,6 +1677,8 @@ private const val MULTI_FINGER_TAP_MAX_MILLIS = 250L
 private const val MULTI_FINGER_TAP_SLOP_PX = 24f // on the §7 scale
 // A finger held this long within this distance is a long press (design roadmap D15); Android's own long-press time.
 private const val LONG_PRESS_MILLIS = 500L
+// After a stylus was last seen, strict palm rejection ignores touches this long.
+private const val PALM_NEAR_MILLIS = 1024L
 private const val LONG_PRESS_SLOP_PX = 24f
 // A three-finger swipe: this far, quickly, without pinching.
 private const val SWIPE_MIN_PX = 192f

@@ -272,6 +272,7 @@ fun SettingsDialog(
                 // Gestures (design roadmap D15).
                 Text(stringResource(R.string.settings_gestures), style = androidx.compose.material3.MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = FernScale.s8))
                 GestureMapEditor()
+                PalmRejectionEditor()
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8),
                     verticalAlignment = Alignment.CenterVertically,

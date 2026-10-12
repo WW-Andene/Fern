@@ -979,4 +979,9 @@
     <string name="gesture_action_toggle_chrome">Hide or show the bars</string>
     <string name="chrome_show">Show the bars</string>
     <string name="settings_gestures">Gestures</string>
+    <string name="gesture_stylus_button">Stylus button</string>
+    <string name="palm_title">Palm rejection</string>
+    <string name="palm_off">Off</string>
+    <string name="palm_normal">While the stylus touches</string>
+    <string name="palm_strict">While the stylus is near</string>
 </resources>

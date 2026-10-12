@@ -97,6 +97,9 @@ import com.andene.fern.canvas.CanvasHaptics
 import com.andene.fern.canvas.ToolRail
 import com.andene.fern.canvas.CommandPaletteState
 import com.andene.fern.canvas.GestureAction
+import com.andene.fern.canvas.CanvasGesture
+import com.andene.fern.canvas.GestureSettings
+import com.andene.fern.canvas.runGestureAction
 import com.andene.fern.canvas.PaletteCommand
 import com.andene.fern.canvas.BackgroundStyle
 import com.andene.fern.canvas.CanvasState
@@ -1049,7 +1052,16 @@ class MainActivity : ComponentActivity() {
                                     event.key == Key.V -> canvasState.activeTool = Tool.SELECT
                                     event.key == Key.Zero -> canvasState.zoomToFit()
                                     // Stylus barrel and tail buttons arrive as key events (API 34+ USI pens).
-                                    event.nativeKeyEvent.keyCode in STYLUS_BUTTON_KEYCODES -> canvasState.toggleEraser()
+                                    event.nativeKeyEvent.keyCode in STYLUS_BUTTON_KEYCODES -> canvasState.runGestureAction(
+                                        GestureSettings.read(context).getValue(CanvasGesture.STYLUS_BUTTON), null,
+                                    ) { action ->
+                                        when (action) {
+                                            GestureAction.QUICK_MENU -> showQuickMenu = true
+                                            GestureAction.COMMAND_PALETTE -> CommandPaletteState.open = true
+                                            GestureAction.TOGGLE_CHROME -> chromeHidden = !chromeHidden
+                                            else -> {}
+                                        }
+                                    }
                                     else -> return@onPreviewKeyEvent false
                                 }
                                 true

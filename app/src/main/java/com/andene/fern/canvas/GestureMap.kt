@@ -31,6 +31,8 @@ enum class CanvasGesture(@StringRes val label: Int, val default: GestureAction) 
     LONG_PRESS(R.string.gesture_long_press, GestureAction.EYEDROPPER),
     /** Three fingers moved together without pinching. */
     THREE_FINGER_SWIPE(R.string.gesture_three_finger_swipe, GestureAction.QUICK_MENU),
+    /** A stylus barrel or tail button that reports itself as a key (design roadmap D16). */
+    STYLUS_BUTTON(R.string.gesture_stylus_button, GestureAction.TOGGLE_ERASER),
 }
 
 /**
@@ -93,6 +95,64 @@ fun GestureMapEditor() {
                         })
                     }
                 }
+            }
+        }
+    }
+}
+
+/** Runs [action] on [state]; [at] is where a pointing gesture happened. Screen-level actions go to [onScreenAction]. */
+fun CanvasState.runGestureAction(action: GestureAction, at: WorldPoint?, onScreenAction: (GestureAction) -> Unit) {
+    when (action) {
+        GestureAction.NONE -> {}
+        GestureAction.UNDO -> undo()
+        GestureAction.REDO -> redo()
+        GestureAction.EYEDROPPER -> at?.let(::pickColorAt)
+        GestureAction.TOGGLE_ERASER -> toggleEraser()
+        GestureAction.FIT_VIEW -> zoomToFit()
+        else -> onScreenAction(action)
+    }
+}
+
+/** How firmly touches are ignored while a stylus is in use (design roadmap D16). */
+enum class PalmRejection(@StringRes val label: Int) {
+    /** Touch works alongside the stylus. */
+    OFF(R.string.palm_off),
+    /** Touches are ignored while the stylus is on the screen. */
+    NORMAL(R.string.palm_normal),
+    /** Also while it hovers or has just left the screen, for a hand resting before the pen lands. */
+    STRICT(R.string.palm_strict),
+}
+
+private const val KEY_PALM = "palm_rejection"
+
+object PalmSettings {
+    private var loaded: MutableState<PalmRejection>? = null
+
+    fun state(context: Context): MutableState<PalmRejection> = loaded ?: mutableStateOf(
+        AppSettings.prefs(context).getString(KEY_PALM, null)?.let { n -> PalmRejection.entries.firstOrNull { it.name == n } } ?: PalmRejection.NORMAL,
+    ).also { loaded = it }
+
+    fun set(context: Context, value: PalmRejection) {
+        AppSettings.prefs(context).edit().putString(KEY_PALM, value.name).apply()
+        state(context).value = value
+    }
+}
+
+/** The palm rejection choice (Settings, design roadmap D16). */
+@Composable
+fun PalmRejectionEditor() {
+    val context = LocalContext.current
+    val current by PalmSettings.state(context)
+    var open by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.palm_title), modifier = Modifier.weight(1f))
+        Box {
+            TextButton(onClick = { open = true }) { Text(stringResource(current.label)) }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                for (p in PalmRejection.entries) DropdownMenuItem(text = { Text(stringResource(p.label)) }, onClick = {
+                    PalmSettings.set(context, p)
+                    open = false
+                })
             }
         }
     }

@@ -982,4 +982,9 @@
     <string name="gesture_action_toggle_chrome">Masquer ou afficher les barres</string>
     <string name="chrome_show">Afficher les barres</string>
     <string name="settings_gestures">Gestes</string>
+    <string name="gesture_stylus_button">Bouton du stylet</string>
+    <string name="palm_title">Rejet de la paume</string>
+    <string name="palm_off">Désactivé</string>
+    <string name="palm_normal">Quand le stylet touche</string>
+    <string name="palm_strict">Quand le stylet est proche</string>
 </resources>
