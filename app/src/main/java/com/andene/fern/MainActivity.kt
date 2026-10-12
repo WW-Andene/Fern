@@ -54,6 +54,7 @@ import com.andene.fern.canvas.FramesDialog
 import com.andene.fern.canvas.Minimap
 import com.andene.fern.canvas.PinMeta
 import com.andene.fern.canvas.PinsDialog
+import com.andene.fern.canvas.PresentationControls
 import com.andene.fern.canvas.Toolbar
 import com.andene.fern.canvas.VersionsDialog
 import com.andene.fern.canvas.WorldPoint
@@ -89,6 +90,7 @@ class MainActivity : ComponentActivity() {
                     var pins by remember { mutableStateOf(emptyList<PinMeta>()) }
                     var showPinsDialog by remember { mutableStateOf(false) }
                     var showFramesDialog by remember { mutableStateOf(false) }
+                    var presentingIndex by remember { mutableStateOf<Int?>(null) } // non-null = presenting that frame
                     var frameToExport by remember { mutableStateOf<Frame?>(null) }
                     var versions by remember { mutableStateOf<List<Long>?>(null) } // non-null = dialog open
 
@@ -309,62 +311,81 @@ class MainActivity : ComponentActivity() {
 
                     Box(modifier = Modifier.fillMaxSize()) {
                         DrawingCanvas(state = canvasState, modifier = Modifier.fillMaxSize())
-                        Toolbar(
-                            state = canvasState,
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .padding(WindowInsets.systemBars.asPaddingValues())
-                                .padding(top = 12.dp),
-                            onOpenDocuments = { showDocumentsDialog = true },
-                            onOpenPins = { showPinsDialog = true },
-                            onOpenFrames = { showFramesDialog = true },
-                            onOpenVersions = {
-                                coroutineScope.launch {
-                                    versions = withContext(Dispatchers.IO) { CanvasStorage.listVersions(context, currentDocumentId) }
-                                }
-                            },
-                            onExportPng = { pngExportLauncher.launch("${currentDocumentName()}.png") },
-                            onExportPdf = { pdfExportLauncher.launch("${currentDocumentName()}.pdf") },
-                            onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
-                            onShare = {
-                                coroutineScope.launch {
-                                    val png = withContext(Dispatchers.Default) {
-                                        exportDocumentPng(canvasState, textMeasurer, density, imageForExport)
+                        val presenting = presentingIndex
+                        if (presenting != null && presenting in canvasState.frames.indices) {
+                            // Presentation mode: editing chrome hidden, frames shown one at a time.
+                            PresentationControls(
+                                position = presenting,
+                                count = canvasState.frames.size,
+                                onStep = { step ->
+                                    val next = (presenting + step).coerceIn(canvasState.frames.indices)
+                                    presentingIndex = next
+                                    canvasState.jumpToFrame(canvasState.frames[next])
+                                },
+                                onExit = { presentingIndex = null },
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(16.dp),
+                            )
+                        } else {
+                            Toolbar(
+                                state = canvasState,
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(top = 12.dp),
+                                onOpenDocuments = { showDocumentsDialog = true },
+                                onOpenPins = { showPinsDialog = true },
+                                onOpenFrames = { showFramesDialog = true },
+                                onOpenVersions = {
+                                    coroutineScope.launch {
+                                        versions = withContext(Dispatchers.IO) { CanvasStorage.listVersions(context, currentDocumentId) }
                                     }
-                                    if (png == null) {
-                                        Toast.makeText(context, "Nothing to share yet", Toast.LENGTH_SHORT).show()
-                                        return@launch
+                                },
+                                onExportPng = { pngExportLauncher.launch("${currentDocumentName()}.png") },
+                                onExportPdf = { pdfExportLauncher.launch("${currentDocumentName()}.pdf") },
+                                onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
+                                onShare = {
+                                    coroutineScope.launch {
+                                        val png = withContext(Dispatchers.Default) {
+                                            exportDocumentPng(canvasState, textMeasurer, density, imageForExport)
+                                        }
+                                        if (png == null) {
+                                            Toast.makeText(context, "Nothing to share yet", Toast.LENGTH_SHORT).show()
+                                            return@launch
+                                        }
+                                        // Overwrites the previous share each time, so the cache never accumulates exports.
+                                        val file = withContext(Dispatchers.IO) {
+                                            val dir = File(context.cacheDir, "shared").apply { mkdirs() }
+                                            dir.listFiles()?.forEach { it.delete() }
+                                            // A "/" in a document name would otherwise be read as a folder.
+                                            File(dir, "${currentDocumentName().replace('/', '_')}.png").apply { writeBytes(png) }
+                                        }
+                                        val uri = FileProvider.getUriForFile(context, "${context.packageName}.share", file)
+                                        val send = Intent(Intent.ACTION_SEND).apply {
+                                            type = "image/png"
+                                            putExtra(Intent.EXTRA_STREAM, uri)
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(Intent.createChooser(send, null))
                                     }
-                                    // Overwrites the previous share each time, so the cache never accumulates exports.
-                                    val file = withContext(Dispatchers.IO) {
-                                        val dir = File(context.cacheDir, "shared").apply { mkdirs() }
-                                        dir.listFiles()?.forEach { it.delete() }
-                                        // A "/" in a document name would otherwise be read as a folder.
-                                        File(dir, "${currentDocumentName().replace('/', '_')}.png").apply { writeBytes(png) }
-                                    }
-                                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.share", file)
-                                    val send = Intent(Intent.ACTION_SEND).apply {
-                                        type = "image/png"
-                                        putExtra(Intent.EXTRA_STREAM, uri)
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                    context.startActivity(Intent.createChooser(send, null))
-                                }
-                            },
-                            onImportPdf = { pdfImportLauncher.launch(arrayOf("application/pdf")) },
-                            onInsertImage = {
-                                imagePickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
-                            },
-                        )
-                        Minimap(
-                            state = canvasState,
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(WindowInsets.systemBars.asPaddingValues())
-                                .padding(12.dp),
-                        )
+                                },
+                                onImportPdf = { pdfImportLauncher.launch(arrayOf("application/pdf")) },
+                                onInsertImage = {
+                                    imagePickerLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
+                            )
+                            Minimap(
+                                state = canvasState,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(12.dp),
+                            )
+                        }
                     }
 
                     if (showDocumentsDialog) {
@@ -448,6 +469,11 @@ class MainActivity : ComponentActivity() {
                             },
                             onDelete = { frame -> canvasState.deleteFrame(frame.id) },
                             onCreate = { name -> canvasState.addFrameFromView(name) },
+                            onPresent = {
+                                showFramesDialog = false
+                                presentingIndex = 0
+                                canvasState.jumpToFrame(canvasState.frames[0])
+                            },
                             onDismiss = { showFramesDialog = false },
                         )
                     }

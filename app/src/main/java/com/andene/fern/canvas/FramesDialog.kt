@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.dp
 /**
  * The document's frames (artboards). Tap a name to fit it on screen; export one as a PNG;
  * the field at the bottom adds a frame covering the current view. With frames present, PDF
- * export produces one page per frame.
+ * export produces one page per frame, and Present steps through them full screen like slides.
  */
 @Composable
 fun FramesDialog(
@@ -39,6 +39,7 @@ fun FramesDialog(
     onExport: (Frame) -> Unit,
     onDelete: (Frame) -> Unit,
     onCreate: (name: String) -> Unit,
+    onPresent: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     var newFrameName by remember { mutableStateOf("") }
@@ -99,7 +100,9 @@ fun FramesDialog(
                 }
             }
         },
-        confirmButton = {},
+        confirmButton = {
+            TextButton(onClick = onPresent, enabled = frames.isNotEmpty()) { Text("Present") }
+        },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Close") }
         },
