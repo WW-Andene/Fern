@@ -47,6 +47,13 @@ data class Layer(
     val clipped: Boolean = false,
     /** Alpha lock: painting on this raster layer changes colour only where there's already paint. */
     val alphaLocked: Boolean = false,
+    /** How the layer composites onto what's beneath it (roadmap item 93). */
+    val blend: LayerBlend = LayerBlend.NORMAL,
+    /**
+     * An adjustment layer (roadmap item 93) holds no content: it applies this adjustment to
+     * everything beneath it, at the layer's opacity, and can be changed or removed at any time.
+     */
+    val adjustment: Adjustment? = null,
 )
 
 /** Where layer [layerId]'s mask lives among [CanvasState.rasters] and on disk. */

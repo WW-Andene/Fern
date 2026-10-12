@@ -33,6 +33,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -713,6 +715,40 @@ private fun DrawScope.drawRaster(surface: RasterSurface, state: CanvasState, scr
     }
 }
 
+/** Blends [source] onto [target] (same size) in a CPU [mode], pixel by pixel (roadmap item 93). */
+private fun blendPixels(target: ImageBitmap, source: ImageBitmap, mode: LayerBlend) {
+    val width = target.width
+    val height = target.height
+    val below = IntArray(width * height).also { target.readPixels(it) }
+    val above = IntArray(width * height).also { source.readPixels(it) }
+    fun unpack(c: Int) = floatArrayOf(((c shr 16) and 0xFF) / 255f, ((c shr 8) and 0xFF) / 255f, (c and 0xFF) / 255f, (c ushr 24) / 255f)
+    for (i in above.indices) {
+        if (above[i] ushr 24 == 0) continue
+        val r = blendPixel(mode, unpack(below[i]), unpack(above[i]), dissolveNoise(i % width, i / width))
+        below[i] = ((r[3] * 255 + 0.5f).toInt().coerceIn(0, 255) shl 24) or ((r[0] * 255 + 0.5f).toInt().coerceIn(0, 255) shl 16) or
+            ((r[1] * 255 + 0.5f).toInt().coerceIn(0, 255) shl 8) or (r[2] * 255 + 0.5f).toInt().coerceIn(0, 255)
+    }
+    target.asAndroidBitmap().setPixels(below, 0, width, 0, 0, width, height)
+}
+
+/** Applies an adjustment layer's [adjustment] to everything in [target], mixed in by [opacity]. */
+private fun adjustPixels(target: ImageBitmap, adjustment: Adjustment, opacity: Float) {
+    val width = target.width
+    val height = target.height
+    val pixels = IntArray(width * height).also { target.readPixels(it) }
+    val rgb = FloatArray(3)
+    for (i in pixels.indices) {
+        val c = pixels[i]
+        if (c ushr 24 == 0) continue
+        val original = floatArrayOf(((c shr 16) and 0xFF) / 255f, ((c shr 8) and 0xFF) / 255f, (c and 0xFF) / 255f)
+        original.copyInto(rgb)
+        adjustment.apply(rgb)
+        fun out(k: Int) = ((original[k] + (rgb[k] - original[k]) * opacity) * 255 + 0.5f).toInt().coerceIn(0, 255)
+        pixels[i] = (c and 0xFF000000.toInt()) or (out(0) shl 16) or (out(1) shl 8) or out(2)
+    }
+    target.asAndroidBitmap().setPixels(pixels, 0, width, 0, 0, width, height)
+}
+
 /**
  * Draws the document's page pattern ([BackgroundStyle]) within the visible world-space rect
  * only, at a fixed world-unit spacing so the pattern is a genuine property of the infinite
@@ -1327,7 +1363,27 @@ internal fun DrawScope.drawScene(
     textMeasurer: TextMeasurer,
     imageFor: (String) -> ImageBitmap?,
     drawPaper: Boolean = true,
+    cpuTarget: ImageBitmap? = null,
+    cpuOrigin: Offset = Offset.Zero,
 ) {
+    // Blend modes the GPU doesn't have, and adjustment layers, need what's beneath them as pixels
+    // (roadmap item 93): the whole scene is drawn into an offscreen bitmap covering the screen
+    // at any rotation, those layers are composited into it per pixel, and the result is drawn.
+    if (cpuTarget == null && state.layers.any { it.visible && (it.blend.gpu == null || it.adjustment != null) }) {
+        val half = hypot(size.width, size.height) / 2f
+        val origin = screenCenter - Offset(half, half)
+        val side = kotlin.math.ceil(2 * half).toInt().coerceAtLeast(1)
+        val target = ImageBitmap(side, side)
+        CanvasDrawScope().draw(this, layoutDirection, androidx.compose.ui.graphics.Canvas(target), Size(side.toFloat(), side.toFloat())) {
+            withTransform({ translate(-origin.x, -origin.y) }) {
+                // The paper colour is part of the backdrop the layers blend with.
+                if (drawPaper) drawRect(state.backgroundColor, topLeft = origin, size = Size(side.toFloat(), side.toFloat()))
+                drawScene(state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer, imageFor, drawPaper, target, origin)
+            }
+        }
+        drawImage(target, topLeft = origin)
+        return
+    }
     if (drawPaper) drawBackgroundPattern(state, screenCenter, topLeftWorld, bottomRightWorld)
 
     // Drawn first (behind strokes/text), matching the common "insert a reference image,
@@ -1380,7 +1436,7 @@ internal fun DrawScope.drawScene(
 
     state.rasterRevision // repaint as raster pixels change
     // One layer's own content: its pixels, or its strokes in list order.
-    fun drawLayerContent(index: Int, layer: Layer) {
+    fun DrawScope.drawLayerContent(index: Int, layer: Layer) {
         if (layer.raster) {
             state.rasters[layer.id]?.let { drawRaster(it, state, screenCenter, topLeftWorld, bottomRightWorld) }
             return
@@ -1443,7 +1499,7 @@ internal fun DrawScope.drawScene(
     // A layer as a whole: opacity applies to the layer once (drawn offscreen, then composited, so
     // overlapping strokes on one layer don't show through each other), and its mask (roadmap item
     // 91) hides what it covers.
-    fun drawLayer(index: Int, layer: Layer) {
+    fun DrawScope.drawLayer(index: Int, layer: Layer) {
         val mask = if (layer.masked) state.rasters[maskIdOf(layer.id)] else null
         val offscreen = layer.opacity < 1f || mask != null
         if (offscreen) drawContext.canvas.saveLayer(layerBounds, Paint().apply { alpha = layer.opacity })
@@ -1455,27 +1511,46 @@ internal fun DrawScope.drawScene(
     // Bottom to top. A layer followed by clipped layers (clipping masks, roadmap item 91) is drawn
     // with them in one group, each clipped layer only where the group already has paint.
     val layerList = state.layers.toList()
+    // A layer and the layers clipped to it, composited as one by the base's blend mode.
+    fun DrawScope.drawGroup(at: Int, next: Int, withBlend: Boolean) {
+        val base = layerList[at]
+        val blend = base.blend.gpu.takeIf { withBlend && base.blend != LayerBlend.NORMAL }
+        if (blend != null) drawContext.canvas.saveLayer(layerBounds, Paint().apply { blendMode = blend })
+        if (next == at + 1) {
+            drawLayer(at, base)
+        } else {
+            drawContext.canvas.saveLayer(layerBounds, Paint())
+            drawLayer(at, base)
+            for (k in at + 1 until next) {
+                if (!layerList[k].visible) continue
+                drawContext.canvas.saveLayer(layerBounds, Paint().apply { blendMode = BlendMode.SrcAtop })
+                drawLayer(k, layerList[k])
+                drawContext.canvas.restore()
+            }
+            drawContext.canvas.restore()
+        }
+        if (blend != null) drawContext.canvas.restore()
+    }
     var at = 0
     while (at < layerList.size) {
         val base = layerList[at]
         var next = at + 1
         while (next < layerList.size && layerList[next].clipped) next++
-        if (base.visible) {
-            if (next == at + 1) {
-                drawLayer(at, base)
-            } else {
-                drawContext.canvas.saveLayer(layerBounds, Paint())
-                drawLayer(at, base)
-                for (k in at + 1 until next) {
-                    if (!layerList[k].visible) continue
-                    drawContext.canvas.saveLayer(layerBounds, Paint().apply { blendMode = BlendMode.SrcAtop })
-                    drawLayer(k, layerList[k])
-                    drawContext.canvas.restore()
+        val adjustment = base.adjustment
+        when {
+            // A hidden base hides the layers clipped to it, which have nothing to show through.
+            !base.visible -> {}
+            adjustment != null -> if (cpuTarget != null) adjustPixels(cpuTarget, adjustment, base.opacity)
+            cpuTarget != null && base.blend.gpu == null -> {
+                // Drawn on its own, then blended into what's beneath pixel by pixel.
+                val group = ImageBitmap(cpuTarget.width, cpuTarget.height)
+                CanvasDrawScope().draw(this, layoutDirection, androidx.compose.ui.graphics.Canvas(group), Size(cpuTarget.width.toFloat(), cpuTarget.height.toFloat())) {
+                    withTransform({ translate(-cpuOrigin.x, -cpuOrigin.y) }) { drawGroup(at, next, withBlend = false) }
                 }
-                drawContext.canvas.restore()
+                blendPixels(cpuTarget, group, base.blend)
             }
+            else -> drawGroup(at, next, withBlend = true)
         }
-        // A hidden base hides the layers clipped to it, which have nothing to show through.
         at = next
     }
 

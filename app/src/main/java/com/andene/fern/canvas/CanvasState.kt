@@ -1353,7 +1353,7 @@ class CanvasState(
 
     /** Drawing tools do nothing on a hidden or locked active layer, rather than adding invisible or "locked" content. */
     private val activeLayerEditable: Boolean
-        get() = layers.firstOrNull { it.id == activeLayerId }?.let { it.visible && !it.locked } ?: false
+        get() = layers.firstOrNull { it.id == activeLayerId }?.let { it.visible && !it.locked && it.adjustment == null } ?: false
 
     fun addLayer() {
         val layer = Layer(UUID.randomUUID().toString(), "Layer ${layers.size + 1}")
@@ -1717,6 +1717,49 @@ class CanvasState(
         markRasterDirty(activeLayerId, emptySet())
     }
 
+    /**
+     * Adds [document]'s layers (from a PSD, Krita or Procreate file, roadmap item 95) as raster
+     * layers above the others, the picture centred on the view at one pixel per screen pixel.
+     * Their names, visibility, opacity and blend modes come along.
+     */
+    fun importLayers(document: ImportedDocument) {
+        if (document.layers.isEmpty()) return
+        val pixelWorld = 1.0 / scale.coerceAtLeast(1e-300)
+        val originX = panWorld.x - document.width / 2.0 * pixelWorld
+        val originY = panWorld.y - document.height / 2.0 * pixelWorld
+        for (imported in document.layers) {
+            val layer = Layer(
+                UUID.randomUUID().toString(), imported.name.ifBlank { "Layer ${layers.size + 1}" },
+                visible = imported.visible, opacity = imported.opacity, blend = imported.blend, raster = true, depth = document.depth,
+            )
+            val surface = RasterSurface(document.depth, pixelWorld, originX, originY)
+            attachRaster(layer.id, surface)
+            surface.forEachPixelIn(imported.left.toDouble(), imported.top.toDouble(), (imported.left + imported.width - 1).toDouble(), (imported.top + imported.height - 1).toDouble()) { tile, index, px, py ->
+                val x = px - imported.left
+                val y = py - imported.top
+                if (x !in 0 until imported.width || y !in 0 until imported.height) return@forEachPixelIn
+                val i = (y * imported.width + x) * 4
+                val a = RasterSurface.u16(imported.rgba16[i + 3])
+                if (a == 0) return@forEachPixelIn
+                for (c in 0 until 3) tile.data[index + c] = (RasterSurface.u16(imported.rgba16[i + c]).toLong() * a / 65535).toInt().toShort()
+                tile.data[index + 3] = a.toShort()
+            }
+            surface.tiles.entries.removeAll { it.value.isEmpty() }
+            layers.add(layer)
+            activeLayerId = layer.id
+            markRasterDirty(layer.id, surface.tiles.keys.toSet())
+        }
+        onLayersChanged(layers.toList())
+    }
+
+    /** Adds an adjustment layer applying [adjustment] to everything beneath it (roadmap item 93). */
+    fun addAdjustmentLayer(adjustment: Adjustment) {
+        val layer = Layer(UUID.randomUUID().toString(), "Adjustment ${layers.size + 1}", adjustment = adjustment)
+        layers.add(layer)
+        activeLayerId = layer.id
+        onLayersChanged(layers.toList())
+    }
+
     /** The document's skins (roadmap item 86), in layer order. */
     val skins: List<String> get() = layers.mapNotNull { it.skin }.distinct()
 
@@ -1810,7 +1853,7 @@ class CanvasState(
     /** Removes layers with no strokes in any animation frame, keeping at least one layer. */
     fun deleteEmptyLayers() {
         // A raster layer with paint isn't empty, though it has no strokes.
-        val used = strokes.map { it.layerId }.toSet() + rasters.filterValues { it.tiles.isNotEmpty() }.keys
+        val used = strokes.map { it.layerId }.toSet() + rasters.filterValues { it.tiles.isNotEmpty() }.keys + layers.filter { it.adjustment != null }.map { it.id }
         val keep = layers.filter { it.id in used }.ifEmpty { listOf(layers.first()) }
         if (keep.size == layers.size) return
         for (layer in layers) if (layer !in keep) dropRaster(layer.id)

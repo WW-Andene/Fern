@@ -122,6 +122,10 @@ import com.andene.fern.canvas.exportDocumentEps
 import com.andene.fern.canvas.exportReplayGif
 import com.andene.fern.canvas.StrokeChunkFile
 import com.andene.fern.canvas.SpineImport
+import com.andene.fern.canvas.PsdFormat
+import com.andene.fern.canvas.KraFormat
+import com.andene.fern.canvas.renderLayers
+import com.andene.fern.canvas.readLayeredFile
 import com.andene.fern.canvas.maskIdOf
 import com.andene.fern.canvas.exportSpine
 import com.andene.fern.canvas.exportDragonBones
@@ -434,6 +438,35 @@ class MainActivity : ComponentActivity() {
                         contract = ActivityResultContracts.CreateDocument("application/zip"),
                     ) { uri ->
                         if (uri != null) writeExport(uri) { exportDragonBones(canvasState, textMeasurer, density, imageForExport) }
+                    }
+                    val psdExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("image/vnd.adobe.photoshop"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { renderLayers(canvasState, textMeasurer, density, imageForExport)?.let(PsdFormat::write) }
+                    }
+                    val kraExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/x-krita"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { renderLayers(canvasState, textMeasurer, density, imageForExport)?.let(KraFormat::write) }
+                    }
+                    // PSD, Krita or Procreate, told apart by their contents (roadmap item 95).
+                    val layeredImportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocument(),
+                    ) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val document = withContext(Dispatchers.IO) {
+                                runCatching {
+                                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
+                                    readLayeredFile(bytes)
+                                }.getOrNull()
+                            }
+                            if (document == null || document.layers.isEmpty()) {
+                                Toast.makeText(context, context.getString(R.string.toast_bad_layered), Toast.LENGTH_SHORT).show()
+                            } else {
+                                canvasState.importLayers(document)
+                            }
+                        }
                     }
                     val spineImportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.OpenDocument(),
@@ -969,6 +1002,9 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onImportPdf = { pdfImportLauncher.launch(arrayOf("application/pdf")) },
                                 onImportSpine = { spineImportLauncher.launch(arrayOf("application/json", "application/zip", "application/octet-stream")) },
+                                onImportLayered = { layeredImportLauncher.launch(arrayOf("*/*")) },
+                                onExportPsd = { psdExportLauncher.launch("${currentDocumentName()}.psd") },
+                                onExportKra = { kraExportLauncher.launch("${currentDocumentName()}.kra") },
                                 onExportSpine = { spineExportLauncher.launch("${currentDocumentName()} (Spine).zip") },
                                 onExportDragonBones = { dragonBonesExportLauncher.launch("${currentDocumentName()} (DragonBones).zip") },
                                 onInsertImage = {

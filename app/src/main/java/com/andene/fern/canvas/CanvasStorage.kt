@@ -674,6 +674,8 @@ object CanvasStorage {
                 if (layer.masked) put("masked", true)
                 if (layer.clipped) put("clipped", true)
                 if (layer.alphaLocked) put("alphaLocked", true)
+                if (layer.blend != LayerBlend.NORMAL) put("blend", layer.blend.name)
+                layer.adjustment?.let { put("adjustment", adjustmentToJson(it)) }
             })
         }
         writeStored(layersFile(context, documentId), root)
@@ -697,6 +699,8 @@ object CanvasStorage {
                 masked = entry.optBoolean("masked", false),
                 clipped = entry.optBoolean("clipped", false),
                 alphaLocked = entry.optBoolean("alphaLocked", false),
+                blend = LayerBlend.entries.firstOrNull { it.name == entry.optString("blend") } ?: LayerBlend.NORMAL,
+                adjustment = entry.optJSONObject("adjustment")?.let(::adjustmentFromJson),
             )
         }
     }
