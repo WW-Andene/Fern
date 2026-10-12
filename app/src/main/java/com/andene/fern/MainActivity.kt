@@ -85,6 +85,7 @@ import com.andene.fern.canvas.exportSpriteSheetPng
 import com.andene.fern.canvas.importDocumentBundle
 import com.andene.fern.canvas.importPdfPages
 import com.andene.fern.canvas.markWelcomeSeen
+import com.andene.fern.canvas.parseGimpPalette
 import com.andene.fern.canvas.shouldShowWelcome
 import java.io.File
 import java.util.UUID
@@ -290,6 +291,25 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    val paletteImportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocument(),
+                    ) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val colors = withContext(Dispatchers.IO) {
+                                runCatching {
+                                    context.contentResolver.openInputStream(uri)?.use { parseGimpPalette(it.readBytes().decodeToString()) }
+                                }.getOrNull().orEmpty()
+                            }
+                            colors.forEach { canvasState.addSavedColor(it) }
+                            Toast.makeText(
+                                context,
+                                if (colors.isEmpty()) "That isn't a GIMP palette (.gpl)" else "Imported ${colors.size} colours",
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    }
+
                     val imagePickerLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.PickVisualMedia(),
                     ) { uri ->
@@ -452,6 +472,7 @@ class MainActivity : ComponentActivity() {
                                 onOpenDocuments = { showDocumentsDialog = true },
                                 onOpenPins = { showPinsDialog = true },
                                 onOpenFrames = { showFramesDialog = true },
+                                onImportPalette = { paletteImportLauncher.launch(arrayOf("*/*")) },
                                 onOpenVersions = {
                                     coroutineScope.launch {
                                         versions = withContext(Dispatchers.IO) { CanvasStorage.listVersions(context, currentDocumentId) }

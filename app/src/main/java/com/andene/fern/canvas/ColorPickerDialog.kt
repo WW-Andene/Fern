@@ -43,6 +43,8 @@ fun ColorPickerDialog(
     onColorSelected: (Color) -> Unit,
     /** When set, a "Save to palette" button stores the current colour without closing. */
     onSaveColor: ((Color) -> Unit)? = null,
+    /** When set, an "Import .gpl" button imports a palette file into the saved colours. */
+    onImportPalette: (() -> Unit)? = null,
 ) {
     var hue by remember { mutableFloatStateOf(0f) }
     var saturation by remember { mutableFloatStateOf(1f) }
@@ -154,6 +156,9 @@ fun ColorPickerDialog(
         },
         dismissButton = {
             Row {
+                if (onImportPalette != null) {
+                    TextButton(onClick = onImportPalette) { Text("Import .gpl") }
+                }
                 if (onSaveColor != null) {
                     TextButton(onClick = { onSaveColor(currentColor()) }) { Text("Save to palette") }
                 }
@@ -187,5 +192,22 @@ private fun parseHex(text: String): Int? {
         android.graphics.Color.parseColor("#$cleaned")
     } catch (e: IllegalArgumentException) {
         null
+    }
+}
+
+/**
+ * Parses a GIMP palette (.gpl, also used by Krita, Inkscape and Aseprite): a "GIMP Palette"
+ * header, optional "Name:"/"Columns:" lines and "#" comments, then one "R G B [name]" line per
+ * colour. Lines that don't parse are skipped; returns an empty list if the header is missing.
+ */
+fun parseGimpPalette(text: String): List<Color> {
+    val lines = text.lineSequence().map { it.trim() }.toList()
+    if (lines.firstOrNull() != "GIMP Palette") return emptyList()
+    return lines.drop(1).mapNotNull { line ->
+        if (line.isEmpty() || line.startsWith("#") || line.contains(':')) return@mapNotNull null
+        val parts = line.split(Regex("\\s+"))
+        val rgb = parts.take(3).map { it.toIntOrNull() }
+        if (rgb.size < 3 || rgb.any { it == null || it !in 0..255 }) null
+        else Color(rgb[0]!!, rgb[1]!!, rgb[2]!!)
     }
 }

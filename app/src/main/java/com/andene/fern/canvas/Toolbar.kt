@@ -122,6 +122,7 @@ fun Toolbar(
     onExportGif: () -> Unit = {},
     onImportPdf: () -> Unit = {},
     onOpenFrames: () -> Unit = {},
+    onImportPalette: () -> Unit = {},
 ) {
     var showExportMenu by remember { mutableStateOf(false) }
     var showWidthSlider by remember { mutableStateOf(false) }
@@ -645,6 +646,10 @@ fun Toolbar(
                 showColorPicker = false
             },
             onSaveColor = { color -> state.addSavedColor(color) },
+            onImportPalette = {
+                showColorPicker = false
+                onImportPalette()
+            },
         )
     }
 
