@@ -279,4 +279,26 @@
         <item quantity="one">Drawing canvas, %1$d stroke. One finger draws, two fingers pan and zoom.</item>
         <item quantity="other">Drawing canvas, %1$d strokes. One finger draws, two fingers pan and zoom.</item>
     </plurals>
+    <string name="toast_mic">Voice notes need microphone access</string>
+    <string name="toast_nothing_export">Nothing to export yet</string>
+    <string name="toast_exported">Exported</string>
+    <string name="toast_bad_pdf">Couldn\'t open that PDF</string>
+    <string name="toast_bad_palette">That isn\'t a GIMP (.gpl) or Adobe swatch (.ase) palette</string>
+    <string name="toast_copied">Copied</string>
+    <string name="toast_nothing_paste">Nothing to paste</string>
+    <string name="toast_pin_gone">That pin no longer exists</string>
+    <string name="toast_document_gone">That document no longer exists</string>
+    <string name="toast_nothing_share">Nothing to share yet</string>
+    <string name="toast_bad_backup">That isn\'t a Fern backup</string>
+    <string name="default_document_name">My Canvas</string>
+    <string name="crash_subject">Fern crash report</string>
+    <string name="toast_imported_colours">Imported %1$d colours</string>
+    <string name="name_selection">%1$s selection</string>
+    <string name="name_timelapse">%1$s time-lapse</string>
+    <string name="name_sprites">%1$s sprites</string>
+    <string name="name_copy">%1$s copy</string>
+    <string name="crash_title">Fern closed unexpectedly</string>
+    <string name="crash_text">A crash report was saved on this device. Share it to help fix the problem? It contains technical details only, no drawings.</string>
+    <string name="crash_share">Share report</string>
+    <string name="action_dismiss">Dismiss</string>
 </resources>

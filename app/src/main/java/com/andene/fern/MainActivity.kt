@@ -2,6 +2,7 @@
 
 package com.andene.fern
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draganddrop.toAndroidDragEvent
 import androidx.compose.ui.draganddrop.mimeTypes
@@ -42,6 +43,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -183,7 +185,7 @@ class MainActivity : ComponentActivity() {
                         contract = ActivityResultContracts.RequestPermission(),
                     ) { granted ->
                         if (granted) showAudioNotes = true
-                        else Toast.makeText(context, "Voice notes need microphone access", Toast.LENGTH_SHORT).show()
+                        else Toast.makeText(context, context.getString(R.string.toast_mic), Toast.LENGTH_SHORT).show()
                     }
                     var leftHanded by remember { mutableStateOf(AppSettings.leftHanded(context)) }
                     var toolbarAtBottom by remember { mutableStateOf(AppSettings.toolbarAtBottom(context)) }
@@ -243,12 +245,12 @@ class MainActivity : ComponentActivity() {
                         coroutineScope.launch {
                             val bytes = withContext(Dispatchers.Default) { render() }
                             val message = if (bytes == null) {
-                                "Nothing to export yet"
+                                context.getString(R.string.toast_nothing_export)
                             } else {
                                 withContext(Dispatchers.IO) {
                                     context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
                                 }
-                                "Exported"
+                                context.getString(R.string.toast_exported)
                             }
                             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                         }
@@ -332,7 +334,7 @@ class MainActivity : ComponentActivity() {
                         coroutineScope.launch {
                             val pages = withContext(Dispatchers.IO) { importPdfPages(context, uri) }
                             if (pages.isEmpty()) {
-                                Toast.makeText(context, "Couldn't open that PDF", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.toast_bad_pdf), Toast.LENGTH_SHORT).show()
                                 return@launch
                             }
                             // Pages stacked top to bottom like a scrolling document, each 512
@@ -374,7 +376,7 @@ class MainActivity : ComponentActivity() {
                             colors.forEach { canvasState.addSavedColor(it) }
                             Toast.makeText(
                                 context,
-                                if (colors.isEmpty()) "That isn't a GIMP (.gpl) or Adobe swatch (.ase) palette" else "Imported ${colors.size} colours",
+                                if (colors.isEmpty()) context.getString(R.string.toast_bad_palette) else context.getString(R.string.toast_imported_colours, colors.size),
                                 Toast.LENGTH_SHORT,
                             ).show()
                         }
@@ -423,7 +425,7 @@ class MainActivity : ComponentActivity() {
                             withContext(Dispatchers.IO) { SystemClipboard.copy(context, strokes, png) }
                             // Android 13+ confirms clipboard writes itself; earlier versions get a toast.
                             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                                Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.toast_copied), Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
@@ -460,7 +462,7 @@ class MainActivity : ComponentActivity() {
                                 is ClipboardContent.FernStrokes -> canvasState.pasteStrokes(content.strokes)
                                 is ClipboardContent.Text -> canvasState.pasteText(content.text)
                                 is ClipboardContent.Image -> insertImage(content.uri)
-                                ClipboardContent.Nothing -> Toast.makeText(context, "Nothing to paste", Toast.LENGTH_SHORT).show()
+                                ClipboardContent.Nothing -> Toast.makeText(context, context.getString(R.string.toast_nothing_paste), Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
@@ -537,7 +539,7 @@ class MainActivity : ComponentActivity() {
                         refreshDocuments()
                         var current = documents.firstOrNull { it.trashedAt == null }
                         if (current == null) {
-                            current = withContext(Dispatchers.IO) { CanvasStorage.createDocument(context, "My Canvas") }
+                            current = withContext(Dispatchers.IO) { CanvasStorage.createDocument(context, context.getString(R.string.default_document_name)) }
                             refreshDocuments()
                         }
                         loadDocument(current.id)
@@ -640,12 +642,12 @@ class MainActivity : ComponentActivity() {
                                     is LinkTarget.Pin -> {
                                         val pin = pins.firstOrNull { it.id == target.pinId }
                                         if (pin != null) canvasState.jumpTo(WorldPoint(pin.x, pin.y), pin.scale)
-                                        else Toast.makeText(context, "That pin no longer exists", Toast.LENGTH_SHORT).show()
+                                        else Toast.makeText(context, context.getString(R.string.toast_pin_gone), Toast.LENGTH_SHORT).show()
                                     }
                                     is LinkTarget.Document -> {
                                         val document = documents.firstOrNull { it.id == target.documentId && it.trashedAt == null }
                                         if (document != null) coroutineScope.launch { switchToDocument(document.id) }
-                                        else Toast.makeText(context, "That document no longer exists", Toast.LENGTH_SHORT).show()
+                                        else Toast.makeText(context, context.getString(R.string.toast_document_gone), Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
@@ -700,13 +702,13 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onExportPng = { pngExportLauncher.launch("${currentDocumentName()}.png") },
-                                onExportSelection = { selectionExportLauncher.launch("${currentDocumentName()} selection.png") },
+                                onExportSelection = { selectionExportLauncher.launch(context.getString(R.string.name_selection, currentDocumentName()) + ".png") },
                                 onExportTransparentPng = { transparentPngExportLauncher.launch("${currentDocumentName()}.png") },
                                 onExportPdf = { pdfExportLauncher.launch("${currentDocumentName()}.pdf") },
                                 onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
                                 onExportGif = { gifExportLauncher.launch("${currentDocumentName()}.gif") },
-                                onExportReplayGif = { replayGifExportLauncher.launch("${currentDocumentName()} time-lapse.gif") },
-                                onExportSpriteSheet = { spriteSheetExportLauncher.launch("${currentDocumentName()} sprites.png") },
+                                onExportReplayGif = { replayGifExportLauncher.launch(context.getString(R.string.name_timelapse, currentDocumentName()) + ".gif") },
+                                onExportSpriteSheet = { spriteSheetExportLauncher.launch(context.getString(R.string.name_sprites, currentDocumentName()) + ".png") },
                                 onExportBundle = { bundleExportLauncher.launch("${currentDocumentName()}.fern") },
                                 onShare = {
                                     coroutineScope.launch {
@@ -714,7 +716,7 @@ class MainActivity : ComponentActivity() {
                                             exportDocumentPng(canvasState, textMeasurer, density, imageForExport)
                                         }
                                         if (png == null) {
-                                            Toast.makeText(context, "Nothing to share yet", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, context.getString(R.string.toast_nothing_share), Toast.LENGTH_SHORT).show()
                                             return@launch
                                         }
                                         // Overwrites the previous share each time, so the cache never accumulates exports.
@@ -754,7 +756,8 @@ class MainActivity : ComponentActivity() {
                                 state = canvasState,
                                 modifier = Modifier
                                     // Opposite the drawing hand, whose palm rests below and beside the pen.
-                                    .align(if (leftHanded) Alignment.BottomEnd else Alignment.BottomStart)
+                                    // Physical sides (not start/end): the hands are the same in a right-to-left language.
+                                    .align(if (leftHanded) AbsoluteAlignment.BottomRight else AbsoluteAlignment.BottomLeft)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(12.dp),
                             )
@@ -762,7 +765,7 @@ class MainActivity : ComponentActivity() {
                                 onOpen = { showQuickMenu = true },
                                 modifier = Modifier
                                     // Same side as the minimap, mid-height: in reach of the free hand's thumb.
-                                    .align(if (leftHanded) Alignment.CenterEnd else Alignment.CenterStart)
+                                    .align(if (leftHanded) AbsoluteAlignment.CenterRight else AbsoluteAlignment.CenterLeft)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(12.dp),
                             )
@@ -784,7 +787,7 @@ class MainActivity : ComponentActivity() {
                                 }.getOrNull()
                             }
                             if (imported == null) {
-                                Toast.makeText(context, "That isn't a Fern backup", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.toast_bad_backup), Toast.LENGTH_SHORT).show()
                                 return@launch
                             }
                             refreshDocuments()
@@ -806,7 +809,7 @@ class MainActivity : ComponentActivity() {
                                 coroutineScope.launch { refreshDocuments() }
                             },
                             onDuplicate = { doc ->
-                                CanvasStorage.duplicateDocument(context, doc.id, "${doc.name} copy")
+                                CanvasStorage.duplicateDocument(context, doc.id, context.getString(R.string.name_copy, doc.name))
                                 coroutineScope.launch { refreshDocuments() }
                             },
                             onToggleFavorite = { doc ->
@@ -877,25 +880,25 @@ class MainActivity : ComponentActivity() {
                                 CrashReporter.clearPendingReport(context)
                                 crashReport = null
                             },
-                            title = { Text("Fern closed unexpectedly") },
-                            text = { Text("A crash report was saved on this device. Share it to help fix the problem? It contains technical details only, no drawings.") },
+                            title = { Text(stringResource(R.string.crash_title)) },
+                            text = { Text(stringResource(R.string.crash_text)) },
                             confirmButton = {
                                 TextButton(onClick = {
                                     val send = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
-                                        putExtra(Intent.EXTRA_SUBJECT, "Fern crash report")
+                                        putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.crash_subject))
                                         putExtra(Intent.EXTRA_TEXT, report)
                                     }
                                     context.startActivity(Intent.createChooser(send, null))
                                     CrashReporter.clearPendingReport(context)
                                     crashReport = null
-                                }) { Text("Share report") }
+                                }) { Text(stringResource(R.string.crash_share)) }
                             },
                             dismissButton = {
                                 TextButton(onClick = {
                                     CrashReporter.clearPendingReport(context)
                                     crashReport = null
-                                }) { Text("Dismiss") }
+                                }) { Text(stringResource(R.string.action_dismiss)) }
                             },
                         )
                     }

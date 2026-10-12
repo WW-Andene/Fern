@@ -279,4 +279,26 @@
         <item quantity="one">Canevas de dessin, %1$d trait. Un doigt dessine, deux doigts déplacent et zooment.</item>
         <item quantity="other">Canevas de dessin, %1$d traits. Un doigt dessine, deux doigts déplacent et zooment.</item>
     </plurals>
+    <string name="toast_mic">Les notes vocales nécessitent l\'accès au microphone</string>
+    <string name="toast_nothing_export">Rien à exporter pour l\'instant</string>
+    <string name="toast_exported">Exporté</string>
+    <string name="toast_bad_pdf">Impossible d\'ouvrir ce PDF</string>
+    <string name="toast_bad_palette">Ce n\'est pas une palette GIMP (.gpl) ni Adobe (.ase)</string>
+    <string name="toast_copied">Copié</string>
+    <string name="toast_nothing_paste">Rien à coller</string>
+    <string name="toast_pin_gone">Cette épingle n\'existe plus</string>
+    <string name="toast_document_gone">Ce document n\'existe plus</string>
+    <string name="toast_nothing_share">Rien à partager pour l\'instant</string>
+    <string name="toast_bad_backup">Ce n\'est pas une sauvegarde Fern</string>
+    <string name="default_document_name">Mon canevas</string>
+    <string name="crash_subject">Rapport de plantage Fern</string>
+    <string name="toast_imported_colours">%1$d couleurs importées</string>
+    <string name="name_selection">%1$s sélection</string>
+    <string name="name_timelapse">%1$s accéléré</string>
+    <string name="name_sprites">%1$s sprites</string>
+    <string name="name_copy">%1$s copie</string>
+    <string name="crash_title">Fern s\'est fermé de manière inattendue</string>
+    <string name="crash_text">Un rapport de plantage a été enregistré sur cet appareil. Le partager pour aider à corriger le problème ? Il ne contient que des détails techniques, aucun dessin.</string>
+    <string name="crash_share">Partager le rapport</string>
+    <string name="action_dismiss">Ignorer</string>
 </resources>
