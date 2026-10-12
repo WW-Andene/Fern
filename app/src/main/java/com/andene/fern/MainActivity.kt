@@ -1402,6 +1402,7 @@ class MainActivity : ComponentActivity() {
                                 slicesExportLauncher.launch("${currentDocumentName()} slices.zip")
                             },
                             onDelete = { frame -> canvasState.deleteFrame(frame.id) },
+                            onSetLayoutGrid = { frame, grid -> canvasState.setFrameLayoutGrid(frame.id, grid) },
                             onCreate = { name -> canvasState.addFrameFromView(name) },
                             onAddComicPage = {
                                 canvasState.insertComicPage()

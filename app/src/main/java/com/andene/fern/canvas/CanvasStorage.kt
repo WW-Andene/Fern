@@ -653,6 +653,9 @@ object CanvasStorage {
                 put("minY", frame.min.y)
                 put("maxX", frame.max.x)
                 put("maxY", frame.max.y)
+                frame.layoutGrid?.let { grid ->
+                    put("grid", JSONObject().put("columns", grid.columns).put("rows", grid.rows).put("gutter", grid.gutter).put("margin", grid.margin))
+                }
             })
         }
         writeStored(framesFile(context, documentId), root)
@@ -667,6 +670,9 @@ object CanvasStorage {
                 name = entry.getString("name"),
                 min = WorldPoint(entry.getDouble("minX"), entry.getDouble("minY")),
                 max = WorldPoint(entry.getDouble("maxX"), entry.getDouble("maxY")),
+                layoutGrid = entry.optJSONObject("grid")?.let { grid ->
+                    LayoutGrid(grid.getInt("columns"), grid.getInt("rows"), grid.getDouble("gutter"), grid.getDouble("margin"))
+                },
             )
         }
     }

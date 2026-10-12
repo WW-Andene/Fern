@@ -1448,6 +1448,34 @@ class CanvasState(
         onFramesChanged(frames.toList())
     }
 
+    /** Lays [grid] over frame [id] (roadmap item 142), or removes its grid when null. Saved with the frames. */
+    fun setFrameLayoutGrid(id: String, grid: LayoutGrid?) {
+        val index = frames.indexOfFirst { it.id == id }
+        if (index == -1) return
+        frames[index] = frames[index].copy(layoutGrid = grid)
+        onFramesChanged(frames.toList())
+    }
+
+    /**
+     * The isometric plane (roadmap item 142) shapes are drawn on: a rectangle drag makes that
+     * face of a cube, an ellipse an isometric circle ([shapeOnPlane]). Null draws flat.
+     */
+    var isometricPlane: IsometricPlane? by mutableStateOf(null)
+
+    /**
+     * Lays the selected strokes onto [plane] (roadmap item 142): their shape as drawn flat is
+     * mapped onto that isometric face around the selection's centre, the way Affinity's
+     * isometric panel places an object on a plane. One undo step.
+     */
+    fun placeSelectionOnPlane(plane: IsometricPlane) {
+        val (min, max) = selectionBounds() ?: return
+        if (selection.isEmpty()) return
+        recordHistory()
+        val centre = WorldPoint((min.x + max.x) / 2, (min.y + max.y) / 2)
+        for (stroke in selection) stroke.setPoints(stroke.points.map { plane.toScreenPlane(it, centre) })
+        strokesChanged()
+    }
+
     fun loadFrames(loaded: List<Frame>) {
         frames.clear()
         frames.addAll(loaded)
@@ -3461,12 +3489,21 @@ class CanvasState(
 
     /**
      * On grid or dot-grid paper, shape corners and endpoints land on the nearest pattern point,
-     * the way drawing on graph paper invites. Other paper styles leave points untouched.
+     * the way drawing on graph paper invites; on isometric paper, on the isometric lattice
+     * (roadmap item 142). On other paper, a frame's layout grid edges within
+     * [OBJECT_SNAP_RADIUS_SCREEN] attract each coordinate; otherwise points stay untouched.
      */
     private fun snappedToGrid(point: WorldPoint): WorldPoint {
-        if (backgroundStyle != BackgroundStyle.GRID && backgroundStyle != BackgroundStyle.DOT) return point
         val spacing = BACKGROUND_PATTERN_SPACING_WORLD
-        return WorldPoint(kotlin.math.round(point.x / spacing) * spacing, kotlin.math.round(point.y / spacing) * spacing)
+        when (backgroundStyle) {
+            BackgroundStyle.GRID, BackgroundStyle.DOT ->
+                return WorldPoint(kotlin.math.round(point.x / spacing) * spacing, kotlin.math.round(point.y / spacing) * spacing)
+            BackgroundStyle.ISOMETRIC -> return snappedToIsometric(point, spacing)
+            else -> {}
+        }
+        val radius = OBJECT_SNAP_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
+        fun nearest(value: Double, lines: List<Double>) = lines.minByOrNull { abs(it - value) }?.takeIf { abs(it - value) <= radius } ?: value
+        return WorldPoint(nearest(point.x, layoutGridLines(frames, vertical = true)), nearest(point.y, layoutGridLines(frames, vertical = false)))
     }
 
     fun continueShape(worldPoint: WorldPoint) {
@@ -3499,7 +3536,7 @@ class CanvasState(
             lineStyle = activeLineStyle.takeIf { it != LineStyle() },
             brush = if (activePenType == PenType.STAMP) activeBrush else null,
         )
-        for (point in generateShapePoints(activeShapeKind, start, end)) stroke.addPoint(point)
+        for (point in shapeOnPlane(activeShapeKind, start, end, isometricPlane)) stroke.addPoint(point)
         strokes.add(stroke)
         countAction(StatsAction.DRAW, System.currentTimeMillis())
         strokesChanged()
@@ -4358,8 +4395,9 @@ class CanvasState(
         moveApplied = WorldPoint.Zero
         moveStartBounds = selectionBounds()
         // Ruler guides always attract a moved selection; other objects only with snapping on.
-        val rulerX = guides.filter { it.vertical }.map { it.position }
-        val rulerY = guides.filter { !it.vertical }.map { it.position }
+        // Frames' layout grid edges (roadmap item 142) attract it the same way.
+        val rulerX = guides.filter { it.vertical }.map { it.position } + layoutGridLines(frames, vertical = true)
+        val rulerY = guides.filter { !it.vertical }.map { it.position } + layoutGridLines(frames, vertical = false)
         if (!snapToObjects || viewportSize.width <= 0f) {
             guideTargetsX = rulerX.toDoubleArray()
             guideTargetsY = rulerY.toDoubleArray()
@@ -5302,8 +5340,10 @@ class CanvasState(
         // spacing, so an arbitrary offset made it jump relative to the content on every rebase.
         // The leftover (under one cell) stays in panWorld, which is still near zero.
         val spacing = BACKGROUND_PATTERN_SPACING_WORLD
+        // Isometric paper repeats less often across (roadmap item 142).
+        val spacingX = if (backgroundStyle == BackgroundStyle.ISOMETRIC) isometricPeriodX(spacing) else spacing
         val offset = WorldPoint(
-            kotlin.math.round(panWorld.x / spacing) * spacing,
+            kotlin.math.round(panWorld.x / spacingX) * spacingX,
             kotlin.math.round(panWorld.y / spacing) * spacing,
         )
         endMeshWarp() // its box and starting points are in the old coordinates

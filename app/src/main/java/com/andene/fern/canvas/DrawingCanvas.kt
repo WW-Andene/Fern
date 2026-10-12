@@ -506,6 +506,21 @@ fun DrawingCanvas(
             for (frame in state.frames) {
                 val a = state.worldToScreen(frame.min, screenCenter)
                 val b = state.worldToScreen(frame.max, screenCenter)
+                // Layout grid (roadmap item 142): its columns and rows as faint bands.
+                frame.layoutGrid?.let { grid ->
+                    val columns = grid.columnEdges(frame).chunked(2)
+                    val rows = grid.rowEdges(frame).chunked(2)
+                    for ((left, right) in columns) {
+                        val l = state.worldToScreen(WorldPoint(left, frame.min.y), screenCenter)
+                        val r = state.worldToScreen(WorldPoint(right, frame.max.y), screenCenter)
+                        drawRect(LAYOUT_GRID_COLOR, topLeft = l, size = Size(r.x - l.x, r.y - l.y))
+                    }
+                    for ((top, bottom) in rows) {
+                        val t = state.worldToScreen(WorldPoint(frame.min.x, top), screenCenter)
+                        val u = state.worldToScreen(WorldPoint(frame.max.x, bottom), screenCenter)
+                        drawRect(LAYOUT_GRID_COLOR, topLeft = t, size = Size(u.x - t.x, u.y - t.y))
+                    }
+                }
                 drawRect(
                     color = FRAME_COLOR,
                     topLeft = a,
@@ -688,7 +703,7 @@ fun DrawingCanvas(
             }
 
             state.shapePreview?.let { (start, end) ->
-                val screenPoints = generateShapePoints(state.activeShapeKind, start, end).map { state.worldToScreen(it, screenCenter) }
+                val screenPoints = shapeOnPlane(state.activeShapeKind, start, end, state.isometricPlane).map { state.worldToScreen(it, screenCenter) }
                 val rawWidthScreen = state.activeWidthWorld
                 val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
                 val path = Path()
@@ -876,6 +891,35 @@ private fun DrawScope.drawBackgroundPattern(state: CanvasState, screenCenter: Of
                 val screenY = state.worldToScreen(WorldPoint(0.0, y), screenCenter).y
                 drawLine(color = lineColor, start = Offset(0f, screenY), end = Offset(size.width, screenY), strokeWidth = 1f)
                 y += spacing
+            }
+        }
+        BackgroundStyle.ISOMETRIC -> {
+            // Vertical lines a lattice column apart, then the two 30° families, each a spacing
+            // apart vertically ([snappedToIsometric]'s lattice).
+            val column = isometricPeriodX(spacing) / 2
+            var x = kotlin.math.floor(topLeftWorld.x / column) * column
+            while (x <= bottomRightWorld.x) {
+                val screenX = state.worldToScreen(WorldPoint(x, 0.0), screenCenter).x
+                drawLine(color = lineColor, start = Offset(screenX, 0f), end = Offset(screenX, size.height), strokeWidth = 1f)
+                x += column
+            }
+            val slope = 0.5 / (column / spacing) // tan 30°
+            for (sign in listOf(1.0, -1.0)) {
+                // Lines y = sign * slope * x + k * spacing crossing the view: k from the lowest
+                // intercept at either view edge to the highest.
+                val intercepts = listOf(topLeftWorld.x, bottomRightWorld.x).flatMap { edgeX ->
+                    listOf(topLeftWorld.y - sign * slope * edgeX, bottomRightWorld.y - sign * slope * edgeX)
+                }
+                if ((intercepts.max() - intercepts.min()) / spacing > MAX_BACKGROUND_PATTERN_LINES) break
+                var k = kotlin.math.floor(intercepts.min() / spacing)
+                val last = kotlin.math.ceil(intercepts.max() / spacing)
+                while (k <= last) {
+                    val c = k * spacing
+                    val a = state.worldToScreen(WorldPoint(topLeftWorld.x, sign * slope * topLeftWorld.x + c), screenCenter)
+                    val b = state.worldToScreen(WorldPoint(bottomRightWorld.x, sign * slope * bottomRightWorld.x + c), screenCenter)
+                    drawLine(color = lineColor, start = a, end = b, strokeWidth = 1f)
+                    k += 1.0
+                }
             }
         }
         BackgroundStyle.PLAIN -> {} // handled by the early return above
@@ -1327,6 +1371,8 @@ private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
 private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
+// A frame's layout grid bands (roadmap item 142): the frame colour, faint, so overlaps read darker.
+private val LAYOUT_GRID_COLOR = Color(0x1A7E57C2)
 // The shape builder's remove drag and the knife's cut line (roadmap item 141).
 private val SHAPE_CUT_COLOR = Color(0xFFE53935)
 // Widest a text box is laid out on screen; beyond this (deep zoom) the box is cropped to it.

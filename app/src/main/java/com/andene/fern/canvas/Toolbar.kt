@@ -337,6 +337,7 @@ fun Toolbar(
     var showLineStyleMenu by remember { mutableStateOf(false) }
     var showCombineMenu by remember { mutableStateOf(false) }
     var showContourDialog by remember { mutableStateOf(false) }
+    var showPlaceOnPlaneMenu by remember { mutableStateOf(false) }
     if (showContourDialog) ContourDialog(state, onDismiss = { showContourDialog = false })
     var showMoreMenu by remember { mutableStateOf(false) }
     var showBlendModeMenu by remember { mutableStateOf(false) }
@@ -544,6 +545,19 @@ fun Toolbar(
                                 leadingIcon = { Icon(shapeKindIcon(kind), contentDescription = null) },
                                 onClick = {
                                     state.activeShapeKind = kind
+                                    state.activeTool = Tool.SHAPE
+                                    showShapeKindMenu = false
+                                },
+                            )
+                        }
+                        // Isometric plane (roadmap item 142) the shapes are drawn on.
+                        HorizontalDivider()
+                        for (plane in listOf(null) + IsometricPlane.entries) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(isometricPlaneLabel(plane))) },
+                                leadingIcon = { if (state.isometricPlane == plane) Icon(Icons.Filled.Check, contentDescription = null) },
+                                onClick = {
+                                    state.isometricPlane = plane
                                     state.activeTool = Tool.SHAPE
                                     showShapeKindMenu = false
                                 },
@@ -952,6 +966,23 @@ fun Toolbar(
                                     onClick = {
                                         state.combineSelection(op)
                                         showCombineMenu = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    // Isometric panel (roadmap item 142): lay the selection onto a cube face.
+                    Box {
+                        IconButton(onClick = { showPlaceOnPlaneMenu = true }, enabled = state.selection.isNotEmpty()) {
+                            Icon(Icons.Filled.ViewInAr, contentDescription = stringResource(R.string.tb_place_on_plane))
+                        }
+                        DropdownMenu(expanded = showPlaceOnPlaneMenu, onDismissRequest = { showPlaceOnPlaneMenu = false }) {
+                            for (plane in IsometricPlane.entries) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(isometricPlaneLabel(plane))) },
+                                    onClick = {
+                                        state.placeSelectionOnPlane(plane)
+                                        showPlaceOnPlaneMenu = false
                                     },
                                 )
                             }
@@ -1595,9 +1626,18 @@ private fun blendModeLabel(mode: StrokeBlendMode) = when (mode) {
 }
 
 @StringRes
+private fun isometricPlaneLabel(plane: IsometricPlane?) = when (plane) {
+    null -> R.string.iso_plane_flat
+    IsometricPlane.TOP -> R.string.iso_plane_top
+    IsometricPlane.LEFT -> R.string.iso_plane_left
+    IsometricPlane.RIGHT -> R.string.iso_plane_right
+}
+
+@StringRes
 private fun backgroundStyleLabel(style: BackgroundStyle) = when (style) {
     BackgroundStyle.PLAIN -> R.string.paper_plain
     BackgroundStyle.GRID -> R.string.paper_grid
     BackgroundStyle.DOT -> R.string.template_dot
     BackgroundStyle.RULED -> R.string.paper_ruled
+    BackgroundStyle.ISOMETRIC -> R.string.paper_isometric
 }

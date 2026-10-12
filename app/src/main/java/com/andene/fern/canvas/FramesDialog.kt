@@ -14,6 +14,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.IosShare
+import androidx.compose.material.icons.filled.ViewColumn
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,6 +36,7 @@ import androidx.compose.ui.unit.dp
 /**
  * The document's frames (artboards). Tap a name to fit it on screen; export one as a PNG, or
  * all of them as slices at 1x, @2x and @3x;
+ * set a layout grid of columns and rows on one (roadmap item 142);
  * the field at the bottom adds a frame covering the current view. With frames present, PDF
  * export produces one page per frame, and Present steps through them full screen like slides.
  */
@@ -44,6 +48,8 @@ fun FramesDialog(
     /** Exports every frame at the chosen scales as one ZIP of slices (roadmap item 128). */
     onExportSlices: (scales: List<Int>) -> Unit,
     onDelete: (Frame) -> Unit,
+    /** Sets or removes (null) a frame's layout grid (roadmap item 142). */
+    onSetLayoutGrid: (Frame, LayoutGrid?) -> Unit,
     onCreate: (name: String) -> Unit,
     onPresent: () -> Unit,
     onAddComicPage: () -> Unit,
@@ -51,6 +57,13 @@ fun FramesDialog(
 ) {
     var newFrameName by remember { mutableStateOf("") }
     var sliceScales by remember { mutableStateOf(setOf(1, 2, 3)) }
+    var gridFrame by remember { mutableStateOf<Frame?>(null) }
+    gridFrame?.let { frame ->
+        LayoutGridDialog(frame, onApply = { grid ->
+            onSetLayoutGrid(frame, grid)
+            gridFrame = null
+        }, onDismiss = { gridFrame = null })
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -77,6 +90,13 @@ fun FramesDialog(
                                     .clickable { onJump(frame) }
                                     .padding(vertical = 12.dp),
                             )
+                            IconButton(onClick = { gridFrame = frame }) {
+                                Icon(
+                                    Icons.Filled.ViewColumn,
+                                    contentDescription = stringResource(R.string.layout_grid_edit),
+                                    tint = if (frame.layoutGrid != null) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                )
+                            }
                             IconButton(onClick = { onExport(frame) }) {
                                 Icon(Icons.Filled.IosShare, contentDescription = stringResource(R.string.frames_export))
                             }
