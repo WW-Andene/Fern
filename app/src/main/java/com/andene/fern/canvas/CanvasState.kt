@@ -1034,6 +1034,25 @@ class CanvasState(
         return point.x in min.x..max.x && point.y in min.y..max.y
     }
 
+    /** Number of undoable steps; with [discardActionsSince], lets a gesture take back what it started. */
+    val historyDepth: Int get() = undoStack.size
+
+    /**
+     * Reverts every action recorded since [depth] without making it redoable - for input that
+     * turned out not to be drawing (e.g. the first finger of a two-finger tap briefly began a
+     * stroke). Unlike [undo], nothing is pushed onto the redo stack.
+     */
+    fun discardActionsSince(depth: Int) {
+        if (undoStack.size <= depth) return
+        var snapshot: List<Stroke>? = null
+        while (undoStack.size > depth) snapshot = undoStack.removeLast()
+        clearSelectionState()
+        currentStroke = null
+        symmetryCopies = emptyList()
+        snapshot?.let { restore(it) }
+        onChanged(strokes.toList())
+    }
+
     fun undo() {
         val previous = undoStack.removeLastOrNull() ?: return
         clearSelectionState()

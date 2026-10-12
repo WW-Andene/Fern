@@ -88,8 +88,14 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
             }
             .pointerInput(state) {
                 awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
+                    val firstDown = awaitFirstDown(requireUnconsumed = false)
                     val screenCenter = Offset(size.width / 2f, size.height / 2f)
+                    // Multi-finger tap detection (2 = undo, 3 = redo): few fingers' worth of
+                    // movement, short, and never more than 3 fingers.
+                    val gestureStartMillis = firstDown.uptimeMillis
+                    val historyDepthAtStart = state.historyDepth
+                    var maxPointers = 0
+                    var navigationTravel = 0f
 
                     var mode = Mode.NONE
                     var prevCentroid = Offset.Zero
@@ -147,6 +153,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
 
                         val count = pointers.size
                         if (count == 0) break
+                        maxPointers = maxOf(maxPointers, count)
 
                         if (count == 1) {
                             if (mode != Mode.DRAW) {
@@ -226,6 +233,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                             } else {
                                 // Pan and zoom work in unrotated view space, so a drag moves the
                                 // content along with the fingers whatever the canvas angle is.
+                                navigationTravel += (centroid - prevCentroid).getDistance() + abs(span - prevSpan)
                                 val panDelta = state.unrotateScreen(centroid, screenCenter) - state.unrotateScreen(prevCentroid, screenCenter)
                                 if (panDelta != Offset.Zero) {
                                     state.panByScreenDelta(panDelta)
@@ -244,6 +252,12 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                     }
                     if (mode == Mode.DRAW) endActiveDrawAction()
                     if (mode == Mode.NAVIGATE) state.snapRotation()
+                    val tapDuration = (currentEvent.changes.firstOrNull()?.uptimeMillis ?: gestureStartMillis) - gestureStartMillis
+                    if (maxPointers in 2..3 && tapDuration <= MULTI_FINGER_TAP_MAX_MILLIS && navigationTravel <= MULTI_FINGER_TAP_SLOP_PX) {
+                        // The first finger may have begun a stroke before the others landed; that wasn't drawing.
+                        state.discardActionsSince(historyDepthAtStart)
+                        if (maxPointers == 2) state.undo() else state.redo()
+                    }
                 }
             }
     ) {
@@ -615,6 +629,10 @@ private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
 private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
+// Two/three-finger tap to undo/redo, the convention of Procreate and most iPad/Android drawing apps.
+private const val MULTI_FINGER_TAP_MAX_MILLIS = 250L
+private const val MULTI_FINGER_TAP_SLOP_PX = 24f // on the §7 scale
+
 // Translucent teal so the axes guide without competing with the drawing.
 private val SYMMETRY_COLOR = Color(0x6600897B)
 // Muted purple, distinct from the blue selection/marquee colours.
