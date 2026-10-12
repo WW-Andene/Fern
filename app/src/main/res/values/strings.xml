@@ -246,6 +246,12 @@
     <string name="tb_weights">Paint joint weights</string>
     <string name="tb_weights_stop">Stop painting weights</string>
     <string name="tb_weight_value">Weight %1$d%%</string>
+    <string name="joint_limits_title">Joint limits</string>
+    <string name="joint_limits_enable">Limit this joint</string>
+    <string name="joint_limits_range">From %1$d° to %2$d° (now %3$d°)</string>
+    <string name="tb_bone_dynamic_on">Make bone dynamic</string>
+    <string name="tb_bone_dynamic_off">Make bone rigid</string>
+    <string name="tb_simulate_dynamics">Simulate dynamics</string>
     <string name="tb_nodes">Edit nodes</string>
     <string name="tb_ungroup">Ungroup selection</string>
     <string name="tb_group">Group selection</string>

@@ -84,6 +84,7 @@ import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Gradient
 import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.Air
 import androidx.compose.material.icons.filled.GroupWork
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.HighlightAlt
@@ -673,6 +674,38 @@ fun Toolbar(
                                 contentDescription = if (state.inverseKinematics) stringResource(R.string.tb_ik_on) else stringResource(R.string.tb_ik_off),
                                 tint = if (state.inverseKinematics) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                             )
+                        }
+                        val selectedBone = state.currentBones.firstOrNull { it.id == state.selectedBoneId }
+                        val selectedParent = selectedBone?.parentId?.let { id -> state.currentBones.firstOrNull { it.id == id } }
+                        if (selectedBone != null && selectedParent != null) {
+                            var editingLimits by remember { mutableStateOf(false) }
+                            IconButton(onClick = { editingLimits = true }) {
+                                Icon(
+                                    Icons.Filled.Straighten,
+                                    contentDescription = stringResource(R.string.joint_limits_title),
+                                    tint = if (selectedBone.minTurn != null) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                )
+                            }
+                            if (editingLimits) {
+                                JointLimitsDialog(
+                                    bone = selectedBone,
+                                    current = Math.toDegrees(relativeAngle(selectedBone, selectedParent)),
+                                    onApply = { min, max -> state.setJointLimits(selectedBone.id, min, max); editingLimits = false },
+                                    onDismiss = { editingLimits = false },
+                                )
+                            }
+                            IconButton(onClick = { state.setBoneDynamic(selectedBone.id, !selectedBone.dynamic) }) {
+                                Icon(
+                                    Icons.Filled.Air,
+                                    contentDescription = if (selectedBone.dynamic) stringResource(R.string.tb_bone_dynamic_off) else stringResource(R.string.tb_bone_dynamic_on),
+                                    tint = if (selectedBone.dynamic) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                )
+                            }
+                        }
+                        if (state.animFrameCount > 1 && state.bones.any { it.dynamic }) {
+                            IconButton(onClick = { state.simulateDynamics() }) {
+                                Icon(Icons.Filled.Waves, contentDescription = stringResource(R.string.tb_simulate_dynamics))
+                            }
                         }
                         IconButton(onClick = { state.paintingWeights = !state.paintingWeights }) {
                             Icon(

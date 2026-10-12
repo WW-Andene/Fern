@@ -133,6 +133,63 @@ class BonesTest {
     }
 
     @Test
+    fun aLimitedElbowStopsAtItsLimitWhenTurnedOrReached() {
+        val state = arm()
+        val fore = state.bones[1]
+        // The elbow may bend 0..45 degrees (downwards on screen, y pointing down).
+        state.setJointLimits(fore.id, 0.0, Math.PI / 4)
+        state.posingBones = true
+        state.beginBone(WorldPoint(200.0, 0.0))
+        state.continueBone(WorldPoint(100.0, 100.0)) // asks for 90 degrees
+        state.endBone()
+        assertEquals(Math.PI / 4, relativeAngle(state.bones[1], state.bones[0]), 1e-6)
+        state.beginBone(state.bones[1].tail)
+        state.continueBone(WorldPoint(100.0, -100.0)) // asks to bend backwards
+        state.endBone()
+        assertEquals(0.0, relativeAngle(state.bones[1], state.bones[0]), 1e-6)
+        state.inverseKinematics = true
+        state.beginBone(state.bones[1].tail)
+        state.continueBone(WorldPoint(60.0, -60.0)) // reachable only by bending backwards
+        state.endBone()
+        val bend = relativeAngle(state.bones[1], state.bones[0])
+        assertTrue(bend >= -1e-6 && bend <= Math.PI / 4 + 1e-6)
+    }
+
+    @Test
+    fun aDynamicBoneTrailsItsParentThenSettles() {
+        val state = arm()
+        val upper = state.bones[0]
+        val fore = state.bones[1]
+        state.setBoneDynamic(fore.id, true)
+        // Frame 0 at rest; frame 1 the arm swung a quarter turn; then held for several frames.
+        state.insertAnimFrame(copyCurrent = true)
+        state.posingBones = true
+        state.beginBone(WorldPoint(100.0, 0.0))
+        state.continueBone(WorldPoint(0.0, 100.0))
+        state.endBone()
+        repeat(8) { state.insertAnimFrame(copyCurrent = true) }
+        state.simulateDynamics()
+        fun bend(frame: Int): Double {
+            val b = state.bones.filter { it.animFrame == frame }.associateBy { it.id }
+            return relativeAngle(b.getValue(fore.id), b.getValue(upper.id))
+        }
+        assertEquals(0.0, bend(0), 1e-9) // the first frame is the rest pose
+        assertTrue(kotlin.math.abs(bend(1)) > 0.1) // the forearm lags behind the swing
+        assertTrue(kotlin.math.abs(bend(9)) < kotlin.math.abs(bend(1))) // and settles back
+        state.undo()
+        assertEquals(0.0, bend(1), 1e-9)
+    }
+
+    @Test
+    fun jointLimitsAndDynamicsAreSaved() {
+        val state = arm()
+        val doc = CanvasStorage.createDocument(context, "limits")
+        val limited = state.bones.map { if (it.parentId != null) it.copy(minTurn = -0.5, maxTurn = 1.0, dynamic = true) else it }
+        CanvasStorage.saveBones(context, doc.id, limited)
+        assertEquals(limited, CanvasStorage.loadBones(context, doc.id))
+    }
+
+    @Test
     fun smoothJointsBendInkByDistanceWhileRigidMovesItWhole() {
         val smooth = bendElbow(smooth = true)
         assertEquals(WorldPoint(0.0, 0.0), smooth[0]) // far up the upper arm: weight 0, unmoved

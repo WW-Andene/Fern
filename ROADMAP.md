@@ -141,7 +141,7 @@ All deferred: they need a server or cloud platform.
 - [x] 82. Shape tweening — strokes morphed pairwise in in-betweens, each paired with its nearest counterpart, closed outlines lined up (start point and direction) so they don't twist
 - [x] 83. Bones and skeletons: a bone tool draws bones (chained when started at a tail), binds strokes to the nearest bones, and poses per frame (turn a bone with its children and ink, move a root); copied frames carry the pose, in-betweens tween it; saved, in bundles, undoable
 - [x] 84. Weighted deformation: smooth joints bend bound ink around a turned bone's joint by inverse-distance weights (rotation-blended); weights can be painted per point with the bone tool (overlay shows them; saved with the stroke) and override the automatic ones; free-form mesh warp of a selection (4 x 4 Bézier lattice)
-- [~] 85. Inverse kinematics: dragging a limb's end pulls its chain (up to four bones, CCD solver) so the tip follows the finger; no joint-angle constraints or physics yet
+- [x] 85. Inverse kinematics: dragging a limb's end pulls its chain (up to four bones, CCD solver) so the tip follows the finger; per-joint angle limits (kept by IK and by hand-turning); dynamic bones simulated as damped springs across the animation for follow-through (lag, overshoot, settle)
 - [ ] 86. Skins and animation blending
 - [~] 87. Lottie export (frame by frame, vector, checked by rendering with an independent Lottie library); no Spine or DragonBones skeletal formats, no import
 - [~] 88. X-sheet: per-frame holds (playback, GIF, APNG and Lottie follow them; saved with the fps, undoable); no audio track or lip-sync yet

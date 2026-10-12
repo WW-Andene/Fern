@@ -326,6 +326,10 @@ object CanvasStorage {
             root.put(
                 JSONObject().put("id", b.id).put("parent", b.parentId ?: JSONObject.NULL).put("frame", b.animFrame)
                     .put("hx", b.head.x).put("hy", b.head.y).put("tx", b.tail.x).put("ty", b.tail.y)
+                    .apply {
+                        if (b.minTurn != null && b.maxTurn != null) put("minTurn", b.minTurn).put("maxTurn", b.maxTurn)
+                        if (b.dynamic) put("dynamic", true)
+                    }
             )
         }
         writeStored(bonesFile(context, documentId), root)
@@ -339,6 +343,9 @@ object CanvasStorage {
                 Bone(
                     e.getString("id"), if (e.isNull("parent")) null else e.getString("parent"),
                     WorldPoint(e.getDouble("hx"), e.getDouble("hy")), WorldPoint(e.getDouble("tx"), e.getDouble("ty")), e.optInt("frame", 0),
+                    minTurn = if (e.has("minTurn")) e.getDouble("minTurn") else null,
+                    maxTurn = if (e.has("maxTurn")) e.getDouble("maxTurn") else null,
+                    dynamic = e.optBoolean("dynamic", false),
                 )
             }.getOrNull()
         }

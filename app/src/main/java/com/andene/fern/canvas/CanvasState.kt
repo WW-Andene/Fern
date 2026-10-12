@@ -126,6 +126,11 @@ class CanvasState(
         private const val PANEL_BORDER_SCREEN = 3.0
         // Bone tool reach and the shortest bone an add drag makes, in screen px (§7 scale).
         private const val BONE_HIT_SCREEN = 24.0
+        // Spring of a dynamic bone, per second: stiff enough to keep up within a few frames,
+        // damped to settle after about one overshoot.
+        private const val DYNAMICS_STIFFNESS = 120.0
+        private const val DYNAMICS_DAMPING = 8.0
+        private const val DYNAMICS_SUBSTEPS = 8
         // Weight-painting brush radius in screen pixels (on the §7 scale).
         private const val WEIGHT_BRUSH_SCREEN = 24.0
         private const val BONE_MIN_SCREEN = 16.0
@@ -1023,8 +1028,14 @@ class CanvasState(
             }
             BoneGestureKind.ROTATE -> {
                 val turn = boneTurn ?: return
-                val angle = atan2(world.y - turn.center.y, world.x - turn.center.x) - turn.startAngle
                 val start = turn.startBones.associateBy { it.id }
+                // Joint limits hold for a hand-turned bone as for inverse kinematics.
+                val turned = gesture.boneId?.let { start[it] }
+                val angle = limitedTurn(
+                    turned ?: return,
+                    turned.parentId?.let { start[it] },
+                    normalizeAngle(atan2(world.y - turn.center.y, world.x - turn.center.x) - turn.startAngle),
+                )
                 for (i in bones.indices) {
                     val b = bones[i]
                     if (b.animFrame == currentAnimFrame && b.id in turn.moved) {
@@ -1090,7 +1101,8 @@ class CanvasState(
             for (id in chain) {
                 val joint = bone(id) ?: return
                 val tip = bone(endId)?.tail ?: return
-                val turn = atan2(target.y - joint.head.y, target.x - joint.head.x) - atan2(tip.y - joint.head.y, tip.x - joint.head.x)
+                val wanted = normalizeAngle(atan2(target.y - joint.head.y, target.x - joint.head.x) - atan2(tip.y - joint.head.y, tip.x - joint.head.x))
+                val turn = limitedTurn(joint, joint.parentId?.let { bone(it) }, wanted)
                 if (turn != 0.0) transformRig(id) { rotateAbout(it, joint.head, turn) }
             }
             val tip = bone(endId)?.tail ?: return
@@ -1100,8 +1112,7 @@ class CanvasState(
 
     // Applies [transform] to bone [rootId], the bones hanging from it, and every stroke bound to
     // one of them, on the current frame.
-    private fun transformRig(rootId: String, transform: (WorldPoint) -> WorldPoint) {
-        val frame = currentAnimFrame
+    private fun transformRig(rootId: String, frame: Int = currentAnimFrame, transform: (WorldPoint) -> WorldPoint) {
         val moved = boneSubtree(bones.filter { it.animFrame == frame }, rootId)
         for (i in bones.indices) {
             val b = bones[i]
@@ -1111,6 +1122,64 @@ class CanvasState(
             if (stroke.animFrame == frame && stroke.boneId in moved) stroke.setPoints(stroke.points.map(transform))
         }
         geometryEpoch++
+    }
+
+    /**
+     * Sets bone [boneId]'s joint limits on every frame (relative angles in radians; null and null
+     * for a free joint). Undoable.
+     */
+    fun setJointLimits(boneId: String, min: Double?, max: Double?) {
+        recordHistory()
+        for (i in bones.indices) if (bones[i].id == boneId) bones[i] = bones[i].copy(minTurn = min, maxTurn = max)
+        onBonesChanged(bones.toList())
+    }
+
+    /** Marks bone [boneId] dynamic or not, on every frame. Undoable. */
+    fun setBoneDynamic(boneId: String, dynamic: Boolean) {
+        recordHistory()
+        for (i in bones.indices) if (bones[i].id == boneId) bones[i] = bones[i].copy(dynamic = dynamic)
+        onBonesChanged(bones.toList())
+    }
+
+    /**
+     * Secondary motion (roadmap item 85): every dynamic bone follows its parent through the
+     * animation like a damped spring instead of rigidly - it trails a moving parent, overshoots
+     * when the parent stops, and settles - the way a tail, hair or a loose sleeve moves. Each
+     * frame's keyed pose is the spring's rest position; the simulated angle is written into the
+     * frame, turning the bone with its children and bound ink. Frames are visited in order at the
+     * playback speed, in [DYNAMICS_SUBSTEPS] steps each. One undo step.
+     */
+    fun simulateDynamics() {
+        val frames = (0 until animFrameCount).filter { f -> bones.any { it.animFrame == f } }
+        val dynamicIds = bones.filter { it.dynamic && it.parentId != null }.map { it.id }.distinct()
+        if (frames.size < 2 || dynamicIds.isEmpty()) return
+        recordHistory()
+        val dt = 1.0 / animFps / DYNAMICS_SUBSTEPS
+        // Parents first, so a dynamic chain uses its already-simulated parent.
+        val order = dynamicIds.sortedBy { id -> generateSequence(bones.firstOrNull { it.id == id }) { b -> b.parentId?.let { p -> bones.firstOrNull { it.id == p } } }.count() }
+        for (id in order) {
+            var angle = Double.NaN
+            var velocity = 0.0
+            for (frame in frames) {
+                fun bone(boneId: String) = bones.firstOrNull { it.animFrame == frame && it.id == boneId }
+                val b = bone(id) ?: continue
+                val parent = b.parentId?.let { bone(it) } ?: continue
+                val rest = parent.angle + relativeAngle(b, parent)
+                if (angle.isNaN()) {
+                    angle = rest
+                } else {
+                    repeat(DYNAMICS_SUBSTEPS) {
+                        val pull = normalizeAngle(rest - angle)
+                        velocity += (DYNAMICS_STIFFNESS * pull - DYNAMICS_DAMPING * velocity) * dt
+                        angle += velocity * dt
+                    }
+                }
+                val turn = normalizeAngle(angle - b.angle)
+                if (turn != 0.0) transformRig(id, frame) { rotateAbout(it, b.head, turn) }
+            }
+        }
+        onBonesChanged(bones.toList())
+        strokesChanged()
     }
 
     /**

@@ -19,6 +19,15 @@ data class Bone(
     val head: WorldPoint,
     val tail: WorldPoint,
     val animFrame: Int = 0,
+    /**
+     * Joint limits (roadmap item 85): the range, in radians, this bone's angle may take relative
+     * to its parent's (see [relativeAngle]); null when the joint turns freely. Inverse kinematics
+     * keeps to it, like an elbow that doesn't bend backwards.
+     */
+    val minTurn: Double? = null,
+    val maxTurn: Double? = null,
+    /** Follows its parent with springy lag and overshoot when dynamics are simulated ([simulateDynamics]). */
+    val dynamic: Boolean = false,
 ) {
     val length: Double get() = hypot(tail.x - head.x, tail.y - head.y)
     val angle: Double get() = atan2(tail.y - head.y, tail.x - head.x)
@@ -79,7 +88,7 @@ fun interpolatePose(from: List<Bone>, to: List<Bone>, t: Double, animFrame: Int)
         while (turn < -PI) turn += 2 * PI
         val angle = a.angle + turn * t
         val length = a.length + (b.length - a.length) * t
-        return Bone(a.id, a.parentId, head, WorldPoint(head.x + cos(angle) * length, head.y + sin(angle) * length), animFrame).also { done[a.id] = it }
+        return a.copy(head = head, tail = WorldPoint(head.x + cos(angle) * length, head.y + sin(angle) * length), animFrame = animFrame).also { done[a.id] = it }
     }
     from.forEach { place(it) }
     return done.values.toList()
@@ -88,3 +97,29 @@ fun interpolatePose(from: List<Bone>, to: List<Bone>, t: Double, animFrame: Int)
 /** True if [child]'s joint sits on [parent]'s tail (chained, rather than placed apart). */
 fun isAttached(child: Bone, parent: Bone): Boolean =
     hypot(child.head.x - parent.tail.x, child.head.y - parent.tail.y) <= 1e-6 * maxOf(1.0, parent.length)
+
+/** [angle] wrapped into -pi..pi. */
+fun normalizeAngle(angle: Double): Double {
+    var a = angle % (2 * PI)
+    if (a > PI) a -= 2 * PI
+    if (a < -PI) a += 2 * PI
+    return a
+}
+
+/** [bone]'s angle relative to [parent]'s, in -pi..pi. */
+fun relativeAngle(bone: Bone, parent: Bone): Double = normalizeAngle(bone.angle - parent.angle)
+
+/**
+ * The part of a turn by [turn] that [bone]'s joint limits allow, given its [parent]: the turn
+ * that brings the relative angle as close to the wanted one as the range permits. A bone with
+ * no limits, or no parent, turns freely.
+ */
+fun limitedTurn(bone: Bone, parent: Bone?, turn: Double): Double {
+    val min = bone.minTurn
+    val max = bone.maxTurn
+    if (parent == null || min == null || max == null) return turn
+    val current = relativeAngle(bone, parent)
+    val wanted = normalizeAngle(current + turn)
+    return wanted.coerceIn(min, max) - current
+}
+

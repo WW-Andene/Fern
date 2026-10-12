@@ -246,6 +246,12 @@
     <string name="tb_weights">Peindre les poids</string>
     <string name="tb_weights_stop">Arrêter de peindre les poids</string>
     <string name="tb_weight_value">Poids %1$d %%</string>
+    <string name="joint_limits_title">Limites de l\'articulation</string>
+    <string name="joint_limits_enable">Limiter cette articulation</string>
+    <string name="joint_limits_range">De %1$d° à %2$d° (actuellement %3$d°)</string>
+    <string name="tb_bone_dynamic_on">Rendre l\'os dynamique</string>
+    <string name="tb_bone_dynamic_off">Rendre l\'os rigide</string>
+    <string name="tb_simulate_dynamics">Simuler la dynamique</string>
     <string name="tb_nodes">Modifier les nœuds</string>
     <string name="tb_ungroup">Dissocier la sélection</string>
     <string name="tb_group">Grouper la sélection</string>
