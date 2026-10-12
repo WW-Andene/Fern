@@ -1538,6 +1538,28 @@ class CanvasState(
         selection.addAll(strokes.filter { isEditable(it) && it.color.copy(alpha = 1f) == target })
     }
 
+    /**
+     * Straightens each selected stroke into a line between its endpoints, keeping its point
+     * count (points are spread evenly along the line) so pressure/tilt stay paired. Fills and
+     * closed loops (endpoints together) are left alone, since a line between them is nothing.
+     */
+    fun straightenSelection() {
+        if (selection.isEmpty()) return
+        recordHistory()
+        for (stroke in selection) {
+            val points = stroke.points
+            if (stroke.filled || points.size < 2) continue
+            val first = points.first()
+            val last = points.last()
+            if (hypot(last.x - first.x, last.y - first.y) < stroke.widthWorld) continue
+            stroke.setPoints(points.indices.map { i ->
+                val t = i.toDouble() / (points.size - 1)
+                WorldPoint(first.x + (last.x - first.x) * t, first.y + (last.y - first.y) * t)
+            })
+        }
+        onChanged(strokes.toList())
+    }
+
     /** Smooths the selected strokes' wobble after the fact; repeatable for a stronger effect. Filled shapes are left alone. */
     fun smoothSelection() {
         if (selection.isEmpty()) return

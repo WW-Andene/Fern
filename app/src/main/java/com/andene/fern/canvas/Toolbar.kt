@@ -469,6 +469,9 @@ fun Toolbar(
                             }
                         }
                     }
+                    IconButton(onClick = { state.straightenSelection() }) {
+                        Icon(Icons.Filled.Straighten, contentDescription = "Straighten selected strokes")
+                    }
                     IconButton(onClick = { state.smoothSelection() }) {
                         Icon(Icons.Filled.Waves, contentDescription = "Smooth selected strokes")
                     }
