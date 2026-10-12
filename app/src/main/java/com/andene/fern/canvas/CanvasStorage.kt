@@ -174,6 +174,7 @@ object CanvasStorage {
         legacyStrokesFile(context, id).delete()
         synchronized(this) { lastSaved.remove(id) }
         pinsFile(context, id).delete()
+        viewFile(context, id).delete()
         textItemsFile(context, id).delete()
         connectorsFile(context, id).delete()
         bonesFile(context, id).delete()
@@ -238,10 +239,23 @@ object CanvasStorage {
         writeIndex(context, index)
     }
 
-    fun load(context: Context, documentId: String): List<Stroke> = synchronized(this) {
+    /**
+     * Reads a document's strokes. With [first] and [onFirst], the strokes in that area are read
+     * first and passed to [onFirst] (on the calling thread) to show while the rest loads; see
+     * [StrokeChunkFile].
+     */
+    fun load(
+        context: Context,
+        documentId: String,
+        first: StrokeChunkFile.Area? = null,
+        onFirst: ((List<Stroke>) -> Unit)? = null,
+    ): List<Stroke> = synchronized(this) {
         // Whatever was remembered from an earlier load or save no longer describes these objects.
         lastSaved.remove(documentId)
-        val base = readBinary(strokesFile(context, documentId)) { StrokeCodec.read(it) }
+        val file = strokesFile(context, documentId)
+        val base = readBinary(file) { input ->
+            StrokeChunkFile.read(input, first, onFirst) { DataInputStream(BufferedInputStream(AtomicFile(file).openRead())) }
+        }
             // Documents saved before the binary format; converted by the next save.
             ?: readStored(legacyStrokesFile(context, documentId)) { parseStrokes(it as JSONArray) }
             ?: emptyList()
@@ -437,6 +451,18 @@ object CanvasStorage {
         val color = Color(root.getInt("color"))
         val style = enumOrDefault(root.optString("style"), BackgroundStyle.PLAIN)
         return color to style
+    }
+
+    /** Where a document was last viewed: centre and zoom, or null if never saved. */
+    fun loadView(context: Context, documentId: String): Pair<WorldPoint, Double>? {
+        val root = readStored(viewFile(context, documentId)) { it as JSONObject } ?: return null
+        val scale = root.optDouble("scale", Double.NaN)
+        if (!(scale > 0.0)) return null
+        return WorldPoint(root.getDouble("x"), root.getDouble("y")) to scale
+    }
+
+    fun saveView(context: Context, documentId: String, center: WorldPoint, scale: Double) {
+        writeStored(viewFile(context, documentId), JSONObject().put("x", center.x).put("y", center.y).put("scale", scale))
     }
 
     fun saveBackground(context: Context, documentId: String, color: Color, style: BackgroundStyle) {
@@ -786,6 +812,8 @@ object CanvasStorage {
 
     private fun pinsFile(context: Context, documentId: String) = File(context.filesDir, "pins_$documentId.json")
 
+    private fun viewFile(context: Context, documentId: String) = File(context.filesDir, "view_$documentId.json")
+
     private fun textItemsFile(context: Context, documentId: String) = File(context.filesDir, "text_$documentId.json")
 
     private fun connectorsFile(context: Context, documentId: String) = File(context.filesDir, "connectors_$documentId.json")
@@ -816,7 +844,7 @@ object CanvasStorage {
             lastSaved[documentId] = saved.withAppended(added, saved.journalBlocks + if (added.isEmpty()) 0 else 1)
             return@synchronized
         }
-        writeBinary(strokesFile(context, documentId)) { StrokeCodec.write(it, strokes) }
+        writeBinary(strokesFile(context, documentId)) { StrokeChunkFile.write(it, strokes) }
         // The full file now holds everything the journal did.
         journalFile(context, documentId).delete()
         legacyStrokesFile(context, documentId).delete()

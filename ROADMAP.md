@@ -93,7 +93,7 @@ Goal: 120 fps at any zoom, with any amount of content.
 - [x] 50. Level of detail — sub-pixel strokes drawn as one dot; sub-pixel point spacing decimated, cached per stroke per zoom octave
 - [x] 51. Tile caching — world-aligned 256 px tiles per zoom octave for documents of 20k+ strokes while nothing is edited live (JVM, 1M strokes: whole-document pan frame 1899 -> 16 ms; refilling after an edit ~3 s)
 - [x] 52. GPU rendering path — the canvas draws through Android's hardware pipeline; scene tiles are rasterized on the GPU (RenderNode + HardwareRenderer into hardware bitmaps, API 29+) instead of on the CPU, falling back to the CPU if the GPU path fails; GPU speed not yet measured on a device
-- [~] 53. Background loading / streaming of off-screen regions — documents load and switch off the main thread behind a loading cover; no streaming of off-screen regions (needs chunked storage)
+- [x] 53. Background loading / streaming of off-screen regions — documents load and switch off the main thread behind a loading cover; strokes are stored in chunks with bounds, and each document reopens at its saved view with the chunks in view read and shown first, the rest after; once loaded the whole document is held in memory (no unloading of distant regions)
 - [x] 54. Large images and PDF pages downscaled to 2048 px
 - [ ] 55. Battery and thermal checks
 

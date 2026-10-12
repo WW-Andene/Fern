@@ -113,6 +113,7 @@ import com.andene.fern.canvas.exportAnimatedPng
 import com.andene.fern.canvas.exportLottie
 import com.andene.fern.canvas.exportDocumentEps
 import com.andene.fern.canvas.exportReplayGif
+import com.andene.fern.canvas.StrokeChunkFile
 import com.andene.fern.canvas.exportDocumentBundle
 import com.andene.fern.canvas.exportDocumentPdf
 import com.andene.fern.canvas.exportDocumentPng
@@ -551,9 +552,24 @@ class MainActivity : ComponentActivity() {
                      * an ON_STOP save while it was half loaded wrote the half-loaded canvas over it.
                      */
                     suspend fun loadDocument(documentId: String) {
+                        // The saved view comes back first, so the part of a big document on screen
+                        // can be read and shown before the rest (roadmap item 53).
+                        val view = withContext(Dispatchers.IO) { CanvasStorage.loadView(context, documentId) }
+                        if (view != null) canvasState.jumpTo(view.first, view.second)
+                        val viewport = canvasState.viewportSize
+                        val first = view?.takeIf { viewport.width > 0f }?.let { (center, scale) ->
+                            val halfWidth = viewport.width / 2.0 / scale
+                            val halfHeight = viewport.height / 2.0 / scale
+                            StrokeChunkFile.Area(center.x - halfWidth, center.y - halfHeight, center.x + halfWidth, center.y + halfHeight)
+                        }
+                        // Main-thread flag: a preview posted late must not replace the full document.
+                        var previewWanted = true
                         val loaded = withContext(Dispatchers.IO) {
                             LoadedDocument(
-                                strokes = CanvasStorage.load(context, documentId),
+                                strokes = CanvasStorage.load(context, documentId, first) { visible ->
+                                    // Shown under the loading cover, which still blocks input until everything is in.
+                                    coroutineScope.launch(Dispatchers.Main) { if (previewWanted && loadingDocument) canvasState.loadStrokes(visible) }
+                                },
                                 layers = CanvasStorage.loadLayers(context, documentId),
                                 frames = CanvasStorage.loadFrames(context, documentId),
                                 history = CanvasStorage.loadHistory(context, documentId),
@@ -566,6 +582,7 @@ class MainActivity : ComponentActivity() {
                                 pins = CanvasStorage.listPins(context, documentId),
                             )
                         }
+                        previewWanted = false
                         canvasState.loadStrokes(loaded.strokes)
                         canvasState.loadLayers(loaded.layers)
                         canvasState.loadFrames(loaded.frames)
@@ -590,11 +607,13 @@ class MainActivity : ComponentActivity() {
                         loadingDocument = true
                         try {
                             val leaving = currentDocumentId
+                            val leavingView = canvasState.panWorld to canvasState.scale
                             val strokes = canvasState.strokes.toList()
                             val texts = canvasState.textItems.toList()
                             val images = canvasState.imageItems.toList()
                             val (undo, redo) = canvasState.historySnapshot()
                             withContext(Dispatchers.IO) {
+                                CanvasStorage.saveView(context, leaving, leavingView.first, leavingView.second)
                                 CanvasStorage.save(context, leaving, strokes)
                                 CanvasStorage.saveTextItems(context, leaving, texts)
                                 CanvasStorage.saveImageItems(context, leaving, images)
@@ -632,6 +651,7 @@ class MainActivity : ComponentActivity() {
                             if (event == Lifecycle.Event.ON_STOP && currentDocumentId.isNotEmpty()) {
                                 // No thumbnail: rendering every stroke on the main thread here took seconds on
                                 // huge documents; the library refreshes it when it's next opened.
+                                CanvasStorage.saveView(context, currentDocumentId, canvasState.panWorld, canvasState.scale)
                                 CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList(), withThumbnail = false)
                                 CanvasStorage.saveTextItems(context, currentDocumentId, canvasState.textItems.toList())
                                 CanvasStorage.saveImageItems(context, currentDocumentId, canvasState.imageItems.toList())
