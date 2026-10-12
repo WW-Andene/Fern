@@ -14,9 +14,10 @@ import java.util.zip.InflaterInputStream
 /**
  * A paintable 3D model (roadmap item 108): its [mesh], its painted surface [maps], and the
  * [camera] and [light] it was last viewed with. Placed on the canvas as an image item showing
- * its render ([ImageItem.modelFileName] names the saved model).
+ * its render ([ImageItem.modelFileName] names the saved model). A posable hand (roadmap item
+ * 146) keeps its [handPose], from which its mesh is rebuilt when it's posed again.
  */
-class Model3d(val mesh: Mesh, val maps: SurfaceMaps, val camera: OrbitCamera = OrbitCamera(), val light: Light3d = Light3d())
+class Model3d(val mesh: Mesh, val maps: SurfaceMaps, val camera: OrbitCamera = OrbitCamera(), val light: Light3d = Light3d(), val handPose: HandPose? = null)
 
 /**
  * The model file (".fmodel"): magic "FM3D", a version, then the mesh arrays, the maps, the
@@ -25,7 +26,8 @@ class Model3d(val mesh: Mesh, val maps: SurfaceMaps, val camera: OrbitCamera = O
  */
 object Model3dFile {
     private const val MAGIC = 0x464D3344 // "FM3D"
-    private const val VERSION = 1
+    // 2: an optional hand pose after the light (roadmap item 146).
+    private const val VERSION = 2
     // Guards a damaged size from allocating gigabytes before failing.
     private const val MAX_MAP_SIZE = 4096
     private const val MAX_VERTICES = 3 * MAX_OBJ_TRIANGLES
@@ -52,6 +54,14 @@ object Model3dFile {
             out.write(maps.metallic)
             with(model.camera) { out.writeDouble(yaw); out.writeDouble(pitch); out.writeDouble(distance); out.writeDouble(fovDegrees) }
             with(model.light) { out.writeDouble(yaw); out.writeDouble(pitch); out.writeDouble(intensity); out.writeDouble(ambient) }
+            val pose = model.handPose
+            out.writeBoolean(pose != null)
+            if (pose != null) {
+                for (c in pose.curls) out.writeDouble(c)
+                for (s in pose.spreads) out.writeDouble(s)
+                out.writeDouble(pose.thumbAcross)
+                out.writeBoolean(pose.left)
+            }
         }
         return bytes.toByteArray()
     }
@@ -78,12 +88,17 @@ object Model3dFile {
             val metallic = ByteArray(size * size).also { input.readFully(it) }
             val camera = OrbitCamera(input.readDouble(), input.readDouble(), input.readDouble(), input.readDouble())
             val light = Light3d(input.readDouble(), input.readDouble(), input.readDouble(), input.readDouble())
+            val handPose = if (version >= 2 && input.readBoolean()) {
+                HandPose(List(5) { input.readDouble().coerceIn(0.0, 1.0) }, List(5) { input.readDouble().coerceIn(-1.0, 1.0) }, input.readDouble().coerceIn(0.0, 1.0), input.readBoolean())
+            } else {
+                null
+            }
             val mesh = try {
                 Mesh(positions, normals, uvs, indices)
             } catch (e: IllegalArgumentException) {
                 throw IOException("Damaged mesh", e)
             }
-            return Model3d(mesh, SurfaceMaps(size, color, roughness, metallic), camera, light)
+            return Model3d(mesh, SurfaceMaps(size, color, roughness, metallic), camera, light, handPose)
         }
     }
 }
@@ -109,3 +124,9 @@ fun storeModel(context: Context, model: Model3d): StoredModel {
 
 /** A new model of [mesh] with blank white maps, ready to paint. */
 fun newModel(mesh: Mesh) = Model3d(mesh, SurfaceMaps.blank(MODEL_MAP_SIZE, 0xFFFFFFFF.toInt()))
+
+/** A new posable hand (roadmap item 146) in [pose], skin-coloured, its palm toward the camera. */
+fun newHandModel(pose: HandPose = HandPreset.RELAXED.pose) =
+    Model3d(handMesh(pose), SurfaceMaps.blank(MODEL_MAP_SIZE, HAND_SKIN), OrbitCamera(yaw = 0.0, pitch = 0.1, distance = 3.4), Light3d(), pose)
+
+private val HAND_SKIN = 0xFFE8C4A8.toInt()

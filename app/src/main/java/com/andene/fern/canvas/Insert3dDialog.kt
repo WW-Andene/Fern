@@ -15,18 +15,21 @@ import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 
 /**
- * Adds a 3D model to paint (roadmap item 108): a built-in shape, or an OBJ file through
+ * Adds a 3D model to paint (roadmap item 108): a posable hand or a head (roadmap item 146), a built-in shape, or an OBJ file through
  * [onImportObj]. The model lands in the middle of the view; "Paint in 3D" in the selection bar
  * opens it.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun Insert3dDialog(onPrimitive: (MeshPrimitive) -> Unit, onImportObj: () -> Unit, onDismiss: () -> Unit) {
+fun Insert3dDialog(onPrimitive: (MeshPrimitive) -> Unit, onHand: () -> Unit, onHead: () -> Unit, onImportObj: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.model_insert_title)) },
         text = {
             FlowRow {
+                // Posable references (roadmap item 146).
+                AssistChip(onClick = onHand, label = { Text(stringResource(R.string.model_hand)) }, modifier = Modifier.padding(end = 8.dp))
+                AssistChip(onClick = onHead, label = { Text(stringResource(R.string.model_head)) }, modifier = Modifier.padding(end = 8.dp))
                 for (primitive in MeshPrimitive.entries) {
                     AssistChip(onClick = { onPrimitive(primitive) }, label = { Text(stringResource(primitiveLabel(primitive))) }, modifier = Modifier.padding(end = 8.dp))
                 }

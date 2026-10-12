@@ -1,6 +1,13 @@
 package com.andene.fern.canvas
 
 import android.graphics.Bitmap
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -68,6 +75,9 @@ import kotlin.math.roundToInt
 @Composable
 fun Model3dEditor(model: Model3d, initialColor: Color, onSave: (Model3d) -> Unit, onDismiss: () -> Unit) {
     val maps = remember { model.maps.copy() }
+    // A posable hand's pose and the mesh built from it (roadmap item 146); other models keep theirs.
+    var handPose by remember { mutableStateOf(model.handPose) }
+    val mesh = remember(handPose) { handPose?.let(::handMesh) ?: model.mesh }
     var camera by remember { mutableStateOf(model.camera) }
     var light by remember { mutableStateOf(model.light) }
     var revision by remember { mutableIntStateOf(0) }
@@ -90,12 +100,12 @@ fun Model3dEditor(model: Model3d, initialColor: Color, onSave: (Model3d) -> Unit
 
     // Rendered off the main thread at most RENDER_MAX_EDGE_PX on the long edge, then scaled up.
     val renderScale = if (viewSize.width <= 0) 1f else minOf(1f, RENDER_MAX_EDGE_PX / max(viewSize.width, viewSize.height).toFloat())
-    val image by produceState<ImageBitmap?>(null, camera, light, revision, viewSize) {
+    val image by produceState<ImageBitmap?>(null, mesh, camera, light, revision, viewSize) {
         if (viewSize.width <= 0 || viewSize.height <= 0) return@produceState
         val w = max(1, (viewSize.width * renderScale).roundToInt())
         val h = max(1, (viewSize.height * renderScale).roundToInt())
         value = withContext(Dispatchers.Default) {
-            val rendered = renderMesh(model.mesh, maps, camera, light, w, h)
+            val rendered = renderMesh(mesh, maps, camera, light, w, h)
             Bitmap.createBitmap(rendered.pixels, w, h, Bitmap.Config.ARGB_8888).asImageBitmap()
         }
     }
@@ -105,8 +115,8 @@ fun Model3dEditor(model: Model3d, initialColor: Color, onSave: (Model3d) -> Unit
         val h = max(1, (viewSize.height * renderScale).roundToInt())
         val x = view.x * renderScale
         val y = view.y * renderScale
-        val hit = pickMesh(model.mesh, camera, x.toDouble(), y.toDouble(), w, h) ?: return
-        val radius = brush / 2 * renderScale * texelsPerPixel(model.mesh, hit.triangle, camera, w, h, maps.size)
+        val hit = pickMesh(mesh, camera, x.toDouble(), y.toDouble(), w, h) ?: return
+        val radius = brush / 2 * renderScale * texelsPerPixel(mesh, hit.triangle, camera, w, h, maps.size)
         val argb = color.copy(alpha = opacity).toArgb()
         val target = (level * 255).roundToInt()
         paintDab(maps, hit.u, hit.v, radius, softness.toDouble(), channel, argb, target)
@@ -124,7 +134,7 @@ fun Model3dEditor(model: Model3d, initialColor: Color, onSave: (Model3d) -> Unit
                     Canvas(
                         Modifier
                             .fillMaxSize()
-                            .pointerInput(Unit) {
+                            .pointerInput(mesh) { // re-keyed so a re-posed hand is painted, not the old mesh
                                 awaitEachGesture {
                                     val down = awaitFirstDown()
                                     var last = down.position
@@ -209,6 +219,7 @@ fun Model3dEditor(model: Model3d, initialColor: Color, onSave: (Model3d) -> Unit
                             }
                         }) { Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.action_undo)) }
                     }
+                    handPose?.let { pose -> HandPoseControls(pose) { handPose = it } }
                     if (channel != SurfaceChannel.COLOR) {
                         Text(stringResource(if (channel == SurfaceChannel.ROUGHNESS) R.string.model_roughness_value else R.string.model_metallic_value, (level * 100).roundToInt()))
                         Slider(value = level, onValueChange = { level = it })
@@ -229,7 +240,7 @@ fun Model3dEditor(model: Model3d, initialColor: Color, onSave: (Model3d) -> Unit
                     Slider(value = light.ambient.toFloat(), onValueChange = { light = light.copy(ambient = it.toDouble()) }, valueRange = 0f..1f)
                     Row(Modifier.fillMaxWidth()) {
                         TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-                        TextButton(onClick = { onSave(Model3d(model.mesh, maps, camera, light)) }) { Text(stringResource(R.string.model_done)) }
+                        TextButton(onClick = { onSave(Model3d(mesh, maps, camera, light, handPose)) }) { Text(stringResource(R.string.model_done)) }
                     }
                 }
             }
@@ -244,7 +255,72 @@ fun renderModelPoster(model: Model3d): Bitmap {
 }
 
 private const val RENDER_MAX_EDGE_PX = 512f
+// Photos are scanned no larger than this on their long edge: plenty for finding a hand.
+private const val SCAN_MAX_EDGE_PX = 1024
 private const val POSTER_EDGE_PX = 512
 private const val ORBIT_RADIANS_PER_PX = 0.008
 // Each step keeps a copy of the maps (6 MB at 1024 texels), so only a few are kept.
 private const val MAX_UNDO = 6
+
+/** Posing a hand (roadmap item 146): ready-made poses, which hand, each finger's curl and spread, and the thumb's reach across the palm. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HandPoseControls(pose: HandPose, onChange: (HandPose) -> Unit) {
+    Text(stringResource(R.string.model_pose), style = MaterialTheme.typography.titleSmall)
+    FlowRow {
+        for (preset in HandPreset.entries) {
+            FilterChip(selected = false, onClick = { onChange(preset.pose.copy(left = pose.left)) }, label = { Text(stringResource(handPresetLabel(preset))) }, modifier = Modifier.padding(end = 8.dp))
+        }
+        FilterChip(selected = pose.left, onClick = { onChange(pose.copy(left = !pose.left)) }, label = { Text(stringResource(R.string.model_left_hand)) })
+    }
+    // The hand pose scanner (roadmap item 146): a photo of a hand poses this one.
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var scanning by remember { mutableStateOf(false) }
+    fun scan(bitmap: Bitmap?) {
+        if (bitmap == null) return
+        scanning = true
+        scope.launch {
+            val scanned = withContext(Dispatchers.Default) { scanHandPose(context, bitmap) }
+            scanning = false
+            if (scanned == null) Toast.makeText(context, context.getString(R.string.toast_no_hand), Toast.LENGTH_SHORT).show()
+            else onChange(scanned)
+        }
+    }
+    val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { scan(it) }
+    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) scope.launch { scan(withContext(Dispatchers.IO) { decodeDownsampled(context, uri, SCAN_MAX_EDGE_PX) }) }
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        TextButton(onClick = { takePhoto.launch(null) }, enabled = !scanning) { Text(stringResource(R.string.model_scan_camera)) }
+        TextButton(onClick = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !scanning) {
+            Text(stringResource(R.string.model_scan_photo))
+        }
+    }
+    for (finger in Finger.entries) {
+        Text(stringResource(R.string.model_finger_curl, stringResource(fingerLabel(finger)), (pose.curl(finger) * 100).roundToInt()))
+        Slider(value = pose.curl(finger).toFloat(), onValueChange = { onChange(pose.withCurl(finger, it.toDouble())) })
+        Text(stringResource(R.string.model_finger_spread, stringResource(fingerLabel(finger)), (pose.spread(finger) * 100).roundToInt()))
+        Slider(value = pose.spread(finger).toFloat(), onValueChange = { onChange(pose.withSpread(finger, it.toDouble())) }, valueRange = -1f..1f)
+    }
+    Text(stringResource(R.string.model_thumb_across, (pose.thumbAcross * 100).roundToInt()))
+    Slider(value = pose.thumbAcross.toFloat(), onValueChange = { onChange(pose.copy(thumbAcross = it.toDouble())) })
+}
+
+private fun fingerLabel(finger: Finger) = when (finger) {
+    Finger.THUMB -> R.string.finger_thumb
+    Finger.INDEX -> R.string.finger_index
+    Finger.MIDDLE -> R.string.finger_middle
+    Finger.RING -> R.string.finger_ring
+    Finger.LITTLE -> R.string.finger_little
+}
+
+private fun handPresetLabel(preset: HandPreset) = when (preset) {
+    HandPreset.RELAXED -> R.string.hand_relaxed
+    HandPreset.OPEN -> R.string.hand_open
+    HandPreset.FIST -> R.string.hand_fist
+    HandPreset.POINT -> R.string.hand_point
+    HandPreset.PEACE -> R.string.hand_peace
+    HandPreset.THUMBS_UP -> R.string.hand_thumbs_up
+    HandPreset.GRIP -> R.string.hand_grip
+}

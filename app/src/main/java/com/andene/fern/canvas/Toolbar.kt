@@ -277,6 +277,14 @@ fun Toolbar(
                         state.placeModel(stored)
                     }
                 },
+                onHand = {
+                    showInsert3d = false
+                    scope.launch { state.placeModel(withContext(Dispatchers.Default) { storeModel(context, newHandModel()) }) }
+                },
+                onHead = {
+                    showInsert3d = false
+                    scope.launch { state.placeModel(withContext(Dispatchers.Default) { storeModel(context, newHeadModel()) }) }
+                },
                 onImportObj = {
                     showInsert3d = false
                     onImportObj()
