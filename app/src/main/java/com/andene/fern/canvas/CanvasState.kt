@@ -116,6 +116,9 @@ class CanvasState(
         // Touch radius of a vanishing point's handle, and how far a stroke must travel before its
         // perspective direction is chosen; both on the §7 scale.
         private const val VANISHING_POINT_HANDLE_SCREEN = 24.0
+
+        // How close (screen px) a shape point must come to an object anchor to snap; on the §7 scale.
+        private const val OBJECT_SNAP_RADIUS_SCREEN = 12.0
         private const val PERSPECTIVE_DECIDE_SCREEN = 16.0
 
         // Assumed view width before the first layout pass reports the real one.
@@ -1197,8 +1200,22 @@ class CanvasState(
         recordHistory()
         rememberActiveColor()
         clearSelectionState()
-        shapeStart = snappedToGrid(worldPoint)
+        shapeStart = snappedToObject(worldPoint) ?: snappedToGrid(worldPoint)
         shapePreview = shapeStart to shapeStart
+    }
+
+    /** Snap shape points to existing strokes' ends and corners (see [nearestSnapAnchor]); a user setting. */
+    var snapToObjects by mutableStateOf(true)
+
+    /** The anchor the shape being drawn is snapped to right now, shown as a ring; null when none. */
+    var snapIndicator: WorldPoint? by mutableStateOf(null)
+        private set
+
+    private fun snappedToObject(point: WorldPoint): WorldPoint? {
+        if (!snapToObjects) return null
+        val anchor = nearestSnapAnchor(strokes, point, OBJECT_SNAP_RADIUS_SCREEN / scale.coerceAtLeast(1e-300), ::isVisible)
+        snapIndicator = anchor
+        return anchor
     }
 
     /**
@@ -1213,13 +1230,19 @@ class CanvasState(
 
     fun continueShape(worldPoint: WorldPoint) {
         if (shapePreview == null) return
-        // Grid snapping already gives clean geometry; angle/aspect snapping applies only off the grid.
+        // An object anchor wins (an exact join was asked for); then the grid, which already gives
+        // clean geometry; angle/aspect snapping applies only when neither did.
+        snappedToObject(worldPoint)?.let {
+            shapePreview = shapeStart to it
+            return
+        }
         val end = snappedToGrid(worldPoint)
         shapePreview = shapeStart to if (end != worldPoint) end else snappedShapeEnd(activeShapeKind, shapeStart, worldPoint)
     }
 
     /** Commits the current shape preview as a new stroke. No-op if there was no actual drag (a zero-size shape). */
     fun endShape() {
+        snapIndicator = null
         val preview = shapePreview ?: return
         shapePreview = null
         val (start, end) = preview

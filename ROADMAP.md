@@ -66,7 +66,7 @@ Goal: a full, professional tool set.
 - [x] 33. Rich text — bold, italic, four sizes, sticky notes, links, four fonts (system families), left/centre/right alignment, wrapping text boxes dragged out with the text tool (width fixed by the drag; no resize handle)
 - [x] 34. Gradients and pattern fills — fade fill, screentone fill, two-colour linear gradients in eight directions (also in SVG export); no radial gradients
 - [x] 35. Symmetry (mirror, four-way, radial); one- and two-point perspective guides with draggable vanishing points and assisted drawing (no three-point)
-- [~] 36. Snapping — shapes snap to grid on grid/dot paper, 15° angles, square/circle; no snap-to-object
+- [x] 36. Snapping — shapes snap to grid on grid/dot paper, 15° angles, square/circle, and to existing strokes' ends and corners (snap-to-object, with an on-screen ring; toggle in Settings)
 
 ## Phase 4 — Editing, organisation & layers
 

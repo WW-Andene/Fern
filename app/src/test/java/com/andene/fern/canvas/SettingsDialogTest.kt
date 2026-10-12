@@ -31,6 +31,8 @@ class SettingsDialogTest {
                 onLeftHandedChange = { leftHanded = it },
                 toolbarAtBottom = false,
                 onToolbarAtBottomChange = {},
+                snapToObjects = true,
+                onSnapToObjectsChange = {},
                 onShowGuide = {},
                 onDismiss = { dismissed = true },
             )

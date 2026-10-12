@@ -24,6 +24,7 @@ private const val KEY_LEFT_HANDED = "left_handed"
 private const val KEY_TOOLBAR_BOTTOM = "toolbar_bottom"
 private const val KEY_STAMP_BRUSH = "stamp_brush"
 private const val KEY_TOOL_SLOTS = "tool_slots"
+private const val KEY_SNAP_TO_OBJECTS = "snap_to_objects"
 
 /** App preferences, stored in SharedPreferences so they apply to every document and survive restarts. */
 object AppSettings {
@@ -39,6 +40,13 @@ object AppSettings {
 
     fun setToolbarAtBottom(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_TOOLBAR_BOTTOM, value).apply()
+    }
+
+    fun snapToObjects(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean(KEY_SNAP_TO_OBJECTS, true)
+
+    fun setSnapToObjects(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_SNAP_TO_OBJECTS, value).apply()
     }
 
     /** The last stamp brush chosen in the brush editor, or the default brush if none was (or it can't be read). */
@@ -128,6 +136,8 @@ fun SettingsDialog(
     onLeftHandedChange: (Boolean) -> Unit,
     toolbarAtBottom: Boolean,
     onToolbarAtBottomChange: (Boolean) -> Unit,
+    snapToObjects: Boolean,
+    onSnapToObjectsChange: (Boolean) -> Unit,
     onShowGuide: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -149,6 +159,13 @@ fun SettingsDialog(
                 ) {
                     Text("Toolbar at the bottom", modifier = Modifier.weight(1f))
                     Switch(checked = toolbarAtBottom, onCheckedChange = onToolbarAtBottomChange)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Snap shapes to objects", modifier = Modifier.weight(1f))
+                    Switch(checked = snapToObjects, onCheckedChange = onSnapToObjectsChange)
                 }
                 TextButton(onClick = onShowGuide) { Text("Show the gesture guide") }
             }

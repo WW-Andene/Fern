@@ -471,6 +471,11 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                 drawPath(lasso, color = MARQUEE_BORDER_COLOR, style = DrawStyle(width = 2f))
             }
 
+            // Ring on the object point the shape being drawn is snapped to.
+            state.snapIndicator?.let { anchor ->
+                drawCircle(color = MARQUEE_BORDER_COLOR, radius = 12f, center = state.worldToScreen(anchor, screenCenter), style = DrawStyle(width = 2f))
+            }
+
             state.textBoxDraft?.let { (start, end) ->
                 val a = state.worldToScreen(start, screenCenter)
                 val b = state.worldToScreen(end, screenCenter)

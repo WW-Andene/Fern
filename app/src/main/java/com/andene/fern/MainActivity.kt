@@ -412,6 +412,7 @@ class MainActivity : ComponentActivity() {
                         canvasState.loadSavedColors(withContext(Dispatchers.IO) { CanvasStorage.loadSavedColors(context) })
                         canvasState.loadBrush(AppSettings.stampBrush(context))
                         canvasState.loadToolSlots(AppSettings.toolSlots(context))
+                        canvasState.snapToObjects = AppSettings.snapToObjects(context)
                         refreshDocuments()
                         var current = documents.firstOrNull { it.trashedAt == null }
                         if (current == null) {
@@ -757,6 +758,11 @@ class MainActivity : ComponentActivity() {
                             onToolbarAtBottomChange = { value ->
                                 toolbarAtBottom = value
                                 AppSettings.setToolbarAtBottom(context, value)
+                            },
+                            snapToObjects = canvasState.snapToObjects,
+                            onSnapToObjectsChange = { value ->
+                                canvasState.snapToObjects = value
+                                AppSettings.setSnapToObjects(context, value)
                             },
                             onShowGuide = {
                                 showSettings = false
