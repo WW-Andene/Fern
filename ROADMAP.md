@@ -140,7 +140,7 @@ All deferred: they need a server or cloud platform.
 - [~] 81. Automatic in-betweens and motion along a drawn path, with easing (linear, ease in, ease out, ease in-out); no graph editor for custom curves
 - [x] 82. Shape tweening — strokes morphed pairwise in in-betweens, each paired with its nearest counterpart, closed outlines lined up (start point and direction) so they don't twist
 - [x] 83. Bones and skeletons: a bone tool draws bones (chained when started at a tail), binds strokes to the nearest bones, and poses per frame (turn a bone with its children and ink, move a root); copied frames carry the pose, in-betweens tween it; saved, in bundles, undoable
-- [ ] 84. Mesh deformation with weights
+- [~] 84. Weighted deformation: smooth joints bend bound ink around a turned bone's joint by inverse-distance weights (rotation-blended); weights are automatic, not paintable, and there's no free-form mesh
 - [ ] 85. Inverse kinematics, constraints, physics
 - [ ] 86. Skins and animation blending
 - [ ] 87. Spine / Lottie / DragonBones export and import

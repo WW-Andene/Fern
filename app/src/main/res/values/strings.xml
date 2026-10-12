@@ -335,4 +335,6 @@
     <string name="tb_bones_add">Adding bones (tap to pose them)</string>
     <string name="tb_bones_bind">Bind strokes to the nearest bones</string>
     <string name="tb_bones_delete">Delete bone</string>
+    <string name="tb_joints_smooth">Smooth joints: on (ink bends at joints)</string>
+    <string name="tb_joints_rigid">Smooth joints: off (ink moves rigidly)</string>
 </resources>

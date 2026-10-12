@@ -87,6 +87,34 @@ class BonesTest {
         assertEquals(setOf(0, 1, 2), state.bones.map { it.animFrame }.toSet())
     }
 
+    /** Roadmap item 84: a line along the whole arm, bound to the forearm, bends at the elbow. */
+    private fun bendElbow(smooth: Boolean): List<WorldPoint> {
+        val state = arm()
+        val line = Stroke(Color.Black, 2.0).onBone(state.bones[1].id).apply {
+            addPoint(WorldPoint(0.0, 0.0)); addPoint(WorldPoint(100.0, 0.0)); addPoint(WorldPoint(200.0, 0.0))
+        }
+        state.loadStrokes(listOf(line))
+        state.posingBones = true
+        state.smoothJoints = smooth
+        // A quarter turn of the forearm about the elbow (100,0).
+        state.beginBone(WorldPoint(200.0, 0.0))
+        state.continueBone(WorldPoint(100.0, 100.0))
+        state.endBone()
+        return state.strokes.single().points
+    }
+
+    @Test
+    fun smoothJointsBendInkByDistanceWhileRigidMovesItWhole() {
+        val smooth = bendElbow(smooth = true)
+        assertEquals(WorldPoint(0.0, 0.0), smooth[0]) // far up the upper arm: weight 0, unmoved
+        assertEquals(WorldPoint(100.0, 0.0), smooth[1]) // on the joint itself
+        assertEquals(100.0, smooth[2].x, 1e-6) // the hand: weight 1, turned fully
+        assertEquals(100.0, smooth[2].y, 1e-6)
+        val rigid = bendElbow(smooth = false)
+        assertEquals(100.0, rigid[0].x, 1e-6) // the whole line turned about the elbow
+        assertEquals(-100.0, rigid[0].y, 1e-6)
+    }
+
     @Test
     fun deletingABoneTakesItsChildrenAndUnbindsTheirInk() {
         val state = arm()

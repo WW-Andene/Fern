@@ -637,6 +637,17 @@ class CanvasState(
     /** With [Tool.BONE]: true to pose (rotate, move) the skeleton, false to add bones. */
     var posingBones by mutableStateOf(false)
 
+    /**
+     * Smooth joints (roadmap item 84): turning a bone bends the ink around its joint instead of
+     * moving it rigidly. Each point of a stroke bound to the turned bone or to its parent follows
+     * the turn by a weight from its distances to the two bones (inverse-distance: fully far out
+     * along the turned bone, half at the joint, not at all far up the parent): it turns about
+     * the joint by the bone's angle times its weight. Blending the angle, rather than the two
+     * bones' positions as linear blend skinning does, keeps a bent joint from pinching. Weights are taken from the pose when the drag starts, and the
+     * drag is applied from that starting geometry, so posing never drifts.
+     */
+    var smoothJoints by mutableStateOf(true)
+
     /** The bones of the frame on screen. */
     val currentBones: List<Bone> get() = bones.filter { it.animFrame == currentAnimFrame }
 
@@ -645,6 +656,19 @@ class CanvasState(
     private data class BoneGesture(val kind: BoneGestureKind, val boneId: String?, val last: WorldPoint, val parentId: String? = null, val head: WorldPoint = last)
 
     private var boneGesture: BoneGesture? = null
+
+    // A turn in progress, applied from its start each move: the turned bone's joint and starting
+    // pointer angle, its subtree, the frame's bones then, and each moved stroke's starting points
+    // with per-point weights (null = rigid).
+    private class BoneTurn(
+        val center: WorldPoint,
+        val startAngle: Double,
+        val moved: Set<String>,
+        val startBones: List<Bone>,
+        val strokes: List<Triple<Stroke, List<WorldPoint>, DoubleArray?>>,
+    )
+
+    private var boneTurn: BoneTurn? = null
 
     /** The bone being drawn by an add drag, for the overlay; null otherwise. */
     var boneDraft by mutableStateOf<Pair<WorldPoint, WorldPoint>?>(null)
@@ -687,6 +711,33 @@ class CanvasState(
         }
         if (gesture.kind != BoneGestureKind.NONE) recordHistory()
         boneGesture = gesture
+        boneTurn = if (gesture.kind == BoneGestureKind.ROTATE) startTurn(frameBones.first { it.id == gesture.boneId }, world) else null
+    }
+
+    private fun startTurn(bone: Bone, pointer: WorldPoint): BoneTurn {
+        val frame = currentAnimFrame
+        val frameBones = bones.filter { it.animFrame == frame }
+        val moved = boneSubtree(frameBones, bone.id)
+        val parent = if (smoothJoints) bone.parentId?.let { id -> frameBones.firstOrNull { it.id == id } } else null
+        val affected = strokes.filter { it.animFrame == frame && (it.boneId in moved || (parent != null && it.boneId == parent.id)) }
+        return BoneTurn(
+            bone.head,
+            atan2(pointer.y - bone.head.y, pointer.x - bone.head.x),
+            moved,
+            frameBones,
+            affected.map { stroke ->
+                val points = stroke.points.toList()
+                // Only ink on the turned bone itself or its parent blends; deeper bones move rigidly.
+                val weights = if (parent != null && (stroke.boneId == bone.id || stroke.boneId == parent.id)) {
+                    DoubleArray(points.size) { i ->
+                        val toBone = distanceToBone(bone, points[i])
+                        val toParent = distanceToBone(parent, points[i])
+                        if (toBone + toParent == 0.0) 0.5 else toParent / (toBone + toParent)
+                    }
+                } else null
+                Triple(stroke, points, weights)
+            },
+        )
     }
 
     fun continueBone(world: WorldPoint) {
@@ -697,9 +748,24 @@ class CanvasState(
                 boneGesture = gesture.copy(last = world)
             }
             BoneGestureKind.ROTATE -> {
-                val bone = currentBones.firstOrNull { it.id == gesture.boneId } ?: return
-                val turn = atan2(world.y - bone.head.y, world.x - bone.head.x) - atan2(gesture.last.y - bone.head.y, gesture.last.x - bone.head.x)
-                transformRig(bone.id) { rotateAbout(it, bone.head, turn) }
+                val turn = boneTurn ?: return
+                val angle = atan2(world.y - turn.center.y, world.x - turn.center.x) - turn.startAngle
+                val start = turn.startBones.associateBy { it.id }
+                for (i in bones.indices) {
+                    val b = bones[i]
+                    if (b.animFrame == currentAnimFrame && b.id in turn.moved) {
+                        val s0 = start[b.id] ?: continue
+                        bones[i] = b.copy(head = rotateAbout(s0.head, turn.center, angle), tail = rotateAbout(s0.tail, turn.center, angle))
+                    }
+                }
+                for ((stroke, points, weights) in turn.strokes) {
+                    if (stroke.points.size != points.size) continue
+                    stroke.setPoints(
+                        if (weights == null) points.map { rotateAbout(it, turn.center, angle) }
+                        else points.mapIndexed { i, p -> rotateAbout(p, turn.center, angle * weights[i]) }
+                    )
+                }
+                geometryEpoch++
                 boneGesture = gesture.copy(last = world)
             }
             BoneGestureKind.MOVE -> {
@@ -714,6 +780,7 @@ class CanvasState(
     fun endBone() {
         val gesture = boneGesture ?: return
         boneGesture = null
+        boneTurn = null
         boneDraft = null
         when (gesture.kind) {
             BoneGestureKind.ADD -> {
@@ -2825,6 +2892,9 @@ class CanvasState(
             onBonesChanged(bones.toList())
         }
         boneGesture = boneGesture?.let { it.copy(last = it.last - offset) }
+        // A turn holds starting geometry in the old coordinates; one-finger drags don't pan, so
+        // this can't normally happen mid-turn, but if it does the turn simply stops.
+        boneTurn = null
         if (frames.isNotEmpty()) {
             for (i in frames.indices) frames[i] = frames[i].copy(min = frames[i].min - offset, max = frames[i].max - offset)
             onFramesChanged(frames.toList())

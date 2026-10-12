@@ -478,6 +478,13 @@ fun Toolbar(
                                 contentDescription = if (state.posingBones) stringResource(R.string.tb_bones_pose) else stringResource(R.string.tb_bones_add),
                             )
                         }
+                        IconButton(onClick = { state.smoothJoints = !state.smoothJoints }) {
+                            Icon(
+                                Icons.Filled.Gesture,
+                                contentDescription = if (state.smoothJoints) stringResource(R.string.tb_joints_smooth) else stringResource(R.string.tb_joints_rigid),
+                                tint = if (state.smoothJoints) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                            )
+                        }
                         IconButton(onClick = { state.bindStrokesToNearestBones() }, enabled = state.currentBones.isNotEmpty()) {
                             Icon(Icons.Filled.Link, contentDescription = stringResource(R.string.tb_bones_bind))
                         }

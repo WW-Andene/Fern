@@ -337,4 +337,6 @@
     <string name="tb_bones_add">Ajout d\'os (touchez pour les poser)</string>
     <string name="tb_bones_bind">Lier les traits aux os les plus proches</string>
     <string name="tb_bones_delete">Supprimer l\'os</string>
+    <string name="tb_joints_smooth">Articulations souples : activées (l\'encre se plie aux articulations)</string>
+    <string name="tb_joints_rigid">Articulations souples : désactivées (l\'encre bouge d\'un bloc)</string>
 </resources>
