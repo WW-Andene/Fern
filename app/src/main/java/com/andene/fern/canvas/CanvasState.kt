@@ -95,8 +95,8 @@ class CanvasState(
     private val onLayerCompsChanged: (List<LayerComp>) -> Unit = {},
     private val onStatsChanged: (DocumentStats) -> Unit = {},
     private val onGuidesChanged: (List<Guide>) -> Unit = {},
-    /** The game objects changed (roadmap item 155). */
-    private val onGameObjectsChanged: (List<GameObject>) -> Unit = {},
+    /** The game objects or the game's world settings changed (roadmap items 155 and 159). */
+    private val onGameObjectsChanged: (List<GameObject>, GameSettings) -> Unit = { _, _ -> },
     /** The animation branches changed (roadmap item 153): the branches and the current one's id. */
     private val onBranchesChanged: (List<AnimationBranch>, String) -> Unit = { _, _ -> },
     /** The document's drawing scale changed (roadmap item 143). */
@@ -506,10 +506,20 @@ class CanvasState(
     /** The document's game objects (roadmap item 155); see [GameObject]. Not part of undo, like frames and layers. */
     val gameObjects = mutableStateListOf<GameObject>()
 
-    fun loadGameObjects(loaded: List<GameObject>) {
+    fun loadGameObjects(loaded: List<GameObject>, settings: GameSettings = GameSettings()) {
         play = null // a game of another document stops
         gameObjects.clear()
         gameObjects.addAll(loaded)
+        gameSettings = settings
+    }
+
+    /** The game's gravity and walls (roadmap item 159). */
+    var gameSettings by mutableStateOf(GameSettings())
+        private set
+
+    fun changeGameSettings(settings: GameSettings) {
+        gameSettings = settings
+        onGameObjectsChanged(gameObjects.toList(), gameSettings)
     }
 
     /** The object the selection belongs to, if it's all one object's strokes. */
@@ -531,7 +541,7 @@ class CanvasState(
         }
         val made = GameObject(group, name)
         gameObjects.add(made)
-        onGameObjectsChanged(gameObjects.toList())
+        onGameObjectsChanged(gameObjects.toList(), gameSettings)
         return made
     }
 
@@ -540,12 +550,12 @@ class CanvasState(
         val index = gameObjects.indexOfFirst { it.id == updated.id }
         if (index == -1) return
         gameObjects[index] = updated
-        onGameObjectsChanged(gameObjects.toList())
+        onGameObjectsChanged(gameObjects.toList(), gameSettings)
     }
 
     /** Turns object [id] back into a plain drawing; its strokes stay (still grouped). */
     fun removeObject(id: String) {
-        if (gameObjects.removeWhere { it.id == id }) onGameObjectsChanged(gameObjects.toList())
+        if (gameObjects.removeWhere { it.id == id }) onGameObjectsChanged(gameObjects.toList(), gameSettings)
     }
 
     /**
@@ -590,7 +600,7 @@ class CanvasState(
         val center = Offset(viewportSize.width / 2f, viewportSize.height / 2f)
         val corners = listOf(Offset.Zero, Offset(viewportSize.width, 0f), Offset(0f, viewportSize.height), Offset(viewportSize.width, viewportSize.height)).map { screenToWorld(it, center) }
         val scene = WorldBox(WorldPoint(corners.minOf { it.x }, corners.minOf { it.y }), WorldPoint(corners.maxOf { it.x }, corners.maxOf { it.y }))
-        play = GameWorld(gameObjects.toList(), boxes, scene)
+        play = GameWorld(gameObjects.toList(), boxes, scene, gameSettings)
         playRevision++
     }
 

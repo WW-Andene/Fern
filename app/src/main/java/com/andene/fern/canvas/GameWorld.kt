@@ -38,6 +38,8 @@ class GameInstance(val def: GameObject, val drawn: WorldBox) {
     var swingY = 0.0
     // How far along its path a FOLLOW_PATH behaviour has gone.
     var travelled = 0.0
+    /** Standing on something this step (physics, roadmap item 159). */
+    var grounded = false
 
     /** Where the drawn point [p] is shown now: turned and scaled about the pivot, then moved. */
     fun place(p: WorldPoint): WorldPoint {
@@ -61,7 +63,7 @@ class GameInstance(val def: GameObject, val drawn: WorldBox) {
  * once at the start, then each step moves, turns, follows paths, swings, bounces off and wraps
  * around the scene's edges, blinks and pulses.
  */
-class GameWorld(objects: List<GameObject>, drawnBoxes: Map<String, WorldBox>, val scene: WorldBox) {
+class GameWorld(objects: List<GameObject>, drawnBoxes: Map<String, WorldBox>, val scene: WorldBox, val settings: GameSettings = GameSettings()) {
     val instances: List<GameInstance> = objects.mapNotNull { def -> drawnBoxes[def.id]?.let { GameInstance(def, it) } }
 
     init {
@@ -73,8 +75,13 @@ class GameWorld(objects: List<GameObject>, drawnBoxes: Map<String, WorldBox>, va
         }
     }
 
-    /** Advances the world by [dt] seconds. */
+    /** The bodies that touched in the last step (roadmap item 159). */
+    var contacts: List<Contact> = emptyList()
+        private set
+
+    /** Advances the world by [dt] seconds: gravity, movement and behaviours, then collisions. */
     fun step(dt: Double) {
+        Physics2d.applyGravity(this, settings, dt)
         for (instance in instances) {
             if (instance.removed) continue
             instance.time += dt
@@ -82,6 +89,7 @@ class GameWorld(objects: List<GameObject>, drawnBoxes: Map<String, WorldBox>, va
             instance.y += instance.vy * dt
             for (b in instance.def.behaviours) act(instance, b, dt)
         }
+        contacts = Physics2d.resolve(this, settings)
     }
 
     private fun act(o: GameInstance, b: Behaviour, dt: Double) {

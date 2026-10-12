@@ -242,7 +242,7 @@ object CanvasStorage {
         if (frames.isNotEmpty()) saveFrames(context, meta.id, frames)
         if (drawingScale != null) saveDrawingScale(context, meta.id, drawingScale)
         if (branches != null) writeAtomically(branchesFile(context, meta.id), branches)
-        if (gameObjects.isNotEmpty()) saveGameObjects(context, meta.id, gameObjects)
+        if (gameObjects.first.isNotEmpty()) saveGameObjects(context, meta.id, gameObjects.first, gameObjects.second)
         return meta
     }
 
@@ -749,13 +749,15 @@ object CanvasStorage {
         }
     }
 
-    /** Saves the document's game objects (roadmap item 155). */
-    fun saveGameObjects(context: Context, documentId: String, objects: List<GameObject>) {
-        if (objects.isEmpty()) gameObjectsFile(context, documentId).delete() else writeStored(gameObjectsFile(context, documentId), GameObjectsJson.write(objects))
+    /** Saves the document's game objects and world settings (roadmap items 155 and 159). */
+    fun saveGameObjects(context: Context, documentId: String, objects: List<GameObject>, settings: GameSettings) {
+        if (objects.isEmpty() && settings == GameSettings()) gameObjectsFile(context, documentId).delete()
+        else writeStored(gameObjectsFile(context, documentId), GameObjectsJson.writeGame(objects, settings))
     }
 
-    fun loadGameObjects(context: Context, documentId: String): List<GameObject> =
-        readStored(gameObjectsFile(context, documentId)) { it as JSONArray }?.let(GameObjectsJson::read).orEmpty()
+    /** The saved objects and settings; files from before settings existed hold only the object list. */
+    fun loadGameObjects(context: Context, documentId: String): Pair<List<GameObject>, GameSettings> =
+        readStored(gameObjectsFile(context, documentId)) { it }?.let(GameObjectsJson::readGame) ?: (emptyList<GameObject>() to GameSettings())
 
     /**
      * Saves the document's animation branches (roadmap item 153) and which one is current. The

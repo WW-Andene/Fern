@@ -40,19 +40,64 @@ data class Behaviour(val kind: BehaviourKind, val params: Map<String, Double> = 
     fun param(key: String): Double = params[key] ?: kind.params.firstOrNull { it.key == key }?.default ?: 0.0
 }
 
+/** How physics treats an object (roadmap item 159): not at all, as an immovable wall, or as a falling, colliding body. */
+enum class BodyType { NONE, STATIC, DYNAMIC }
+
+/** The shape physics gives an object: its box, or the circle inside it. */
+enum class BodyShape { BOX, CIRCLE }
+
+/**
+ * An object's physics (roadmap item 159): its [type] and [shape], [mass], how much it bounces
+ * ([bounce], 0-1), how much it grips what it slides on ([friction], 0-1), and how strongly
+ * gravity pulls it ([gravityScale]).
+ */
+data class PhysicsBody(
+    val type: BodyType = BodyType.NONE,
+    val shape: BodyShape = BodyShape.BOX,
+    val mass: Double = 1.0,
+    val bounce: Double = 0.2,
+    val friction: Double = 0.3,
+    val gravityScale: Double = 1.0,
+)
+
 /**
  * A game object (roadmap item 155): the strokes of group [id], called [name], with named number
- * [properties] (a score, health, a speed - for rules and scripts) and [behaviours].
+ * [properties] (a score, health, a speed - for rules and scripts), [behaviours] and its
+ * [body] for physics (roadmap item 159).
  */
 data class GameObject(
     val id: String,
     val name: String,
     val properties: Map<String, Double> = emptyMap(),
     val behaviours: List<Behaviour> = emptyList(),
+    val body: PhysicsBody = PhysicsBody(),
 )
+
+/**
+ * The game's world settings (roadmap item 159): gravity (world units a second squared, y down)
+ * and whether the scene's edges are walls physics bodies collide with.
+ */
+data class GameSettings(val gravityX: Double = 0.0, val gravityY: Double = 900.0, val walls: Boolean = true)
 
 /** Reading and writing the objects (objects_<document>.json). */
 object GameObjectsJson {
+    /** The objects and the world settings as one JSON object. */
+    fun writeGame(objects: List<GameObject>, settings: GameSettings): JSONObject = JSONObject()
+        .put("objects", write(objects))
+        .put("settings", JSONObject().put("gravityX", settings.gravityX).put("gravityY", settings.gravityY).put("walls", settings.walls))
+
+    /** Objects and settings from [writeGame]'s form, or from the plain object list saved before settings existed. */
+    fun readGame(stored: Any): Pair<List<GameObject>, GameSettings> = when (stored) {
+        is JSONArray -> read(stored) to GameSettings()
+        is JSONObject -> {
+            val s = stored.optJSONObject("settings")
+            (stored.optJSONArray("objects")?.let(::read).orEmpty()) to GameSettings(
+                s?.optDouble("gravityX", 0.0) ?: 0.0, s?.optDouble("gravityY", 900.0) ?: 900.0, s?.optBoolean("walls", true) ?: true,
+            )
+        }
+        else -> emptyList<GameObject>() to GameSettings()
+    }
+
     fun write(objects: List<GameObject>): JSONArray = JSONArray().apply {
         for (o in objects) put(
             JSONObject().put("id", o.id).put("name", o.name)
@@ -61,7 +106,9 @@ object GameObjectsJson {
                     for (b in o.behaviours) put(JSONObject().put("kind", b.kind.name).put("params", JSONObject().apply { for ((k, v) in b.params) put(k, v) }).apply {
                         b.path?.let { path -> put("path", JSONArray(path.map { JSONArray().put(it.x).put(it.y) })) }
                     })
-                }),
+                })
+                .put("body", JSONObject().put("type", o.body.type.name).put("shape", o.body.shape.name).put("mass", o.body.mass)
+                    .put("bounce", o.body.bounce).put("friction", o.body.friction).put("gravityScale", o.body.gravityScale)),
         )
     }
 
@@ -81,6 +128,14 @@ object GameObjectsJson {
                     Behaviour(kind, kind.params.associate { it.key to it.default } + params, path)
                 }
             }.orEmpty(),
+            o.optJSONObject("body")?.let { b ->
+                PhysicsBody(
+                    BodyType.entries.firstOrNull { it.name == b.optString("type") } ?: BodyType.NONE,
+                    BodyShape.entries.firstOrNull { it.name == b.optString("shape") } ?: BodyShape.BOX,
+                    b.optDouble("mass", 1.0).coerceAtLeast(0.001), b.optDouble("bounce", 0.2).coerceIn(0.0, 1.0),
+                    b.optDouble("friction", 0.3).coerceIn(0.0, 1.0), b.optDouble("gravityScale", 1.0),
+                )
+            } ?: PhysicsBody(),
         )
     }
 }

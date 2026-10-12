@@ -245,7 +245,7 @@ Shared, multiplayer parts need a server and are deferred ⏸; single-player part
 - [ ] 156. Visual scripting (nodes / blocks)
 - [~] 157. Drawn behaviours — a drawn path becomes motion (animate along path); hitboxes and links not started
 - [ ] 158. State machines linking rig animations to logic
-- [ ] 159. 2D physics
+- [x] 159. 2D physics — arcade physics for game objects: fixed (solid) or dynamic bodies as boxes or circles, with mass, bounce, friction and gravity scale; world gravity in any direction and scene edges as walls; contacts and standing-on-something reported for rules and scripts. Bodies are axis-aligned (an object's turn doesn't tilt its body)
 - [ ] 160. Input mapping (touch, stylus, gamepad, keyboard)
 - [ ] 161. Play mode
 - [ ] 162. Online multiplayer play ⏸

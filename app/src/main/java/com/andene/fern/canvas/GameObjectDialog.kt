@@ -1,5 +1,10 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material3.Switch
+import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -99,6 +104,7 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                         }) { Text(stringResource(R.string.object_use_path)) }
                     }
                 }
+                PhysicsSection(state, current.body) { save(current.copy(body = it)) }
                 Box {
                     TextButton(onClick = { showBehaviours = true }) { Text(stringResource(R.string.object_add_behaviour)) }
                     DropdownMenu(expanded = showBehaviours, onDismissRequest = { showBehaviours = false }) {
@@ -145,3 +151,44 @@ internal fun NumberField(value: Double, onChange: (Double) -> Unit) {
 /** [value] as typed by hand: whole numbers without decimals, others as they are. */
 internal fun plainNumber(value: Double): String =
     if (value == kotlin.math.floor(value) && kotlin.math.abs(value) < 1e15) value.toLong().toString() else value.toString()
+
+/** An object's physics (roadmap item 159), and the world's gravity and walls. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PhysicsSection(state: CanvasState, body: PhysicsBody, onChange: (PhysicsBody) -> Unit) {
+    HorizontalDivider(Modifier.padding(vertical = 8.dp))
+    Text(stringResource(R.string.physics_title), style = MaterialTheme.typography.titleSmall)
+    FlowRow {
+        for ((type, label) in listOf(BodyType.NONE to R.string.physics_none, BodyType.STATIC to R.string.physics_static, BodyType.DYNAMIC to R.string.physics_dynamic)) {
+            FilterChip(selected = body.type == type, onClick = { onChange(body.copy(type = type)) }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = 8.dp))
+        }
+    }
+    if (body.type == BodyType.NONE) return
+    FlowRow {
+        for ((shape, label) in listOf(BodyShape.BOX to R.string.physics_box, BodyShape.CIRCLE to R.string.physics_circle)) {
+            FilterChip(selected = body.shape == shape, onClick = { onChange(body.copy(shape = shape)) }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = 8.dp))
+        }
+    }
+    LabelledNumber(R.string.physics_bounce, body.bounce) { onChange(body.copy(bounce = it.coerceIn(0.0, 1.0))) }
+    LabelledNumber(R.string.physics_friction, body.friction) { onChange(body.copy(friction = it.coerceIn(0.0, 1.0))) }
+    if (body.type == BodyType.DYNAMIC) {
+        LabelledNumber(R.string.physics_mass, body.mass) { onChange(body.copy(mass = it.coerceAtLeast(0.001))) }
+        LabelledNumber(R.string.physics_gravity_scale, body.gravityScale) { onChange(body.copy(gravityScale = it)) }
+    }
+    val world = state.gameSettings
+    Text(stringResource(R.string.physics_world), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+    LabelledNumber(R.string.physics_gravity_down, world.gravityY) { state.changeGameSettings(world.copy(gravityY = it)) }
+    LabelledNumber(R.string.physics_gravity_across, world.gravityX) { state.changeGameSettings(world.copy(gravityX = it)) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.physics_walls), modifier = Modifier.weight(1f))
+        Switch(checked = world.walls, onCheckedChange = { state.changeGameSettings(world.copy(walls = it)) })
+    }
+}
+
+@Composable
+private fun LabelledNumber(@StringRes label: Int, value: Double, onChange: (Double) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(label), modifier = Modifier.weight(1f))
+        NumberField(value, onChange)
+    }
+}
