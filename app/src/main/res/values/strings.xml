@@ -266,6 +266,10 @@
     <string name="menu_insert_image">Insert image</string>
     <string name="menu_import_pdf">Import PDF to annotate</string>
     <string name="menu_import_spine">Import Spine skeleton</string>
+    <string name="menu_import_layered">Import PSD, Krita or Procreate</string>
+    <string name="tb_export_psd">Photoshop (.psd)</string>
+    <string name="tb_export_kra">Krita (.kra)</string>
+    <string name="toast_bad_layered">No layers could be read from that file</string>
     <string name="tb_export_spine">Spine skeleton (zip)</string>
     <string name="tb_export_dragonbones">DragonBones skeleton (zip)</string>
     <string name="toast_bad_spine">No Spine skeleton could be read from that file</string>

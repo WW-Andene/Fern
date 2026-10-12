@@ -192,6 +192,9 @@ fun Toolbar(
     onExportWebm: () -> Unit = {},
     onImportPdf: () -> Unit = {},
     onImportSpine: () -> Unit = {},
+    onImportLayered: () -> Unit = {},
+    onExportPsd: () -> Unit = {},
+    onExportKra: () -> Unit = {},
     onExportSpine: () -> Unit = {},
     onExportDragonBones: () -> Unit = {},
     onOpenFrames: () -> Unit = {},
@@ -1003,6 +1006,7 @@ fun Toolbar(
                             Triple(R.string.menu_insert_image, Icons.Filled.Image, onInsertImage),
                             Triple(R.string.menu_import_pdf, Icons.Filled.PictureAsPdf, onImportPdf),
                             Triple(R.string.menu_import_spine, Icons.Filled.AccessibilityNew, onImportSpine),
+                            Triple(R.string.menu_import_layered, Icons.Filled.Layers, onImportLayered),
                             Triple(R.string.search_title, Icons.Filled.Search) { showSearchDialog = true },
                             Triple(R.string.pins_title, Icons.Filled.PushPin, onOpenPins),
                             Triple(R.string.frames_title, Icons.Filled.CropFree, onOpenFrames),
@@ -1080,6 +1084,20 @@ fun Toolbar(
                             onClick = {
                                 showExportMenu = false
                                 onExportSvg()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.tb_export_psd)) },
+                            onClick = {
+                                showExportMenu = false
+                                onExportPsd()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.tb_export_kra)) },
+                            onClick = {
+                                showExportMenu = false
+                                onExportKra()
                             },
                         )
                         DropdownMenuItem(
