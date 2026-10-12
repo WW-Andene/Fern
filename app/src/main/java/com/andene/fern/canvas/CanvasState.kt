@@ -363,8 +363,8 @@ class CanvasState(
 
     /**
      * Automatic in-betweens: inserts [count] frames between the current frame and the next,
-     * morphing each stroke of the current frame into the stroke at the same position (drawing
-     * order) in the next frame. Both strokes are resampled to the same number of points by arc
+     * morphing each stroke of the current frame into its counterpart in the next ([tweenPairs]:
+     * nearest centres). Both strokes are resampled to the same number of points by arc
      * length and interpolated, along with width and colour, at the progress [motionEasing] gives
      * each in-between. Strokes without a partner
      * (the frames have different stroke counts) are left out of the in-betweens. Undoable.
@@ -375,7 +375,7 @@ class CanvasState(
         if (count < 1 || to >= animFrameCount) return
         val start = strokes.filter { it.animFrame == from && !it.filled }
         val end = strokes.filter { it.animFrame == to && !it.filled }
-        val pairs = start.zip(end)
+        val pairs = tweenPairs(start, end)
         if (pairs.isEmpty()) return
         recordHistory()
         clearSelectionState()
@@ -383,12 +383,14 @@ class CanvasState(
         for (i in strokes.indices) {
             if (strokes[i].animFrame >= to) strokes[i] = strokes[i].onAnimFrame(strokes[i].animFrame + count)
         }
+        // Matched once per pair, shared by every in-between.
+        val matched = pairs.map { (a, b) -> tweenSamples(a, b, maxOf(a.points.size, b.points.size, 2)) }
         for (step in 1..count) {
             val t = motionEasing.at(step.toDouble() / (count + 1))
-            for ((a, b) in pairs) {
-                val samples = maxOf(a.points.size, b.points.size, 2)
-                val pa = resamplePolyline(a.points, samples)
-                val pb = resamplePolyline(b.points, samples)
+            for ((index, pair) in pairs.withIndex()) {
+                val (a, b) = pair
+                val (pa, pb) = matched[index]
+                val samples = pa.size
                 val color = androidx.compose.ui.graphics.lerp(a.color, b.color, t.toFloat())
                 val tween = Stroke(color, a.widthWorld + (b.widthWorld - a.widthWorld) * t, a.penType, blendMode = a.blendMode, layerId = a.layerId, animFrame = from + step, dashed = a.dashed, brush = a.brush)
                 for (i in 0 until samples) tween.addPoint(WorldPoint(pa[i].x + (pb[i].x - pa[i].x) * t, pa[i].y + (pb[i].y - pa[i].y) * t))
