@@ -1651,6 +1651,7 @@ class CanvasState(
                     isEditable(stroke) && stroke.points.isNotEmpty() &&
                         stroke.points.count { polygonContains(lasso, it) } * 2 >= stroke.points.size
                 })
+                expandSelectionToGroups()
             }
             return
         }
@@ -1663,6 +1664,7 @@ class CanvasState(
         val top = minOf(start.y, end.y)
         val bottom = maxOf(start.y, end.y)
         selection.addAll(strokes.filter { isEditable(it) && it.intersects(left, top, right, bottom) })
+        expandSelectionToGroups()
         // A tap (a marquee that never grew past a few pixels) that caught no strokes picks the
         // topmost image under it instead.
         val tapSlopWorld = TAP_SLOP_SCREEN / scale.coerceAtLeast(1e-300)
@@ -1803,6 +1805,54 @@ class CanvasState(
     var hasClipboard by mutableStateOf(false)
         private set
 
+    /** Adds every other editable member of each group a selected stroke belongs to: a group is picked whole. */
+    private fun expandSelectionToGroups() {
+        val groups = selection.mapNotNullTo(HashSet()) { it.groupId }
+        if (groups.isEmpty()) return
+        val already = selection.toHashSet()
+        selection.addAll(strokes.filter { it.groupId in groups && it !in already && isEditable(it) })
+    }
+
+    /** True if any selected stroke is in a group, so the toolbar offers Ungroup instead of Group. */
+    val selectionHasGroup: Boolean get() = selection.any { it.groupId != null }
+
+    /** Puts the selected strokes (two or more) into one new group, replacing any groups they were in. */
+    fun groupSelection() {
+        if (selection.size < 2) return
+        regroupSelection(UUID.randomUUID().toString())
+    }
+
+    /** Takes the selected strokes out of their groups. */
+    fun ungroupSelection() {
+        if (!selectionHasGroup) return
+        regroupSelection(null)
+    }
+
+    private fun regroupSelection(groupId: String?) {
+        recordHistory()
+        val replaced = selection.map { stroke ->
+            val copy = stroke.inGroup(groupId)
+            val index = strokes.indexOf(stroke)
+            if (index != -1) strokes[index] = copy
+            copy
+        }
+        selection.clear()
+        selection.addAll(replaced)
+        onChanged(strokes.toList())
+    }
+
+    /**
+     * Copies with their group ids replaced by fresh ones (consistently, so a copied group is still
+     * one group): a duplicate or a paste is a new group, not more members of the original.
+     */
+    private fun withFreshGroups(copies: List<Stroke>): List<Stroke> {
+        val fresh = HashMap<String, String>()
+        return copies.map { stroke ->
+            val old = stroke.groupId ?: return@map stroke
+            stroke.inGroup(fresh.getOrPut(old) { UUID.randomUUID().toString() })
+        }
+    }
+
     fun copySelection() {
         if (selection.isEmpty()) return
         clipboard = selection.map { it.deepCopy() }
@@ -1813,7 +1863,7 @@ class CanvasState(
     fun paste() {
         if (clipboard.isEmpty()) return
         recordHistory()
-        val pasted = clipboard.map { it.deepCopy() }
+        val pasted = withFreshGroups(clipboard.map { it.deepCopy() })
         val centerX = (pasted.minOf { it.minX } + pasted.maxOf { it.maxX }) / 2.0
         val centerY = (pasted.minOf { it.minY } + pasted.maxOf { it.maxY }) / 2.0
         // shiftBy subtracts, so shifting by (old centre - view centre) lands it at the view centre.
@@ -1957,7 +2007,7 @@ class CanvasState(
         val nudge = WorldPoint(20.0 / scale.coerceAtLeast(1e-300), 20.0 / scale.coerceAtLeast(1e-300))
         // deepCopy keeps every attribute (stylus data, stamp brush, fill gradient...); shiftBy
         // subtracts, so shifting by -nudge moves the copy down-right.
-        val duplicates = selection.map { original -> original.deepCopy().also { it.shiftBy(WorldPoint(-nudge.x, -nudge.y)) } }
+        val duplicates = withFreshGroups(selection.map { original -> original.deepCopy().also { it.shiftBy(WorldPoint(-nudge.x, -nudge.y)) } })
         strokes.addAll(duplicates)
         selection.clear()
         selection.addAll(duplicates)

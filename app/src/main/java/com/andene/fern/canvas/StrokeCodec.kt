@@ -23,6 +23,7 @@ import java.io.IOException
  *   [if FLAG_BRUSH: short tip name  float spacing  float scatter  float size jitter
  *                   float angle jitter  byte follow-direction]          (version 2+)
  *   [if FLAG_GRADIENT: int end colour (ARGB)  short angle in degrees]  (version 3+)
+ *   [if FLAG_GROUP: int group-id name]                                   (version 4+)
  *   int point count
  *   per point: double x, double y [, float pressure, float tilt, float orientation]
  * ```
@@ -39,8 +40,9 @@ object StrokeCodec {
      * Bump when the layout changes, and keep reading every older version.
      * 1: first binary format. 2: optional stamp-brush settings per stroke ([FLAG_BRUSH]).
      * 3: optional two-colour fill gradient ([FLAG_GRADIENT]).
+     * 4: optional group id ([FLAG_GROUP]); flags are read as an unsigned byte from here on.
      */
-    const val VERSION = 3
+    const val VERSION = 4
 
     private const val FLAG_FILLED = 1
     private const val FLAG_DASHED = 2
@@ -49,6 +51,8 @@ object StrokeCodec {
     private const val FLAG_STYLUS = 16
     private const val FLAG_BRUSH = 32
     private const val FLAG_GRADIENT = 64
+    // The last bit of the flags byte: a new flag needs a wider flags field and a version bump.
+    private const val FLAG_GROUP = 128
 
     fun write(out: DataOutputStream, strokes: List<Stroke>) {
         val names = LinkedHashMap<String, Int>()
@@ -59,6 +63,7 @@ object StrokeCodec {
             nameIndex(stroke.blendMode.name)
             nameIndex(stroke.layerId)
             stroke.brush?.let { nameIndex(it.tip.name) }
+            stroke.groupId?.let { nameIndex(it) }
         }
         out.writeInt(MAGIC)
         out.writeInt(VERSION)
@@ -77,6 +82,8 @@ object StrokeCodec {
             if (brush != null) flags = flags or FLAG_BRUSH
             val gradient = stroke.gradient
             if (gradient != null) flags = flags or FLAG_GRADIENT
+            val groupId = stroke.groupId
+            if (groupId != null) flags = flags or FLAG_GROUP
             out.writeInt(stroke.color.toArgb())
             out.writeDouble(stroke.widthWorld)
             out.writeShort(nameIndex(stroke.penType.name))
@@ -96,6 +103,7 @@ object StrokeCodec {
                 out.writeInt(gradient.endColor.toArgb())
                 out.writeShort(gradient.angleDegrees)
             }
+            if (groupId != null) out.writeInt(nameIndex(groupId))
             val points = stroke.points
             out.writeInt(points.size)
             for (i in points.indices) {
@@ -130,7 +138,7 @@ object StrokeCodec {
             val blendMode = enumValues<StrokeBlendMode>().firstOrNull { it.name == blendModeName } ?: StrokeBlendMode.NORMAL
             val layerId = name(input.readInt())
             val frame = input.readInt()
-            val flags = input.readByte().toInt()
+            val flags = input.readUnsignedByte()
             val brush = if ((flags and FLAG_BRUSH) != 0) {
                 val tipName = name(input.readShort().toInt())
                 StampBrush(
@@ -149,6 +157,7 @@ object StrokeCodec {
             } else {
                 null
             }
+            val groupId = if ((flags and FLAG_GROUP) != 0) name(input.readInt()) else null
             val stroke = Stroke(
                 color, width, penType,
                 filled = (flags and FLAG_FILLED) != 0,
@@ -160,6 +169,7 @@ object StrokeCodec {
                 screentone = (flags and FLAG_TONE) != 0,
                 brush = brush,
                 gradient = gradient,
+                groupId = groupId,
             )
             val stylus = (flags and FLAG_STYLUS) != 0
             repeat(input.readInt().also { checkCount(it) }) {

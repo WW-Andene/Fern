@@ -53,6 +53,7 @@ import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Gradient
 import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.GroupWork
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.HighlightAlt
 import androidx.compose.material.icons.filled.History
@@ -550,6 +551,17 @@ fun Toolbar(
                     }
                     IconButton(onClick = { state.duplicateSelection() }) {
                         Icon(Icons.Filled.ContentCopy, contentDescription = "Duplicate selection")
+                    }
+                    val grouped = state.selectionHasGroup
+                    IconButton(
+                        onClick = { if (grouped) state.ungroupSelection() else state.groupSelection() },
+                        enabled = grouped || state.selection.size >= 2,
+                    ) {
+                        Icon(
+                            Icons.Filled.GroupWork,
+                            contentDescription = if (grouped) "Ungroup selection" else "Group selection",
+                            tint = if (grouped) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
                     }
                     IconButton(onClick = { state.deleteSelection() }) {
                         Icon(Icons.Filled.Delete, contentDescription = "Delete selection")
