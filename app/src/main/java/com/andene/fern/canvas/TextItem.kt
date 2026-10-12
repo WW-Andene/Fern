@@ -67,4 +67,12 @@ data class TextItem(
     val boxWidthWorld: Double? = null,
     /** Where tapping "Follow link" on this label leads; null for an unlinked label. */
     val link: LinkTarget? = null,
+    /** Drawn as letter outlines instead of solid letters (roadmap item 98). */
+    val outlined: Boolean = false,
+    /**
+     * Text on a path (roadmap item 98): the line the text follows, relative to [position] (so
+     * moving the label moves its path). Null for ordinary text. The text runs along it from its
+     * start, one line, each letter turned to the path's direction.
+     */
+    val path: List<WorldPoint>? = null,
 )

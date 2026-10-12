@@ -160,7 +160,7 @@ All deferred: they need a server or cloud platform.
 
 - [x] 96. Pen tool with Bézier nodes (tap for corners, drag for smooth handles, tap the first node to close; finish, remove last node, cancel); boolean operations on selected closed shapes (union, intersect, subtract, exclude; holes kept). Finished paths aren't re-editable as curves (node editing works on their points)
 - [x] 97. Stroke styles — dashed lines; caps (round, square, flat), joins (round, sharp, bevelled) and width profiles (even, taper either or both ends), saved per stroke and in SVG/Lottie exports (tapers drawn on canvas and in images only)
-- [ ] 98. Text on a path, outlined text, OpenType features
+- [~] 98. Text on a path (from a selected line; letters follow and turn with it; SVG textPath), outlined text; no OpenType feature controls (the platform's generic fonts offer few)
 - [ ] 99. Rulers, dimensions, numeric transforms, smart guides
 - [ ] 100. Reusable symbols and shared colour styles
 - [ ] 101. Image trace

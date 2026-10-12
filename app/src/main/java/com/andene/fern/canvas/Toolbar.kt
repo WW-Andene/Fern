@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.TextRotationAngleup
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.filled.JoinFull
 import androidx.compose.material.icons.filled.Close
@@ -706,6 +707,9 @@ fun Toolbar(
                                 )
                             }
                         }
+                    }
+                    IconButton(onClick = { state.beginTextOnPath() }, enabled = state.selection.size == 1) {
+                        Icon(Icons.Filled.TextRotationAngleup, contentDescription = stringResource(R.string.tb_text_on_path))
                     }
                     IconButton(onClick = { state.animateAlongPath() }) {
                         Icon(Icons.Filled.Route, contentDescription = stringResource(R.string.tb_motion_path))

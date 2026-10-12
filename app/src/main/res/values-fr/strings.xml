@@ -370,4 +370,6 @@
     <string name="profile_taper_both">Effiler les deux bouts</string>
     <string name="profile_taper_start">Effiler le début</string>
     <string name="profile_taper_end">Effiler la fin</string>
+    <string name="text_outlined">Contour</string>
+    <string name="tb_text_on_path">Texte le long du trait sélectionné</string>
 </resources>

@@ -365,6 +365,8 @@ object CanvasStorage {
                     font = enumOrDefault(entry.optString("font"), TextFont.SANS),
                     alignment = enumOrDefault(entry.optString("align"), TextAlignment.START),
                     boxWidthWorld = if (entry.has("boxWidth")) entry.getDouble("boxWidth") else null,
+                    outlined = entry.optBoolean("outlined", false),
+                    path = entry.optJSONArray("path")?.let { a -> (0 until a.length() / 2).map { WorldPoint(a.getDouble(2 * it), a.getDouble(2 * it + 1)) } },
                     link = when {
                         entry.has("linkPin") -> LinkTarget.Pin(entry.getString("linkPin"))
                         entry.has("linkDoc") -> LinkTarget.Document(entry.getString("linkDoc"))
@@ -393,6 +395,8 @@ object CanvasStorage {
                     put("font", item.font.name)
                     put("align", item.alignment.name)
                     item.boxWidthWorld?.let { put("boxWidth", it) }
+                    if (item.outlined) put("outlined", true)
+                    item.path?.let { path -> put("path", JSONArray().apply { path.forEach { put(it.x); put(it.y) } }) }
                     when (val link = item.link) {
                         is LinkTarget.Pin -> put("linkPin", link.pinId)
                         is LinkTarget.Document -> put("linkDoc", link.documentId)

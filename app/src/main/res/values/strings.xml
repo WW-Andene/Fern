@@ -368,4 +368,6 @@
     <string name="profile_taper_both">Taper both ends</string>
     <string name="profile_taper_start">Taper the start</string>
     <string name="profile_taper_end">Taper the end</string>
+    <string name="text_outlined">Outline</string>
+    <string name="tb_text_on_path">Text along the selected line</string>
 </resources>

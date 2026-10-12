@@ -42,6 +42,7 @@ data class TextEditResult(
     /** False when the label was switched from a text box to a single line. */
     val keepBox: Boolean,
     val link: LinkTarget?,
+    val outlined: Boolean = false,
 )
 
 /**
@@ -63,6 +64,7 @@ fun TextEditDialog(
     var bold by remember { mutableStateOf(pending.initialBold) }
     var italic by remember { mutableStateOf(pending.initialItalic) }
     var sticky by remember { mutableStateOf(pending.initialSticky) }
+    var outlined by remember { mutableStateOf(pending.initialOutlined) }
     // Snap to the nearest offered size, so an existing label shows its closest size selected.
     var sizePx by remember { mutableStateOf(TEXT_SIZES_PX.minBy { kotlin.math.abs(it - pending.initialSizePx) }) }
     var font by remember { mutableStateOf(pending.initialFont) }
@@ -70,7 +72,7 @@ fun TextEditDialog(
     var keepBox by remember { mutableStateOf(true) }
     var link by remember { mutableStateOf(pending.initialLink) }
     var linkMenu by remember { mutableStateOf<LinkMenu?>(null) }
-    fun result() = TextEditResult(text, bold, italic, sticky, sizePx, font, alignment, keepBox, link)
+    fun result() = TextEditResult(text, bold, italic, sticky, sizePx, font, alignment, keepBox, link, outlined)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -105,6 +107,12 @@ fun TextEditDialog(
                         selected = sticky,
                         onClick = { sticky = !sticky },
                         label = { Text(stringResource(R.string.text_sticky)) },
+                        modifier = Modifier.padding(end = 8.dp),
+                    )
+                    FilterChip(
+                        selected = outlined,
+                        onClick = { outlined = !outlined },
+                        label = { Text(stringResource(R.string.text_outlined)) },
                     )
                 }
                 Row(modifier = Modifier.padding(top = 8.dp)) {

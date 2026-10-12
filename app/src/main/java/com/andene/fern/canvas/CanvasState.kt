@@ -1229,6 +1229,9 @@ class CanvasState(
         /** The text box width (world units) the label will get, or null for no box; see [TextItem.boxWidthWorld]. */
         val boxWidthWorld: Double? = null,
         val initialLink: LinkTarget? = null,
+        val initialOutlined: Boolean = false,
+        /** The path a new label will follow, relative to [worldPoint]; see [TextItem.path]. */
+        val path: List<WorldPoint>? = null,
     )
 
     /** While dragging out a text box with the TEXT tool: its opposite corners, for the preview outline. */
@@ -2159,6 +2162,7 @@ class CanvasState(
             PendingTextEdit(
                 existing.id, existing.position, existing.text, existing.bold, existing.italic, existing.sticky,
                 existing.fontSizeWorld * scale, existing.font, existing.alignment, existing.boxWidthWorld, existing.link,
+                existing.outlined, existing.path,
             )
         } else {
             PendingTextEdit(null, worldPoint, "", initialSizePx = activeTextSizeWorld)
@@ -2181,6 +2185,7 @@ class CanvasState(
         /** False drops the pending box, so the label becomes a plain one without wrapping. */
         keepBox: Boolean = true,
         link: LinkTarget? = null,
+        outlined: Boolean = false,
     ) {
         // The chosen size also becomes the default for the next new label.
         activeTextSizeWorld = sizePx
@@ -2199,7 +2204,7 @@ class CanvasState(
         if (existingIndex != -1) {
             textItems[existingIndex] = textItems[existingIndex].copy(
                 text = text, bold = bold, italic = italic, sticky = sticky, fontSizeWorld = fontSizeWorld,
-                font = font, alignment = alignment, boxWidthWorld = boxWidthWorld, link = link,
+                font = font, alignment = alignment, boxWidthWorld = boxWidthWorld, link = link, outlined = outlined,
             )
         } else {
             textItems.add(
@@ -2216,10 +2221,26 @@ class CanvasState(
                     alignment = alignment,
                     boxWidthWorld = boxWidthWorld,
                     link = link,
+                    outlined = outlined,
+                    path = pending.path,
                 )
             )
         }
         onTextChanged(textItems.toList())
+    }
+
+    /**
+     * Text on a path (roadmap item 98): with one stroke selected, opens the text dialog for a
+     * new label that follows that stroke's shape from its start. The stroke stays as drawn (a
+     * guide to keep or delete).
+     */
+    fun beginTextOnPath() {
+        val stroke = selection.singleOrNull() ?: return
+        val points = stroke.points
+        if (points.size < 2) return
+        val start = points.first()
+        clearSelectionState()
+        pendingTextEdit = PendingTextEdit(null, start, "", initialSizePx = activeTextSizeWorld, path = points.map { it - start })
     }
 
     fun cancelTextEdit() {
@@ -2241,6 +2262,12 @@ class CanvasState(
      * label, the extra lines its wrapping adds.
      */
     fun textBounds(item: TextItem): Pair<WorldPoint, WorldPoint> {
+        item.path?.takeIf { it.isNotEmpty() }?.let { path ->
+            // Text on a path: around the path, a letter's height either side.
+            val pad = item.fontSizeWorld
+            return WorldPoint(item.position.x + path.minOf { it.x } - pad, item.position.y + path.minOf { it.y } - pad) to
+                WorldPoint(item.position.x + path.maxOf { it.x } + pad, item.position.y + path.maxOf { it.y } + pad)
+        }
         val glyph = item.fontSizeWorld * 0.55
         val lineWidths = item.text.split('\n').map { it.length * glyph }
         val box = item.boxWidthWorld

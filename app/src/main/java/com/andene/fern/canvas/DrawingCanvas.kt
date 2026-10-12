@@ -27,6 +27,9 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStyle
 import androidx.compose.ui.graphics.drawscope.clipPath
@@ -599,7 +602,7 @@ fun DrawingCanvas(
     state.pendingTextEdit?.let { pending ->
         TextEditDialog(
             pending = pending,
-            onConfirm = { r -> state.confirmTextEdit(r.text, r.bold, r.italic, r.sticky, r.sizePx, r.font, r.alignment, r.keepBox, r.link) },
+            onConfirm = { r -> state.confirmTextEdit(r.text, r.bold, r.italic, r.sticky, r.sizePx, r.font, r.alignment, r.keepBox, r.link, r.outlined) },
             onDismiss = { state.cancelTextEdit() },
             linkChoices = linkChoices,
             onFollowLink = onFollowLink,
@@ -1311,8 +1314,10 @@ internal fun DrawScope.drawScene(
         // A boxed label lays out at exactly its box width (so wrapping and alignment are within the
         // box); capped because layout constraints can't hold an arbitrarily large zoomed-in width.
         val boxPx = item.boxWidthWorld?.let { (it * state.scale).coerceIn(1.0, MAX_TEXT_BOX_PX).toInt() }
+        val onPath = item.path != null && item.path.size >= 2
         val layout = textMeasurer.measure(
-            text = item.text,
+            // Text on a path is one line along it.
+            text = if (onPath) item.text.replace('\n', ' ') else item.text,
             style = TextStyle(
                 color = item.color,
                 fontSize = fontSizeSp,
@@ -1323,7 +1328,7 @@ internal fun DrawScope.drawScene(
                 // A label linked to a pin or document is underlined, like a link.
                 textDecoration = if (item.link != null) TextDecoration.Underline else null,
             ),
-            constraints = if (boxPx != null) Constraints.fixedWidth(boxPx) else Constraints(),
+            constraints = if (boxPx != null && !onPath) Constraints.fixedWidth(boxPx) else Constraints(),
         )
         // A sticky note extends half a line around the text, like paper around handwriting.
         MeasuredLabel(item, state.worldToScreen(item.position, screenCenter), layout, if (item.sticky) layout.size.height / 2f else 0f)
@@ -1349,6 +1354,47 @@ internal fun DrawScope.drawScene(
                 size = Size(label.layout.size.width + 2 * label.pad, label.layout.size.height + 2 * label.pad),
             )
         }
-        drawText(textLayoutResult = label.layout, topLeft = label.position)
+        // Outlined text (roadmap item 98): letter outlines a twentieth of the text size wide.
+        val textStyle = if (label.item.outlined) DrawStyle(width = maxOf(1f, label.layout.layoutInput.style.fontSize.toPx() / 20f)) else Fill
+        val path = label.item.path
+        if (path != null && path.size >= 2) {
+            drawTextOnPath(label.layout, path.map { state.worldToScreen(label.item.position + it, screenCenter) }, textStyle)
+        } else {
+            drawText(textLayoutResult = label.layout, topLeft = label.position, drawStyle = textStyle)
+        }
+    }
+}
+
+/**
+ * Draws one line of laid-out text along [path] (screen points, roadmap item 98): each letter
+ * centred at its distance along the path, sitting on it by its baseline and turned to the
+ * path's direction there. Letters past the path's end aren't drawn. Each letter is the whole
+ * line drawn moved and clipped to that letter, so shaping (kerning, ligatures) is kept.
+ */
+private fun DrawScope.drawTextOnPath(layout: TextLayoutResult, path: List<Offset>, style: androidx.compose.ui.graphics.drawscope.DrawStyle) {
+    val along = FloatArray(path.size)
+    for (i in 1 until path.size) along[i] = along[i - 1] + (path[i] - path[i - 1]).getDistance()
+    val baseline = layout.firstBaseline
+    var segment = 1
+    for (i in 0 until layout.layoutInput.text.length) {
+        val box = layout.getBoundingBox(i)
+        if (box.width <= 0f) continue // spaces and zero-width marks have nothing to draw
+        val middle = box.left + box.width / 2
+        if (middle > along.last()) break
+        while (segment < path.size - 1 && along[segment] < middle) segment++
+        val a = path[segment - 1]
+        val b = path[segment]
+        val span = (along[segment] - along[segment - 1]).coerceAtLeast(1e-3f)
+        val t = ((middle - along[segment - 1]) / span).coerceIn(0f, 1f)
+        val at = a + (b - a) * t
+        val degrees = Math.toDegrees(atan2((b - a).y.toDouble(), (b - a).x.toDouble())).toFloat()
+        withTransform({
+            translate(at.x, at.y)
+            rotate(degrees, pivot = Offset.Zero)
+        }) {
+            clipRect(box.left - middle - 1f, box.top - baseline - 1f, box.right - middle + 1f, box.bottom - baseline + 1f) {
+                drawText(textLayoutResult = layout, topLeft = Offset(-middle, -baseline), drawStyle = style)
+            }
+        }
     }
 }

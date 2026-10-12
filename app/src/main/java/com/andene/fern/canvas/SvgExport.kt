@@ -94,7 +94,23 @@ fun exportDocumentSvg(source: CanvasState, imageBytesFor: (String) -> ByteArray?
         svg.append("""<polygon points="${n(b.x)},${n(b.y)} ${n(bx - uy * side)},${n(by + ux * side)} ${n(bx + uy * side)},${n(by - ux * side)}" fill="#455a64"/>""").append('\n')
     }
 
+    var textPathCount = 0
     for (item in camera.textItems) {
+        // Outlined text (roadmap item 98): a stroke instead of a fill, as on the canvas.
+        val paint = if (item.outlined) """fill="none" stroke="${hex(item.color)}" stroke-width="${n(item.fontSizeWorld / 20)}""""
+        else """fill="${hex(item.color)}""""
+        val path = item.path
+        if (path != null && path.size >= 2) {
+            // Text on a path: SVG's own textPath, along the label's path.
+            val id = "tp${textPathCount++}"
+            val d = path.mapIndexed { i, p -> (if (i == 0) "M" else "L") + "${n(item.position.x + p.x)} ${n(item.position.y + p.y)}" }.joinToString(" ")
+            svg.append("""<defs><path id="$id" d="$d"/></defs>""")
+            svg.append("""<text font-size="${n(item.fontSizeWorld)}" $paint font-family="${item.font.svgFamily}"""")
+            if (item.bold) svg.append(""" font-weight="bold"""")
+            if (item.italic) svg.append(""" font-style="italic"""")
+            svg.append("""><textPath href="#$id">${escapeXml(item.text.replace('\n', ' '))}</textPath></text>""").append('\n')
+            continue
+        }
         // SVG text is positioned by its baseline; the canvas anchors text at its top-left. Each
         // line is its own tspan at 1.3 em spacing (the canvas's approximate line height).
         // Alignment anchors to the box's edges or centre when there is a box, otherwise to the
@@ -109,7 +125,7 @@ fun exportDocumentSvg(source: CanvasState, imageBytesFor: (String) -> ByteArray?
             else -> item.position.x
         }
         svg.append("""<text x="${n(x)}" y="${n(baseline)}" font-size="${n(item.fontSizeWorld)}" """)
-        svg.append("""fill="${hex(item.color)}" font-family="${item.font.svgFamily}"""")
+        svg.append("""$paint font-family="${item.font.svgFamily}"""")
         if (box != null) svg.append(""" text-anchor="${item.alignment.svgAnchor}"""")
         if (item.bold) svg.append(""" font-weight="bold"""")
         if (item.italic) svg.append(""" font-style="italic"""")
