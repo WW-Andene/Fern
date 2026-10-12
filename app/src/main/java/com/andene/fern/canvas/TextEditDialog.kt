@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -91,10 +92,26 @@ fun TextEditDialog(
             TextButton(onClick = { onConfirm(text, bold, italic, sticky, sizePx) }) { Text("Done") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            Row {
+                // A label holding a web address works as a link on the board: open it from here.
+                val link = remember(text) { firstWebLink(text) }
+                val uriHandler = LocalUriHandler.current
+                if (link != null) {
+                    TextButton(onClick = { runCatching { uriHandler.openUri(link) } }) { Text("Open link") }
+                }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
         },
     )
 }
 
 // Text sizes offered, in screen px at the zoom the label is placed at; all on the §7 scale.
 private val TEXT_SIZES_PX = listOf(16.0, 24.0, 32.0, 48.0)
+
+/** The first web address in [text], with https:// added when it was typed without a scheme; null if none. */
+private fun firstWebLink(text: String): String? {
+    val matcher = android.util.Patterns.WEB_URL.matcher(text)
+    if (!matcher.find()) return null
+    val url = matcher.group()
+    return if (url.startsWith("http://", ignoreCase = true) || url.startsWith("https://", ignoreCase = true)) url else "https://$url"
+}
