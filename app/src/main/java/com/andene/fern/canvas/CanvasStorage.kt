@@ -300,6 +300,11 @@ object CanvasStorage {
                     font = enumOrDefault(entry.optString("font"), TextFont.SANS),
                     alignment = enumOrDefault(entry.optString("align"), TextAlignment.START),
                     boxWidthWorld = if (entry.has("boxWidth")) entry.getDouble("boxWidth") else null,
+                    link = when {
+                        entry.has("linkPin") -> LinkTarget.Pin(entry.getString("linkPin"))
+                        entry.has("linkDoc") -> LinkTarget.Document(entry.getString("linkDoc"))
+                        else -> null
+                    },
                 )
             )
         }
@@ -323,6 +328,11 @@ object CanvasStorage {
                     put("font", item.font.name)
                     put("align", item.alignment.name)
                     item.boxWidthWorld?.let { put("boxWidth", it) }
+                    when (val link = item.link) {
+                        is LinkTarget.Pin -> put("linkPin", link.pinId)
+                        is LinkTarget.Document -> put("linkDoc", link.documentId)
+                        null -> {}
+                    }
                 }
             )
         }

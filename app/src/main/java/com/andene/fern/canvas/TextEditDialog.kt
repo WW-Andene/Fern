@@ -6,7 +6,11 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.OutlinedTextField
@@ -17,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontStyle
@@ -34,6 +39,7 @@ data class TextEditResult(
     val alignment: TextAlignment,
     /** False when the label was switched from a text box to a single line. */
     val keepBox: Boolean,
+    val link: LinkTarget?,
 )
 
 /**
@@ -47,6 +53,9 @@ fun TextEditDialog(
     pending: CanvasState.PendingTextEdit,
     onConfirm: (TextEditResult) -> Unit,
     onDismiss: () -> Unit,
+    linkChoices: LinkChoices = LinkChoices(),
+    /** Saves the edit, then goes to the link's target. */
+    onFollowLink: (LinkTarget) -> Unit = {},
 ) {
     var text by remember { mutableStateOf(pending.initialText) }
     var bold by remember { mutableStateOf(pending.initialBold) }
@@ -57,6 +66,9 @@ fun TextEditDialog(
     var font by remember { mutableStateOf(pending.initialFont) }
     var alignment by remember { mutableStateOf(pending.initialAlignment) }
     var keepBox by remember { mutableStateOf(true) }
+    var link by remember { mutableStateOf(pending.initialLink) }
+    var linkMenu by remember { mutableStateOf<LinkMenu?>(null) }
+    fun result() = TextEditResult(text, bold, italic, sticky, sizePx, font, alignment, keepBox, link)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -123,6 +135,54 @@ fun TextEditDialog(
                         )
                     }
                 }
+                // Link to a pin (a place on this canvas) or to another document.
+                Row(modifier = Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FilterChip(selected = link == null, onClick = { link = null }, label = { Text("No link") }, modifier = Modifier.padding(end = 8.dp))
+                    Box {
+                        FilterChip(
+                            selected = link is LinkTarget.Pin,
+                            onClick = { linkMenu = LinkMenu.PINS },
+                            enabled = linkChoices.pins.isNotEmpty(),
+                            label = { Text("Pin") },
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                        DropdownMenu(expanded = linkMenu == LinkMenu.PINS, onDismissRequest = { linkMenu = null }) {
+                            for (pin in linkChoices.pins) {
+                                DropdownMenuItem(text = { Text(pin.name) }, onClick = {
+                                    link = LinkTarget.Pin(pin.id)
+                                    linkMenu = null
+                                })
+                            }
+                        }
+                    }
+                    Box {
+                        FilterChip(
+                            selected = link is LinkTarget.Document,
+                            onClick = { linkMenu = LinkMenu.DOCUMENTS },
+                            enabled = linkChoices.documents.isNotEmpty(),
+                            label = { Text("Document") },
+                        )
+                        DropdownMenu(expanded = linkMenu == LinkMenu.DOCUMENTS, onDismissRequest = { linkMenu = null }) {
+                            for (document in linkChoices.documents) {
+                                DropdownMenuItem(text = { Text(document.name) }, onClick = {
+                                    link = LinkTarget.Document(document.id)
+                                    linkMenu = null
+                                })
+                            }
+                        }
+                    }
+                }
+                link?.let { target ->
+                    val name = when (target) {
+                        is LinkTarget.Pin -> linkChoices.pins.firstOrNull { it.id == target.pinId }?.name
+                        is LinkTarget.Document -> linkChoices.documents.firstOrNull { it.id == target.documentId }?.name
+                    }
+                    Text(
+                        if (name != null) "Links to: $name" else "Links to something that no longer exists",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
                 // Only offered for a label that has a box (dragged out with the text tool):
                 // switching it off turns the box back into a plain single-line label.
                 if (pending.boxWidthWorld != null) {
@@ -137,21 +197,29 @@ fun TextEditDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(TextEditResult(text, bold, italic, sticky, sizePx, font, alignment, keepBox)) }) { Text("Done") }
+            TextButton(onClick = { onConfirm(result()) }) { Text("Done") }
         },
         dismissButton = {
             Row {
                 // A label holding a web address works as a link on the board: open it from here.
-                val link = remember(text) { firstWebLink(text) }
+                val webLink = remember(text) { firstWebLink(text) }
                 val uriHandler = LocalUriHandler.current
-                if (link != null) {
-                    TextButton(onClick = { runCatching { uriHandler.openUri(link) } }) { Text("Open link") }
+                if (webLink != null) {
+                    TextButton(onClick = { runCatching { uriHandler.openUri(webLink) } }) { Text("Open link") }
+                }
+                link?.let { target ->
+                    TextButton(onClick = {
+                        onConfirm(result())
+                        onFollowLink(target)
+                    }) { Text("Follow link") }
                 }
                 TextButton(onClick = onDismiss) { Text("Cancel") }
             }
         },
     )
 }
+
+private enum class LinkMenu { PINS, DOCUMENTS }
 
 // Text sizes offered, in screen px at the zoom the label is placed at; all on the §7 scale.
 private val TEXT_SIZES_PX = listOf(16.0, 24.0, 32.0, 48.0)

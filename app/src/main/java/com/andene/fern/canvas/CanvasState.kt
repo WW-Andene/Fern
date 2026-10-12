@@ -713,6 +713,7 @@ class CanvasState(
         val initialAlignment: TextAlignment = TextAlignment.START,
         /** The text box width (world units) the label will get, or null for no box; see [TextItem.boxWidthWorld]. */
         val boxWidthWorld: Double? = null,
+        val initialLink: LinkTarget? = null,
     )
 
     /** While dragging out a text box with the TEXT tool: its opposite corners, for the preview outline. */
@@ -1378,7 +1379,7 @@ class CanvasState(
         pendingTextEdit = if (existing != null) {
             PendingTextEdit(
                 existing.id, existing.position, existing.text, existing.bold, existing.italic, existing.sticky,
-                existing.fontSizeWorld * scale, existing.font, existing.alignment, existing.boxWidthWorld,
+                existing.fontSizeWorld * scale, existing.font, existing.alignment, existing.boxWidthWorld, existing.link,
             )
         } else {
             PendingTextEdit(null, worldPoint, "", initialSizePx = activeTextSizeWorld)
@@ -1400,6 +1401,7 @@ class CanvasState(
         alignment: TextAlignment = TextAlignment.START,
         /** False drops the pending box, so the label becomes a plain one without wrapping. */
         keepBox: Boolean = true,
+        link: LinkTarget? = null,
     ) {
         // The chosen size also becomes the default for the next new label.
         activeTextSizeWorld = sizePx
@@ -1418,7 +1420,7 @@ class CanvasState(
         if (existingIndex != -1) {
             textItems[existingIndex] = textItems[existingIndex].copy(
                 text = text, bold = bold, italic = italic, sticky = sticky, fontSizeWorld = fontSizeWorld,
-                font = font, alignment = alignment, boxWidthWorld = boxWidthWorld,
+                font = font, alignment = alignment, boxWidthWorld = boxWidthWorld, link = link,
             )
         } else {
             textItems.add(
@@ -1434,6 +1436,7 @@ class CanvasState(
                     font = font,
                     alignment = alignment,
                     boxWidthWorld = boxWidthWorld,
+                    link = link,
                 )
             )
         }

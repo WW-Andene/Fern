@@ -15,6 +15,19 @@ enum class TextFont(val label: String, val fontFamily: FontFamily, val svgFamily
     HANDWRITING("Handwriting", FontFamily.Cursive, "cursive"),
 }
 
+/**
+ * Where a linked label leads (roadmap item 46): a named pin in the same document (a region of
+ * the canvas), or another document. Stored by id, so renaming the target keeps the link; a
+ * target that was deleted is reported when the link is followed.
+ */
+sealed interface LinkTarget {
+    data class Pin(val pinId: String) : LinkTarget
+    data class Document(val documentId: String) : LinkTarget
+}
+
+/** What a label can link to, offered in the text dialog. */
+data class LinkChoices(val pins: List<PinMeta> = emptyList(), val documents: List<DocumentMeta> = emptyList())
+
 /** Horizontal alignment of a label's lines: within its box if it has one, else against its longest line. */
 enum class TextAlignment(val label: String, val textAlign: TextAlign, val svgAnchor: String) {
     START("Left", TextAlign.Start, "start"),
@@ -50,4 +63,6 @@ data class TextItem(
      * [fontSizeWorld], so the box zooms with the canvas.
      */
     val boxWidthWorld: Double? = null,
+    /** Where tapping "Follow link" on this label leads; null for an unlinked label. */
+    val link: LinkTarget? = null,
 )

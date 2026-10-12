@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
@@ -74,7 +75,13 @@ import kotlin.math.sin
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
+fun DrawingCanvas(
+    state: CanvasState,
+    modifier: Modifier = Modifier,
+    /** Pins and documents a text label can link to (see [LinkTarget]). */
+    linkChoices: LinkChoices = LinkChoices(),
+    onFollowLink: (LinkTarget) -> Unit = {},
+) {
     // Side-channel for stylus pressure/tilt/orientation: Compose's own pointer-input APIs
     // (used below, unchanged) don't expose tilt at all, and pressure only patchily, so this
     // observes the raw MotionEvent directly. It never consumes the event (always returns
@@ -536,8 +543,10 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
     state.pendingTextEdit?.let { pending ->
         TextEditDialog(
             pending = pending,
-            onConfirm = { r -> state.confirmTextEdit(r.text, r.bold, r.italic, r.sticky, r.sizePx, r.font, r.alignment, r.keepBox) },
+            onConfirm = { r -> state.confirmTextEdit(r.text, r.bold, r.italic, r.sticky, r.sizePx, r.font, r.alignment, r.keepBox, r.link) },
             onDismiss = { state.cancelTextEdit() },
+            linkChoices = linkChoices,
+            onFollowLink = onFollowLink,
         )
     }
 }
@@ -1177,6 +1186,8 @@ internal fun DrawScope.drawScene(
                 fontStyle = if (item.italic) FontStyle.Italic else FontStyle.Normal,
                 fontFamily = item.font.fontFamily,
                 textAlign = item.alignment.textAlign,
+                // A label linked to a pin or document is underlined, like a link.
+                textDecoration = if (item.link != null) TextDecoration.Underline else null,
             ),
             constraints = if (boxPx != null) Constraints.fixedWidth(boxPx) else Constraints(),
         )

@@ -75,6 +75,8 @@ import com.andene.fern.canvas.DrawingCanvas
 import com.andene.fern.canvas.Frame
 import com.andene.fern.canvas.FramesDialog
 import com.andene.fern.canvas.ClipboardContent
+import com.andene.fern.canvas.LinkChoices
+import com.andene.fern.canvas.LinkTarget
 import com.andene.fern.canvas.Minimap
 import com.andene.fern.canvas.SystemClipboard
 import com.andene.fern.canvas.QuickMenuButton
@@ -543,7 +545,25 @@ class MainActivity : ComponentActivity() {
                                 true
                             },
                     ) {
-                        DrawingCanvas(state = canvasState, modifier = Modifier.fillMaxSize())
+                        DrawingCanvas(
+                            state = canvasState,
+                            modifier = Modifier.fillMaxSize(),
+                            linkChoices = LinkChoices(pins, documents.filter { it.trashedAt == null && it.id != currentDocumentId }),
+                            onFollowLink = { target ->
+                                when (target) {
+                                    is LinkTarget.Pin -> {
+                                        val pin = pins.firstOrNull { it.id == target.pinId }
+                                        if (pin != null) canvasState.jumpTo(WorldPoint(pin.x, pin.y), pin.scale)
+                                        else Toast.makeText(context, "That pin no longer exists", Toast.LENGTH_SHORT).show()
+                                    }
+                                    is LinkTarget.Document -> {
+                                        val document = documents.firstOrNull { it.id == target.documentId && it.trashedAt == null }
+                                        if (document != null) switchToDocument(document.id)
+                                        else Toast.makeText(context, "That document no longer exists", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                        )
                         val presenting = presentingIndex
                         if (presenting != null && presenting in canvasState.frames.indices) {
                             // Presentation mode: editing chrome hidden, frames shown one at a time.

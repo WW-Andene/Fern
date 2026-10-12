@@ -81,7 +81,7 @@ Goal: anything drawn can be rearranged later.
 - [x] 43. Copy and paste through the system clipboard: strokes between documents and across restarts, a PNG of the selection for other apps, and text or images pasted from other apps
 - [x] 44. Smooth and straighten selected strokes; node editing (drag a stroke's nodes; freehand strokes bend smoothly between nodes)
 - [x] 45. Frames/artboards: named, navigable, exportable, presentable
-- [ ] 46. Links between canvas regions and documents
+- [x] 46. Links between canvas regions and documents — a text label can link to a named pin or another document (underlined; "Follow link" in its dialog)
 - [~] 47. Search text labels and jump to them; handwriting search ⏸ (needs item 67)
 
 ## Phase 5 — Performance at scale
