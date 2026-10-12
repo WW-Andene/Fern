@@ -29,7 +29,7 @@ Goal: ink that feels like it comes straight out of the pen tip.
 - [x] 6. Brush width and full HSV/hex colour picker
 - [ ] 7. Low-latency ink: front-buffered rendering (`GLFrontBufferedRenderer` / Ink API), under 20 ms pen-to-pixel
 - [x] 8. Motion prediction (`androidx.input` `MotionEventPredictor`)
-- [ ] 9. Variable-width stroke geometry (tessellated outlines instead of per-segment lines)
+- [x] 9. Variable-width stroke geometry (tessellated outlines instead of per-segment lines) — pressure/tilt and calligraphy strokes filled as one mitred outline
 - [x] 10. Zoom-level-aware simplification — sub-pixel strokes drawn as a dot; points under a screen pixel apart skipped at render time
 - [x] 11. Two-finger canvas rotation, snap to upright, reset
 

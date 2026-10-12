@@ -591,9 +591,9 @@ private fun widthFactorAt(stroke: Stroke, index: Int): Float {
  * Renders one stroke's already screen-space points, styled per [Stroke.penType]. Marker,
  * pencil, and highlighter share the same smoothed-path construction (quadratic Beziers
  * through successive midpoints - see the class doc) with a different color/width/cap, unless
- * the stroke actually carries stylus pressure/tilt data, in which case it's rendered
- * per-segment instead (like calligraphy) so the width can vary along its length. Calligraphy
- * always needs per-segment width, so it's built entirely differently regardless.
+ * the stroke actually carries stylus pressure/tilt data, in which case it's filled as a
+ * variable-width outline instead (like calligraphy) so the width can vary along its length.
+ * Calligraphy always needs per-point width, so it's built entirely differently regardless.
  */
 private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, source: IntArray, baseWidthScreen: Float, blendMode: BlendMode) {
     if (stroke.penType == PenType.CALLIGRAPHY) {
@@ -606,11 +606,9 @@ private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, sou
     }
     val style = penStyle(stroke.penType, stroke.color, baseWidthScreen)
     if (screenPoints.size >= 2 && hasStylusVariation(stroke)) {
-        for (i in 0 until screenPoints.size - 1) {
-            val factor = (widthFactorAt(stroke, source[i]) + widthFactorAt(stroke, source[i + 1])) / 2f
-            val width = (style.widthScreen * factor).coerceAtLeast(1f)
-            drawLine(color = style.color, start = screenPoints[i], end = screenPoints[i + 1], strokeWidth = width, cap = style.cap, blendMode = blendMode)
-        }
+        val halfWidths = FloatArray(screenPoints.size) { i -> (style.widthScreen * widthFactorAt(stroke, source[i])).coerceAtLeast(1f) / 2f }
+        val cap = if (style.cap == StrokeCap.Square) OutlineCap.SQUARE else OutlineCap.ROUND
+        drawOutline(screenPoints, halfWidths, cap, style.color, blendMode)
         return
     }
     when (screenPoints.size) {
@@ -813,9 +811,9 @@ private fun hash01(a: Int, b: Int): Float {
 /**
  * Simulates a flat calligraphy nib: each segment's width depends on how that segment's
  * direction relates to the nib's angle - widest when drawing across the nib's edge
- * (perpendicular to it), thinnest when drawing along it. Drawn as separate line segments
- * rather than one smoothed path, since a single Path/Stroke style can't vary width along its
- * length.
+ * (perpendicular to it), thinnest when drawing along it. Filled as one variable-width
+ * outline ([variableWidthOutline]) rather than stroked, since a single Path/Stroke style can't
+ * vary width along its length.
  *
  * Uses the stylus's actual tilt orientation as the nib angle when real tilt data is present
  * (a genuinely tilt-responsive nib), falling back to a fixed 45° for finger input or a
@@ -831,6 +829,9 @@ private fun DrawScope.drawCalligraphyStroke(stroke: Stroke, screenPoints: List<O
     }
     val avgTilt = if (stroke.tilts.isEmpty()) 0f else stroke.tilts.average().toFloat()
     val useRealNibAngle = avgTilt > 0.1f
+    // Width is a property of each segment's direction; a point takes the mean of the segments
+    // on either side of it, so the outline changes width smoothly through each point.
+    val segmentWidths = FloatArray(screenPoints.size - 1)
     for (i in 0 until screenPoints.size - 1) {
         val a = screenPoints[i]
         val b = screenPoints[i + 1]
@@ -843,9 +844,32 @@ private fun DrawScope.drawCalligraphyStroke(stroke: Stroke, screenPoints: List<O
         }
         val pressureFactor = ((stroke.pressures.getOrElse(source[i]) { 1f } + stroke.pressures.getOrElse(source[i + 1]) { 1f }) / 2f).coerceIn(0.1f, 1f)
         val widthFactor = (0.25f + 0.75f * abs(sin(angle - nibAngle))) * pressureFactor
-        val width = (baseWidthScreen * widthFactor).coerceAtLeast(1f)
-        drawLine(color = stroke.color, start = a, end = b, strokeWidth = width, cap = StrokeCap.Round, blendMode = blendMode)
+        segmentWidths[i] = (baseWidthScreen * widthFactor).coerceAtLeast(1f)
     }
+    val halfWidths = FloatArray(screenPoints.size) { i ->
+        val before = segmentWidths.getOrElse(i - 1) { segmentWidths[i] }
+        val after = segmentWidths.getOrElse(i) { segmentWidths[i - 1] }
+        (before + after) / 4f
+    }
+    drawOutline(screenPoints, halfWidths, OutlineCap.ROUND, stroke.color, blendMode)
+}
+
+/**
+ * Fills a variable-width stroke as one shape (see [variableWidthOutline]), so translucent ink
+ * isn't darkened where its segments would otherwise overlap. A stroke whose points all
+ * coincide has no outline and is drawn as a dot.
+ */
+private fun DrawScope.drawOutline(screenPoints: List<Offset>, halfWidths: FloatArray, cap: OutlineCap, color: Color, blendMode: BlendMode) {
+    val outline = variableWidthOutline(screenPoints, halfWidths, cap)
+    if (outline.isEmpty()) {
+        drawCircle(color, radius = halfWidths.max(), center = screenPoints[0], blendMode = blendMode)
+        return
+    }
+    val path = Path()
+    path.moveTo(outline[0].x, outline[0].y)
+    for (i in 1 until outline.size) path.lineTo(outline[i].x, outline[i].y)
+    path.close()
+    drawPath(path = path, color = color, blendMode = blendMode)
 }
 
 private const val CALLIGRAPHY_NIB_ANGLE = (Math.PI / 4).toFloat() // 45°, a standard calligraphy nib angle
