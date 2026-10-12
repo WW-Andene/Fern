@@ -79,6 +79,12 @@
     <string name="brush_delete_preset">Supprimer le préréglage %1$s</string>
     <string name="layers_title">Calques</string>
     <string name="layers_skins">Skins</string>
+    <string name="layers_comps">Compositions de calques</string>
+    <string name="layers_comp_save">Enregistrer</string>
+    <string name="layers_comp_default_name">Composition %1$d</string>
+    <string name="layers_comp_name">Nom de la composition</string>
+    <string name="layers_comp_update">Mettre à jour avec les calques tels qu’affichés</string>
+    <string name="layers_comp_delete">Supprimer la composition</string>
     <string name="layers_skin">Skin (vide : toujours affiché)</string>
     <string name="layers_hide">Masquer le calque</string>
     <string name="layers_show">Afficher le calque</string>

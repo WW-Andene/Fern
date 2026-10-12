@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.SubdirectoryArrowRight
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.Gradient
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MergeType
@@ -93,6 +94,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                         }
                     }
                 }
+                LayerCompsSection(state)
                 for (layer in state.layers.reversed()) {
                     val active = layer.id == state.activeLayerId
                     Row(
@@ -259,4 +261,49 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         },
     )
+}
+
+/**
+ * Layer comps (roadmap item 123): a chip per saved comp, ticked when the layers are shown that
+ * way; tapping one applies it and opens its name, update and delete controls. "Save comp"
+ * records the layers as they're shown now.
+ */
+@Composable
+private fun LayerCompsSection(state: CanvasState) {
+    var chosenId by remember { mutableStateOf<String?>(null) }
+    val current = state.currentLayerCompId
+    Text(stringResource(R.string.layers_comps), style = MaterialTheme.typography.labelLarge)
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        for (comp in state.layerComps) {
+            FilterChip(
+                selected = comp.id == current,
+                onClick = { state.applyLayerComp(comp.id); chosenId = comp.id },
+                label = { Text(comp.name) },
+                modifier = Modifier.padding(end = 4.dp),
+            )
+        }
+        val newName = stringResource(R.string.layers_comp_default_name, state.layerComps.size + 1)
+        TextButton(onClick = { chosenId = state.saveLayerComp(newName) }) {
+            Text(stringResource(R.string.layers_comp_save))
+        }
+    }
+    val chosen = state.layerComps.firstOrNull { it.id == chosenId } ?: return
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            value = chosen.name,
+            onValueChange = { name -> state.renameLayerComp(chosen.id, name) },
+            label = { Text(stringResource(R.string.layers_comp_name)) },
+            singleLine = true,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = { state.updateLayerComp(chosen.id) }, enabled = chosen.id != current) {
+            Icon(Icons.Filled.Save, contentDescription = stringResource(R.string.layers_comp_update))
+        }
+        IconButton(onClick = { state.deleteLayerComp(chosen.id); chosenId = null }) {
+            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.layers_comp_delete))
+        }
+    }
 }

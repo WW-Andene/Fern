@@ -188,6 +188,7 @@ object CanvasStorage {
         historyFile(context, id).delete()
         legacyHistoryFile(context, id).delete()
         layersFile(context, id).delete()
+        layerCompsFile(context, id).delete()
         framesFile(context, id).delete()
         AudioNotes.deleteAll(context, id)
         versionsDir(context, id).deleteRecursively()
@@ -207,6 +208,7 @@ object CanvasStorage {
         val imageItems = loadImageItems(context, id)
         val (backgroundColor, backgroundStyle) = loadBackground(context, id)
         val layers = loadLayers(context, id)
+        val layerComps = loadLayerComps(context, id)
         val frames = loadFrames(context, id)
         val meta = createDocument(context, newName)
         save(context, meta.id, strokes)
@@ -221,6 +223,7 @@ object CanvasStorage {
         saveImageItems(context, meta.id, imageItems)
         saveBackground(context, meta.id, backgroundColor, backgroundStyle)
         if (layers.isNotEmpty()) saveLayers(context, meta.id, layers)
+        if (layerComps.isNotEmpty()) saveLayerComps(context, meta.id, layerComps)
         if (frames.isNotEmpty()) saveFrames(context, meta.id, frames)
         return meta
     }
@@ -683,6 +686,43 @@ object CanvasStorage {
         writeStored(layersFile(context, documentId), root)
     }
 
+    /** Saves the document's layer comps (roadmap item 123). */
+    fun saveLayerComps(context: Context, documentId: String, comps: List<LayerComp>) {
+        val root = JSONArray()
+        for (comp in comps) {
+            val states = JSONObject()
+            for ((layerId, state) in comp.states) {
+                states.put(layerId, JSONObject().apply {
+                    put("visible", state.visible)
+                    put("opacity", state.opacity.toDouble())
+                    if (state.blend != LayerBlend.NORMAL) put("blend", state.blend.name)
+                })
+            }
+            root.put(JSONObject().put("id", comp.id).put("name", comp.name).put("layers", states))
+        }
+        writeStored(layerCompsFile(context, documentId), root)
+    }
+
+    fun loadLayerComps(context: Context, documentId: String): List<LayerComp> {
+        val root = readStored(layerCompsFile(context, documentId)) { it as JSONArray } ?: return emptyList()
+        return (0 until root.length()).map { i ->
+            val entry = root.getJSONObject(i)
+            val states = entry.getJSONObject("layers")
+            LayerComp(
+                entry.getString("id"),
+                entry.getString("name"),
+                states.keys().asSequence().associateWith { layerId ->
+                    val state = states.getJSONObject(layerId)
+                    LayerCompState(
+                        state.optBoolean("visible", true),
+                        state.optDouble("opacity", 1.0).toFloat(),
+                        LayerBlend.entries.firstOrNull { it.name == state.optString("blend") } ?: LayerBlend.NORMAL,
+                    )
+                },
+            )
+        }
+    }
+
     /** The document's layers, bottom first; empty for a document from before layers (it gets the default layer). */
     fun loadLayers(context: Context, documentId: String): List<Layer> {
         val root = readStored(layersFile(context, documentId)) { it as JSONArray } ?: return emptyList()
@@ -922,6 +962,7 @@ object CanvasStorage {
         "images.json" to imageItemsFile(context, documentId),
         "background.json" to backgroundFile(context, documentId),
         "layers.json" to layersFile(context, documentId),
+        "layercomps.json" to layerCompsFile(context, documentId),
         "frames.json" to framesFile(context, documentId),
     )
 
@@ -959,6 +1000,8 @@ object CanvasStorage {
     private fun framesFile(context: Context, documentId: String) = File(context.filesDir, "frames_$documentId.json")
 
     private fun layersFile(context: Context, documentId: String) = File(context.filesDir, "layers_$documentId.json")
+
+    private fun layerCompsFile(context: Context, documentId: String) = File(context.filesDir, "layercomps_$documentId.json")
 
     private fun historyFile(context: Context, documentId: String) = File(context.filesDir, "history_$documentId.bin")
 

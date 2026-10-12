@@ -79,6 +79,12 @@
     <string name="brush_delete_preset">Delete preset %1$s</string>
     <string name="layers_title">Layers</string>
     <string name="layers_skins">Skins</string>
+    <string name="layers_comps">Layer comps</string>
+    <string name="layers_comp_save">Save comp</string>
+    <string name="layers_comp_default_name">Comp %1$d</string>
+    <string name="layers_comp_name">Comp name</string>
+    <string name="layers_comp_update">Update comp to the layers as shown now</string>
+    <string name="layers_comp_delete">Delete comp</string>
     <string name="layers_skin">Skin (blank: always shown)</string>
     <string name="layers_hide">Hide layer</string>
     <string name="layers_show">Show layer</string>

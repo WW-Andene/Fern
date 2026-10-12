@@ -271,6 +271,7 @@ class MainActivity : ComponentActivity() {
                             onToolSlotsChanged = { slots -> AppSettings.setToolSlots(context, slots) },
                             onBrushPresetsChanged = { presets -> AppSettings.setBrushPresets(context, presets) },
                             onConnectorsChanged = { connectors -> CanvasStorage.saveConnectors(context, currentDocumentId, connectors) },
+                            onLayerCompsChanged = { comps -> CanvasStorage.saveLayerComps(context, currentDocumentId, comps) },
                             onBonesChanged = { bones -> CanvasStorage.saveBones(context, currentDocumentId, bones) },
                             onAnimationSettingsChanged = { settings -> CanvasStorage.saveAnimationSettings(context, currentDocumentId, settings) },
                             onFramesChanged = { frames -> CanvasStorage.saveFrames(context, currentDocumentId, frames) },
@@ -692,6 +693,7 @@ class MainActivity : ComponentActivity() {
                                     coroutineScope.launch(Dispatchers.Main) { if (previewWanted && loadingDocument) canvasState.loadStrokes(visible) }
                                 },
                                 layers = CanvasStorage.loadLayers(context, documentId),
+                                layerComps = CanvasStorage.loadLayerComps(context, documentId),
                                 rasters = CanvasStorage.loadLayers(context, documentId).let { layers ->
                                     // Raster layers' pixels and every layer mask (roadmap items 89, 91).
                                     CanvasStorage.loadRasters(context, documentId, layers.filter { it.raster }.map { it.id } + layers.filter { it.masked }.map { maskIdOf(it.id) })
@@ -710,6 +712,7 @@ class MainActivity : ComponentActivity() {
                         previewWanted = false
                         canvasState.loadStrokes(loaded.strokes)
                         canvasState.loadLayers(loaded.layers)
+                        canvasState.loadLayerComps(loaded.layerComps)
                         canvasState.loadRasters(loaded.rasters)
                         canvasState.loadFrames(loaded.frames)
                         canvasState.loadHistory(loaded.history.first, loaded.history.second)

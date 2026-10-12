@@ -90,6 +90,7 @@ class CanvasState(
     private val onBrushPresetsChanged: (List<BrushPreset>) -> Unit = {},
     private val onConnectorsChanged: (List<Connector>) -> Unit = {},
     private val onBonesChanged: (List<Bone>) -> Unit = {},
+    private val onLayerCompsChanged: (List<LayerComp>) -> Unit = {},
     /** Playback speed and frame holds changed (see [AnimationSettings]). */
     private val onAnimationSettingsChanged: (AnimationSettings) -> Unit = {},
     /**
@@ -1778,6 +1779,52 @@ class CanvasState(
         }
         if (changed) onLayersChanged(layers.toList())
     }
+
+    /** The document's layer comps (roadmap item 123), in the order they were saved. */
+    val layerComps = mutableStateListOf<LayerComp>()
+
+    /** Replaces the layer comps (from [CanvasStorage.loadLayerComps]). */
+    fun loadLayerComps(loaded: List<LayerComp>) {
+        layerComps.clear()
+        layerComps.addAll(loaded)
+    }
+
+    /** Saves the layers as they're shown now as a new comp named [name]; returns its id. */
+    fun saveLayerComp(name: String): String {
+        val comp = captureLayerComp(UUID.randomUUID().toString(), name, layers)
+        layerComps.add(comp)
+        onLayerCompsChanged(layerComps.toList())
+        return comp.id
+    }
+
+    /** Shows the layers the way comp [id] records. */
+    fun applyLayerComp(id: String) {
+        val comp = layerComps.firstOrNull { it.id == id } ?: return
+        val applied = layersShownAs(comp, layers)
+        if (applied == layers.toList()) return
+        for (i in layers.indices) if (layers[i] != applied[i]) layers[i] = applied[i]
+        onLayersChanged(layers.toList())
+    }
+
+    /** Overwrites comp [id] with the layers as they're shown now, keeping its name. */
+    fun updateLayerComp(id: String) = changeLayerComp(id) { captureLayerComp(it.id, it.name, layers) }
+
+    fun renameLayerComp(id: String, name: String) = changeLayerComp(id) { it.copy(name = name) }
+
+    fun deleteLayerComp(id: String) {
+        if (layerComps.removeAll { it.id == id }) onLayerCompsChanged(layerComps.toList())
+    }
+
+    private fun changeLayerComp(id: String, change: (LayerComp) -> LayerComp) {
+        val index = layerComps.indexOfFirst { it.id == id }
+        if (index == -1) return
+        layerComps[index] = change(layerComps[index])
+        onLayerCompsChanged(layerComps.toList())
+    }
+
+    /** The comp the layers are currently shown as, if any - the first that matches. */
+    val currentLayerCompId: String?
+        get() = layerComps.firstOrNull { layerCompMatches(it, layers) }?.id
 
     /** Moves a layer one step up (towards the top) or down in the stack. */
     fun moveLayer(id: String, up: Boolean) {

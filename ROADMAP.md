@@ -199,7 +199,7 @@ Concepts, GoodNotes, Notability, Infinite Painter, Aseprite, Spine and Affinity 
 | 120 | COPIC and PANTONE libraries | Concepts, Affinity | 3 | skipped: proprietary colour data that needs a licence to ship |
 | 121 | Style picker | Affinity | 4 | done: copy a selected object's style, paste it onto the selection |
 | 122 | Warp, puppet warp, mesh transform | Procreate, Clip Studio | 4 | done: mesh warp (items 84, 92), corner distort with a perspective map, puppet warp (moving-least-squares rigid); vector selections and raster layers |
-| 123 | Layer states / comps | Affinity, Clip Studio | 4 | not started |
+| 123 | Layer states / comps | Affinity, Clip Studio | 4 | done: named comps of each layer's visibility, opacity and blend, applied, updated, renamed and deleted from the layers panel; saved with the document |
 | 124 | Multiple views / split screen | Affinity, Clip Studio | 4 | not started |
 | 125 | Presentation mode | Concepts | 4 | done |
 | 126 | Snapshots; delete empty/hidden layers | Affinity, Clip Studio | 4 | done |
