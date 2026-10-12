@@ -61,6 +61,7 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Settings
@@ -496,6 +497,13 @@ fun Toolbar(
                 }
                 IconButton(onClick = onOpenFrames) {
                     Icon(Icons.Filled.CropFree, contentDescription = "Frames")
+                }
+                IconButton(onClick = { state.replayCount = if (state.replayCount == null) 0 else null }) {
+                    Icon(
+                        Icons.Filled.Replay,
+                        contentDescription = if (state.replayCount == null) "Replay how this drawing was made" else "Stop replay",
+                        tint = if (state.replayCount != null) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                    )
                 }
                 IconButton(onClick = onOpenSettings) {
                     Icon(Icons.Filled.Settings, contentDescription = "Settings")

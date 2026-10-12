@@ -296,6 +296,13 @@ class CanvasState(
         onChanged(strokes.toList())
     }
 
+    /**
+     * Time-lapse replay: while non-null, only the first [replayCount] strokes (in drawing
+     * order, which is creation order) are drawn, so the drawing rebuilds itself stroke by
+     * stroke. Purely a view: nothing is changed or saved.
+     */
+    var replayCount by mutableStateOf<Int?>(null)
+
     /** Named regions of the canvas, in creation order. */
     val frames = mutableStateListOf<Frame>()
 

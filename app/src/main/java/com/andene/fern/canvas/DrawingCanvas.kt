@@ -906,7 +906,8 @@ internal fun DrawScope.drawScene(
     // Only the current animation frame is drawn (outside animation everything is frame 0), plus
     // the previous frame as a faint onion skin while editing an animation.
     val onionFrame = if (state.animationMode && state.onionSkin && !state.playing && state.currentAnimFrame > 0) state.currentAnimFrame - 1 else null
-    val strokesByLayer = state.strokes.filter { it.animFrame == state.currentAnimFrame }.groupBy { layerIndex[it.layerId] ?: 0 }
+    val replayed = state.replayCount?.let { state.strokes.take(it) } ?: state.strokes
+    val strokesByLayer = replayed.filter { it.animFrame == state.currentAnimFrame }.groupBy { layerIndex[it.layerId] ?: 0 }
     // Offscreen bounds for a translucent layer: the square around the screen centre that covers
     // the screen at any canvas rotation.
     val halfDiagonal = hypot(size.width, size.height) / 2f

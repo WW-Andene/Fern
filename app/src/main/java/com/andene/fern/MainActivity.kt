@@ -415,6 +415,24 @@ class MainActivity : ComponentActivity() {
                         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
                     }
 
+                    // Time-lapse replay: reveals strokes over about 8 seconds whatever the document's
+                    // size, then holds the finished drawing for a moment and ends.
+                    LaunchedEffect(canvasState.replayCount == null) {
+                        if (canvasState.replayCount == null) return@LaunchedEffect
+                        val total = canvasState.strokes.size
+                        val perTick = maxOf(1, total / 240)
+                        while (true) {
+                            val shown = canvasState.replayCount ?: break
+                            if (shown >= total) {
+                                delay(1500)
+                                canvasState.replayCount = null
+                                break
+                            }
+                            delay(33)
+                            canvasState.replayCount = minOf(total, shown + perTick)
+                        }
+                    }
+
                     // Flipbook playback: advances one frame per tick while playing.
                     LaunchedEffect(canvasState.playing, canvasState.animFps) {
                         while (canvasState.playing) {
