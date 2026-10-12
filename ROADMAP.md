@@ -217,7 +217,7 @@ Concepts, GoodNotes, Notability, Infinite Painter, Aseprite, Spine and Affinity 
 | 138 | Filter / file layers, global selection mask | Krita | 10 | done: blur, sharpen, pixelate, posterize, threshold and invert on raster and filter (adjustment) layers; file layers that reload from their image; the raster selection painted with the pen and eraser |
 | 139 | HDR / OpenEXR, OpenColorIO | Krita | 10 | done: HDR raster layers (light up to ~22x paper white, painted at an intensity), an exposure + clip/filmic view transform in place of OpenColorIO (no Android port; .ocio configs aren't read), OpenEXR export and import keeping HDR |
 | 140 | Multiple brush engines, brush tagging | Krita | 10 | done: raster engines paint, wet, smudge, blur, liquify, spray and bristle beside the stamp engine and vector pens; brush presets tagged and filtered by tag |
-| 141 | Shape builder, knife, contour | Affinity | 11 | not started |
+| 141 | Shape builder, knife, contour | Affinity | 11 | done: the shape builder splits the selected closed shapes into their regions (each styled like the topmost shape over it), then drags merge or delete regions; the knife cuts selected shapes into closed pieces and lines at the crossings; contour outlines the selection at a distance (outward, or inward for closed shapes) with round, mitred or bevelled corners |
 | 142 | Isometric panel, layout grids | Affinity | 11 | not started |
 | 143 | Real-world scale and measurement | Concepts, Affinity | 11 | not started |
 | 144 | UI constraints; QR code tool | Affinity | 11 | not started |

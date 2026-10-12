@@ -1,5 +1,9 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.Adjust
+import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.RemoveCircleOutline
+import androidx.compose.material.icons.filled.Interests
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.EmojiPeople
 import androidx.compose.material.icons.filled.InvertColors
@@ -332,6 +336,8 @@ fun Toolbar(
     }
     var showLineStyleMenu by remember { mutableStateOf(false) }
     var showCombineMenu by remember { mutableStateOf(false) }
+    var showContourDialog by remember { mutableStateOf(false) }
+    if (showContourDialog) ContourDialog(state, onDismiss = { showContourDialog = false })
     var showMoreMenu by remember { mutableStateOf(false) }
     var showBlendModeMenu by remember { mutableStateOf(false) }
     var showBackgroundStyleMenu by remember { mutableStateOf(false) }
@@ -950,6 +956,35 @@ fun Toolbar(
                                 )
                             }
                         }
+                    }
+                    // Shape builder, knife and contour (roadmap item 141).
+                    val building = state.shapeEditMode == ShapeEditMode.BUILD_ADD || state.shapeEditMode == ShapeEditMode.BUILD_REMOVE
+                    IconButton(onClick = { state.toggleShapeEdit(if (building) state.shapeEditMode!! else ShapeEditMode.BUILD_ADD) }, enabled = building || state.selection.size >= 2) {
+                        Icon(
+                            Icons.Filled.Interests,
+                            contentDescription = stringResource(if (building) R.string.tb_shape_builder_stop else R.string.tb_shape_builder),
+                            tint = if (building) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
+                    if (building) {
+                        val removing = state.shapeEditMode == ShapeEditMode.BUILD_REMOVE
+                        IconButton(onClick = { state.toggleShapeEdit(if (removing) ShapeEditMode.BUILD_ADD else ShapeEditMode.BUILD_REMOVE) }) {
+                            Icon(
+                                if (removing) Icons.Filled.RemoveCircleOutline else Icons.Filled.AddCircleOutline,
+                                contentDescription = stringResource(if (removing) R.string.tb_shape_builder_remove else R.string.tb_shape_builder_add),
+                            )
+                        }
+                    }
+                    val cutting = state.shapeEditMode == ShapeEditMode.KNIFE
+                    IconButton(onClick = { state.toggleShapeEdit(ShapeEditMode.KNIFE) }, enabled = cutting || state.selection.isNotEmpty()) {
+                        Icon(
+                            Icons.Filled.ContentCut,
+                            contentDescription = stringResource(if (cutting) R.string.tb_knife_stop else R.string.tb_knife),
+                            tint = if (cutting) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
+                    IconButton(onClick = { showContourDialog = true }, enabled = state.selection.isNotEmpty()) {
+                        Icon(Icons.Filled.Adjust, contentDescription = stringResource(R.string.contour_title))
                     }
                     IconButton(onClick = { showTransformDialog = true }, enabled = state.selection.isNotEmpty()) {
                         Icon(Icons.Filled.Transform, contentDescription = stringResource(R.string.transform_title))

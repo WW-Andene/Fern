@@ -278,7 +278,8 @@ fun DrawingCanvas(
                                     Tool.BEZIER -> state.beginBezierNode(world)
                                     Tool.RULER -> state.beginRulerGesture(world)
                                     Tool.SELECT -> {
-                                        val handles = selectionHandles(state, screenCenter)
+                                        // The shape builder and knife (roadmap item 141) take every drag, handles included.
+                                        val handles = if (state.shapeEditMode == null) selectionHandles(state, screenCenter) else null
                                         selectionGestureKind = when {
                                             handles != null && (downPos - handles.scaleHandle).getDistance() <= HANDLE_HIT_RADIUS_SCREEN -> {
                                                 state.beginScaleSelection(world)
@@ -572,6 +573,18 @@ fun DrawingCanvas(
                 lasso.close()
                 drawPath(lasso, color = MARQUEE_FILL_COLOR)
                 drawPath(lasso, color = MARQUEE_BORDER_COLOR, style = DrawStyle(width = 2f))
+            }
+
+            // Shape builder / knife drag (roadmap item 141): an open line, red when it removes or cuts.
+            if (state.shapeEditPath.size >= 2) {
+                val trail = Path()
+                state.shapeEditPath.forEachIndexed { index, point ->
+                    val screen = state.worldToScreen(point, screenCenter)
+                    if (index == 0) trail.moveTo(screen.x, screen.y) else trail.lineTo(screen.x, screen.y)
+                }
+                val adding = state.shapeEditMode == ShapeEditMode.BUILD_ADD
+                drawPath(trail, color = Color.White, style = DrawStyle(width = 4f))
+                drawPath(trail, color = if (adding) MARQUEE_BORDER_COLOR else SHAPE_CUT_COLOR, style = DrawStyle(width = 2f))
             }
 
             // Node editing: a square handle on each node of the stroke being edited.
@@ -1314,6 +1327,8 @@ private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
 private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
+// The shape builder's remove drag and the knife's cut line (roadmap item 141).
+private val SHAPE_CUT_COLOR = Color(0xFFE53935)
 // Widest a text box is laid out on screen; beyond this (deep zoom) the box is cropped to it.
 private const val MAX_TEXT_BOX_PX = 65536.0
 

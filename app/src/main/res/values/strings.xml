@@ -542,6 +542,17 @@
     <string name="combine_intersect">Intersect</string>
     <string name="combine_subtract">Subtract from the bottom shape</string>
     <string name="combine_exclude">Exclude overlaps</string>
+    <string name="tb_shape_builder">Shape builder: split the selected shapes into regions</string>
+    <string name="tb_shape_builder_stop">Stop the shape builder</string>
+    <string name="tb_shape_builder_add">Drag across regions to merge them (tap to delete instead)</string>
+    <string name="tb_shape_builder_remove">Drag across regions to delete them (tap to merge instead)</string>
+    <string name="tb_knife">Knife: drag across the selection to cut it</string>
+    <string name="tb_knife_stop">Stop the knife</string>
+    <string name="contour_title">Contour</string>
+    <string name="contour_distance">Distance: %1$d px (negative shrinks closed shapes)</string>
+    <string name="contour_round">Round</string>
+    <string name="contour_mitre">Mitred</string>
+    <string name="contour_bevel">Bevelled</string>
     <string name="tb_line_style">Line style</string>
     <string name="cap_round">Round ends</string>
     <string name="cap_square">Square ends</string>

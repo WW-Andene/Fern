@@ -544,6 +544,17 @@
     <string name="combine_intersect">Intersection</string>
     <string name="combine_subtract">Soustraire de la forme du dessous</string>
     <string name="combine_exclude">Exclure les chevauchements</string>
+    <string name="tb_shape_builder">Générateur de formes : diviser les formes sélectionnées en régions</string>
+    <string name="tb_shape_builder_stop">Arrêter le générateur de formes</string>
+    <string name="tb_shape_builder_add">Glisser sur des régions pour les fusionner (toucher pour supprimer à la place)</string>
+    <string name="tb_shape_builder_remove">Glisser sur des régions pour les supprimer (toucher pour fusionner à la place)</string>
+    <string name="tb_knife">Couteau : glisser à travers la sélection pour la découper</string>
+    <string name="tb_knife_stop">Arrêter le couteau</string>
+    <string name="contour_title">Contour</string>
+    <string name="contour_distance">Distance : %1$d px (négative pour rétrécir les formes fermées)</string>
+    <string name="contour_round">Arrondi</string>
+    <string name="contour_mitre">En onglet</string>
+    <string name="contour_bevel">Biseauté</string>
     <string name="tb_line_style">Style de trait</string>
     <string name="cap_round">Extrémités rondes</string>
     <string name="cap_square">Extrémités carrées</string>

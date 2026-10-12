@@ -223,6 +223,8 @@ class CanvasState(
         private const val FILL_CLOSE_TOLERANCE_SCREEN = 24.0
         // Gaps in line art up to about twice this (screen px) are closed by the fill.
         private const val FILL_GAP_SCREEN = 4.0
+        // Width (screen px) of the cut a knife stroke takes out of a closed shape (roadmap item 141).
+        private const val KNIFE_GAP_SCREEN = 2.0
 
         // How close (in screen pixels) a touch must land on the ruler's endpoint to grab it
         // for resizing, rather than translating the whole guide - same scale-dependent
@@ -260,6 +262,9 @@ class CanvasState(
         set(value) {
             // Leaving the Bézier pen keeps the path drawn so far, as an open path.
             if (activeToolState == Tool.BEZIER && value != Tool.BEZIER && bezierNodes.isNotEmpty()) finishBezierPath(closed = false)
+            // The shape builder and knife belong to the SELECT tool; the eraser is spared, since a
+            // flipped stylus switches to it for one gesture and back.
+            if (value != Tool.SELECT && value != Tool.ERASER) endShapeEdit()
             activeToolState = value
         }
     var activePenType by mutableStateOf(PenType.MARKER)
@@ -4047,6 +4052,10 @@ class CanvasState(
     }
 
     fun beginSelectGesture(worldPoint: WorldPoint) {
+        if (shapeEditMode != null) {
+            beginShapeEditGesture(worldPoint)
+            return
+        }
         // On a raster layer, a drag inside the raster selection moves its pixels.
         if (activeLayerIsRaster && beginMovingSelectedPixels(worldPoint)) return
         // The lattice belongs to the selection it was laid over; a changed selection ends it.
@@ -4125,6 +4134,10 @@ class CanvasState(
     }
 
     fun continueSelectGesture(worldPoint: WorldPoint) {
+        if (shapeEditMode != null) {
+            continueShapeEditGesture(worldPoint)
+            return
+        }
         if (floatingPixels != null) {
             moveSelectedPixels(worldPoint)
             return
@@ -4184,6 +4197,10 @@ class CanvasState(
     }
 
     fun endSelectGesture() {
+        if (shapeEditMode != null) {
+            endShapeEditGesture()
+            return
+        }
         if (floatingPixels != null) {
             endMovingSelectedPixels()
             return
@@ -4840,6 +4857,157 @@ class CanvasState(
         clearSelectionState()
         selection.addAll(results)
         strokesChanged()
+    }
+
+    /** Which of the shape builder's and knife's gestures (roadmap item 141) the SELECT tool is doing; null for neither. */
+    var shapeEditMode: ShapeEditMode? by mutableStateOf(null)
+        private set
+
+    /** The drag of the shape builder or knife in progress, in world space; empty when none is. */
+    val shapeEditPath = mutableStateListOf<WorldPoint>()
+
+    /**
+     * Turns [mode] on, or off when it's already on. The shape builder (either of its modes)
+     * starts by dividing the selected closed shapes into every region they make between them
+     * ([divideShapes]), one undo step; each region takes the style of the topmost shape over
+     * it. Drags across regions then merge them ([ShapeEditMode.BUILD_ADD]) or delete them
+     * ([ShapeEditMode.BUILD_REMOVE]). The knife needs a selection; each drag cuts it.
+     */
+    fun toggleShapeEdit(mode: ShapeEditMode) {
+        val current = shapeEditMode
+        if (current == mode) {
+            endShapeEdit()
+            return
+        }
+        val building = current == ShapeEditMode.BUILD_ADD || current == ShapeEditMode.BUILD_REMOVE
+        if (mode == ShapeEditMode.KNIFE || !building) {
+            if (selection.isEmpty()) return
+            if (mode != ShapeEditMode.KNIFE && !divideSelection()) return
+        }
+        shapeEditMode = mode
+        shapeEditPath.clear()
+    }
+
+    fun endShapeEdit() {
+        shapeEditMode = null
+        shapeEditPath.clear()
+    }
+
+    /**
+     * Replaces the selected closed shapes by their regions ([divideShapes]), selected. False,
+     * changing nothing, unless two or more strokes are selected and all of them are closed.
+     */
+    private fun divideSelection(): Boolean {
+        val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
+        val chosen = selection.toList()
+        if (chosen.size < 2 || chosen.any { !isClosedLoop(it.points, closeTolerance) }) return false
+        val ordered = chosen.sortedBy { strokes.indexOf(it) }
+        val regions = divideShapes(ordered.map { it.points })
+        if (regions.isEmpty()) return false
+        recordHistory()
+        val pieces = regions.map { region ->
+            val inside = interiorPoint(region)
+            val owner = ordered.lastOrNull { polygonContains(it.points, inside) } ?: ordered.last()
+            owner.withPoints(region)
+        }
+        replaceStrokes(chosen, pieces, at = strokes.indexOf(ordered.first()))
+        return true
+    }
+
+    fun beginShapeEditGesture(worldPoint: WorldPoint) {
+        shapeEditPath.clear()
+        shapeEditPath.add(worldPoint)
+    }
+
+    fun continueShapeEditGesture(worldPoint: WorldPoint) {
+        if (shapeEditPath.isNotEmpty()) shapeEditPath.add(worldPoint)
+    }
+
+    /**
+     * Finishes a shape builder or knife drag. The builder merges (union) or deletes the selected
+     * regions the drag passed through; the knife cuts every selected stroke it crosses - closed
+     * shapes into closed pieces ([cutShape]), lines at the crossings ([splitPolyline]). The
+     * pieces stay selected for the next drag. One undo step, none when nothing changed.
+     */
+    fun endShapeEditGesture() {
+        val path = shapeEditPath.toList()
+        shapeEditPath.clear()
+        val mode = shapeEditMode ?: return
+        if (path.isEmpty()) return
+        val chosen = selection.toList()
+        when (mode) {
+            ShapeEditMode.BUILD_ADD, ShapeEditMode.BUILD_REMOVE -> {
+                val touched = chosen.filter { stroke -> path.any { polygonContains(stroke.points, it) } }.sortedBy { strokes.indexOf(it) }
+                if (mode == ShapeEditMode.BUILD_REMOVE) {
+                    if (touched.isEmpty()) return
+                    recordHistory()
+                    replaceStrokes(touched, emptyList(), at = 0)
+                    selection.addAll(chosen.filter { it !in touched })
+                    return
+                }
+                if (touched.size < 2) return
+                val bottom = touched.first()
+                val merged = combineShapes(touched.map { it.points }, ShapeOp.UNION, bridgeHoles = bottom.filled)
+                if (merged.isEmpty()) return
+                recordHistory()
+                replaceStrokes(touched, merged.map { bottom.withPoints(it) }, at = strokes.indexOf(bottom))
+                selection.addAll(chosen.filter { it !in touched })
+            }
+            ShapeEditMode.KNIFE -> {
+                if (path.size < 2) return
+                val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
+                val gap = KNIFE_GAP_SCREEN / scale.coerceAtLeast(1e-300)
+                val cuts = chosen.mapNotNull { stroke ->
+                    val pieces = if (isClosedLoop(stroke.points, closeTolerance)) cutShape(stroke.points, path, gap)
+                    else splitPolyline(stroke.points, path).takeIf { it.size >= 2 } ?: emptyList()
+                    if (pieces.isEmpty()) null else stroke to pieces.map { stroke.withPoints(it) }
+                }
+                if (cuts.isEmpty()) return
+                recordHistory()
+                val kept = chosen.filter { stroke -> cuts.none { it.first === stroke } }
+                for ((stroke, pieces) in cuts) replaceStrokes(listOf(stroke), pieces, at = strokes.indexOf(stroke))
+                selection.clear()
+                selection.addAll(kept)
+                selection.addAll(cuts.flatMap { it.second })
+            }
+        }
+        strokesChanged()
+    }
+
+    /**
+     * Contour (roadmap item 141): new outlines [distance] (world units; negative to shrink
+     * closed shapes) around the selected strokes, merged, in the active colour at the
+     * active width, laid above the selection and selected instead. One undo step; nothing
+     * when nothing would be drawn.
+     */
+    fun contourSelection(distance: Double, join: ContourJoin) {
+        if (selection.isEmpty() || !activeLayerEditable) return
+        val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
+        val ordered = selection.sortedBy { strokes.indexOf(it) }
+        val sources = ordered.map { ContourSource(it.points, if (it.filled) 0.0 else it.widthWorld, it.filled || isClosedLoop(it.points, closeTolerance)) }
+        val loops = contourOutlines(sources, distance, join)
+        if (loops.isEmpty()) return
+        recordHistory()
+        val top = ordered.last()
+        val outlines = loops.map { loop ->
+            Stroke(activeColor, activeWidthWorld, PenType.MARKER, layerId = top.layerId, animFrame = top.animFrame).apply {
+                for (point in loop) addPoint(point)
+                addPoint(loop.first())
+            }
+        }
+        strokes.addAll((strokes.indexOf(top) + 1).coerceAtMost(strokes.size), outlines)
+        clearSelectionState()
+        selection.addAll(outlines)
+        strokesChanged()
+    }
+
+    /** Swaps [old] for [new] (placed at [at] in the drawing order), and selects only [new]. Doesn't call [strokesChanged]. */
+    private fun replaceStrokes(old: List<Stroke>, new: List<Stroke>, at: Int) {
+        val removed = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Stroke, Boolean>()).apply { addAll(old) }
+        strokes.removeWhere { it in removed }
+        strokes.addAll(at.coerceIn(0, strokes.size), new)
+        clearSelectionState()
+        selection.addAll(new)
     }
 
     /**
