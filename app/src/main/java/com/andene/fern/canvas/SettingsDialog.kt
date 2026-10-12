@@ -25,6 +25,7 @@ private const val KEY_TOOLBAR_BOTTOM = "toolbar_bottom"
 private const val KEY_STAMP_BRUSH = "stamp_brush"
 private const val KEY_TOOL_SLOTS = "tool_slots"
 private const val KEY_SNAP_TO_OBJECTS = "snap_to_objects"
+private const val KEY_BRUSH_PRESETS = "brush_presets"
 
 /** App preferences, stored in SharedPreferences so they apply to every document and survive restarts. */
 object AppSettings {
@@ -104,6 +105,23 @@ object AppSettings {
             )
         }
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString(KEY_TOOL_SLOTS, array.toString()).apply()
+    }
+
+    /** Saved stamp-brush presets; entries that can't be read are skipped. */
+    fun brushPresets(context: Context): List<BrushPreset> {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_BRUSH_PRESETS, null) ?: return emptyList()
+        val array = try { JSONArray(raw) } catch (e: JSONException) { return emptyList() }
+        return (0 until array.length()).mapNotNull { i ->
+            val json = array.optJSONObject(i) ?: return@mapNotNull null
+            val name = json.optString("name").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            BrushPreset(name, json.optJSONObject("brush")?.let(::brushFromJson) ?: return@mapNotNull null)
+        }
+    }
+
+    fun setBrushPresets(context: Context, presets: List<BrushPreset>) {
+        val array = JSONArray()
+        for (preset in presets) array.put(JSONObject().put("name", preset.name).put("brush", brushToJson(preset.brush)))
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString(KEY_BRUSH_PRESETS, array.toString()).apply()
     }
 
     private fun brushToJson(brush: StampBrush): JSONObject = JSONObject()

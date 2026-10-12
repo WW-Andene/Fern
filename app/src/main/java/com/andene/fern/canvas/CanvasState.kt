@@ -82,6 +82,7 @@ class CanvasState(
     private val onSavedColorsChanged: (List<Color>) -> Unit = {},
     private val onBrushChanged: (StampBrush) -> Unit = {},
     private val onToolSlotsChanged: (List<ToolPreset?>) -> Unit = {},
+    private val onBrushPresetsChanged: (List<BrushPreset>) -> Unit = {},
 ) {
     companion object {
         // Effectively unbounded: leaves ~250 orders of magnitude of headroom on both sides
@@ -200,6 +201,29 @@ class CanvasState(
     /** Restores the persisted stamp brush without reporting it back. */
     fun loadBrush(brush: StampBrush) {
         activeBrush = brush.clamped()
+    }
+
+    /** Stamp brushes saved by name in the brush editor; shared by every document. */
+    val brushPresets = mutableStateListOf<BrushPreset>()
+
+    /** Saves [brush] as [name], replacing a preset already called that (names are trimmed; blank is ignored). */
+    fun saveBrushPreset(name: String, brush: StampBrush) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        val preset = BrushPreset(trimmed, brush.clamped())
+        val existing = brushPresets.indexOfFirst { it.name == trimmed }
+        if (existing == -1) brushPresets.add(preset) else brushPresets[existing] = preset
+        onBrushPresetsChanged(brushPresets.toList())
+    }
+
+    fun deleteBrushPreset(name: String) {
+        if (brushPresets.removeAll { it.name == name }) onBrushPresetsChanged(brushPresets.toList())
+    }
+
+    /** Restores persisted presets without reporting them back. */
+    fun loadBrushPresets(loaded: List<BrushPreset>) {
+        brushPresets.clear()
+        brushPresets.addAll(loaded)
     }
 
     /** Favourite pen setups, one per toolbar slot (null = empty); shared by every document. */

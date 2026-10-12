@@ -53,4 +53,15 @@ class ToolSlotsTest {
         assertNull(loaded[0])
         assertEquals(preset, loaded[1])
     }
+
+    @Test
+    fun brushPresetsReplaceByNameAndPersist() {
+        val state = CanvasState()
+        state.saveBrushPreset("  Dots ", StampBrush(spacing = 1f))
+        state.saveBrushPreset("Dots", StampBrush(spacing = 2f))
+        state.saveBrushPreset("   ", StampBrush())
+        assertEquals(listOf(BrushPreset("Dots", StampBrush(spacing = 2f))), state.brushPresets.toList())
+        AppSettings.setBrushPresets(context, state.brushPresets)
+        assertEquals(state.brushPresets.toList(), AppSettings.brushPresets(context))
+    }
 }

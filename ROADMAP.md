@@ -59,7 +59,7 @@ Goal: a full, professional tool set.
 - [x] 26. Ruler/guide; opacity and blend modes; background styles
 - [~] 27. Stylus eraser end and side button erase; no double-tap/squeeze gestures yet
 - [x] 28. Shape recognition: draw-and-hold snaps to a clean line, rectangle or ellipse
-- [~] 29. Brush engine — airbrush and crayon procedural textures; stamp brush (circle, soft, square, star tips) with a brush editor for spacing, scatter, size/angle jitter and direction following; no image-based tips or saved brush presets
+- [~] 29. Brush engine — airbrush and crayon procedural textures; stamp brush (circle, soft, square, star tips) with a brush editor for spacing, scatter, size/angle jitter and direction following, and named brush presets; no image-based tips
 - [x] 30. Colour workflow — eyedropper, touch-and-hold pick, recent colours, saved palette, .gpl and .ase import
 - [x] 31. Quick tool switching — touch-and-hold eyedropper, keyboard shortcuts, four favourite pen slots on the toolbar, radial quick menu (tools, undo/redo)
 - [x] 32. Erase modes — ink vs object eraser, each also as a lasso eraser

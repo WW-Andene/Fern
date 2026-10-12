@@ -812,6 +812,9 @@ fun Toolbar(
                 showBrushEditor = false
             },
             onDismiss = { showBrushEditor = false },
+            presets = state.brushPresets,
+            onSavePreset = { name, brush -> state.saveBrushPreset(name, brush) },
+            onDeletePreset = { name -> state.deleteBrushPreset(name) },
         )
     }
 
