@@ -59,6 +59,7 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Straighten
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Tonality
 import androidx.compose.material.icons.filled.ZoomOutMap
@@ -112,6 +113,7 @@ fun Toolbar(
     var showOpacitySlider by remember { mutableStateOf(false) }
     var showStabilizationSlider by remember { mutableStateOf(false) }
     var showLayersDialog by remember { mutableStateOf(false) }
+    var showSearchDialog by remember { mutableStateOf(false) }
     var showBlendModeMenu by remember { mutableStateOf(false) }
     var showBackgroundStyleMenu by remember { mutableStateOf(false) }
     var showBackgroundColorPicker by remember { mutableStateOf(false) }
@@ -266,6 +268,9 @@ fun Toolbar(
                         contentDescription = "Stroke stabilisation",
                         tint = if (showStabilizationSlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
+                }
+                IconButton(onClick = { showSearchDialog = true }) {
+                    Icon(Icons.Filled.Search, contentDescription = "Search text")
                 }
                 IconButton(onClick = { showLayersDialog = true }) {
                     Icon(Icons.Filled.Layers, contentDescription = "Layers")
@@ -476,6 +481,17 @@ fun Toolbar(
                 )
             }
         }
+    }
+
+    if (showSearchDialog) {
+        SearchDialog(
+            textItems = state.textItems,
+            onJump = { item ->
+                state.panTo(item.position)
+                showSearchDialog = false
+            },
+            onDismiss = { showSearchDialog = false },
+        )
     }
 
     if (showLayersDialog) {

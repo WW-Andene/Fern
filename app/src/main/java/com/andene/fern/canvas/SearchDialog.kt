@@ -1,0 +1,71 @@
+package com.andene.fern.canvas
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+
+/**
+ * Finds typed text labels in the current document; tapping a result centres it on screen.
+ * Handwriting isn't searchable until handwriting recognition exists (roadmap item 67).
+ */
+@Composable
+fun SearchDialog(textItems: List<TextItem>, onJump: (TextItem) -> Unit, onDismiss: () -> Unit) {
+    var query by remember { mutableStateOf("") }
+    val matches = if (query.isBlank()) emptyList() else textItems.filter { it.text.contains(query.trim(), ignoreCase = true) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Search text") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    singleLine = true,
+                    placeholder = { Text("Find text on the canvas") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 384.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    if (query.isNotBlank() && matches.isEmpty()) {
+                        Text("No matches", modifier = Modifier.padding(vertical = 8.dp))
+                    }
+                    for (item in matches) {
+                        Text(
+                            text = item.text,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onJump(item) }
+                                .padding(vertical = 12.dp),
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        },
+    )
+}
