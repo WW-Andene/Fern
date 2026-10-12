@@ -335,6 +335,9 @@
     <string name="easing_in">Ease in</string>
     <string name="easing_out">Ease out</string>
     <string name="easing_in_out">Ease in-out</string>
+    <string name="easing_custom">Custom curve</string>
+    <string name="easing_edit_curve">Edit curve</string>
+    <string name="easing_curve_title">Timing curve</string>
     <string name="tb_bones">Bones</string>
     <string name="tb_bones_pose">Posing bones (tap to add bones)</string>
     <string name="tb_bones_add">Adding bones (tap to pose them)</string>

@@ -337,6 +337,9 @@
     <string name="easing_in">Accélération</string>
     <string name="easing_out">Décélération</string>
     <string name="easing_in_out">Accél.-décél.</string>
+    <string name="easing_custom">Courbe perso.</string>
+    <string name="easing_edit_curve">Modifier la courbe</string>
+    <string name="easing_curve_title">Courbe de timing</string>
     <string name="tb_bones">Os</string>
     <string name="tb_bones_pose">Pose des os (touchez pour ajouter des os)</string>
     <string name="tb_bones_add">Ajout d\'os (touchez pour les poser)</string>

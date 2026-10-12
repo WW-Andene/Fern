@@ -47,6 +47,14 @@ private val FPS_CHOICES = listOf(6, 8, 12, 24)
 fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
     var showXSheet by remember { mutableStateOf(false) }
     if (showXSheet) XSheetDialog(state, onDismiss = { showXSheet = false })
+    var editingCurve by remember { mutableStateOf(false) }
+    if (editingCurve) {
+        EasingCurveDialog(
+            initial = state.motionCurve,
+            onApply = { state.motionCurve = it; editingCurve = false },
+            onDismiss = { editingCurve = false },
+        )
+    }
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
@@ -98,6 +106,9 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
             // Timing of the generated in-betweens and motion paths; tap to cycle.
             TextButton(onClick = { state.motionEasing = Easing.entries[(state.motionEasing.ordinal + 1) % Easing.entries.size] }) {
                 Text(stringResource(state.motionEasing.label))
+            }
+            if (state.motionEasing == Easing.CUSTOM) {
+                TextButton(onClick = { editingCurve = true }) { Text(stringResource(R.string.easing_edit_curve)) }
             }
             TextButton(onClick = {
                 state.animFps = FPS_CHOICES[(FPS_CHOICES.indexOf(state.animFps) + 1) % FPS_CHOICES.size]

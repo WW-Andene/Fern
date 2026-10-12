@@ -419,6 +419,12 @@ class CanvasState(
     /** Timing of generated in-betweens and motion-path steps. */
     var motionEasing by mutableStateOf(Easing.LINEAR)
 
+    /** The curve [Easing.CUSTOM] follows, shaped in the curve editor. */
+    var motionCurve by mutableStateOf(CubicEasing.DEFAULT)
+
+    /** Progress at time [t] (0..1) under the chosen easing. */
+    fun easedProgress(t: Double): Double = if (motionEasing == Easing.CUSTOM) motionCurve.at(t) else motionEasing.at(t)
+
     private var playingBackwards = false
 
     /** Next frame for playback: wraps to the first when looping, reverses at either end in ping-pong. */
@@ -488,13 +494,13 @@ class CanvasState(
         shiftBoneFrames(from = to, by = count)
         shiftHolds(from = to, by = count)
         if (poseFrom.isNotEmpty() && poseTo.isNotEmpty()) {
-            for (step in 1..count) bones.addAll(interpolatePose(poseFrom, poseTo, motionEasing.at(step.toDouble() / (count + 1)), from + step))
+            for (step in 1..count) bones.addAll(interpolatePose(poseFrom, poseTo, easedProgress(step.toDouble() / (count + 1)), from + step))
         }
         if (bones.isNotEmpty()) onBonesChanged(bones.toList())
         // Matched once per pair, shared by every in-between.
         val matched = pairs.map { (a, b) -> tweenSamples(a, b, maxOf(a.points.size, b.points.size, 2)) }
         for (step in 1..count) {
-            val t = motionEasing.at(step.toDouble() / (count + 1))
+            val t = easedProgress(step.toDouble() / (count + 1))
             for ((index, pair) in pairs.withIndex()) {
                 val (a, b) = pair
                 val (pa, pb) = matched[index]
@@ -528,7 +534,7 @@ class CanvasState(
         val start = route.first()
         strokes.remove(path)
         for (step in 1 until steps) {
-            val position = motionEasing.at(step.toDouble() / (steps - 1)) * (route.size - 1)
+            val position = easedProgress(step.toDouble() / (steps - 1)) * (route.size - 1)
             val i = position.toInt().coerceAtMost(route.size - 2)
             val f = position - i
             val at = WorldPoint(route[i].x + (route[i + 1].x - route[i].x) * f, route[i].y + (route[i + 1].y - route[i].y) * f)
