@@ -148,8 +148,11 @@ private const val MIN_FRAGMENT_AREA = 0.01
 // As in vector editors' default: sharper corners than this ratio are bevelled.
 private const val MITRE_LIMIT = 4f
 
-/** The shape builder's two drag modes and the knife (roadmap item 141); see [CanvasState.toggleShapeEdit]. */
-enum class ShapeEditMode { BUILD_ADD, BUILD_REMOVE, KNIFE }
+/**
+ * The shape builder's two drag modes and the knife (roadmap item 141), and the comic panel
+ * cutter (roadmap item 105); see [CanvasState.toggleShapeEdit].
+ */
+enum class ShapeEditMode { BUILD_ADD, BUILD_REMOVE, KNIFE, PANEL_CUT }
 
 /** A new stroke styled like this one (frame constraints too), through [points] (no pressure, tilt or bone weights). */
 fun Stroke.withPoints(points: List<WorldPoint>): Stroke {
@@ -160,6 +163,12 @@ fun Stroke.withPoints(points: List<WorldPoint>): Stroke {
             source.constraints?.let { setConstraints(it) }
         }
 }
+
+/**
+ * A new stroke styled like this one around the closed outline [loop], its start repeated at
+ * its end so an outline (not just a fill) draws closed.
+ */
+fun Stroke.withLoop(loop: List<WorldPoint>): Stroke = withPoints(if (loop.isNotEmpty() && loop.first() != loop.last()) loop + loop.first() else loop)
 
 /**
  * A point inside the polygon [loop]: its centroid when that's inside (a convex region), else

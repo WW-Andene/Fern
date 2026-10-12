@@ -706,12 +706,16 @@ fun DrawingCanvas(
             }
 
             state.shapePreview?.let { (start, end) ->
-                val screenPoints = shapeOnPlane(state.activeShapeKind, start, end, state.isometricPlane).map { state.worldToScreen(it, screenCenter) }
+                val outlines = listOf(shapeOnPlane(state.activeShapeKind, start, end, state.isometricPlane)) +
+                    extrasOnPlane(state.activeShapeKind, start, end, state.isometricPlane)
                 val rawWidthScreen = state.activeWidthWorld
                 val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
                 val path = Path()
-                path.moveTo(screenPoints[0].x, screenPoints[0].y)
-                for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
+                for (outline in outlines) {
+                    val screenPoints = outline.map { state.worldToScreen(it, screenCenter) }
+                    path.moveTo(screenPoints[0].x, screenPoints[0].y)
+                    for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
+                }
                 drawPath(path = path, color = state.activeColor, style = DrawStyle(width = widthScreen, cap = StrokeCap.Round, join = StrokeJoin.Round))
                 // Dimensions (roadmap item 99): the line's length, or the box's width x height,
                 // in world units, beside the finger.

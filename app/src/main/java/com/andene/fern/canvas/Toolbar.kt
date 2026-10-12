@@ -1,5 +1,8 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.ViewQuilt
+import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.ContentCut
@@ -248,6 +251,8 @@ fun Toolbar(
     if (showStatsDialog) StatsDialog(state, onDismiss = { showStatsDialog = false })
     var showSignatureDialog by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
+    var showComicDialog by remember { mutableStateOf(false) }
+    if (showComicDialog) ComicDialog(state, onDismiss = { showComicDialog = false })
     if (showQrDialog) QrCodeDialog(state, onDismiss = { showQrDialog = false })
     if (showSignatureDialog) {
         val context = LocalContext.current
@@ -1037,6 +1042,15 @@ fun Toolbar(
                             )
                         }
                     }
+                    // Comic panel cutter (roadmap item 105): a drag splits the panels it crosses.
+                    val dividing = state.shapeEditMode == ShapeEditMode.PANEL_CUT
+                    IconButton(onClick = { state.toggleShapeEdit(ShapeEditMode.PANEL_CUT) }) {
+                        Icon(
+                            Icons.Filled.ViewQuilt,
+                            contentDescription = stringResource(if (dividing) R.string.tb_panel_cut_stop else R.string.tb_panel_cut),
+                            tint = if (dividing) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
                     val cutting = state.shapeEditMode == ShapeEditMode.KNIFE
                     IconButton(onClick = { state.toggleShapeEdit(ShapeEditMode.KNIFE) }, enabled = cutting || state.selection.isNotEmpty()) {
                         Icon(
@@ -1181,6 +1195,7 @@ fun Toolbar(
                             Triple(R.string.symbols_title, Icons.Filled.Category) { openSymbols() },
                             Triple(R.string.signature_title, Icons.Filled.Draw) { showSignatureDialog = true },
                             Triple(R.string.qr_title, Icons.Filled.QrCode2) { showQrDialog = true },
+                            Triple(R.string.comic_title, Icons.Filled.AutoStories) { showComicDialog = true },
                             Triple(R.string.script_title, Icons.Filled.Code) { showScriptDialog = true },
                             Triple(R.string.settings_title, Icons.Filled.Settings, onOpenSettings),
                         )
@@ -1647,6 +1662,8 @@ internal fun shapeKindIcon(kind: ShapeKind) = when (kind) {
     ShapeKind.ELLIPSE -> Icons.Filled.Circle
     ShapeKind.ARROW -> Icons.AutoMirrored.Filled.ArrowForward
     ShapeKind.SPEECH_BUBBLE -> Icons.Filled.ChatBubbleOutline
+    ShapeKind.THOUGHT_BUBBLE -> Icons.Filled.Cloud
+    ShapeKind.SHOUT_BUBBLE -> Icons.Filled.Flare
 }
 
 @StringRes
@@ -1656,6 +1673,8 @@ private fun shapeKindLabel(kind: ShapeKind) = when (kind) {
     ShapeKind.ELLIPSE -> R.string.shape_ellipse
     ShapeKind.ARROW -> R.string.shape_arrow
     ShapeKind.SPEECH_BUBBLE -> R.string.shape_bubble
+    ShapeKind.THOUGHT_BUBBLE -> R.string.shape_thought
+    ShapeKind.SHOUT_BUBBLE -> R.string.shape_shout
 }
 
 @StringRes

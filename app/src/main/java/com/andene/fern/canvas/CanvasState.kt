@@ -14,6 +14,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import kotlin.math.PI
+import kotlin.random.Random
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -229,6 +230,8 @@ class CanvasState(
         private const val IMPORTED_PAGE_GAP = 32.0
         // How wide (screen px) a placed QR code is, quiet zone included (roadmap item 144).
         private const val QR_SIZE_SCREEN = 256.0
+        // Gutter (screen px) the comic panel cutter leaves between the two panels (roadmap item 105).
+        private const val PANEL_GUTTER_SCREEN = 16.0
         // Width (screen px) of the cut a knife stroke takes out of a closed shape (roadmap item 141).
         private const val KNIFE_GAP_SCREEN = 2.0
 
@@ -740,40 +743,67 @@ class CanvasState(
     }
 
     /**
-     * Comic page template: a 2:3 page centred in the view, ruled into five panels (two, one
-     * wide, two) as ordinary rectangle strokes on the active layer, plus a frame named
-     * "Page N" so it can be presented and exported as a page. Undoable for the panels.
+     * Comic page template (roadmap item 105): a page of [size]'s proportions centred in the view,
+     * filling most of its height, ruled into [layout]'s panels as ordinary rectangle strokes on
+     * the active layer, plus a frame named "Page N" so it can be presented and exported as a
+     * page. The defaults are the classic 2:3 page of five panels. Undoable for the panels.
      */
-    fun insertComicPage() {
+    fun insertComicPage(size: ComicPageSize = ComicPageSize.CLASSIC, layout: ComicLayout = ComicLayout.CLASSIC_FIVE) {
         if (!activeLayerEditable || viewportSize.width <= 0f) return
         recordHistory()
         val s = scale.coerceAtLeast(1e-300)
-        // The page fills most of the screen's height at the current zoom.
-        val pageHeight = viewportSize.height * 0.8 / s
-        val pageWidth = pageHeight * 2.0 / 3.0
+        // The page fills most of the screen's height (or width, for a wide page) at the current zoom.
+        val fit = minOf(viewportSize.height * 0.8 / size.height, viewportSize.width * 0.8 / size.width) / s
+        val pageWidth = size.width * fit
+        val pageHeight = size.height * fit
         val left = panWorld.x - pageWidth / 2.0
         val top = panWorld.y - pageHeight / 2.0
-        val margin = pageWidth * 0.06
-        val gutter = pageWidth * 0.03
-        val innerWidth = pageWidth - 2 * margin
-        val rowHeight = (pageHeight - 2 * margin - 2 * gutter) / 3.0
-        val halfWidth = (innerWidth - gutter) / 2.0
-        val panels = listOf(
-            Triple(0, 0.0, halfWidth), Triple(0, halfWidth + gutter, halfWidth),
-            Triple(1, 0.0, innerWidth),
-            Triple(2, 0.0, halfWidth), Triple(2, halfWidth + gutter, halfWidth),
-        )
-        for ((row, x, width) in panels) {
-            val panelLeft = left + margin + x
-            val panelTop = top + margin + row * (rowHeight + gutter)
+        val panels = comicPanels(layout, left, top, pageWidth, pageHeight, pageWidth * COMIC_MARGIN_FRACTION, pageWidth * COMIC_GUTTER_FRACTION)
+        for ((panelLeft, panelTop, panelRight, panelBottom) in panels.map { it.toList() }) {
             val border = Stroke(Color.Black, PANEL_BORDER_SCREEN / s, PenType.MARKER, layerId = activeLayerId, animFrame = currentAnimFrame)
-            for (point in generateShapePoints(ShapeKind.RECTANGLE, WorldPoint(panelLeft, panelTop), WorldPoint(panelLeft + width, panelTop + rowHeight))) {
+            for (point in generateShapePoints(ShapeKind.RECTANGLE, WorldPoint(panelLeft, panelTop), WorldPoint(panelRight, panelBottom))) {
                 border.addPoint(point)
             }
             strokes.add(border)
         }
         frames.add(Frame(UUID.randomUUID().toString(), "Page ${frames.size + 1}", WorldPoint(left, top), WorldPoint(left + pageWidth, top + pageHeight)))
         onFramesChanged(frames.toList())
+        strokesChanged()
+    }
+
+    /**
+     * Speed or focus lines (roadmap item 105) over the selection's bounds, or the view when
+     * nothing is selected: [count] lines in the active colour at the active width, tapering
+     * toward the inner end ([comicLines] describes [inner] and [angleDegrees]), on the active
+     * layer as one selected group, the selection's strokes left as they are. One undo step.
+     */
+    fun addComicLines(kind: ComicLineKind, count: Int, inner: Double, angleDegrees: Double, seed: Int = Random.nextInt()) {
+        if (!activeLayerEditable) return
+        val (min, max) = selectionBounds() ?: run {
+            if (viewportSize.width <= 0f) return
+            val center = Offset(viewportSize.width / 2f, viewportSize.height / 2f)
+            val corners = listOf(Offset.Zero, Offset(viewportSize.width, 0f), Offset(0f, viewportSize.height), Offset(viewportSize.width, viewportSize.height))
+                .map { screenToWorld(it, center) }
+            WorldPoint(corners.minOf { it.x }, corners.minOf { it.y }) to WorldPoint(corners.maxOf { it.x }, corners.maxOf { it.y })
+        }
+        val lines = comicLines(kind, min, max, count, inner, angleDegrees, seed)
+        if (lines.isEmpty()) return
+        recordHistory()
+        val group = UUID.randomUUID().toString()
+        val added = lines.map { line ->
+            Stroke(
+                activeColor.copy(alpha = activeColor.alpha * activeOpacity.toFloat()),
+                activeWidthWorld / scale.coerceAtLeast(1e-300),
+                PenType.MARKER,
+                layerId = activeLayerId,
+                animFrame = currentAnimFrame,
+                groupId = group,
+                lineStyle = LineStyle(LineCap.ROUND, LineJoin.ROUND, WidthProfile.TAPER_END),
+            ).apply { for (p in line) addPoint(p) }
+        }
+        strokes.addAll(added)
+        clearSelectionState()
+        selection.addAll(added)
         strokesChanged()
     }
 
@@ -3585,7 +3615,10 @@ class CanvasState(
         shapePreview = null
         val (start, end) = preview
         if (start == end) return
-        val stroke = Stroke(
+        // A shape drawn in several outlines (a thought balloon's trail) is one group.
+        val extras = extrasOnPlane(activeShapeKind, start, end, isometricPlane)
+        val group = if (extras.isEmpty()) null else UUID.randomUUID().toString()
+        fun styled(points: List<WorldPoint>) = Stroke(
             activeColor.copy(alpha = activeColor.alpha * activeOpacity.toFloat()),
             activeWidthWorld / scale.coerceAtLeast(1e-300),
             activePenType,
@@ -3595,9 +3628,10 @@ class CanvasState(
             dashed = activeDashed,
             lineStyle = activeLineStyle.takeIf { it != LineStyle() },
             brush = if (activePenType == PenType.STAMP) activeBrush else null,
-        )
-        for (point in shapeOnPlane(activeShapeKind, start, end, isometricPlane)) stroke.addPoint(point)
-        strokes.add(stroke)
+            groupId = group,
+        ).apply { for (point in points) addPoint(point) }
+        strokes.add(styled(shapeOnPlane(activeShapeKind, start, end, isometricPlane)))
+        for (extra in extras) strokes.add(styled(extra))
         countAction(StatsAction.DRAW, System.currentTimeMillis())
         strokesChanged()
     }
@@ -5116,7 +5150,8 @@ class CanvasState(
             return
         }
         val building = current == ShapeEditMode.BUILD_ADD || current == ShapeEditMode.BUILD_REMOVE
-        if (mode == ShapeEditMode.KNIFE || !building) {
+        // The panel cutter works on whatever it crosses; it needs no selection.
+        if (mode != ShapeEditMode.PANEL_CUT && (mode == ShapeEditMode.KNIFE || !building)) {
             if (selection.isEmpty()) return
             if (mode != ShapeEditMode.KNIFE && !divideSelection()) return
         }
@@ -5144,7 +5179,7 @@ class CanvasState(
         val pieces = regions.map { region ->
             val inside = interiorPoint(region)
             val owner = ordered.lastOrNull { polygonContains(it.points, inside) } ?: ordered.last()
-            owner.withPoints(region)
+            owner.withLoop(region)
         }
         replaceStrokes(chosen, pieces, at = strokes.indexOf(ordered.first()))
         return true
@@ -5186,17 +5221,35 @@ class CanvasState(
                 val merged = combineShapes(touched.map { it.points }, ShapeOp.UNION, bridgeHoles = bottom.filled)
                 if (merged.isEmpty()) return
                 recordHistory()
-                replaceStrokes(touched, merged.map { bottom.withPoints(it) }, at = strokes.indexOf(bottom))
+                replaceStrokes(touched, merged.map { bottom.withLoop(it) }, at = strokes.indexOf(bottom))
                 selection.addAll(chosen.filter { it !in touched })
+            }
+            ShapeEditMode.PANEL_CUT -> {
+                // Comic panels (roadmap item 105): every closed outline on the active layer the
+                // drag crosses is split in two with a gutter between, selection or not.
+                if (path.size < 2) return
+                val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
+                val gutter = PANEL_GUTTER_SCREEN / scale.coerceAtLeast(1e-300)
+                val left = path.minOf { it.x }
+                val top = path.minOf { it.y }
+                val right = path.maxOf { it.x }
+                val bottom = path.maxOf { it.y }
+                val cuts = strokesNear(left, top, right, bottom)
+                    .filter { it.layerId == activeLayerId && isVisible(it) && isEditable(it) && isClosedLoop(it.points, closeTolerance) }
+                    .mapNotNull { stroke -> cutShape(stroke.points, path, gutter).takeIf { it.isNotEmpty() }?.let { stroke to it.map(stroke::withLoop) } }
+                if (cuts.isEmpty()) return
+                recordHistory()
+                for ((stroke, pieces) in cuts) replaceStrokes(listOf(stroke), pieces, at = strokes.indexOf(stroke))
+                clearSelectionState()
             }
             ShapeEditMode.KNIFE -> {
                 if (path.size < 2) return
                 val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
                 val gap = KNIFE_GAP_SCREEN / scale.coerceAtLeast(1e-300)
                 val cuts = chosen.mapNotNull { stroke ->
-                    val pieces = if (isClosedLoop(stroke.points, closeTolerance)) cutShape(stroke.points, path, gap)
-                    else splitPolyline(stroke.points, path).takeIf { it.size >= 2 } ?: emptyList()
-                    if (pieces.isEmpty()) null else stroke to pieces.map { stroke.withPoints(it) }
+                    val pieces = if (isClosedLoop(stroke.points, closeTolerance)) cutShape(stroke.points, path, gap).map(stroke::withLoop)
+                    else splitPolyline(stroke.points, path).takeIf { it.size >= 2 }?.map(stroke::withPoints) ?: emptyList()
+                    if (pieces.isEmpty()) null else stroke to pieces
                 }
                 if (cuts.isEmpty()) return
                 recordHistory()

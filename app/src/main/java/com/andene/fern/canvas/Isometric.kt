@@ -48,6 +48,12 @@ fun shapeOnPlane(kind: ShapeKind, start: WorldPoint, end: WorldPoint, plane: Iso
     return generateShapePoints(kind, start, plane.toFlat(end, start)).map { plane.toScreenPlane(it, start) }
 }
 
+/** [shapeExtras] for the shape [kind] dragged from [start] to [end] on [plane], laid onto the plane like [shapeOnPlane]. */
+fun extrasOnPlane(kind: ShapeKind, start: WorldPoint, end: WorldPoint, plane: IsometricPlane?): List<List<WorldPoint>> {
+    if (plane == null) return shapeExtras(kind, start, end)
+    return shapeExtras(kind, start, plane.toFlat(end, start)).map { extra -> extra.map { plane.toScreenPlane(it, start) } }
+}
+
 /**
  * The isometric lattice point at [point] rounded in lattice coordinates (nearest or close to
  * it), for lattice [spacing]: the points where the vertical lines and the two 30° families
