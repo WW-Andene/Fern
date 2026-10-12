@@ -388,12 +388,14 @@ class Stroke(
 
     /**
      * A deep copy drawn in [style] (roadmap item 121). Colour and blend carry over to anything;
-     * the outline attributes (width, pen, dashes, line style, brush) only to outlines, and the
-     * fill attributes (fade, screentone, gradient) only to fills, so pasting an outline's style
-     * onto a fill recolours it rather than turning it into something it can't be.
+     * the outline attributes (width, pen, dashes, line style, brush) only from an outline to an
+     * outline, and the fill attributes (fade, screentone, gradient) only from a fill to a fill,
+     * so pasting an outline's style onto a fill recolours it and keeps its screentone, rather
+     * than taking attributes the outline never had.
      */
     fun withStyle(style: StrokeStyle): Stroke {
-        val outline = !filled
+        val outline = !filled && !style.fromFill
+        val fill = filled && style.fromFill
         val copy = Stroke(
             style.color,
             if (outline) style.widthWorld else widthWorld,
@@ -403,10 +405,10 @@ class Stroke(
             layerId,
             animFrame,
             if (outline) style.dashed else dashed,
-            if (outline) fadeFill else style.fadeFill,
-            if (outline) screentone else style.screentone,
+            if (fill) style.fadeFill else fadeFill,
+            if (fill) style.screentone else screentone,
             if (outline) style.brush else brush,
-            if (outline) gradient else style.gradient,
+            if (fill) style.gradient else gradient,
             groupId,
             boneId,
             if (outline) style.lineStyle else lineStyle,

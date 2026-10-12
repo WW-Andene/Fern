@@ -8,6 +8,8 @@ import androidx.compose.ui.graphics.Color
  * pastes onto others, the way Affinity Designer's Style Picker does.
  */
 data class StrokeStyle(
+    /** Copied from a fill: only its fill attributes mean anything (and an outline's only its outline ones). */
+    val fromFill: Boolean,
     val color: Color,
     val widthWorld: Double,
     val penType: PenType,
@@ -21,6 +23,7 @@ data class StrokeStyle(
 ) {
     companion object {
         fun of(stroke: Stroke) = StrokeStyle(
+            stroke.filled,
             stroke.color, stroke.widthWorld, stroke.penType, stroke.blendMode, stroke.dashed,
             stroke.lineStyle, stroke.brush, stroke.fadeFill, stroke.screentone, stroke.gradient,
         )
