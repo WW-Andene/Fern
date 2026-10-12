@@ -151,6 +151,8 @@
     <string name="tip_soft">Doux</string>
     <string name="tip_square">Carré</string>
     <string name="tip_star">Étoile</string>
+    <string name="tip_image">Image</string>
+    <string name="brush_pick_image">Choisir l\'image de la pointe…</string>
     <string name="gradient_solid">Uni</string>
     <string name="gradient_fade">Fondu</string>
     <string name="gradient_two">Deux couleurs</string>

@@ -26,6 +26,7 @@ import java.io.IOException
  *   [if FLAG_GROUP: int group-id name]                                   (version 4+)
  *   [if FLAG2_BONE: int bone-id name]                                    (version 5+)
  *   [if FLAG2_STYLE: byte packed line style (LineStyle.pack)]            (version 5+)
+ *   [if FLAG2_TIP_MASK: short mask size, then size x size coverage bytes] (version 6+)
  *   int point count
  *   per point: double x, double y [, float pressure, float tilt, float orientation]
  * ```
@@ -44,8 +45,9 @@ object StrokeCodec {
      * 3: optional two-colour fill gradient ([FLAG_GRADIENT]).
      * 4: optional group id ([FLAG_GROUP]); flags are read as an unsigned byte from here on.
      * 5: a second flags byte, its first flag an optional bone id ([FLAG2_BONE]).
+     * 6: optional image-tip picture for a stamp brush ([FLAG2_TIP_MASK]).
      */
-    const val VERSION = 5
+    const val VERSION = 6
 
     private const val FLAG_FILLED = 1
     private const val FLAG_DASHED = 2
@@ -59,6 +61,9 @@ object StrokeCodec {
     // Second flags byte (version 5+).
     private const val FLAG2_BONE = 1
     private const val FLAG2_STYLE = 2
+    private const val FLAG2_TIP_MASK = 4
+    // Guards against a corrupt size allocating a huge array; real masks are TIP_MASK_SIZE.
+    private const val MAX_TIP_MASK_SIZE = 512
 
     fun write(out: DataOutputStream, strokes: List<Stroke>) {
         val names = LinkedHashMap<String, Int>()
@@ -100,7 +105,8 @@ object StrokeCodec {
             out.writeByte(flags)
             val boneId = stroke.boneId
             val lineStyle = stroke.lineStyle
-            out.writeByte((if (boneId != null) FLAG2_BONE else 0) or (if (lineStyle != null) FLAG2_STYLE else 0))
+            val mask = brush?.mask
+            out.writeByte((if (boneId != null) FLAG2_BONE else 0) or (if (lineStyle != null) FLAG2_STYLE else 0) or (if (mask != null) FLAG2_TIP_MASK else 0))
             if (brush != null) {
                 out.writeShort(nameIndex(brush.tip.name))
                 out.writeFloat(brush.spacing)
@@ -116,6 +122,10 @@ object StrokeCodec {
             if (groupId != null) out.writeInt(nameIndex(groupId))
             if (boneId != null) out.writeInt(nameIndex(boneId))
             if (lineStyle != null) out.writeByte(lineStyle.pack())
+            if (mask != null) {
+                out.writeShort(mask.size)
+                out.write(mask.alpha)
+            }
             val points = stroke.points
             out.writeInt(points.size)
             for (i in points.indices) {
@@ -173,6 +183,13 @@ object StrokeCodec {
             val groupId = if ((flags and FLAG_GROUP) != 0) name(input.readInt()) else null
             val boneId = if ((flags2 and FLAG2_BONE) != 0) name(input.readInt()) else null
             val lineStyle = if ((flags2 and FLAG2_STYLE) != 0) LineStyle.unpack(input.readUnsignedByte()) else null
+            val mask = if ((flags2 and FLAG2_TIP_MASK) != 0) {
+                val size = input.readUnsignedShort()
+                if (size == 0 || size > MAX_TIP_MASK_SIZE) throw IOException("Bad tip mask size $size")
+                TipMask(size, ByteArray(size * size).also { input.readFully(it) })
+            } else {
+                null
+            }
             val stroke = Stroke(
                 color, width, penType,
                 filled = (flags and FLAG_FILLED) != 0,
@@ -182,7 +199,7 @@ object StrokeCodec {
                 dashed = (flags and FLAG_DASHED) != 0,
                 fadeFill = (flags and FLAG_FADE) != 0,
                 screentone = (flags and FLAG_TONE) != 0,
-                brush = brush,
+                brush = if (mask != null) brush?.copy(mask = mask) else brush,
                 gradient = gradient,
                 groupId = groupId,
                 boneId = boneId,

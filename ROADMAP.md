@@ -59,7 +59,7 @@ Goal: a full, professional tool set.
 - [x] 26. Ruler/guide; opacity and blend modes; background styles
 - [x] 27. Stylus eraser end and side button erase; stylus barrel/tail buttons (Android 14 key events) toggle eraser and previous tool, the platform counterpart of double-tap/squeeze
 - [x] 28. Shape recognition: draw-and-hold snaps to a clean line, rectangle or ellipse
-- [~] 29. Brush engine — airbrush and crayon procedural textures; stamp brush (circle, soft, square, star tips) with a brush editor for spacing, scatter, size/angle jitter and direction following, and named brush presets; no image-based tips
+- [x] 29. Brush engine — airbrush and crayon procedural textures; stamp brush (circle, soft, square, star tips) with a brush editor for spacing, scatter, size/angle jitter and direction following, and named brush presets; image tips made from any picture (its darkness, or its transparency when it has some)
 - [x] 30. Colour workflow — eyedropper, touch-and-hold pick, recent colours, saved palette, .gpl and .ase import
 - [x] 31. Quick tool switching — touch-and-hold eyedropper, keyboard shortcuts, four favourite pen slots on the toolbar, radial quick menu (tools, undo/redo)
 - [x] 32. Erase modes — ink vs object eraser, each also as a lasso eraser

@@ -151,6 +151,7 @@ object AppSettings {
         .put("sizeJitter", brush.sizeJitter.toDouble())
         .put("angleJitter", brush.angleJitter.toDouble())
         .put("followDirection", brush.followDirection)
+        .apply { brush.mask?.let { put("maskSize", it.size).put("mask", android.util.Base64.encodeToString(it.alpha, android.util.Base64.NO_WRAP)) } }
 
     private fun brushFromJson(json: JSONObject): StampBrush = StampBrush(
         tip = StampTip.entries.firstOrNull { it.name == json.optString("tip") } ?: StampTip.CIRCLE,
@@ -159,6 +160,7 @@ object AppSettings {
         sizeJitter = json.optDouble("sizeJitter", 0.0).toFloat(),
         angleJitter = json.optDouble("angleJitter", 0.0).toFloat(),
         followDirection = json.optBoolean("followDirection", false),
+        mask = runCatching { TipMask(json.getInt("maskSize"), android.util.Base64.decode(json.getString("mask"), android.util.Base64.NO_WRAP)) }.getOrNull(),
     ).clamped()
 }
 

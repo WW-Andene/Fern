@@ -32,6 +32,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.content.Context
+import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -63,6 +69,11 @@ fun BrushEditorDialog(
     var brush by remember { mutableStateOf(initialBrush) }
     var namingPreset by remember { mutableStateOf(false) }
     var presetName by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val pickTipImage = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val mask = uri?.let { decodeTipMask(context, it) }
+        if (mask != null) brush = brush.copy(tip = StampTip.IMAGE, mask = mask)
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.brush_title)) },
@@ -97,15 +108,19 @@ fun BrushEditorDialog(
                         }
                     }
                 }
-                Row(modifier = Modifier.padding(vertical = 8.dp)) {
+                Row(modifier = Modifier.padding(vertical = 8.dp).horizontalScroll(rememberScrollState())) {
                     for (tip in StampTip.entries) {
                         FilterChip(
                             selected = brush.tip == tip,
-                            onClick = { brush = brush.copy(tip = tip) },
+                            // An image tip needs a picture first; picking one selects the tip.
+                            onClick = { if (tip == StampTip.IMAGE && brush.mask == null) pickTipImage.launch("image/*") else brush = brush.copy(tip = tip) },
                             label = { Text(stringResource(tip.label)) },
                             modifier = Modifier.padding(end = 4.dp),
                         )
                     }
+                }
+                if (brush.tip == StampTip.IMAGE) {
+                    TextButton(onClick = { pickTipImage.launch("image/*") }) { Text(stringResource(R.string.brush_pick_image)) }
                 }
                 BrushSlider(stringResource(R.string.brush_spacing), brush.spacing, StampBrush.MIN_SPACING..StampBrush.MAX_SPACING) { brush = brush.copy(spacing = it) }
                 BrushSlider(stringResource(R.string.brush_scatter), brush.scatter, 0f..StampBrush.MAX_SCATTER) { brush = brush.copy(scatter = it) }
@@ -172,6 +187,21 @@ private fun BrushPreview(brush: StampBrush, color: Color) {
             val t = k / 64f
             Offset(margin + t * (size.width - 2 * margin), size.height / 2f + sin(t * 2f * PI.toFloat()) * (size.height / 2f - margin))
         }
-        for (stamp in stampPlacements(path, width, brush)) drawStamp(brush.tip, stamp, color)
+        for (stamp in stampPlacements(path, width, brush)) drawStamp(brush.tip, stamp, color, mask = brush.mask)
     }
 }
+
+/** Reads a picked picture as an image tip, decoded at reduced size since the tip is only [TIP_MASK_SIZE] wide. */
+private fun decodeTipMask(context: Context, uri: Uri): TipMask? = runCatching {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+    var sample = 1
+    while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= TIP_MASK_SIZE * 2) sample *= 2
+    val bitmap = context.contentResolver.openInputStream(uri)?.use {
+        BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+    } ?: return null
+    val pixels = IntArray(bitmap.width * bitmap.height)
+    bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+    tipMaskFromArgb(pixels, bitmap.width, bitmap.height).also { bitmap.recycle() }
+}.getOrNull()
+

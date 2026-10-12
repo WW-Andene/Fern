@@ -151,6 +151,8 @@
     <string name="tip_soft">Soft</string>
     <string name="tip_square">Square</string>
     <string name="tip_star">Star</string>
+    <string name="tip_image">Image</string>
+    <string name="brush_pick_image">Choose tip image…</string>
     <string name="gradient_solid">Solid</string>
     <string name="gradient_fade">Fade out</string>
     <string name="gradient_two">Two colours</string>

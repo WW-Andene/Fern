@@ -928,13 +928,34 @@ private const val AIRBRUSH_DOTS_PER_SAMPLE = 6
 private fun DrawScope.drawStampStroke(stroke: Stroke, screenPoints: List<Offset>, source: IntArray, baseWidthScreen: Float, blendMode: BlendMode) {
     val brush = stroke.brush ?: StampBrush()
     val stamps = stampPlacements(screenPoints, baseWidthScreen, brush) { i -> widthFactorAt(stroke, source[i]) }
-    for (stamp in stamps) drawStamp(brush.tip, stamp, stroke.color, blendMode)
+    for (stamp in stamps) drawStamp(brush.tip, stamp, stroke.color, blendMode, brush.mask)
+}
+
+// One tintable bitmap per image tip, shared by every stamp and frame; weak so unused tips go.
+private val tipBitmaps = java.util.WeakHashMap<TipMask, ImageBitmap>()
+
+private fun tipBitmap(mask: TipMask): ImageBitmap = tipBitmaps.getOrPut(mask) {
+    val colors = IntArray(mask.size * mask.size) { ((mask.alpha[it].toInt() and 0xFF) shl 24) or 0xFFFFFF }
+    android.graphics.Bitmap.createBitmap(colors, mask.size, mask.size, android.graphics.Bitmap.Config.ARGB_8888).asImageBitmap()
 }
 
 /** Draws one stamp of [tip]; shared with the brush editor's preview. */
-fun DrawScope.drawStamp(tip: StampTip, stamp: Stamp, color: Color, blendMode: BlendMode = BlendMode.SrcOver) {
+fun DrawScope.drawStamp(tip: StampTip, stamp: Stamp, color: Color, blendMode: BlendMode = BlendMode.SrcOver, mask: TipMask? = null) {
     val radius = (stamp.size / 2f).coerceAtLeast(0.5f)
     when (tip) {
+        // The picture's coverage tinted with the stroke colour (SrcIn keeps its alpha, takes the colour).
+        StampTip.IMAGE -> if (mask == null) drawCircle(color, radius = radius, center = stamp.center, blendMode = blendMode) else {
+            val side = (radius * 2f).toInt().coerceAtLeast(1)
+            rotate(Math.toDegrees(stamp.angle.toDouble()).toFloat(), pivot = stamp.center) {
+                drawImage(
+                    tipBitmap(mask),
+                    dstOffset = IntOffset((stamp.center.x - side / 2f).toInt(), (stamp.center.y - side / 2f).toInt()),
+                    dstSize = IntSize(side, side),
+                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(color, BlendMode.SrcIn),
+                    blendMode = blendMode,
+                )
+            }
+        }
         StampTip.CIRCLE -> drawCircle(color, radius = radius, center = stamp.center, blendMode = blendMode)
         // Soft: a radial falloff from full colour at the centre to transparent at the rim.
         StampTip.SOFT -> drawCircle(
