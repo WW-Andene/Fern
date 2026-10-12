@@ -632,13 +632,25 @@ class CanvasState(
         recordHistory()
         rememberActiveColor()
         clearSelectionState()
-        shapeStart = worldPoint
-        shapePreview = worldPoint to worldPoint
+        shapeStart = snappedToGrid(worldPoint)
+        shapePreview = shapeStart to shapeStart
+    }
+
+    /**
+     * On grid or dot-grid paper, shape corners and endpoints land on the nearest pattern point,
+     * the way drawing on graph paper invites. Other paper styles leave points untouched.
+     */
+    private fun snappedToGrid(point: WorldPoint): WorldPoint {
+        if (backgroundStyle != BackgroundStyle.GRID && backgroundStyle != BackgroundStyle.DOT) return point
+        val spacing = BACKGROUND_PATTERN_SPACING_WORLD
+        return WorldPoint(kotlin.math.round(point.x / spacing) * spacing, kotlin.math.round(point.y / spacing) * spacing)
     }
 
     fun continueShape(worldPoint: WorldPoint) {
         if (shapePreview == null) return
-        shapePreview = shapeStart to snappedShapeEnd(activeShapeKind, shapeStart, worldPoint)
+        // Grid snapping already gives clean geometry; angle/aspect snapping applies only off the grid.
+        val end = snappedToGrid(worldPoint)
+        shapePreview = shapeStart to if (end != worldPoint) end else snappedShapeEnd(activeShapeKind, shapeStart, worldPoint)
     }
 
     /** Commits the current shape preview as a new stroke. No-op if there was no actual drag (a zero-size shape). */
