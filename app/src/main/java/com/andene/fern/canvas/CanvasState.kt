@@ -657,6 +657,12 @@ class CanvasState(
         return last + (target - last) * VELOCITY_SMOOTHING
     }
 
+    /** The last point of the pen stroke in progress, or null when not drawing (for the motion-prediction preview). */
+    val strokeTip: WorldPoint? get() = currentStroke?.points?.lastOrNull()
+
+    /** Style of the stroke in progress, for drawing its predicted extension the same way. */
+    val strokeInProgress: Stroke? get() = currentStroke
+
     // When the pen last moved; a pause before lifting triggers shape recognition in endStroke.
     private var lastStrokeMoveMillis = 0L
     private var holdAnchor: WorldPoint? = null

@@ -6,7 +6,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -31,6 +34,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -40,6 +44,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
+import androidx.input.motionprediction.MotionEventPredictor
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -71,6 +76,12 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
     // exactly as before - this only adds a way to read pressure/tilt for pointer 0 at the
     // moment each point is captured. Untested against real stylus hardware.
     val stylusSample = remember { StylusSample() }
+    // Motion prediction: where the pen will probably be one frame from now. Drawn as a short,
+    // temporary extension of the stroke in progress (never stored), so ink appears to keep up
+    // with the pen instead of trailing it by the display pipeline's latency.
+    val view = LocalView.current
+    val predictor = remember(view) { MotionEventPredictor.newInstance(view) }
+    var predictedScreen by remember { mutableStateOf<Offset?>(null) }
     val textMeasurer = rememberTextMeasurer()
     val context = LocalContext.current
     // Decoded lazily and cached by file name: re-decoding from disk every frame would be
@@ -87,6 +98,13 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                     stylusSample.orientation = if (isStylus) event.getOrientation(0) else 0f
                     stylusSample.eraserEnd = event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER
                     stylusSample.buttonPressed = isStylus && (event.buttonState and MotionEvent.BUTTON_STYLUS_PRIMARY) != 0
+                    predictor.record(event)
+                    predictedScreen = when (event.actionMasked) {
+                        MotionEvent.ACTION_MOVE -> predictor.predict()?.let { predicted ->
+                            Offset(predicted.x, predicted.y).also { predicted.recycle() }
+                        }
+                        else -> null
+                    }
                 }
                 false
             }
@@ -389,6 +407,20 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                     text = frame.name,
                     topLeft = Offset(a.x, a.y - 24f),
                     style = TextStyle(color = FRAME_COLOR, fontSize = 12.sp),
+                )
+            }
+
+            // Predicted extension of the pen stroke in progress (see predictor above).
+            val tip = state.strokeTip
+            val drawing = state.strokeInProgress
+            val predicted = predictedScreen
+            if (tip != null && drawing != null && predicted != null && state.activeStabilization <= 0.0) {
+                drawLine(
+                    color = drawing.color,
+                    start = state.worldToScreen(tip, screenCenter),
+                    end = state.unrotateScreen(predicted, screenCenter),
+                    strokeWidth = (drawing.widthWorld * state.scale).toFloat().coerceIn(1f, 1_000_000f),
+                    cap = StrokeCap.Round,
                 )
             }
 

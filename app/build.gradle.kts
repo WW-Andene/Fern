@@ -51,6 +51,8 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.activity:activity-compose:1.9.1")
+    // Predicts where the pen is heading so ink can be drawn slightly ahead, hiding input latency.
+    implementation("androidx.input:input-motionprediction:1.0.0")
 
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
