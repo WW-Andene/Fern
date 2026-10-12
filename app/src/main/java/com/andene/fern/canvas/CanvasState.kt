@@ -331,7 +331,7 @@ class CanvasState(
         }
         animFrameCount++
         currentAnimFrame = insertAt
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /**
@@ -368,7 +368,7 @@ class CanvasState(
             }
         }
         animFrameCount += count
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /**
@@ -399,7 +399,7 @@ class CanvasState(
         animFrameCount = maxOf(animFrameCount, currentAnimFrame + steps)
         animationMode = true
         clearSelectionState()
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /** Deletes the current frame and its strokes; later frames shift down. The last frame can't be deleted. */
@@ -414,7 +414,7 @@ class CanvasState(
         }
         animFrameCount--
         currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /**
@@ -472,7 +472,7 @@ class CanvasState(
         }
         frames.add(Frame(UUID.randomUUID().toString(), "Page ${frames.size + 1}", WorldPoint(left, top), WorldPoint(left + pageWidth, top + pageHeight)))
         onFramesChanged(frames.toList())
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /**
@@ -501,7 +501,7 @@ class CanvasState(
         }
         frames.add(Frame(UUID.randomUUID().toString(), "Storyboard", WorldPoint(left, top), WorldPoint(left + sheetWidth, top + sheetHeight)))
         onFramesChanged(frames.toList())
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     fun deleteFrame(id: String) {
@@ -579,7 +579,7 @@ class CanvasState(
         strokes.removeWhere { it.layerId == id }
         layers.removeWhere { it.id == id }
         if (activeLayerId == id) activeLayerId = layers.last().id
-        onChanged(strokes.toList())
+        strokesChanged()
         onLayersChanged(layers.toList())
     }
 
@@ -602,7 +602,7 @@ class CanvasState(
         strokes.removeWhere { it.layerId in hidden }
         layers.removeWhere { it.id in hidden }
         if (activeLayerId in hidden) activeLayerId = layers.last().id
-        onChanged(strokes.toList())
+        strokesChanged()
         onLayersChanged(layers.toList())
     }
 
@@ -618,7 +618,7 @@ class CanvasState(
         }
         layers.removeAt(index)
         if (activeLayerId == id) activeLayerId = below.id
-        onChanged(strokes.toList())
+        strokesChanged()
         onLayersChanged(layers.toList())
     }
 
@@ -823,6 +823,54 @@ class CanvasState(
             fun of(strokes: List<Stroke>, images: List<ImageItem>?, texts: List<TextItem>? = null) =
                 HistoryEntry(strokes.toTypedArray(), Array(strokes.size) { strokes[it].captureState() }, images, texts)
         }
+    }
+
+    /**
+     * Every completed stroke mutation ends here: reports it for autosave ([onChanged]) and marks
+     * the spatial index stale, since an in-place edit (a move, a transform) changes geometry
+     * without changing the list.
+     */
+    private fun strokesChanged() {
+        geometryEpoch++
+        onChanged(strokes.toList())
+    }
+
+    // Bumped by strokesChanged() and by rebases; the spatial index is rebuilt when it moves on.
+    private var geometryEpoch = 0
+    private var spatialIndex: StrokeSpatialIndex? = null
+    private var indexedStrokes: List<Stroke>? = null
+    private var indexedEpoch = -1
+    private var indexPositions = java.util.IdentityHashMap<Stroke, Int>()
+
+    /**
+     * Strokes that may intersect the world rectangle, in drawing order - what rendering needs,
+     * in time proportional to what's nearby instead of the whole document (roadmap item 49).
+     * The index is rebuilt when the list or the geometry epoch changed; strokes being edited
+     * right now (the stroke being drawn, its symmetry copies, the selection) can change shape
+     * before their action completes, so they're always included. Candidates only: callers
+     * still test [Stroke.intersects].
+     */
+    fun strokesNear(left: Double, top: Double, right: Double, bottom: Double): List<Stroke> {
+        val list = strokes.toList() // the list's immutable snapshot: same instance until it changes
+        var index = spatialIndex
+        if (index == null || indexedStrokes !== list || indexedEpoch != geometryEpoch) {
+            index = StrokeSpatialIndex(list)
+            spatialIndex = index
+            indexedStrokes = list
+            indexedEpoch = geometryEpoch
+            indexPositions = java.util.IdentityHashMap<Stroke, Int>(list.size).also { map -> list.forEachIndexed { i, s -> map[s] = i } }
+        }
+        val found = index.query(left, top, right, bottom)
+        val live = buildList {
+            currentStroke?.let(::add)
+            symmetryCopies.forEach { add(it.first) }
+            addAll(selection)
+        }
+        if (live.isEmpty()) return found.map { list[it] }
+        val positions = java.util.TreeSet<Int>()
+        found.forEach(positions::add)
+        for (stroke in live) indexPositions[stroke]?.let(positions::add)
+        return positions.map { list[it] }
     }
 
     private val undoStack = ArrayDeque<HistoryEntry>()
@@ -1148,7 +1196,7 @@ class CanvasState(
         holdAnchor = null
         currentStroke = null
         rebaseIfNeeded()
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /** World-space radius of the eraser at the current zoom level. */
@@ -1180,7 +1228,7 @@ class CanvasState(
                 return
             }
         }
-        onChanged(strokes.toList())
+        strokesChanged()
         onImageChanged(imageItems.toList())
     }
 
@@ -1324,7 +1372,7 @@ class CanvasState(
         )
         for (point in generateShapePoints(activeShapeKind, start, end)) stroke.addPoint(point)
         strokes.add(stroke)
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /**
@@ -1367,7 +1415,7 @@ class CanvasState(
         )
         for (point in boundary.points) fillStroke.addPoint(point)
         strokes.add(bestIndex, fillStroke)
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /**
@@ -1713,7 +1761,7 @@ class CanvasState(
         if (nodeDragIndex != null) {
             nodeDragIndex = null
             nodeDragOriginal = emptyList()
-            onChanged(strokes.toList())
+            strokesChanged()
             return
         }
         if (isMovingText) {
@@ -1731,7 +1779,7 @@ class CanvasState(
         if (isMovingSelection) {
             isMovingSelection = false
             lastDragPoint = null
-            onChanged(strokes.toList())
+            strokesChanged()
             return
         }
         if (lassoPath.isNotEmpty()) {
@@ -1821,7 +1869,7 @@ class CanvasState(
     fun endScaleSelection() {
         gestureSnapshot = emptyMap()
         gestureSnapshotWidths = emptyMap()
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /**
@@ -1859,7 +1907,7 @@ class CanvasState(
 
     fun endRotateSelection() {
         gestureSnapshot = emptyMap()
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /** Deletes every currently selected stroke. */
@@ -1877,7 +1925,7 @@ class CanvasState(
         clearSelectionState()
         selection.addAll(replaced)
         rememberActiveColor()
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /** Moves the selected strokes to the top ([toFront]) or bottom of the drawing order, keeping their order relative to each other. */
@@ -1888,7 +1936,7 @@ class CanvasState(
         val moving = strokes.filter { it in selected }
         strokes.removeAll(selected)
         if (toFront) strokes.addAll(moving) else strokes.addAll(0, moving)
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /** Adds every other editable member of each group a selected stroke belongs to: a group is picked whole. */
@@ -1924,7 +1972,7 @@ class CanvasState(
         }
         selection.clear()
         selection.addAll(replaced)
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /**
@@ -1971,7 +2019,7 @@ class CanvasState(
         strokes.addAll(pasted)
         clearSelectionState()
         selection.addAll(pasted)
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /**
@@ -2014,7 +2062,7 @@ class CanvasState(
                 s.shiftBy(WorldPoint(-dx, -dy))
             }
         }
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /** Sets every selected stroke's width to the current brush width (as it would draw at this zoom). Fills have no width. */
@@ -2023,7 +2071,7 @@ class CanvasState(
         recordHistory()
         val width = activeWidthWorld / scale.coerceAtLeast(1e-300)
         for (stroke in selection) if (!stroke.filled) stroke.setWidth(width)
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /** Selects every editable stroke on the active layer (in the current animation frame). */
@@ -2062,7 +2110,7 @@ class CanvasState(
                 WorldPoint(first.x + (last.x - first.x) * t, first.y + (last.y - first.y) * t)
             })
         }
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /** Smooths the selected strokes' wobble after the fact; repeatable for a stronger effect. Filled shapes are left alone. */
@@ -2072,7 +2120,7 @@ class CanvasState(
         for (stroke in selection) {
             if (!stroke.filled) stroke.setPoints(smoothPoints(stroke.points, SMOOTH_PASSES))
         }
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     fun deleteSelection() {
@@ -2096,7 +2144,7 @@ class CanvasState(
         recordHistory()
         strokes.removeAll(selection.toSet())
         selection.clear()
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /** Duplicates every currently selected stroke, offset slightly so the copy is visible, and selects the copies. */
@@ -2110,7 +2158,7 @@ class CanvasState(
         strokes.addAll(duplicates)
         selection.clear()
         selection.addAll(duplicates)
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /** Clears the selection and any in-progress scale/rotate snapshot together, so neither can outlive the strokes it references. */
@@ -2144,7 +2192,7 @@ class CanvasState(
         currentStroke = null
         symmetryCopies = emptyList()
         snapshot?.let { restore(it) }
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     fun undo() {
@@ -2152,7 +2200,7 @@ class CanvasState(
         clearSelectionState()
         redoStack.addLast(currentEntry())
         restore(previous)
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     fun redo() {
@@ -2160,7 +2208,7 @@ class CanvasState(
         clearSelectionState()
         undoStack.addLast(currentEntry())
         restore(next)
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /** Replaces the strokes with a saved version; undoable like any other action. */
@@ -2168,7 +2216,7 @@ class CanvasState(
         recordHistory()
         clearSelectionState()
         restore(version)
-        onChanged(strokes.toList())
+        strokesChanged()
     }
 
     /** Replaces all strokes with [loaded] (e.g. from [CanvasStorage.load] on app start). */
@@ -2189,7 +2237,7 @@ class CanvasState(
         recordHistory() // records strokes, images and text, so Clear is fully undoable
         strokes.clear()
         clearSelectionState()
-        onChanged(strokes.toList())
+        strokesChanged()
         textItems.clear()
         onTextChanged(textItems.toList())
         imageItems.clear()
@@ -2325,6 +2373,7 @@ class CanvasState(
         }
         // History snapshots are in the same world space, so they must move with it, or an
         // undo after a rebase would restore strokes at their pre-rebase coordinates.
+        geometryEpoch++ // every stroke moved
         for (entry in undoStack + redoStack) {
             entry.shift += offset
             entry.images = entry.images?.map { it.copy(position = it.position - offset) }

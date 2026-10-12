@@ -89,7 +89,7 @@ Goal: anything drawn can be rearranged later.
 Goal: 120 fps at any zoom, with any amount of content.
 
 - [~] 48. Benchmark suite (10k / 100k / 1M strokes) — JVM suite (storage, rendering, hit-testing; `-Pbenchmark`); no on-device benchmark yet
-- [ ] 49. Spatial index (deliberately waiting for item 48's numbers)
+- [~] 49. Spatial index — multi-level grid used for rendering (zoomed-in frame at 1M strokes: 251 ms -> 1 ms, JVM); hit-testing (eraser) not on it yet
 - [~] 50. Level of detail — sub-pixel strokes drawn as one dot, sub-pixel point spacing decimated; no cached simplified geometry
 - [ ] 51. Tile caching
 - [ ] 52. GPU rendering path

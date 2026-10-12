@@ -1087,7 +1087,10 @@ internal fun DrawScope.drawScene(
     // Only the current animation frame is drawn (outside animation everything is frame 0), plus
     // the previous frame as a faint onion skin while editing an animation.
     val onionFrame = if (state.animationMode && state.onionSkin && !state.playing && state.currentAnimFrame > 0) state.currentAnimFrame - 1 else null
-    val replayed = state.replayCount?.let { state.strokes.take(it) } ?: state.strokes
+    // Only strokes near the view, from the spatial index - not a pass over the whole document.
+    val nearby = state.strokesNear(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)
+    // Replay draws the first replayCount strokes of the document, in drawing order.
+    val replayed = state.replayCount?.let { count -> state.strokes.take(count).toHashSet().let { shown -> nearby.filter { it in shown } } } ?: nearby
     val strokesByLayer = replayed.filter { it.animFrame == state.currentAnimFrame }.groupBy { layerIndex[it.layerId] ?: 0 }
     // Offscreen bounds for a translucent layer: the square around the screen centre that covers
     // the screen at any canvas rotation.
@@ -1095,7 +1098,7 @@ internal fun DrawScope.drawScene(
     val layerBounds = Rect(screenCenter - Offset(halfDiagonal, halfDiagonal), screenCenter + Offset(halfDiagonal, halfDiagonal))
     if (onionFrame != null) {
         drawContext.canvas.saveLayer(layerBounds, Paint().apply { alpha = ONION_SKIN_ALPHA })
-        for (stroke in state.strokes) {
+        for (stroke in nearby) {
             if (stroke.animFrame != onionFrame || stroke.points.isEmpty()) continue
             if (state.layers.firstOrNull { it.id == stroke.layerId }?.visible == false) continue
             if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
