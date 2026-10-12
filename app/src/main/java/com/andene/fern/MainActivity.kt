@@ -1,6 +1,8 @@
 package com.andene.fern
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -54,11 +56,14 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.andene.fern.canvas.AnimationBar
 import com.andene.fern.canvas.AppSettings
+import com.andene.fern.canvas.AudioNotes
+import com.andene.fern.canvas.AudioNotesDialog
 import com.andene.fern.canvas.BackgroundStyle
 import com.andene.fern.canvas.CanvasState
 import com.andene.fern.canvas.CanvasStorage
@@ -147,6 +152,14 @@ class MainActivity : ComponentActivity() {
                     var showFramesDialog by remember { mutableStateOf(false) }
                     var showWelcome by remember { mutableStateOf(shouldShowWelcome(context)) }
                     var showSettings by remember { mutableStateOf(false) }
+                    var showAudioNotes by remember { mutableStateOf(false) }
+                    val audioNotes = remember { AudioNotes(context) }
+                    val micPermissionLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.RequestPermission(),
+                    ) { granted ->
+                        if (granted) showAudioNotes = true
+                        else Toast.makeText(context, "Voice notes need microphone access", Toast.LENGTH_SHORT).show()
+                    }
                     var leftHanded by remember { mutableStateOf(AppSettings.leftHanded(context)) }
                     var crashReport by remember { mutableStateOf(CrashReporter.pendingReport(context)) }
                     var presentingIndex by remember { mutableStateOf<Int?>(null) } // non-null = presenting that frame
@@ -508,6 +521,10 @@ class MainActivity : ComponentActivity() {
                                 onOpenPins = { showPinsDialog = true },
                                 onOpenFrames = { showFramesDialog = true },
                                 onOpenSettings = { showSettings = true },
+                                onOpenAudioNotes = {
+                                    val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                                    if (granted) showAudioNotes = true else micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                },
                                 onImportPalette = { paletteImportLauncher.launch(arrayOf("*/*")) },
                                 onOpenVersions = {
                                     coroutineScope.launch {
@@ -701,6 +718,10 @@ class MainActivity : ComponentActivity() {
                                 }) { Text("Dismiss") }
                             },
                         )
+                    }
+
+                    if (showAudioNotes) {
+                        AudioNotesDialog(audio = audioNotes, documentId = currentDocumentId, onDismiss = { showAudioNotes = false })
                     }
 
                     if (showSettings) {

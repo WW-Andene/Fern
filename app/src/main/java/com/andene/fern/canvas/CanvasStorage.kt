@@ -164,6 +164,7 @@ object CanvasStorage {
         historyFile(context, id).delete()
         layersFile(context, id).delete()
         framesFile(context, id).delete()
+        AudioNotes.deleteAll(context, id)
         versionsDir(context, id).deleteRecursively()
         // Deliberately not deleting files under images/: they're shared/immutable and may
         // still be referenced by a duplicate of this document. Accepted tradeoff - orphaned

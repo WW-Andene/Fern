@@ -60,6 +60,7 @@ import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.LineStyle
 import androidx.compose.material.icons.filled.LineWeight
 import androidx.compose.material.icons.filled.LinearScale
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Opacity
@@ -137,6 +138,7 @@ fun Toolbar(
     onOpenFrames: () -> Unit = {},
     onImportPalette: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    onOpenAudioNotes: () -> Unit = {},
 ) {
     var showExportMenu by remember { mutableStateOf(false) }
     var showWidthSlider by remember { mutableStateOf(false) }
@@ -532,6 +534,7 @@ fun Toolbar(
                             Triple("Search text", Icons.Filled.Search) { showSearchDialog = true },
                             Triple("Pins", Icons.Filled.PushPin, onOpenPins),
                             Triple("Frames", Icons.Filled.CropFree, onOpenFrames),
+                            Triple("Voice notes", Icons.Filled.Mic, onOpenAudioNotes),
                             Triple("Version history", Icons.Filled.History, onOpenVersions),
                             Triple("Settings", Icons.Filled.Settings, onOpenSettings),
                         )
