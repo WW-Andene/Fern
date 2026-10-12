@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import org.junit.Assert.assertEquals
+import androidx.compose.foundation.layout.Column
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,7 +22,8 @@ class ToolbarToolSlotsTest {
         val state = CanvasState()
         state.activePenType = PenType.PENCIL
         state.activeColor = Color.Red
-        compose.setContent { Toolbar(state) }
+        // The toolbar and its properties bar (design roadmap D9) are siblings; stacked here as the app places them apart.
+        compose.setContent { Column { Toolbar(state) } }
         compose.onNodeWithContentDescription("Empty favourite 1, tap to save the current pen").performClick()
         assertEquals(PenType.PENCIL, state.toolSlots[0]?.penType)
 

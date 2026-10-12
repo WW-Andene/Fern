@@ -176,10 +176,11 @@ Goal: the screen layout that replaces the single scrolling toolbar and the ⋮ j
   fill, text, eyedropper, plus user-pinned ones) that never scrolls. A tool keeps its position
   for good, so muscle memory works. It docks left, right or bottom, and follows the hand setting.
   Done: `ToolRail.kt`. Fixed: pen, eraser, select, shape (four, so a 360 dp phone still fits two pinned tools and "More tools"). Pinned by default: fill, text, eyedropper; any other tool pins or unpins from "More tools", saved. Bottom on an upright phone, the free hand's side otherwise; other bars keep clear. The tool buttons left the big toolbar, which keeps each tool's options while it's active (until D9).
-- [ ] D9. **A contextual properties bar.** Only the settings of the active tool or the current
+- [x] D9. **A contextual properties bar.** Only the settings of the active tool or the current
   selection, shown inline, never in a dialog: pen size, opacity and smoothing; shape kind;
   fill tolerance; text style; the selection's transform and style. This replaces the stroke
   options, fill and text toolbar groups.
+  Done: a separate bar above the rail (bottom centre) shows only the active tool's settings: pen kind, brush, size, opacity, line options and stabiliser for drawing tools; eraser, shape, measure, Bézier, bone, fill and connector options; the selection's actions with the select tool. Hidden for text, eyedropper and ruler. The settings still open from buttons and sliders in the bar, not dialogs; brush editing and the gradient are dialogs until D27.
 - [ ] D10. **Docked side panels instead of modal dialogs** for layers, frames, symbols,
   pins, versions, objects and game logic. They're non-modal, can be resized or collapsed, and
   stay open while you draw. On a phone (the reference) they're bottom sheets with peek heights

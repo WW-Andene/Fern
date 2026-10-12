@@ -1123,6 +1123,11 @@ class MainActivity : ComponentActivity() {
                             Toolbar(
                                 state = canvasState,
                                 hiddenGroups = hiddenToolbarGroups,
+                                propertiesModifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(bottom = railInset + FernScale.s8, start = railSide, end = railSide)
+                                    .padding(horizontal = FernScale.s8),
                                 wrap = LocalConfiguration.current.screenWidthDp >= WIDE_WINDOW_DP,
                                 modifier = Modifier
                                     .align(if (toolbarAtBottom) Alignment.BottomCenter else Alignment.TopCenter)
