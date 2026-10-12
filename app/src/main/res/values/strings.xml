@@ -932,4 +932,7 @@
     <string name="tool_name_measure">Measure</string>
     <string name="msg_deleted">Deleted</string>
     <string name="msg_cleared">Canvas cleared</string>
+    <string name="rail_more_tools">More tools</string>
+    <string name="rail_pin">Pin %1$s to the rail</string>
+    <string name="rail_unpin">Unpin %1$s from the rail</string>
 </resources>

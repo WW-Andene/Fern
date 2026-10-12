@@ -39,6 +39,9 @@ private const val KEY_QUICK_MENU = "quick_menu_actions"
 
 /** App preferences, stored in SharedPreferences so they apply to every document and survive restarts. */
 object AppSettings {
+    /** The settings file, for settings kept beside the code that uses them (e.g. [RailSettings]). */
+    fun prefs(context: Context): android.content.SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
     fun leftHanded(context: Context): Boolean =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean(KEY_LEFT_HANDED, false)
 

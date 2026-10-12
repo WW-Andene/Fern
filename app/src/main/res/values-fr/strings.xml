@@ -935,4 +935,7 @@
     <string name="tool_name_measure">Mesure</string>
     <string name="msg_deleted">Supprimé</string>
     <string name="msg_cleared">Canevas effacé</string>
+    <string name="rail_more_tools">Plus d’outils</string>
+    <string name="rail_pin">Épingler %1$s au rail</string>
+    <string name="rail_unpin">Retirer %1$s du rail</string>
 </resources>

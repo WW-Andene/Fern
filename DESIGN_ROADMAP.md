@@ -172,9 +172,10 @@ Goal: a design system everything else is built from, accessible by default.
 
 Goal: the screen layout that replaces the single scrolling toolbar and the ⋮ junk drawer.
 
-- [ ] D8. **The tool rail.** On a phone, a bottom bar in thumb reach (a side rail in landscape). A short, fixed rail of the main tools (pen, eraser, select, shape,
+- [x] D8. **The tool rail.** On a phone, a bottom bar in thumb reach (a side rail in landscape). A short, fixed rail of the main tools (pen, eraser, select, shape,
   fill, text, eyedropper, plus user-pinned ones) that never scrolls. A tool keeps its position
   for good, so muscle memory works. It docks left, right or bottom, and follows the hand setting.
+  Done: `ToolRail.kt`. Fixed: pen, eraser, select, shape (four, so a 360 dp phone still fits two pinned tools and "More tools"). Pinned by default: fill, text, eyedropper; any other tool pins or unpins from "More tools", saved. Bottom on an upright phone, the free hand's side otherwise; other bars keep clear. The tool buttons left the big toolbar, which keeps each tool's options while it's active (until D9).
 - [ ] D9. **A contextual properties bar.** Only the settings of the active tool or the current
   selection, shown inline, never in a dialog: pen size, opacity and smoothing; shape kind;
   fill tolerance; text style; the selection's transform and style. This replaces the stroke

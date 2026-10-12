@@ -92,6 +92,7 @@ import com.andene.fern.canvas.AudioNotesDialog
 import com.andene.fern.canvas.AudioSeekOverlay
 import com.andene.fern.canvas.AudioBar
 import com.andene.fern.canvas.CanvasHaptics
+import com.andene.fern.canvas.ToolRail
 import com.andene.fern.canvas.BackgroundStyle
 import com.andene.fern.canvas.CanvasState
 import com.andene.fern.canvas.CanvasStorage
@@ -1114,6 +1115,11 @@ class MainActivity : ComponentActivity() {
                             // The game playing (roadmap item 155): editing chrome hidden.
                             PlayOverlay(canvasState)
                         } else {
+                            // The tool rail (design roadmap D8): along the bottom of an upright phone, in
+                            // thumb reach; along the free hand's side otherwise. Other bars keep clear of it.
+                            val portrait = LocalConfiguration.current.let { it.screenHeightDp >= it.screenWidthDp }
+                            val railInset = if (portrait) FernScale.s64 else FernScale.none
+                            val railSide = if (portrait) FernScale.none else FernScale.s64
                             Toolbar(
                                 state = canvasState,
                                 hiddenGroups = hiddenToolbarGroups,
@@ -1121,6 +1127,7 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier
                                     .align(if (toolbarAtBottom) Alignment.BottomCenter else Alignment.TopCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(bottom = if (toolbarAtBottom) railInset else FernScale.none)
                                     .padding(vertical = FernScale.s12),
                                 onOpenDocuments = {
                                     // Autosave skips thumbnails, so bring this document's up to date for the library.
@@ -1217,7 +1224,8 @@ class MainActivity : ComponentActivity() {
                                         // Opposite edge from the toolbar so the two never overlap.
                                         .align(if (toolbarAtBottom) Alignment.TopCenter else Alignment.BottomCenter)
                                         .padding(WindowInsets.systemBars.asPaddingValues())
-                                        .padding(bottom = FernScale.s16),
+                                        .padding(bottom = FernScale.s16)
+                                        .padding(bottom = if (toolbarAtBottom) FernScale.none else railInset),
                                 )
                             }
                             if (canvasState.secondViewOpen) {
@@ -1228,6 +1236,7 @@ class MainActivity : ComponentActivity() {
                                         .align(if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft)
                                         .padding(WindowInsets.systemBars.asPaddingValues())
                                         .padding(top = FernScale.s64, start = FernScale.s12, end = FernScale.s12)
+                                        .padding(horizontal = railSide)
                                         .fillMaxWidth(0.5f)
                                         .fillMaxHeight(0.4f),
                                 )
@@ -1239,7 +1248,9 @@ class MainActivity : ComponentActivity() {
                                     // Physical sides (not start/end): the hands are the same in a right-to-left language.
                                     .align(if (leftHanded) AbsoluteAlignment.BottomRight else AbsoluteAlignment.BottomLeft)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(FernScale.s12),
+                                    .padding(FernScale.s12)
+                                    .padding(bottom = railInset)
+                                    .padding(horizontal = railSide),
                             )
                             CanvasHaptics(canvasState)
                             // Messages (design roadmap D6), opposite the toolbar and out from under the drawing hand.
@@ -1252,7 +1263,9 @@ class MainActivity : ComponentActivity() {
                                         },
                                     )
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(vertical = FernScale.s64),
+                                    .padding(vertical = FernScale.s64)
+                                    .padding(bottom = railInset)
+                                    .padding(horizontal = railSide),
                             )
                             AudioBar(
                                 audio = audioNotes,
@@ -1263,7 +1276,8 @@ class MainActivity : ComponentActivity() {
                                     // Opposite edge from the toolbar, like the animation bar.
                                     .align(if (toolbarAtBottom) Alignment.TopCenter else Alignment.BottomCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(vertical = FernScale.s64),
+                                    .padding(vertical = FernScale.s64)
+                                    .padding(bottom = railInset),
                             )
                             QuickMenuButton(
                                 onOpen = { showQuickMenu = true },
@@ -1271,7 +1285,22 @@ class MainActivity : ComponentActivity() {
                                     // Same side as the minimap, mid-height: in reach of the free hand's thumb.
                                     .align(if (leftHanded) AbsoluteAlignment.CenterRight else AbsoluteAlignment.CenterLeft)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(FernScale.s12),
+                                    .padding(FernScale.s12)
+                                    .padding(horizontal = railSide),
+                            )
+                            ToolRail(
+                                state = canvasState,
+                                vertical = !portrait,
+                                modifier = Modifier
+                                    .align(
+                                        when {
+                                            portrait -> Alignment.BottomCenter
+                                            leftHanded -> AbsoluteAlignment.CenterRight
+                                            else -> AbsoluteAlignment.CenterLeft
+                                        },
+                                    )
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(FernScale.s8),
                             )
                             if (showQuickMenu) QuickMenuOverlay(state = canvasState, onDismiss = { showQuickMenu = false }, actions = quickMenuActions)
                             if (loadingDocument) DocumentLoadingOverlay()

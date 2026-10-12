@@ -560,16 +560,6 @@ fun Toolbar(
                 IconButton(onClick = { showColorPicker = true }) {
                     Icon(Icons.Filled.Palette, contentDescription = stringResource(R.string.tb_custom_color))
                 }
-                IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.EYEDROPPER), onClick = {
-                    state.activeTool = if (state.activeTool == Tool.EYEDROPPER) Tool.PEN else Tool.EYEDROPPER
-                }) {
-                    Icon(
-                        Icons.Filled.Colorize,
-                        contentDescription = stringResource(R.string.tb_eyedropper),
-                        tint = if (state.activeTool == Tool.EYEDROPPER) MaterialTheme.colorScheme.primary
-                        else LocalContentColor.current,
-                    )
-                }
                 Box {
                     IconButton(onClick = { showPenTypeMenu = true }) {
                         Icon(penTypeIcon(state.activePenType), contentDescription = stringResource(R.string.tb_pen_type, stringResource(penTypeLabel(state.activePenType))))
@@ -604,16 +594,6 @@ fun Toolbar(
                 }
                 if (state.activeLayerIsRaster) RasterBrushControls(state)
 
-                IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.ERASER), onClick = {
-                    state.activeTool = if (state.activeTool == Tool.ERASER) Tool.PEN else Tool.ERASER
-                }) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Backspace,
-                        contentDescription = stringResource(R.string.tb_eraser),
-                        tint = if (state.activeTool == Tool.ERASER) MaterialTheme.colorScheme.primary
-                        else LocalContentColor.current,
-                    )
-                }
                 if (state.activeTool == Tool.ERASER) {
                     IconButton(onClick = { state.eraseWholeObjects = !state.eraseWholeObjects }) {
                         Icon(
@@ -630,21 +610,9 @@ fun Toolbar(
                         )
                     }
                 }
-                IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.SELECT), onClick = {
-                    state.activeTool = if (state.activeTool == Tool.SELECT) Tool.PEN else Tool.SELECT
-                }) {
-                    Icon(
-                        Icons.Filled.SelectAll,
-                        contentDescription = stringResource(R.string.action_select),
-                        tint = if (state.activeTool == Tool.SELECT) MaterialTheme.colorScheme.primary
-                        else LocalContentColor.current,
-                    )
-                }
-                Box {
-                    IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.SHAPE), onClick = {
-                        if (state.activeTool == Tool.SHAPE) showShapeKindMenu = true
-                        else state.activeTool = Tool.SHAPE
-                    }) {
+                // The shape tool is on the rail (design roadmap D8); its kind is chosen here while it's active.
+                if (state.activeTool == Tool.SHAPE) Box {
+                    IconButton(onClick = { showShapeKindMenu = true }) {
                         Icon(
                             shapeKindIcon(state.activeShapeKind),
                             contentDescription = stringResource(R.string.tb_shape, stringResource(shapeKindLabel(state.activeShapeKind))),
@@ -681,26 +649,12 @@ fun Toolbar(
                 }
                 // Measure (roadmap item 143): drag for a distance and angle, tap a shape for its
                 // perimeter and area, tap a line for its length; the scale button sets real units.
-                IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.MEASURE), onClick = { state.activeTool = if (state.activeTool == Tool.MEASURE) Tool.PEN else Tool.MEASURE }) {
-                    Icon(
-                        Icons.Filled.SquareFoot,
-                        contentDescription = stringResource(R.string.tb_measure),
-                        tint = if (state.activeTool == Tool.MEASURE) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                    )
-                }
                 if (state.activeTool == Tool.MEASURE) {
                     TextButton(onClick = { showDrawingScaleDialog = true }) {
                         Text(stringResource(R.string.scale_button, state.drawingScale.symbol))
                     }
                 }
                 // Bézier pen (roadmap item 96): tap for corners, drag for curves, tap the first node to close.
-                IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.BEZIER), onClick = { state.activeTool = if (state.activeTool == Tool.BEZIER) Tool.PEN else Tool.BEZIER }) {
-                    Icon(
-                        Icons.Filled.Polyline,
-                        contentDescription = stringResource(R.string.tb_bezier),
-                        tint = if (state.activeTool == Tool.BEZIER) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                    )
-                }
                 if (state.activeTool == Tool.BEZIER && state.bezierNodes.isNotEmpty()) {
                     IconButton(onClick = { state.finishBezierPath(closed = false) }, enabled = state.bezierNodes.size >= 2) {
                         Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.tb_bezier_finish))
@@ -844,13 +798,6 @@ fun Toolbar(
                         )
                     }
                     // Skeleton (roadmap item 83): draw bones, then pose them frame by frame.
-                    IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.BONE), onClick = { state.activeTool = if (state.activeTool == Tool.BONE) Tool.PEN else Tool.BONE }) {
-                        Icon(
-                            Icons.Filled.AccessibilityNew,
-                            contentDescription = stringResource(R.string.tb_bones),
-                            tint = if (state.activeTool == Tool.BONE) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                        )
-                    }
                     if (state.activeTool == Tool.BONE) {
                         IconButton(onClick = { state.posingBones = !state.posingBones }) {
                             Icon(
@@ -956,16 +903,6 @@ fun Toolbar(
                     }
                 }
                 if (ToolbarGroup.FILL !in hiddenGroups) {
-                    IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.FILL), onClick = {
-                        state.activeTool = if (state.activeTool == Tool.FILL) Tool.PEN else Tool.FILL
-                    }) {
-                        Icon(
-                            Icons.Filled.FormatColorFill,
-                            contentDescription = stringResource(R.string.tb_fill),
-                            tint = if (state.activeTool == Tool.FILL) MaterialTheme.colorScheme.primary
-                            else LocalContentColor.current,
-                        )
-                    }
                     if (state.activeTool == Tool.FILL) {
                         IconButton(onClick = { state.activeScreentone = !state.activeScreentone }) {
                             Icon(
@@ -989,26 +926,6 @@ fun Toolbar(
                     }
                 }
                 if (ToolbarGroup.TEXT !in hiddenGroups) {
-                    IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.TEXT), onClick = {
-                        state.activeTool = if (state.activeTool == Tool.TEXT) Tool.PEN else Tool.TEXT
-                    }) {
-                        Icon(
-                            Icons.Filled.TextFields,
-                            contentDescription = stringResource(R.string.text_label),
-                            tint = if (state.activeTool == Tool.TEXT) MaterialTheme.colorScheme.primary
-                            else LocalContentColor.current,
-                        )
-                    }
-                    IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.CONNECT), onClick = {
-                        state.activeTool = if (state.activeTool == Tool.CONNECT) Tool.PEN else Tool.CONNECT
-                    }) {
-                        Icon(
-                            Icons.Filled.AccountTree,
-                            contentDescription = stringResource(R.string.tb_connect),
-                            tint = if (state.activeTool == Tool.CONNECT) MaterialTheme.colorScheme.primary
-                            else LocalContentColor.current,
-                        )
-                    }
                     if (state.activeTool == Tool.CONNECT) {
                         IconButton(onClick = { state.tidyDiagram() }, enabled = state.connectors.isNotEmpty()) {
                             Icon(Icons.Filled.Schema, contentDescription = stringResource(R.string.tb_tidy))
