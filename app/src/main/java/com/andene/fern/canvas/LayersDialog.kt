@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -60,6 +62,20 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                     .heightIn(max = 384.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
+                val skins = state.skins
+                if (skins.isNotEmpty()) {
+                    Text(stringResource(R.string.layers_skins), style = MaterialTheme.typography.labelLarge)
+                    Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                        for (skin in skins) {
+                            FilterChip(
+                                selected = state.activeSkin == skin,
+                                onClick = { state.applySkin(skin) },
+                                label = { Text(skin) },
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
+                        }
+                    }
+                }
                 for (layer in state.layers.reversed()) {
                     val active = layer.id == state.activeLayerId
                     Row(
@@ -134,6 +150,14 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                             value = layer.opacity,
                             onValueChange = { value -> state.updateLayer(layer.id) { it.copy(opacity = value) } },
                             valueRange = 0f..1f,
+                        )
+                        // Blank for a layer that's always shown; a name puts it in that skin.
+                        OutlinedTextField(
+                            value = layer.skin.orEmpty(),
+                            onValueChange = { name -> state.updateLayer(layer.id) { it.copy(skin = name.trim().ifEmpty { null }) } },
+                            label = { Text(stringResource(R.string.layers_skin)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }

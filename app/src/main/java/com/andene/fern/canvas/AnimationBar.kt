@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.material.icons.filled.TableRows
+import androidx.compose.material.icons.filled.Merge
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Row
@@ -48,6 +49,8 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
     var showXSheet by remember { mutableStateOf(false) }
     if (showXSheet) XSheetDialog(state, onDismiss = { showXSheet = false })
     var editingCurve by remember { mutableStateOf(false) }
+    var blendingPose by remember { mutableStateOf(false) }
+    if (blendingPose) BlendPoseDialog(state, onDismiss = { blendingPose = false })
     if (editingCurve) {
         EasingCurveDialog(
             initial = state.motionCurve,
@@ -99,6 +102,11 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
                     if (state.pingPong) Icons.Filled.SyncAlt else Icons.Filled.Repeat,
                     contentDescription = if (state.pingPong) stringResource(R.string.anim_pingpong) else stringResource(R.string.anim_loop),
                 )
+            }
+            if (state.currentBones.isNotEmpty() && state.animFrameCount > 1) {
+                IconButton(onClick = { blendingPose = true }) {
+                    Icon(Icons.Filled.Merge, contentDescription = stringResource(R.string.blend_pose_title))
+                }
             }
             IconButton(onClick = { showXSheet = true }) {
                 Icon(Icons.Filled.TableRows, contentDescription = stringResource(R.string.xsheet_title))

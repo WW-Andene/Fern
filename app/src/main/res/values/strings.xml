@@ -78,6 +78,8 @@
     <string name="action_apply">Apply</string>
     <string name="brush_delete_preset">Delete preset %1$s</string>
     <string name="layers_title">Layers</string>
+    <string name="layers_skins">Skins</string>
+    <string name="layers_skin">Skin (blank: always shown)</string>
     <string name="layers_hide">Hide layer</string>
     <string name="layers_show">Show layer</string>
     <string name="layers_unlock">Unlock layer</string>
@@ -349,6 +351,10 @@
     <string name="easing_custom">Custom curve</string>
     <string name="easing_edit_curve">Edit curve</string>
     <string name="easing_curve_title">Timing curve</string>
+    <string name="blend_pose_title">Blend pose</string>
+    <string name="blend_pose_frame">With frame %1$d</string>
+    <string name="blend_pose_weight">Blend %1$d%%</string>
+    <string name="blend_pose_apply">Blend</string>
     <string name="tb_bones">Bones</string>
     <string name="tb_bones_pose">Posing bones (tap to add bones)</string>
     <string name="tb_bones_add">Adding bones (tap to pose them)</string>

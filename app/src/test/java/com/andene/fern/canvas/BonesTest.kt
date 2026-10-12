@@ -181,6 +181,46 @@ class BonesTest {
     }
 
     @Test
+    fun blendingAPoseMixesItWithAnotherFrameAndCarriesTheInk() {
+        val state = arm()
+        state.insertAnimFrame(copyCurrent = true)
+        state.posingBones = true
+        state.beginBone(WorldPoint(200.0, 0.0))
+        state.continueBone(WorldPoint(100.0, 100.0)) // frame 1: forearm a quarter turn down
+        state.endBone()
+        state.goToAnimFrame(0)
+        state.blendPoseWith(1, 0.5)
+        val fore = state.bones.first { it.animFrame == 0 && it.parentId != null }
+        assertEquals(Math.PI / 4, fore.angle, 1e-6)
+        // The forearm's ink turned with it: (150,0) is now 50 along the 45-degree forearm.
+        val ink = state.strokes.first { it.animFrame == 0 }.points.first()
+        assertEquals(100 + 50 / Math.sqrt(2.0), ink.x, 1e-6)
+        assertEquals(50 / Math.sqrt(2.0), ink.y, 1e-6)
+        state.undo()
+        assertEquals(0.0, state.bones.first { it.animFrame == 0 && it.parentId != null }.angle, 1e-9)
+    }
+
+    @Test
+    fun choosingASkinShowsItsLayersAndHidesTheOthers() {
+        val state = CanvasState()
+        state.loadLayers(
+            listOf(
+                Layer("body", "Body"),
+                Layer("red", "Red coat", skin = "Red"),
+                Layer("blue", "Blue coat", visible = false, skin = "Blue"),
+            ),
+        )
+        assertEquals(listOf("Red", "Blue"), state.skins)
+        assertEquals("Red", state.activeSkin)
+        state.applySkin("Blue")
+        assertEquals(listOf(true, false, true), state.layers.map { it.visible })
+        assertEquals("Blue", state.activeSkin)
+        val doc = CanvasStorage.createDocument(context, "skins")
+        CanvasStorage.saveLayers(context, doc.id, state.layers.toList())
+        assertEquals(state.layers.toList(), CanvasStorage.loadLayers(context, doc.id))
+    }
+
+    @Test
     fun jointLimitsAndDynamicsAreSaved() {
         val state = arm()
         val doc = CanvasStorage.createDocument(context, "limits")

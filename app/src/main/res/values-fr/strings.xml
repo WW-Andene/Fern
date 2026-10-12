@@ -78,6 +78,8 @@
     <string name="action_apply">Appliquer</string>
     <string name="brush_delete_preset">Supprimer le préréglage %1$s</string>
     <string name="layers_title">Calques</string>
+    <string name="layers_skins">Skins</string>
+    <string name="layers_skin">Skin (vide : toujours affiché)</string>
     <string name="layers_hide">Masquer le calque</string>
     <string name="layers_show">Afficher le calque</string>
     <string name="layers_unlock">Déverrouiller le calque</string>
@@ -351,6 +353,10 @@
     <string name="easing_custom">Courbe perso.</string>
     <string name="easing_edit_curve">Modifier la courbe</string>
     <string name="easing_curve_title">Courbe de timing</string>
+    <string name="blend_pose_title">Mélanger la pose</string>
+    <string name="blend_pose_frame">Avec l\'image %1$d</string>
+    <string name="blend_pose_weight">Mélange %1$d %%</string>
+    <string name="blend_pose_apply">Mélanger</string>
     <string name="tb_bones">Os</string>
     <string name="tb_bones_pose">Pose des os (touchez pour ajouter des os)</string>
     <string name="tb_bones_add">Ajout d\'os (touchez pour les poser)</string>

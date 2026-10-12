@@ -1125,6 +1125,39 @@ class CanvasState(
     }
 
     /**
+     * Animation blending (roadmap item 86): mixes the current frame's pose with frame
+     * [otherFrame]'s - [weight] 0 keeps this pose, 1 takes the other - as in-betweens do
+     * ([interpolatePose]: joints turn, chains stay attached). Each bone's ink moves rigidly with
+     * its bone from the old pose to the blended one. Bones present in only one of the two poses
+     * stay as they are. One undo step.
+     */
+    fun blendPoseWith(otherFrame: Int, weight: Double) {
+        val frame = currentAnimFrame
+        val mine = bones.filter { it.animFrame == frame }
+        val other = bones.filter { it.animFrame == otherFrame }
+        if (otherFrame == frame || mine.isEmpty() || other.isEmpty()) return
+        val blended = interpolatePose(mine, other, weight.coerceIn(0.0, 1.0), frame).associateBy { it.id }
+        if (blended.isEmpty()) return
+        recordHistory()
+        val before = mine.associateBy { it.id }
+        for (stroke in strokes) {
+            if (stroke.animFrame != frame) continue
+            val old = before[stroke.boneId] ?: continue
+            val new = blended[old.id] ?: continue
+            val turn = new.angle - old.angle
+            val shift = new.head - old.head
+            stroke.setPoints(stroke.points.map { rotateAbout(it, old.head, turn) + shift })
+        }
+        for (i in bones.indices) {
+            val b = bones[i]
+            if (b.animFrame == frame) blended[b.id]?.let { bones[i] = it }
+        }
+        geometryEpoch++
+        onBonesChanged(bones.toList())
+        strokesChanged()
+    }
+
+    /**
      * Sets bone [boneId]'s joint limits on every frame (relative angles in radians; null and null
      * for a free joint). Undoable.
      */
@@ -1272,6 +1305,25 @@ class CanvasState(
         if (index == -1) return
         layers[index] = change(layers[index])
         onLayersChanged(layers.toList())
+    }
+
+    /** The document's skins (roadmap item 86), in layer order. */
+    val skins: List<String> get() = layers.mapNotNull { it.skin }.distinct()
+
+    /** The skin on show: the one whose layers are visible while every other skin's are hidden; null if none or mixed. */
+    val activeSkin: String?
+        get() = skins.singleOrNull { name -> layers.all { it.skin == null || it.visible == (it.skin == name) } }
+
+    /** Shows skin [name]'s layers and hides every other skin's; layers outside skins are left alone. */
+    fun applySkin(name: String) {
+        var changed = false
+        for (i in layers.indices) {
+            val layer = layers[i]
+            if (layer.skin == null || layer.visible == (layer.skin == name)) continue
+            layers[i] = layer.copy(visible = layer.skin == name)
+            changed = true
+        }
+        if (changed) onLayersChanged(layers.toList())
     }
 
     /** Moves a layer one step up (towards the top) or down in the stack. */

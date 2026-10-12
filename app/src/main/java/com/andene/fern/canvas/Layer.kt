@@ -24,4 +24,11 @@ data class Layer(
      * boundaries in reference layers only, so colours can go on their own layer under line art.
      */
     val reference: Boolean = false,
+    /**
+     * The skin this layer belongs to (roadmap item 86), or null when it's always part of the
+     * drawing. A skin is an alternative look for the same rig - a costume, a character variant -
+     * drawn on its own layers over the same bones; choosing a skin shows its layers and hides
+     * every other skin's ([CanvasState.applySkin]).
+     */
+    val skin: String? = null,
 )
