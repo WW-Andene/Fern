@@ -18,6 +18,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -30,7 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /**
- * The document's frames (artboards). Tap a name to fit it on screen; export one as a PNG;
+ * The document's frames (artboards). Tap a name to fit it on screen; export one as a PNG, or
+ * all of them as slices at 1x, @2x and @3x;
  * the field at the bottom adds a frame covering the current view. With frames present, PDF
  * export produces one page per frame, and Present steps through them full screen like slides.
  */
@@ -39,6 +41,8 @@ fun FramesDialog(
     frames: List<Frame>,
     onJump: (Frame) -> Unit,
     onExport: (Frame) -> Unit,
+    /** Exports every frame at the chosen scales as one ZIP of slices (roadmap item 128). */
+    onExportSlices: (scales: List<Int>) -> Unit,
     onDelete: (Frame) -> Unit,
     onCreate: (name: String) -> Unit,
     onPresent: () -> Unit,
@@ -46,6 +50,7 @@ fun FramesDialog(
     onDismiss: () -> Unit,
 ) {
     var newFrameName by remember { mutableStateOf("") }
+    var sliceScales by remember { mutableStateOf(setOf(1, 2, 3)) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -78,6 +83,22 @@ fun FramesDialog(
                             IconButton(onClick = { onDelete(frame) }) {
                                 Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.frames_delete))
                             }
+                        }
+                    }
+                }
+                if (frames.isNotEmpty()) {
+                    // Slices: every frame at the ticked scales, in one go.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        for (scale in SLICE_SCALES) {
+                            FilterChip(
+                                selected = scale in sliceScales,
+                                onClick = { sliceScales = if (scale in sliceScales) sliceScales - scale else sliceScales + scale },
+                                label = { Text(if (scale == 1) "1x" else "@${scale}x") },
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
+                        }
+                        TextButton(onClick = { onExportSlices(sliceScales.sorted()) }, enabled = sliceScales.isNotEmpty()) {
+                            Text(stringResource(R.string.frames_export_slices))
                         }
                     }
                 }

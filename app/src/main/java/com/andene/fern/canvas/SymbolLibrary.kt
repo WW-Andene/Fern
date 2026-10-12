@@ -11,8 +11,12 @@ import java.io.File
 import java.io.IOException
 import java.util.UUID
 
-/** A saved symbol's name and id; its strokes are read on demand ([SymbolLibrary.load]). */
-data class SymbolMeta(val id: String, val name: String)
+/**
+ * A saved symbol's name and id; its strokes are read on demand ([SymbolLibrary.load]).
+ * [revision] grows each time the symbol is redefined ([SymbolLibrary.update]), so placed
+ * instances know they're out of date.
+ */
+data class SymbolMeta(val id: String, val name: String, val revision: Long = 0L)
 
 /**
  * Reusable symbols (roadmap item 100): drawings saved once and placed in any document, like a
@@ -32,7 +36,7 @@ object SymbolLibrary {
         if (!file.exists()) return emptyList()
         return runCatching {
             val root = JSONArray(file.readText())
-            (0 until root.length()).map { root.getJSONObject(it) }.map { SymbolMeta(it.getString("id"), it.getString("name")) }
+            (0 until root.length()).map { root.getJSONObject(it) }.map { SymbolMeta(it.getString("id"), it.getString("name"), it.optLong("revision", 0L)) }
         }.getOrDefault(emptyList())
     }
 
@@ -42,6 +46,21 @@ object SymbolLibrary {
         val bytes = ByteArrayOutputStream().also { StrokeCodec.write(DataOutputStream(it), strokes) }.toByteArray()
         writeAtomically(File(dir(context), "${meta.id}.bin"), bytes)
         writeIndex(context, list(context) + meta)
+        return meta
+    }
+
+    /**
+     * Redefines symbol [id] as [strokes] (roadmap item 100): its instances in every document
+     * follow - this one's at once, others' when they're next opened. Returns the new meta, or
+     * null when there's no such symbol.
+     */
+    fun update(context: Context, id: String, strokes: List<Stroke>): SymbolMeta? {
+        val all = list(context)
+        val old = all.firstOrNull { it.id == id } ?: return null
+        val meta = old.copy(revision = maxOf(old.revision + 1, System.currentTimeMillis()))
+        val bytes = ByteArrayOutputStream().also { StrokeCodec.write(DataOutputStream(it), strokes) }.toByteArray()
+        writeAtomically(File(dir(context), "$id.bin"), bytes)
+        writeIndex(context, all.map { if (it.id == id) meta else it })
         return meta
     }
 
@@ -63,7 +82,7 @@ object SymbolLibrary {
 
     private fun writeIndex(context: Context, symbols: List<SymbolMeta>) {
         val root = JSONArray()
-        for (s in symbols) root.put(JSONObject().put("id", s.id).put("name", s.name))
+        for (s in symbols) root.put(JSONObject().put("id", s.id).put("name", s.name).put("revision", s.revision))
         writeAtomically(File(dir(context), INDEX), root.toString().toByteArray())
     }
 

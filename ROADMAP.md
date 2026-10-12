@@ -161,10 +161,10 @@ All deferred: they need a server or cloud platform.
 - [x] 96. Pen tool with Bézier nodes (tap for corners, drag for smooth handles, tap the first node to close; finish, remove last node, cancel); boolean operations on selected closed shapes (union, intersect, subtract, exclude; holes kept). Finished paths aren't re-editable as curves (node editing works on their points)
 - [x] 97. Stroke styles — dashed lines; caps (round, square, flat), joins (round, sharp, bevelled) and width profiles (even, taper either or both ends), saved per stroke and in SVG/Lottie exports (tapers drawn on canvas and in images only)
 - [x] 98. Text on a path (from a selected line; letters follow and turn with it; SVG textPath), outlined text, OpenType feature controls (ligatures off, small caps, oldstyle and tabular figures, fractions; saved, in SVG); fonts without a feature ignore it
-- [~] 99. Smart guides (a moved selection snaps edges/centres to nearby objects, guide lines shown), numeric transform dialog (X, Y, width, height, proportions, rotation), live shape dimensions; no screen rulers
-- [~] 100. Shared colour styles (a saved colour changed everywhere it's used, opacity kept), symbol library across documents (save a selection, place copies); placed symbols are copies, not linked instances
+- [x] 99. Smart guides (a moved selection snaps edges/centres to nearby objects, guide lines shown), numeric transform dialog (X, Y, width, height, proportions, rotation), live shape dimensions; screen rulers (world units, ticks that rescale with zoom) and guides dragged out of them, which moved selections snap to, saved with the document
+- [x] 100. Shared colour styles (a saved colour changed everywhere it's used, opacity kept), symbol library across documents (save a selection, place copies); placed symbols are linked instances - redefining a symbol from a selected instance redraws every instance at its own place and size (in other documents when they open), and an instance can be detached
 - [x] 101. Image trace: a selected image's dark shapes (Otsu threshold) become filled vector outlines, holes kept, in the active colour over the image; one colour (no colour separation)
-- [~] 102. CMYK entry in the colour picker (uncalibrated device CMYK); no spot colours, ICC colour management or CMYK PDF (the platform PDF writer is RGB-only)
+- [x] 102. CMYK entry in the colour picker; ICC colour management (CMYK profiles loaded in Settings, v2/v4 lookup tables, perceptual intent); spot colours (named inks); print PDF in CMYK with spots as Separation colour spaces (own PDF writer; no transparency, text or images)
 - [~] 103. EPS export (paths, fills, caps, joins, dashes; checked by rendering); no AI import/export, Figma ⏸ (external platform); SVG export done in 57
 
 ## Phase 12 — Specialty modes
@@ -194,29 +194,29 @@ Concepts, GoodNotes, Notability, Infinite Painter, Aseprite, Spine and Affinity 
 |---|---|---|---|---|
 | 116 | Stroke stabiliser | Procreate, Krita, Affinity, Clip Studio | 1 | done |
 | 117 | Velocity dynamics | Clip Studio | 3 | done |
-| 118 | Drawing assist / live snap | Procreate, Concepts | 3 | partly (shape recognition) |
+| 118 | Drawing assist / live snap | Procreate, Concepts | 3 | done: a held stroke snaps while the pen is still down and the pen then resizes/rotates it; lines, polylines, arcs, rectangles, polygons, ellipses |
 | 119 | Colour harmonies | Aseprite, Affinity | 3 | done |
-| 120 | COPIC and PANTONE libraries | Concepts, Affinity | 3 | not started (licensing) |
-| 121 | Style picker | Affinity | 4 | not started |
-| 122 | Warp, puppet warp, mesh transform | Procreate, Clip Studio | 4 | not started |
-| 123 | Layer states / comps | Affinity, Clip Studio | 4 | not started |
-| 124 | Multiple views / split screen | Affinity, Clip Studio | 4 | not started |
+| 120 | COPIC and PANTONE libraries | Concepts, Affinity | 3 | skipped: proprietary colour data that needs a licence to ship |
+| 121 | Style picker | Affinity | 4 | done: copy a selected object's style, paste it onto the selection |
+| 122 | Warp, puppet warp, mesh transform | Procreate, Clip Studio | 4 | done: mesh warp (items 84, 92), corner distort with a perspective map, puppet warp (moving-least-squares rigid); vector selections and raster layers |
+| 123 | Layer states / comps | Affinity, Clip Studio | 4 | done: named comps of each layer's visibility, opacity and blend, applied, updated, renamed and deleted from the layers panel; saved with the document |
+| 124 | Multiple views / split screen | Affinity, Clip Studio | 4 | done: a second view (⋮ menu) with its own pan and zoom, live, drawn and erased in at its own zoom, the main view's frame outlined |
 | 125 | Presentation mode | Concepts | 4 | done |
 | 126 | Snapshots; delete empty/hidden layers | Affinity, Clip Studio | 4 | done |
-| 127 | DXF export | Concepts | 6 | not started |
-| 128 | Slices, @2x/@3x, batch export | Affinity | 6 | not started |
-| 129 | Document signing, markup | Concepts | 6 | not started |
-| 130 | Audio recording with notes | GoodNotes, Notability | 8 | partly (voice notes; not synced to strokes) |
+| 127 | DXF export | Concepts | 6 | done: ASCII DXF R12 - layers, polylines with width, dashes, nearest basic and true colours; fills as closed outlines |
+| 128 | Slices, @2x/@3x, batch export | Affinity | 6 | done: every frame as PNG slices at 1x, @2x and @3x in one ZIP, from the frames panel |
+| 129 | Document signing, markup | Concepts | 6 | done: a signature pad (⋮ > Sign) that saves the signature and places it as selected strokes; markup with the existing tools on imported PDF pages |
+| 130 | Audio recording with notes | GoodNotes, Notability | 8 | done: recording carries on while drawing; playback fades ink not yet reached and a tap on ink jumps to when it was drawn |
 | 131 | AI over notes | GoodNotes, Notability | 8 | ⏸ |
-| 132 | Usage statistics | Clip Studio | 8 | not started |
-| 133 | Customisable panels and QuickMenu | Krita, Procreate | 8 | partly (More menu) |
-| 134 | Dopesheet and curve editor | Spine | 9 | not started |
-| 135 | Free-form deformation, procedural animation | Spine | 9 | not started |
-| 136 | Game-engine runtimes, texture packer | Spine | 9 | partly (sprite sheet) |
-| 137 | Wrap-around tiled mode | Krita, Aseprite | 10 | not started |
-| 138 | Filter / file layers, global selection mask | Krita | 10 | not started |
-| 139 | HDR / OpenEXR, OpenColorIO | Krita | 10 | not started |
-| 140 | Multiple brush engines, brush tagging | Krita | 10 | not started |
+| 132 | Usage statistics | Clip Studio | 8 | done: per-document time drawing (idle gaps capped at a minute), strokes drawn, erasures, first and last worked on, and what the document holds; ⋮ > Statistics |
+| 133 | Customisable panels and QuickMenu | Krita, Procreate | 8 | done: toolbar groups shown or hidden (item 71); the quick menu ring holds the actions the user picks (up to 12 of 14) |
+| 134 | Dopesheet and curve editor | Spine | 9 | done: bones x frames with keys and holds, tap to go to a frame; each bone's angle curve, dragged to turn it (children, ink, joint limits); hold previous frame |
+| 135 | Free-form deformation, procedural animation | Spine | 9 | done: FFD per frame with the mesh warp (item 84), carried by shape tweening (item 82); procedural sway (sine or smooth wiggle) of a bone across every frame |
+| 136 | Game-engine runtimes, texture packer | Spine | 9 | done: packed sprite atlas (trimmed frames, power-of-two sheet, TexturePacker JSON with offsets and durations) beside the Spine, DragonBones and Lottie exports that those runtimes load |
+| 137 | Wrap-around tiled mode | Krita, Aseprite | 10 | done: a "Tile" frame repeated across the view, ink drawn on any repeat moved onto the tile, the frame exported seamless |
+| 138 | Filter / file layers, global selection mask | Krita | 10 | done: blur, sharpen, pixelate, posterize, threshold and invert on raster and filter (adjustment) layers; file layers that reload from their image; the raster selection painted with the pen and eraser |
+| 139 | HDR / OpenEXR, OpenColorIO | Krita | 10 | done: HDR raster layers (light up to ~22x paper white, painted at an intensity), an exposure + clip/filmic view transform in place of OpenColorIO (no Android port; .ocio configs aren't read), OpenEXR export and import keeping HDR |
+| 140 | Multiple brush engines, brush tagging | Krita | 10 | done: raster engines paint, wet, smudge, blur, liquify, spray and bristle beside the stamp engine and vector pens; brush presets tagged and filtered by tag |
 | 141 | Shape builder, knife, contour | Affinity | 11 | not started |
 | 142 | Isometric panel, layout grids | Affinity | 11 | not started |
 | 143 | Real-world scale and measurement | Concepts, Affinity | 11 | not started |

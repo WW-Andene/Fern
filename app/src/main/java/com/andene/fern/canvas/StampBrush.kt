@@ -109,7 +109,12 @@ data class StampBrush(
 }
 
 /** A stamp brush saved under a name in the brush editor, for reuse across documents. */
-data class BrushPreset(val name: String, val brush: StampBrush)
+data class BrushPreset(
+    val name: String,
+    val brush: StampBrush,
+    /** Labels to find it by in the brush editor (roadmap item 140, Krita's brush tags): "ink", "texture"... */
+    val tags: List<String> = emptyList(),
+)
 
 /** One placed stamp in screen space: where, how big (diameter), and rotated by how much (radians). */
 data class Stamp(val center: Offset, val size: Float, val angle: Float)

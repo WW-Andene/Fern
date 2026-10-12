@@ -10,6 +10,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,6 +66,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import androidx.input.motionprediction.MotionEventPredictor
+import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -119,6 +121,15 @@ fun DrawingCanvas(
     // canvas. Placed first in the Box so the canvas, not the surface, receives touches; the
     // surface is still composited on top because it's ordered above the window.
     var frontInk by remember { mutableStateOf<FrontBufferedInk?>(null) }
+    // Live QuickShape (roadmap item 118): a held pen stroke snaps to its shape while still down.
+    // Touch events stop while the pen is still, so a clock has to notice the hold.
+    LaunchedEffect(state) {
+        while (true) {
+            delay(SHAPE_HOLD_POLL_MILLIS)
+            // The front buffer still shows the freehand ink; wipe it so the clean shape shows.
+            if (state.holdTick()) frontInk?.clear()
+        }
+    }
 
     Box(modifier) {
     if (FrontBufferedInk.isSupported) {
@@ -143,7 +154,7 @@ fun DrawingCanvas(
                     stylusSample.eraserEnd = event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER
                     stylusSample.buttonPressed = isStylus && (event.buttonState and MotionEvent.BUTTON_STYLUS_PRIMARY) != 0
                     predictor.record(event)
-                    frontInk?.onTouchEvent(event, state.strokeInProgress?.takeIf { state.activeStabilization <= 0.0 }, state.scale)
+                    frontInk?.onTouchEvent(event, state.strokeInProgress?.takeIf { state.activeStabilization <= 0.0 && !state.isAdjustingShape }, state.scale)
                     predictedScreen = when (event.actionMasked) {
                         MotionEvent.ACTION_MOVE -> predictor.predict()?.let { predicted ->
                             Offset(predicted.x, predicted.y).also { predicted.recycle() }
@@ -383,10 +394,24 @@ fun DrawingCanvas(
                         ?.asImageBitmap()
                         ?.also { imageBitmapCache[fileName] = it }
             }
-            // Large documents pan and zoom from cached tiles when nothing is being edited live.
-            val fromTiles = state.tileCacheEligible &&
-                tileCache.draw(this, state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer, imageFor)
-            if (!fromTiles) drawScene(state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer, imageFor)
+            val wrapTile = state.wrapTile
+            if (wrapTile != null) {
+                // Wrap-around mode (roadmap item 137): the drawing again at every whole-tile
+                // offset the view reaches, the paper drawn once, and the tile outlined.
+                for (offset in wrapOffsets(wrapTile, topLeftWorld, bottomRightWorld)) {
+                    withTransform({ translate((offset.x * state.scale).toFloat(), (offset.y * state.scale).toFloat()) }) {
+                        drawScene(state, screenCenter, topLeftWorld - offset, bottomRightWorld - offset, textMeasurer, imageFor, drawPaper = offset == WorldPoint.Zero)
+                    }
+                }
+                val a = state.worldToScreen(wrapTile.min, screenCenter)
+                val b = state.worldToScreen(wrapTile.max, screenCenter)
+                drawRect(HANDLE_COLOR, topLeft = a, size = Size(b.x - a.x, b.y - a.y), style = DrawStyle(width = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))))
+            } else {
+                // Large documents pan and zoom from cached tiles when nothing is being edited live.
+                val fromTiles = state.tileCacheEligible &&
+                    tileCache.draw(this, state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer, imageFor)
+                if (!fromTiles) drawScene(state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer, imageFor)
+            }
 
             state.textItems.firstOrNull { it.id == state.selectedTextId }?.let { item ->
                 val (min, max) = state.textBounds(item)
@@ -508,6 +533,24 @@ fun DrawingCanvas(
                 )
             }
 
+            // Ruler guides (roadmap item 99): lines across the whole view.
+            for (guide in state.guides) {
+                val a = if (guide.vertical) WorldPoint(guide.position, topLeftWorld.y) else WorldPoint(topLeftWorld.x, guide.position)
+                val b = if (guide.vertical) WorldPoint(guide.position, bottomRightWorld.y) else WorldPoint(bottomRightWorld.x, guide.position)
+                drawLine(RULER_GUIDE_COLOR, state.worldToScreen(a, screenCenter), state.worldToScreen(b, screenCenter), strokeWidth = 1f)
+            }
+
+            // A painted selection (roadmap item 138): its coverage tinted, the way Krita shows a selection mask.
+            state.selectionMask?.let { mask ->
+                state.rasterRevision // repaint as it's painted
+                val half = hypot(size.width, size.height) / 2f
+                val bounds = Rect(screenCenter - Offset(half, half), screenCenter + Offset(half, half))
+                drawContext.canvas.saveLayer(bounds, Paint().apply { alpha = SELECTION_MASK_ALPHA })
+                drawRaster(mask, state, screenCenter, topLeftWorld, bottomRightWorld)
+                drawRect(SELECTION_MASK_TINT, topLeft = bounds.topLeft, size = bounds.size, blendMode = BlendMode.SrcIn)
+                drawContext.canvas.restore()
+            }
+
             // Raster selection outline: dashed, so it reads over any paint.
             state.rasterSelection?.let { outline ->
                 val path = Path()
@@ -557,13 +600,18 @@ fun DrawingCanvas(
                 }
             }
 
-            // Mesh warp lattice: grid lines between control points and a handle on each.
-            if (state.meshWarping && state.meshNodes.size == MESH_SIZE * MESH_SIZE) {
+            // Warp handles: the mesh's grid lines, the distort's quad, or the puppet's bare pins.
+            if (state.meshWarping) {
                 val nodes = state.meshNodes.map { state.worldToScreen(it, screenCenter) }
-                for (j in 0 until MESH_SIZE) for (i in 0 until MESH_SIZE) {
-                    val p = nodes[j * MESH_SIZE + i]
-                    if (i + 1 < MESH_SIZE) drawLine(HANDLE_COLOR, p, nodes[j * MESH_SIZE + i + 1], strokeWidth = 1f)
-                    if (j + 1 < MESH_SIZE) drawLine(HANDLE_COLOR, p, nodes[(j + 1) * MESH_SIZE + i], strokeWidth = 1f)
+                if (state.warpKind == WarpKind.MESH && nodes.size == MESH_SIZE * MESH_SIZE) {
+                    for (j in 0 until MESH_SIZE) for (i in 0 until MESH_SIZE) {
+                        val p = nodes[j * MESH_SIZE + i]
+                        if (i + 1 < MESH_SIZE) drawLine(HANDLE_COLOR, p, nodes[j * MESH_SIZE + i + 1], strokeWidth = 1f)
+                        if (j + 1 < MESH_SIZE) drawLine(HANDLE_COLOR, p, nodes[(j + 1) * MESH_SIZE + i], strokeWidth = 1f)
+                    }
+                }
+                if (state.warpKind == WarpKind.DISTORT && nodes.size == 4) {
+                    for (i in 0 until 4) drawLine(HANDLE_COLOR, nodes[i], nodes[(i + 1) % 4], strokeWidth = 1f)
                 }
                 for (p in nodes) {
                     drawCircle(Color.White, radius = 8f, center = p)
@@ -732,10 +780,24 @@ private fun blendPixels(target: ImageBitmap, source: ImageBitmap, mode: LayerBle
 }
 
 /** Applies an adjustment layer's [adjustment] to everything in [target], mixed in by [opacity]. */
-private fun adjustPixels(target: ImageBitmap, adjustment: Adjustment, opacity: Float) {
+private fun adjustPixels(target: ImageBitmap, adjustment: Adjustment, opacity: Float, scale: Double) {
     val width = target.width
     val height = target.height
     val pixels = IntArray(width * height).also { target.readPixels(it) }
+    if (adjustment is SpatialFilter) {
+        // A filter layer (roadmap item 138): sized in world units, so it's the same at any zoom.
+        val sizePx = (adjustment.sizeWorld * scale).toInt().coerceIn(0, MAX_SCREEN_FILTER_PX)
+        val premultiplied = IntArray(pixels.size) { premultiply(pixels[it]) }
+        val filtered = premultiplied.copyOf().also { adjustment.filter(it, width, height, sizePx) }
+        for (i in pixels.indices) {
+            // The layer's opacity mixes the filtered picture over the original.
+            val mixed = mixArgb(premultiplied[i], filtered[i], opacity)
+            pixels[i] = unpremultiply(mixed)
+        }
+        target.asAndroidBitmap().setPixels(pixels, 0, width, 0, 0, width, height)
+        return
+    }
+    adjustment as ColorAdjustment
     val rgb = FloatArray(3)
     for (i in pixels.indices) {
         val c = pixels[i]
@@ -806,6 +868,8 @@ private fun DrawScope.drawBackgroundPattern(state: CanvasState, screenCenter: Of
         BackgroundStyle.PLAIN -> {} // handled by the early return above
     }
 }
+
+private const val SHAPE_HOLD_POLL_MILLIS = 64L // well under the 500 ms hold, so the snap feels immediate
 
 private const val MAX_BACKGROUND_PATTERN_LINES = 500.0
 private val BACKGROUND_PATTERN_COLOR = Color(0xFFD8D3C8)
@@ -1317,6 +1381,33 @@ private val STICKY_NOTE_COLOR = Color(0xFFFFF59D)
 
 // Faint enough to read as "the previous drawing" without competing with the current one.
 private const val ONION_SKIN_ALPHA = 0.25f
+private const val AUDIO_AHEAD_ALPHA = 0.2f
+private const val SELECTION_MASK_ALPHA = 0.35f
+private val SELECTION_MASK_TINT = Color(0xFFE53935)
+private const val MAX_SCREEN_FILTER_PX = 256 // a filter layer's reach on screen, zoomed in far
+
+private fun premultiply(c: Int): Int {
+    val a = c ushr 24
+    fun ch(shift: Int) = ((c shr shift) and 0xFF) * a / 255
+    return (a shl 24) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
+}
+
+private fun unpremultiply(c: Int): Int {
+    val a = c ushr 24
+    if (a == 0) return 0
+    fun ch(shift: Int) = (((c shr shift) and 0xFF) * 255 / a).coerceAtMost(255)
+    return (a shl 24) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
+}
+
+/** [from] moved toward [to] by [t], channel by channel. */
+private fun mixArgb(from: Int, to: Int, t: Float): Int {
+    fun ch(shift: Int): Int {
+        val a = (from shr shift) and 0xFF
+        val b = (to shr shift) and 0xFF
+        return (a + (b - a) * t).roundToInt().coerceIn(0, 255)
+    }
+    return (ch(24) shl 24) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
+}
 
 // One wheel notch pans 64 px, or zooms by 10% with Ctrl held.
 private const val WHEEL_PAN_PX = 64f
@@ -1414,7 +1505,12 @@ internal fun DrawScope.drawScene(
     // Only strokes near the view, from the spatial index - not a pass over the whole document.
     val nearby = state.strokesNear(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)
     // Replay draws the first replayCount strokes of the document, in drawing order.
-    val replayed = state.replayCount?.let { count -> state.strokes.take(count).toHashSet().let { shown -> nearby.filter { it in shown } } } ?: nearby
+    val replayedOrAll = state.replayCount?.let { count -> state.strokes.take(count).toHashSet().let { shown -> nearby.filter { it in shown } } } ?: nearby
+    // Audio sync (roadmap item 130): ink the playing voice note hasn't reached yet is drawn
+    // faded, underneath, until the playback gets to it.
+    val audio = state.audioReplay
+    val ahead = if (audio == null) emptyList() else replayedOrAll.filter { audio.isAhead(it) }
+    val replayed = if (ahead.isEmpty()) replayedOrAll else ahead.toHashSet().let { later -> replayedOrAll.filter { it !in later } }
     val strokesByLayer = replayed.filter { it.animFrame == state.currentAnimFrame }.groupBy { layerIndex[it.layerId] ?: 0 }
     // Offscreen bounds for a translucent layer: the square around the screen centre that covers
     // the screen at any canvas rotation.
@@ -1426,6 +1522,19 @@ internal fun DrawScope.drawScene(
             if (stroke.animFrame != onionFrame || stroke.points.isEmpty()) continue
             if (state.layers.firstOrNull { it.id == stroke.layerId }?.visible == false) continue
             if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
+            val source = stroke.decimatedIndices(MIN_POINT_SPACING_SCREEN / state.scale)
+            val screenPoints = source.map { state.worldToScreen(stroke.points[it], screenCenter) }
+            val widthScreen = (stroke.widthWorld * state.scale).toFloat().coerceIn(1f, 1_000_000f)
+            drawStroke(stroke, screenPoints, source, widthScreen, BlendMode.SrcOver)
+        }
+        drawContext.canvas.restore()
+    }
+
+    if (ahead.isNotEmpty()) {
+        drawContext.canvas.saveLayer(layerBounds, Paint().apply { alpha = AUDIO_AHEAD_ALPHA })
+        for (stroke in ahead) {
+            if (stroke.animFrame != state.currentAnimFrame || stroke.points.isEmpty()) continue
+            if (state.layers.firstOrNull { it.id == stroke.layerId }?.visible == false) continue
             val source = stroke.decimatedIndices(MIN_POINT_SPACING_SCREEN / state.scale)
             val screenPoints = source.map { state.worldToScreen(stroke.points[it], screenCenter) }
             val widthScreen = (stroke.widthWorld * state.scale).toFloat().coerceIn(1f, 1_000_000f)
@@ -1540,7 +1649,7 @@ internal fun DrawScope.drawScene(
         when {
             // A hidden base hides the layers clipped to it, which have nothing to show through.
             !base.visible -> {}
-            adjustment != null -> if (cpuTarget != null) adjustPixels(cpuTarget, adjustment, base.opacity)
+            adjustment != null -> if (cpuTarget != null) adjustPixels(cpuTarget, adjustment, base.opacity, state.scale)
             cpuTarget != null && base.blend.gpu == null -> {
                 // Drawn on its own, then blended into what's beneath pixel by pixel.
                 val group = ImageBitmap(cpuTarget.width, cpuTarget.height)

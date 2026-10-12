@@ -71,4 +71,22 @@ class RasterAdjustTest {
         state.undo()
         assertEquals(before, surface.tiles.values.sumOf { t -> (3 until t.data.size step 4).count { (t.data[it].toInt() and 0xFFFF) > 0 } })
     }
+
+    @Test
+    fun warpDraggedInSeveralStepsLeavesNoCopyBehind() {
+        val state = painted()
+        val surface = state.rasters.getValue(state.activeLayerId)
+        state.toggleMeshWarp()
+        state.activeTool = Tool.SELECT
+        val node = state.meshNodes[0]
+        val painted = { surface.tiles.values.sumOf { t -> (3 until t.data.size step 4).count { (t.data[it].toInt() and 0xFFFF) > 0 } } }
+        state.beginSelectGesture(node)
+        state.continueSelectGesture(WorldPoint(node.x + 30, node.y + 30))
+        val oneStep = painted()
+        // The same end point reached in a second event paints the same picture: nothing of the original returns.
+        state.continueSelectGesture(WorldPoint(node.x + 31, node.y + 31))
+        state.continueSelectGesture(WorldPoint(node.x + 30, node.y + 30))
+        state.endSelectGesture()
+        assertEquals(oneStep, painted())
+    }
 }

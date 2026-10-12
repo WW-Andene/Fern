@@ -18,6 +18,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.Icons
+import androidx.compose.material3.Icon
+import androidx.compose.material3.InputChip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -52,6 +60,7 @@ fun ColorPickerDialog(
     var saturation by remember { mutableFloatStateOf(1f) }
     var value by remember { mutableFloatStateOf(1f) }
     var hexText by remember { mutableStateOf("") }
+    var spotName by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         val hsv = FloatArray(3)
@@ -160,9 +169,12 @@ fun ColorPickerDialog(
                         singleLine = true,
                     )
                 }
-                // CMYK (roadmap item 102): plain device CMYK in percent, not colour-managed - a
-                // way to enter print values, not a promise of how a press will print them.
-                Text(stringResource(R.string.color_cmyk), modifier = Modifier.padding(top = 8.dp))
+                // CMYK (roadmap item 102) in percent: through the loaded ICC profile when there is
+                // one (Settings), else plain device CMYK - a way to enter print values.
+                Text(
+                    ColorManagement.cmykProfile?.let { stringResource(R.string.color_cmyk_profile, it.description.ifEmpty { "ICC" }) } ?: stringResource(R.string.color_cmyk),
+                    modifier = Modifier.padding(top = 8.dp),
+                )
                 Row {
                     for ((channel, label) in listOf("C", "M", "Y", "K").withIndex()) {
                         OutlinedTextField(
@@ -185,6 +197,48 @@ fun ColorPickerDialog(
                             modifier = Modifier.width(62.dp).padding(end = 4.dp),
                         )
                     }
+                }
+                // Spot colours (roadmap item 102): named inks, kept as their own separations in print PDFs.
+                val context = LocalContext.current
+                Text(stringResource(R.string.color_spots), modifier = Modifier.padding(top = 8.dp))
+                Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                    for (spot in ColorManagement.spotColors) {
+                        InputChip(
+                            selected = spot.color == currentColor(),
+                            onClick = {
+                                val hsv = FloatArray(3)
+                                android.graphics.Color.colorToHSV(spot.color.toArgb(), hsv)
+                                hue = hsv[0]; saturation = hsv[1]; value = hsv[2]
+                                hexText = hexOf(hue, saturation, value)
+                            },
+                            label = { Text(spot.name) },
+                            leadingIcon = { Box(Modifier.size(16.dp).background(spot.color, CircleShape)) },
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Filled.Close,
+                                    contentDescription = stringResource(R.string.color_spot_delete, spot.name),
+                                    modifier = Modifier.size(16.dp).clickable { ColorManagement.deleteSpot(context, spot.name) },
+                                )
+                            },
+                            modifier = Modifier.padding(end = 4.dp),
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = spotName,
+                        onValueChange = { spotName = it },
+                        label = { Text(stringResource(R.string.color_spot_name)) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = {
+                        if (spotName.isNotBlank()) {
+                            val color = currentColor()
+                            ColorManagement.saveSpot(context, SpotColor(spotName.trim(), color, cmykOf(color)))
+                            spotName = ""
+                        }
+                    }) { Text(stringResource(R.string.color_spot_save)) }
                 }
             }
         },
@@ -251,15 +305,20 @@ fun parseGimpPalette(text: String): List<Color> {
     }
 }
 
-/** Uncalibrated device CMYK (0..1 each) of [color]: K = 1 - max(R, G, B), the rest relative to it. */
+/**
+ * [color]'s CMYK ink amounts (0..1): through the loaded CMYK ICC profile (roadmap item 102) when
+ * there is one, else plain uncalibrated device CMYK.
+ */
 internal fun cmykOf(color: Color): List<Float> {
+    ColorManagement.cmykProfile?.let { return it.toCmyk(floatArrayOf(color.red, color.green, color.blue)).toList() }
     val k = 1f - maxOf(color.red, color.green, color.blue)
     if (k >= 1f) return listOf(0f, 0f, 0f, 1f)
     return listOf((1f - color.red - k) / (1f - k), (1f - color.green - k) / (1f - k), (1f - color.blue - k) / (1f - k), k)
 }
 
-/** The RGB colour of uncalibrated device [cmyk] (0..1 each, clamped). */
+/** The RGB colour of [cmyk] (0..1 each, clamped): through the loaded CMYK profile when there is one, else device CMYK. */
 internal fun colorOfCmyk(cmyk: List<Float>): Color {
     val (c, m, y, k) = cmyk.map { it.coerceIn(0f, 1f) }
+    ColorManagement.cmykProfile?.let { profile -> return profile.toRgb(floatArrayOf(c, m, y, k)).let { Color(it[0], it[1], it[2]) } }
     return Color((1 - c) * (1 - k), (1 - m) * (1 - k), (1 - y) * (1 - k))
 }

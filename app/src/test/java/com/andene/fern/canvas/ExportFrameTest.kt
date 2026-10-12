@@ -24,4 +24,18 @@ class ExportFrameTest {
         assertTrue(svg.contains("#0000ff") || svg.contains("#0000FF"))
         assertEquals(1, frameForExport(state, 256)!!.camera.currentAnimFrame)
     }
+
+    @Test
+    fun aDrawingOfRasterPaintAloneIsFramedAroundThePaint() {
+        val state = CanvasState()
+        state.addRasterLayer(8)
+        state.activeWidthWorld = 10.0
+        state.beginStroke(WorldPoint(300.0, 40.0)); state.extendStroke(WorldPoint(340.0, 40.0)); state.endStroke()
+        assertTrue(state.strokes.isEmpty()) // raster paint makes no strokes
+        val frame = frameForExport(state, 256)!!
+        val center = androidx.compose.ui.geometry.Offset(frame.widthPx / 2f, frame.heightPx / 2f)
+        val middle = frame.camera.screenToWorld(center, center)
+        assertEquals(320.0, middle.x, 2.0)
+        assertEquals(40.0, middle.y, 2.0)
+    }
 }

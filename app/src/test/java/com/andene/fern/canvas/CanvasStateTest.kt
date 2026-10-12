@@ -162,4 +162,39 @@ class CanvasStateTest {
         assertEquals(2, state.strokes.size)
         assertTrue(state.strokes.none { stroke -> stroke.points.any { abs(it.x - 50.0) < 10.0 } })
     }
+
+    @Test
+    fun heldStrokeSnapsBeforeLiftAndFollowsThePen() {
+        // Roadmap item 118: QuickShape's live snap, then adjusting the shape before lifting.
+        val state = CanvasState()
+        state.beginStroke(WorldPoint(0.0, 0.0))
+        for (i in 1..10) state.extendStroke(WorldPoint(i * 10.0, if (i % 2 == 0) 1.0 else -1.0))
+        assertEquals(false, state.holdTick(System.currentTimeMillis()))
+        assertTrue(state.holdTick(System.currentTimeMillis() + 1000))
+        assertEquals(2, state.strokes.single().points.size)
+        state.extendStroke(WorldPoint(0.0, 200.0))
+        state.endStroke()
+        val line = state.strokes.single()
+        assertEquals(2, line.points.size)
+        assertEquals(WorldPoint(0.0, 0.0), line.points[0])
+        assertEquals(0.0, line.points[1].x, 1e-9)
+        assertEquals(200.0, line.points[1].y, 1e-9)
+        state.undo()
+        assertEquals(0, state.strokes.size)
+    }
+
+    @Test
+    fun aStrokeFromTheSecondViewIsSizedForThatViewsZoom() {
+        // Roadmap item 124: the pen is the same size on screen in whichever view it draws.
+        val state = CanvasState()
+        state.activeWidthWorld = 8.0
+        state.withInputScale(4.0) {
+            state.beginStroke(WorldPoint(0.0, 0.0))
+            state.extendStroke(WorldPoint(10.0, 0.0))
+            state.endStroke()
+        }
+        assertEquals(2.0, state.strokes.single().widthWorld, 1e-9)
+        drawLine(state, WorldPoint(0.0, 10.0), WorldPoint(10.0, 10.0))
+        assertEquals(8.0, state.strokes.last().widthWorld, 1e-9) // the main view's zoom (1) again
+    }
 }

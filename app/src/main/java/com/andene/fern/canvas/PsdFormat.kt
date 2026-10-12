@@ -23,7 +23,14 @@ class ImportedLayer(
 )
 
 /** A layered file read back: the canvas size, its bit depth (8 or 16) and layers bottom first. */
-class ImportedDocument(val width: Int, val height: Int, val depth: Int, val layers: List<ImportedLayer>)
+class ImportedDocument(
+    val width: Int,
+    val height: Int,
+    val depth: Int,
+    val layers: List<ImportedLayer>,
+    /** The layers hold HDR light, stored as an HDR layer does (roadmap item 139). */
+    val hdr: Boolean = false,
+)
 
 /** Photoshop's four-letter keys for the layer blend modes. */
 private val PSD_BLEND_KEYS = mapOf(

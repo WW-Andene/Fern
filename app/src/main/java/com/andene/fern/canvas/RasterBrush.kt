@@ -15,7 +15,15 @@ import kotlin.math.hypot
  * - [BLUR]: softens the pixels under the brush.
  * - [LIQUIFY]: pushes the picture along the stroke, bending it like soft clay (roadmap item 92).
  */
-enum class RasterBrushMode { PAINT, WET, SMUDGE, BLUR, LIQUIFY }
+enum class RasterBrushMode {
+    PAINT, WET, SMUDGE, BLUR, LIQUIFY,
+
+    /** Particles scattered over the tip, like an airbrush or spray can (roadmap item 140). */
+    SPRAY,
+
+    /** A row of hairs, each streaking and drying out along the stroke (roadmap item 140). */
+    BRISTLE,
+}
 
 /**
  * The raster brush's settings: its [mode], tip ([tip], a picture as for stamp brushes, or a

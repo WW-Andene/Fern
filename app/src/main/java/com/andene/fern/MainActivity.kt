@@ -34,7 +34,9 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.AlertDialog
@@ -83,6 +85,8 @@ import com.andene.fern.canvas.AnimationBar
 import com.andene.fern.canvas.AppSettings
 import com.andene.fern.canvas.AudioNotes
 import com.andene.fern.canvas.AudioNotesDialog
+import com.andene.fern.canvas.AudioSeekOverlay
+import com.andene.fern.canvas.AudioBar
 import com.andene.fern.canvas.BackgroundStyle
 import com.andene.fern.canvas.CanvasState
 import com.andene.fern.canvas.CanvasStorage
@@ -103,6 +107,12 @@ import com.andene.fern.canvas.startSelectionDrag
 import com.andene.fern.canvas.QuickMenuButton
 import com.andene.fern.canvas.QuickMenuOverlay
 import com.andene.fern.canvas.PinMeta
+import com.andene.fern.canvas.ColorManagement
+import com.andene.fern.canvas.SymbolLibrary
+import com.andene.fern.canvas.Rulers
+import com.andene.fern.canvas.readFileLayerImage
+import com.andene.fern.canvas.QuickMenuCustomizeDialog
+import com.andene.fern.canvas.SecondView
 import com.andene.fern.canvas.PinsDialog
 import com.andene.fern.canvas.PresentationControls
 import com.andene.fern.canvas.SettingsDialog
@@ -118,6 +128,10 @@ import com.andene.fern.canvas.Mp4Encoder
 import com.andene.fern.canvas.exportReplayMp4
 import com.andene.fern.canvas.exportAnimatedPng
 import com.andene.fern.canvas.exportLottie
+import com.andene.fern.canvas.exportDocumentCmykPdf
+import com.andene.fern.canvas.exportDocumentDxf
+import com.andene.fern.canvas.exportDocumentExr
+import com.andene.fern.canvas.exportSlicesZip
 import com.andene.fern.canvas.exportDocumentEps
 import com.andene.fern.canvas.exportReplayGif
 import com.andene.fern.canvas.StrokeChunkFile
@@ -133,6 +147,7 @@ import com.andene.fern.canvas.exportDocumentBundle
 import com.andene.fern.canvas.exportDocumentPdf
 import com.andene.fern.canvas.exportDocumentPng
 import com.andene.fern.canvas.exportDocumentSvg
+import com.andene.fern.canvas.exportSpriteAtlas
 import com.andene.fern.canvas.exportSpriteSheetPng
 import com.andene.fern.canvas.importDocumentBundle
 import com.andene.fern.canvas.importPdfPages
@@ -229,6 +244,17 @@ class MainActivity : ComponentActivity() {
                     val switchMutex = remember { Mutex() }
                     var showAudioNotes by remember { mutableStateOf(false) }
                     val audioNotes = remember { AudioNotes(context) }
+                    // The CMYK profile and spot colours (roadmap item 102), app-wide.
+                    LaunchedEffect(Unit) { withContext(Dispatchers.IO) { ColorManagement.load(context) } }
+                    // The voice note playing on the canvas in step with its ink (roadmap item 130).
+                    var playingNote by remember { mutableStateOf<java.io.File?>(null) }
+                    // Recording carries on while drawing, but not past leaving the app's screen.
+                    DisposableEffect(audioNotes) {
+                        onDispose {
+                            audioNotes.stop()
+                            audioNotes.stopPlayback()
+                        }
+                    }
                     val micPermissionLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.RequestPermission(),
                     ) { granted ->
@@ -238,6 +264,8 @@ class MainActivity : ComponentActivity() {
                     var leftHanded by remember { mutableStateOf(AppSettings.leftHanded(context)) }
                     var toolbarAtBottom by remember { mutableStateOf(AppSettings.toolbarAtBottom(context)) }
                     var hiddenToolbarGroups by remember { mutableStateOf(AppSettings.hiddenToolbarGroups(context)) }
+                    var quickMenuActions by remember { mutableStateOf(AppSettings.quickMenuActions(context)) }
+                    var showQuickMenuCustomize by remember { mutableStateOf(false) }
                     var showToolbarCustomize by remember { mutableStateOf(false) }
                     var crashReport by remember { mutableStateOf(CrashReporter.pendingReport(context)) }
                     var presentingIndex by remember { mutableStateOf<Int?>(null) } // non-null = presenting that frame
@@ -271,6 +299,10 @@ class MainActivity : ComponentActivity() {
                             onToolSlotsChanged = { slots -> AppSettings.setToolSlots(context, slots) },
                             onBrushPresetsChanged = { presets -> AppSettings.setBrushPresets(context, presets) },
                             onConnectorsChanged = { connectors -> CanvasStorage.saveConnectors(context, currentDocumentId, connectors) },
+                            onLayerCompsChanged = { comps -> CanvasStorage.saveLayerComps(context, currentDocumentId, comps) },
+                            onStatsChanged = { stats -> CanvasStorage.saveStats(context, currentDocumentId, stats) },
+                            onGuidesChanged = { guides -> CanvasStorage.saveGuides(context, currentDocumentId, guides) },
+                            onSymbolInstancesChanged = { instances -> CanvasStorage.saveSymbolInstances(context, currentDocumentId, instances) },
                             onBonesChanged = { bones -> CanvasStorage.saveBones(context, currentDocumentId, bones) },
                             onAnimationSettingsChanged = { settings -> CanvasStorage.saveAnimationSettings(context, currentDocumentId, settings) },
                             onFramesChanged = { frames -> CanvasStorage.saveFrames(context, currentDocumentId, frames) },
@@ -344,13 +376,21 @@ class MainActivity : ComponentActivity() {
                             }?.toByteArray()
                         }
                     }
+                    var sliceScalesToExport by remember { mutableStateOf(emptyList<Int>()) }
+                    val slicesExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/zip"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) {
+                            exportSlicesZip(canvasState, canvasState.frames.toList(), sliceScalesToExport, textMeasurer, density, imageForExport)
+                        }
+                    }
                     val frameExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("image/png"),
                     ) { uri ->
                         val frame = frameToExport
                         frameToExport = null
                         if (uri != null && frame != null) {
-                            writeExport(uri) { exportDocumentPng(canvasState, textMeasurer, density, imageForExport, frame) }
+                            writeExport(uri) { exportDocumentPng(canvasState, textMeasurer, density, imageForExport, frame, wrap = frame.id == canvasState.wrapFrameId) }
                         }
                     }
                     val bundleExportLauncher = rememberLauncherForActivityResult(
@@ -364,6 +404,15 @@ class MainActivity : ComponentActivity() {
                         val id = currentDocumentId
                         val name = currentDocumentName()
                         writeExport(uri) { exportDocumentBundle(context, id, name) }
+                    }
+                    val spriteAtlasExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/zip"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) {
+                            // File-safe: the name goes inside the ZIP and the JSON.
+                            val name = currentDocumentName().replace(Regex("[\\\\/:*?\"<>|]"), "_")
+                            exportSpriteAtlas(canvasState, name, textMeasurer, density, imageForExport)
+                        }
                     }
                     val spriteSheetExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("image/png"),
@@ -384,6 +433,21 @@ class MainActivity : ComponentActivity() {
                         contract = ActivityResultContracts.CreateDocument("application/postscript"),
                     ) { uri ->
                         if (uri != null) writeExport(uri) { exportDocumentEps(canvasState)?.toByteArray() }
+                    }
+                    val exrExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("image/x-exr"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportDocumentExr(canvasState, textMeasurer, density, imageForExport) }
+                    }
+                    val cmykPdfExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/pdf"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportDocumentCmykPdf(canvasState) }
+                    }
+                    val dxfExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("image/vnd.dxf"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportDocumentDxf(canvasState)?.toByteArray() }
                     }
                     val lottieExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("application/json"),
@@ -692,6 +756,10 @@ class MainActivity : ComponentActivity() {
                                     coroutineScope.launch(Dispatchers.Main) { if (previewWanted && loadingDocument) canvasState.loadStrokes(visible) }
                                 },
                                 layers = CanvasStorage.loadLayers(context, documentId),
+                                layerComps = CanvasStorage.loadLayerComps(context, documentId),
+                                stats = CanvasStorage.loadStats(context, documentId),
+                                guides = CanvasStorage.loadGuides(context, documentId),
+                                symbolInstances = CanvasStorage.loadSymbolInstances(context, documentId),
                                 rasters = CanvasStorage.loadLayers(context, documentId).let { layers ->
                                     // Raster layers' pixels and every layer mask (roadmap items 89, 91).
                                     CanvasStorage.loadRasters(context, documentId, layers.filter { it.raster }.map { it.id } + layers.filter { it.masked }.map { maskIdOf(it.id) })
@@ -710,6 +778,25 @@ class MainActivity : ComponentActivity() {
                         previewWanted = false
                         canvasState.loadStrokes(loaded.strokes)
                         canvasState.loadLayers(loaded.layers)
+                        canvasState.loadLayerComps(loaded.layerComps)
+                        // File layers (roadmap item 138) show their files as they are now; one
+                        // that can't be read keeps the pixels saved with the document.
+                        for (layer in loaded.layers.filter { it.fileSource != null }) {
+                            val image = withContext(Dispatchers.IO) { readFileLayerImage(context, Uri.parse(layer.fileSource)) } ?: continue
+                            canvasState.reloadFileLayer(layer.id, image.argb, image.width, image.height, recordUndo = false)
+                        }
+                        canvasState.loadStats(loaded.stats)
+                        canvasState.loadGuides(loaded.guides)
+                        canvasState.loadSymbolInstances(loaded.symbolInstances)
+                        // Symbols redefined since this document was last open: catch its instances up.
+                        if (loaded.symbolInstances.isNotEmpty()) {
+                            val library = withContext(Dispatchers.IO) { SymbolLibrary.list(context) }
+                            for (symbol in library) {
+                                if (loaded.symbolInstances.none { it.symbolId == symbol.id && it.revision < symbol.revision }) continue
+                                val master = withContext(Dispatchers.IO) { SymbolLibrary.load(context, symbol.id) }
+                                if (master.isNotEmpty()) canvasState.syncSymbol(symbol, master, recordUndo = false)
+                            }
+                        }
                         canvasState.loadRasters(loaded.rasters)
                         canvasState.loadFrames(loaded.frames)
                         canvasState.loadHistory(loaded.history.first, loaded.history.second)
@@ -730,6 +817,7 @@ class MainActivity : ComponentActivity() {
                      */
                     suspend fun switchToDocument(documentId: String) = switchMutex.withLock {
                         autosaveJob?.cancel()
+                        playingNote = null // its ink is the other document's
                         loadingDocument = true
                         try {
                             val leaving = currentDocumentId
@@ -908,6 +996,15 @@ class MainActivity : ComponentActivity() {
                             },
                         )
                         val presenting = presentingIndex
+                        // Below the status bar, and below the toolbar when it's at the top.
+                        if (canvasState.showRulers) {
+                            val insetTop = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
+                            Rulers(canvasState, topInset = insetTop + if (toolbarAtBottom) 0.dp else TOOLBAR_CLEARANCE_DP.dp)
+                        }
+                        // Above the canvas, beneath every control: while a voice note plays, a tap on its ink seeks.
+                        if (playingNote != null && audioNotes.recordingSince == null) {
+                            AudioSeekOverlay(audio = audioNotes, state = canvasState, modifier = Modifier.fillMaxSize())
+                        }
                         if (presenting != null && presenting in canvasState.frames.indices) {
                             // Presentation mode: editing chrome hidden, frames shown one at a time.
                             PresentationControls(
@@ -966,6 +1063,9 @@ class MainActivity : ComponentActivity() {
                                 onExportPdf = { pdfExportLauncher.launch("${currentDocumentName()}.pdf") },
                                 onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
                                 onExportEps = { epsExportLauncher.launch("${currentDocumentName()}.eps") },
+                                onExportDxf = { dxfExportLauncher.launch("${currentDocumentName()}.dxf") },
+                                onExportCmykPdf = { cmykPdfExportLauncher.launch("${currentDocumentName()} CMYK.pdf") },
+                                onExportExr = { exrExportLauncher.launch("${currentDocumentName()}.exr") },
                                 onExportGif = { gifExportLauncher.launch("${currentDocumentName()}.gif") },
                                 onExportApng = { apngExportLauncher.launch("${currentDocumentName()}.png") },
                                 onExportLottie = { lottieExportLauncher.launch("${currentDocumentName()}.json") },
@@ -974,6 +1074,7 @@ class MainActivity : ComponentActivity() {
                                 onExportMp4 = { mp4ExportLauncher.launch("${currentDocumentName()}.mp4") },
                                 onExportWebm = { webmExportLauncher.launch("${currentDocumentName()}.webm") },
                                 onExportSpriteSheet = { spriteSheetExportLauncher.launch(context.getString(R.string.name_sprites, currentDocumentName()) + ".png") },
+                                onExportSpriteAtlas = { spriteAtlasExportLauncher.launch(context.getString(R.string.name_sprites, currentDocumentName()) + ".zip") },
                                 onExportBundle = { bundleExportLauncher.launch("${currentDocumentName()}.fern") },
                                 onShare = {
                                     coroutineScope.launch {
@@ -1023,6 +1124,18 @@ class MainActivity : ComponentActivity() {
                                         .padding(bottom = 16.dp),
                                 )
                             }
+                            if (canvasState.secondViewOpen) {
+                                SecondView(
+                                    state = canvasState,
+                                    modifier = Modifier
+                                        // Opposite the drawing hand, above the minimap.
+                                        .align(if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft)
+                                        .padding(WindowInsets.systemBars.asPaddingValues())
+                                        .padding(top = 64.dp, start = 12.dp, end = 12.dp)
+                                        .fillMaxWidth(0.5f)
+                                        .fillMaxHeight(0.4f),
+                                )
+                            }
                             Minimap(
                                 state = canvasState,
                                 modifier = Modifier
@@ -1032,6 +1145,17 @@ class MainActivity : ComponentActivity() {
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(12.dp),
                             )
+                            AudioBar(
+                                audio = audioNotes,
+                                state = canvasState,
+                                playing = playingNote,
+                                onClosePlayback = { playingNote = null },
+                                modifier = Modifier
+                                    // Opposite edge from the toolbar, like the animation bar.
+                                    .align(if (toolbarAtBottom) Alignment.TopCenter else Alignment.BottomCenter)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(vertical = 64.dp),
+                            )
                             QuickMenuButton(
                                 onOpen = { showQuickMenu = true },
                                 modifier = Modifier
@@ -1040,7 +1164,7 @@ class MainActivity : ComponentActivity() {
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(12.dp),
                             )
-                            if (showQuickMenu) QuickMenuOverlay(state = canvasState, onDismiss = { showQuickMenu = false })
+                            if (showQuickMenu) QuickMenuOverlay(state = canvasState, onDismiss = { showQuickMenu = false }, actions = quickMenuActions)
                             if (loadingDocument) DocumentLoadingOverlay()
                         }
                     }
@@ -1183,7 +1307,15 @@ class MainActivity : ComponentActivity() {
                     }
 
                     if (showAudioNotes) {
-                        AudioNotesDialog(audio = audioNotes, documentId = currentDocumentId, onDismiss = { showAudioNotes = false })
+                        AudioNotesDialog(
+                            audio = audioNotes,
+                            documentId = currentDocumentId,
+                            onPlay = { note ->
+                                playingNote = note
+                                showAudioNotes = false
+                            },
+                            onDismiss = { showAudioNotes = false },
+                        )
                     }
 
                     if (showSettings) {
@@ -1216,7 +1348,23 @@ class MainActivity : ComponentActivity() {
                                 showSettings = false
                                 showToolbarCustomize = true
                             },
+                            onCustomizeQuickMenu = {
+                                showSettings = false
+                                showQuickMenuCustomize = true
+                            },
                             onDismiss = { showSettings = false },
+                        )
+                    }
+
+                    if (showQuickMenuCustomize) {
+                        QuickMenuCustomizeDialog(
+                            chosen = quickMenuActions,
+                            onChange = { value ->
+                                quickMenuActions = value
+                                AppSettings.setQuickMenuActions(context, value)
+                            },
+                            state = canvasState,
+                            onDismiss = { showQuickMenuCustomize = false },
                         )
                     }
 
@@ -1248,6 +1396,10 @@ class MainActivity : ComponentActivity() {
                             onExport = { frame ->
                                 frameToExport = frame
                                 frameExportLauncher.launch("${frame.name.replace('/', '_')}.png")
+                            },
+                            onExportSlices = { scales ->
+                                sliceScalesToExport = scales
+                                slicesExportLauncher.launch("${currentDocumentName()} slices.zip")
                             },
                             onDelete = { frame -> canvasState.deleteFrame(frame.id) },
                             onCreate = { name -> canvasState.addFrameFromView(name) },
@@ -1302,3 +1454,6 @@ class MainActivity : ComponentActivity() {
  * mapping compiles against older platforms; older devices simply never send them.
  */
 private val STYLUS_BUTTON_KEYCODES = setOf(308, 309, 310, 311)
+
+// Room the rulers leave for the toolbar when it's along the top (its 48 dp buttons and padding).
+private const val TOOLBAR_CLEARANCE_DP = 64

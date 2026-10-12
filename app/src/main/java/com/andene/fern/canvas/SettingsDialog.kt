@@ -30,6 +30,7 @@ private const val KEY_SNAP_TO_OBJECTS = "snap_to_objects"
 private const val KEY_BRUSH_PRESETS = "brush_presets"
 private const val KEY_HIGH_CONTRAST = "high_contrast"
 private const val KEY_HIDDEN_TOOLBAR_GROUPS = "hidden_toolbar_groups"
+private const val KEY_QUICK_MENU = "quick_menu_actions"
 
 /** App preferences, stored in SharedPreferences so they apply to every document and survive restarts. */
 object AppSettings {
@@ -58,6 +59,18 @@ object AppSettings {
     fun hiddenToolbarGroups(context: Context): Set<ToolbarGroup> =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getStringSet(KEY_HIDDEN_TOOLBAR_GROUPS, emptySet()).orEmpty()
             .mapNotNullTo(HashSet()) { name -> ToolbarGroup.entries.firstOrNull { it.name == name } }
+
+    /** The quick menu's actions (roadmap item 133), in ring order; [DEFAULT_QUICK_MENU] until changed. */
+    fun quickMenuActions(context: Context): List<QuickMenuAction> {
+        val saved = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_QUICK_MENU, null) ?: return DEFAULT_QUICK_MENU
+        // Names no longer in QuickMenuAction (from another version) are dropped.
+        val names = saved.split(',').toSet()
+        return QuickMenuAction.entries.filter { it.name in names }.ifEmpty { DEFAULT_QUICK_MENU }
+    }
+
+    fun setQuickMenuActions(context: Context, value: List<QuickMenuAction>) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString(KEY_QUICK_MENU, value.joinToString(",") { it.name }).apply()
+    }
 
     fun setHiddenToolbarGroups(context: Context, value: Set<ToolbarGroup>) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putStringSet(KEY_HIDDEN_TOOLBAR_GROUPS, value.mapTo(HashSet()) { it.name }).apply()
@@ -134,13 +147,16 @@ object AppSettings {
         return (0 until array.length()).mapNotNull { i ->
             val json = array.optJSONObject(i) ?: return@mapNotNull null
             val name = json.optString("name").takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            BrushPreset(name, json.optJSONObject("brush")?.let(::brushFromJson) ?: return@mapNotNull null)
+            val tags = json.optJSONArray("tags")?.let { a -> (0 until a.length()).mapNotNull { a.optString(it).takeIf(String::isNotBlank) } }.orEmpty()
+            BrushPreset(name, json.optJSONObject("brush")?.let(::brushFromJson) ?: return@mapNotNull null, tags)
         }
     }
 
     fun setBrushPresets(context: Context, presets: List<BrushPreset>) {
         val array = JSONArray()
-        for (preset in presets) array.put(JSONObject().put("name", preset.name).put("brush", brushToJson(preset.brush)))
+        for (preset in presets) {
+            array.put(JSONObject().put("name", preset.name).put("brush", brushToJson(preset.brush)).put("tags", JSONArray(preset.tags)))
+        }
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString(KEY_BRUSH_PRESETS, array.toString()).apply()
     }
 
@@ -182,6 +198,7 @@ fun SettingsDialog(
     onSnapToObjectsChange: (Boolean) -> Unit,
     onShowGuide: () -> Unit,
     onCustomizeToolbar: () -> Unit,
+    onCustomizeQuickMenu: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -217,7 +234,9 @@ fun SettingsDialog(
                     Text(stringResource(R.string.settings_snap_objects), modifier = Modifier.weight(1f))
                     Switch(checked = snapToObjects, onCheckedChange = onSnapToObjectsChange)
                 }
+                CmykProfileRow()
                 TextButton(onClick = onCustomizeToolbar) { Text(stringResource(R.string.settings_customize_toolbar)) }
+                TextButton(onClick = onCustomizeQuickMenu) { Text(stringResource(R.string.quick_menu_customize)) }
                 TextButton(onClick = onShowGuide) { Text(stringResource(R.string.settings_show_guide)) }
             }
         },
@@ -225,4 +244,27 @@ fun SettingsDialog(
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) }
         },
     )
+}
+
+/** The CMYK ICC profile used for print colours (roadmap item 102): which one, load another, or go back to device CMYK. */
+@Composable
+private fun CmykProfileRow() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val pick = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val ok = runCatching {
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("unreadable")
+            ColorManagement.installProfile(context, bytes)
+        }.isSuccess
+        if (!ok) android.widget.Toast.makeText(context, context.getString(R.string.settings_cmyk_bad), android.widget.Toast.LENGTH_SHORT).show()
+    }
+    val profile = ColorManagement.cmykProfile
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            stringResource(R.string.settings_cmyk_profile, profile?.description?.ifEmpty { "ICC" } ?: stringResource(R.string.settings_cmyk_none)),
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = { pick.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.settings_cmyk_load)) }
+        if (profile != null) TextButton(onClick = { ColorManagement.removeProfile(context) }) { Text(stringResource(R.string.settings_cmyk_remove)) }
+    }
 }

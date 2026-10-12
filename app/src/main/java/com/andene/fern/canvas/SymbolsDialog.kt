@@ -28,14 +28,20 @@ import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 
 /**
- * The symbol library (roadmap item 100): tap a symbol to place a copy at the centre of the view;
- * the bin deletes it from the library. With strokes selected, they can be saved as a new symbol
- * under a name.
+ * The symbol library (roadmap item 100): tap a symbol to place an instance at the centre of the
+ * view, linked to it; the bin deletes it from the library (placed instances stay, unlinked when
+ * next opened). With strokes selected, they can be saved as a new symbol under a name; with a
+ * placed instance selected, its symbol can be redefined from the selection - every instance
+ * follows - or the instance detached into plain strokes.
  */
 @Composable
 fun SymbolsDialog(
     symbols: List<SymbolMeta>,
     canSaveSelection: Boolean,
+    /** The symbol the selection is a linked instance of, if it is one. */
+    selectedInstanceOf: SymbolMeta?,
+    onRedefine: () -> Unit,
+    onDetach: () -> Unit,
     onInsert: (SymbolMeta) -> Unit,
     onDelete: (SymbolMeta) -> Unit,
     onSaveSelection: (String) -> Unit,
@@ -57,6 +63,11 @@ fun SymbolsDialog(
                             }
                         }
                     }
+                }
+                selectedInstanceOf?.let { symbol ->
+                    // A selected instance (roadmap item 100): redefine its symbol everywhere, or unlink it.
+                    TextButton(onClick = onRedefine) { Text(stringResource(R.string.symbols_redefine, symbol.name)) }
+                    TextButton(onClick = onDetach) { Text(stringResource(R.string.symbols_detach)) }
                 }
                 if (canSaveSelection) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {

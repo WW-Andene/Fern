@@ -1,6 +1,18 @@
 package com.andene.fern.canvas
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.filled.Refresh
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import android.provider.OpenableColumns
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.widget.Toast
+import android.net.Uri
+import android.content.Intent
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material.icons.filled.FormatColorFill
 import com.andene.fern.R
@@ -23,6 +35,7 @@ import androidx.compose.material.icons.filled.SubdirectoryArrowRight
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.Gradient
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MergeType
@@ -69,6 +82,32 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
         )
     }
     var renameText by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    // File layers (roadmap item 138): the picked image's permission is kept, so it reloads later.
+    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        scope.launch {
+            val image = withContext(Dispatchers.IO) { readFileLayerImage(context, uri) }
+            if (image == null) {
+                Toast.makeText(context, context.getString(R.string.layers_file_unreadable), Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val name = runCatching {
+                context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+            }.getOrNull()?.substringBeforeLast('.') ?: ""
+            state.addFileLayer(name, uri.toString(), image.argb, image.width, image.height)
+        }
+    }
+    fun reload(layer: Layer) {
+        val source = layer.fileSource ?: return
+        scope.launch {
+            val image = withContext(Dispatchers.IO) { readFileLayerImage(context, Uri.parse(source)) }
+            if (image == null) Toast.makeText(context, context.getString(R.string.layers_file_unreadable), Toast.LENGTH_SHORT).show()
+            else state.reloadFileLayer(layer.id, image.argb, image.width, image.height)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -93,6 +132,9 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                         }
                     }
                 }
+                TextButton(onClick = { pickFile.launch(arrayOf("image/*")) }) { Text(stringResource(R.string.layers_add_file)) }
+                LayerCompsSection(state)
+                if (state.layers.any { it.hdr }) HdrSection(state)
                 for (layer in state.layers.reversed()) {
                     val active = layer.id == state.activeLayerId
                     Row(
@@ -149,6 +191,11 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (layer.fileSource != null) {
+                            IconButton(onClick = { reload(layer) }) {
+                                Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.layers_reload_file))
+                            }
+                        }
                         IconButton(onClick = { state.moveLayer(layer.id, up = true) }, enabled = layer != state.layers.last()) {
                             Icon(Icons.Filled.ArrowUpward, contentDescription = stringResource(R.string.layers_up))
                         }
@@ -249,6 +296,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                 // Raster layers hold pixels; 16 bits per channel for smooth gradients.
                 TextButton(onClick = { state.addRasterLayer(8) }) { Text(stringResource(R.string.layers_new_raster)) }
                 TextButton(onClick = { state.addRasterLayer(16) }) { Text(stringResource(R.string.layers_new_raster_16)) }
+                TextButton(onClick = { state.addRasterLayer(16, hdr = true) }) { Text(stringResource(R.string.layers_new_hdr)) }
                 TextButton(onClick = {
                     state.addAdjustmentLayer(Levels())
                     editingAdjustment = state.activeLayerId to Levels()
@@ -259,4 +307,69 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         },
     )
+}
+
+/**
+ * Layer comps (roadmap item 123): a chip per saved comp, ticked when the layers are shown that
+ * way; tapping one applies it and opens its name, update and delete controls. "Save comp"
+ * records the layers as they're shown now.
+ */
+@Composable
+private fun LayerCompsSection(state: CanvasState) {
+    var chosenId by remember { mutableStateOf<String?>(null) }
+    val current = state.currentLayerCompId
+    Text(stringResource(R.string.layers_comps), style = MaterialTheme.typography.labelLarge)
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        for (comp in state.layerComps) {
+            FilterChip(
+                selected = comp.id == current,
+                onClick = { state.applyLayerComp(comp.id); chosenId = comp.id },
+                label = { Text(comp.name) },
+                modifier = Modifier.padding(end = 4.dp),
+            )
+        }
+        val newName = stringResource(R.string.layers_comp_default_name, state.layerComps.size + 1)
+        TextButton(onClick = { chosenId = state.saveLayerComp(newName) }) {
+            Text(stringResource(R.string.layers_comp_save))
+        }
+    }
+    val chosen = state.layerComps.firstOrNull { it.id == chosenId } ?: return
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            value = chosen.name,
+            onValueChange = { name -> state.renameLayerComp(chosen.id, name) },
+            label = { Text(stringResource(R.string.layers_comp_name)) },
+            singleLine = true,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = { state.updateLayerComp(chosen.id) }, enabled = chosen.id != current) {
+            Icon(Icons.Filled.Save, contentDescription = stringResource(R.string.layers_comp_update))
+        }
+        IconButton(onClick = { state.deleteLayerComp(chosen.id); chosenId = null }) {
+            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.layers_comp_delete))
+        }
+    }
+}
+
+/**
+ * HDR layers (roadmap item 139): the view transform they're shown through - exposure in stops
+ * and how light past white is brought into the screen's range - and how bright the pen paints
+ * on them.
+ */
+@Composable
+private fun HdrSection(state: CanvasState) {
+    val view = state.hdrView
+    Text(stringResource(R.string.hdr_title), style = MaterialTheme.typography.labelLarge)
+    Text(stringResource(R.string.hdr_exposure, "%+.1f".format(view.exposureStops)))
+    Slider(value = view.exposureStops, onValueChange = { state.changeHdrView(view.copy(exposureStops = it)) }, valueRange = -6f..6f)
+    Row {
+        for ((mode, label) in listOf(ToneMap.CLIP to R.string.hdr_clip, ToneMap.FILMIC to R.string.hdr_filmic)) {
+            FilterChip(selected = view.toneMap == mode, onClick = { state.changeHdrView(view.copy(toneMap = mode)) }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = 4.dp))
+        }
+    }
+    Text(stringResource(R.string.hdr_intensity, "%.1f".format(state.hdrIntensity)))
+    Slider(value = state.hdrIntensity, onValueChange = { state.hdrIntensity = it }, valueRange = 1f..16f)
 }

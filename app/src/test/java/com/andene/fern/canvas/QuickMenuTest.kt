@@ -77,4 +77,22 @@ class QuickMenuTest {
         // First action straight above the centre.
         assertEquals(middle.x.value, centers[0].x.value, 0.5f)
     }
+
+    @Test
+    fun aCustomRingShowsTheChosenActions() {
+        // Roadmap item 133: the user picks what the ring holds.
+        compose.setContent { QuickMenuOverlay(state = state, onDismiss = {}, actions = listOf(QuickMenuAction.EYEDROPPER, QuickMenuAction.UNDO)) }
+        compose.onNodeWithContentDescription("Eyedropper").performClick()
+        assertEquals(Tool.EYEDROPPER, state.activeTool)
+        compose.onNodeWithContentDescription("Eraser").assertDoesNotExist()
+    }
+
+    @Test
+    fun toggledActionsKeepOrderAndLimits() {
+        val one = listOf(QuickMenuAction.UNDO)
+        assertEquals(one, toggledQuickMenu(one, QuickMenuAction.UNDO)) // the last can't go
+        assertEquals(listOf(QuickMenuAction.PEN, QuickMenuAction.UNDO), toggledQuickMenu(one, QuickMenuAction.PEN))
+        val full = QuickMenuAction.entries.take(QUICK_MENU_MAX_ACTIONS)
+        assertEquals(full, toggledQuickMenu(full, QuickMenuAction.entries.last()))
+    }
 }

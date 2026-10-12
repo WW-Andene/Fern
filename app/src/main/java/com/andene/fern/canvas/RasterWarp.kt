@@ -9,17 +9,17 @@ import kotlin.math.floor
 /** Grid of the bitmap mesh a raster warp is drawn with: fine enough that the Bezier lattice looks smooth. */
 private const val WARP_GRID = 16
 
-/** Pixels warped by a lattice: [pixels] (non-premultiplied ARGB) [width] x [height] placed at pixel ([left], [top]). */
+/** Warped pixels: [pixels] (non-premultiplied ARGB) [width] x [height] placed at pixel ([left], [top]). */
 class WarpedPixels(val pixels: IntArray, val width: Int, val height: Int, val left: Int, val top: Int)
 
 /**
  * The pixels of [source] (non-premultiplied ARGB, [width] x [height], its top-left at pixel
- * ([left], [top]) of [surface]) bent by the mesh lattice moved to [nodes] over [meshMin]..[meshMax]
- * (world space, see [meshWarp]) - the raster side of the mesh warp (roadmap item 92). The
- * picture is drawn with the platform's bitmap mesh (each grid cell stretched bilinearly), at
- * 8 bits per channel.
+ * ([left], [top]) of [surface]) bent by [warp], a world-space mapping: the mesh lattice
+ * ([meshWarp], roadmap item 92), a corner distort or a puppet warp (item 122). The picture is
+ * drawn with the platform's bitmap mesh: [warp] is evaluated at a [WARP_GRID] grid and each
+ * cell stretched bilinearly between, at 8 bits per channel.
  */
-fun warpPixels(surface: RasterSurface, source: IntArray, width: Int, height: Int, left: Int, top: Int, meshMin: WorldPoint, meshMax: WorldPoint, nodes: List<WorldPoint>): WarpedPixels? {
+fun warpPixels(surface: RasterSurface, source: IntArray, width: Int, height: Int, left: Int, top: Int, warp: (WorldPoint) -> WorldPoint): WarpedPixels? {
     val verts = FloatArray((WARP_GRID + 1) * (WARP_GRID + 1) * 2)
     var minX = Double.POSITIVE_INFINITY
     var minY = Double.POSITIVE_INFINITY
@@ -27,7 +27,7 @@ fun warpPixels(surface: RasterSurface, source: IntArray, width: Int, height: Int
     var maxY = Double.NEGATIVE_INFINITY
     for (j in 0..WARP_GRID) for (i in 0..WARP_GRID) {
         val world = surface.worldOf(left + width * i.toDouble() / WARP_GRID, top + height * j.toDouble() / WARP_GRID)
-        val moved = meshWarp(world, meshMin, meshMax, nodes)
+        val moved = warp(world)
         val x = (moved.x - surface.originX) / surface.pixelWorld
         val y = (moved.y - surface.originY) / surface.pixelWorld
         verts[(j * (WARP_GRID + 1) + i) * 2] = x.toFloat()

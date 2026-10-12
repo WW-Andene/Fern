@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -32,20 +33,33 @@ private const val EXPORT_MARGIN_RATIO = 0.05
 class ExportFrame(val camera: CanvasState, val widthPx: Int, val heightPx: Int) {
     /** Draws the framed document with the same [drawScene] as the live canvas, so exports match the screen. */
     /** With [transparent], the paper colour and pattern are left out, leaving only the content on a clear background. */
-    fun drawOn(canvas: Canvas, density: Density, textMeasurer: TextMeasurer, imageFor: (String) -> ImageBitmap?, transparent: Boolean = false) {
+    /** With [wrap], the content one tile around [wrap] is drawn too, shifted onto it, so a wrap-around tile (roadmap item 137) exports seamless. */
+    fun drawOn(canvas: Canvas, density: Density, textMeasurer: TextMeasurer, imageFor: (String) -> ImageBitmap?, transparent: Boolean = false, wrap: Frame? = null) {
         val size = Size(widthPx.toFloat(), heightPx.toFloat())
         val center = Offset(size.width / 2f, size.height / 2f)
         CanvasDrawScope().draw(density, LayoutDirection.Ltr, canvas, size) {
             if (!transparent) drawRect(color = camera.backgroundColor, size = size)
-            drawScene(
-                camera,
-                center,
-                camera.screenToWorld(Offset.Zero, center),
-                camera.screenToWorld(Offset(size.width, size.height), center),
-                textMeasurer,
-                imageFor,
-                drawPaper = !transparent,
-            )
+            val min = camera.screenToWorld(Offset.Zero, center)
+            val max = camera.screenToWorld(Offset(size.width, size.height), center)
+            val offsets = if (wrap == null) listOf(WorldPoint.Zero) else {
+                val w = wrap.max.x - wrap.min.x
+                val h = wrap.max.y - wrap.min.y
+                (-1..1).flatMap { j -> (-1..1).map { i -> WorldPoint(i * w, j * h) } }
+            }
+            for (offset in offsets) {
+                // Content one tile to the right (+offset) shows here when moved back by the offset.
+                withTransform({ translate((-offset.x * camera.scale).toFloat(), (-offset.y * camera.scale).toFloat()) }) {
+                    drawScene(
+                        camera,
+                        center,
+                        min + offset,
+                        max + offset,
+                        textMeasurer,
+                        imageFor,
+                        drawPaper = !transparent && offset == WorldPoint.Zero,
+                    )
+                }
+            }
         }
     }
 }
@@ -88,17 +102,94 @@ fun exportDocumentPng(
     imageFor: (String) -> ImageBitmap?,
     region: Frame? = null,
     transparent: Boolean = false,
+    /** Export [region] as a seamless wrap-around tile (roadmap item 137). */
+    wrap: Boolean = false,
 ): ByteArray? {
     val frame = frameForExport(source, EXPORT_MAX_EDGE_PX, region) ?: return null
     val image = ImageBitmap(frame.widthPx, frame.heightPx)
-    frame.drawOn(Canvas(image), density, textMeasurer, imageFor, transparent)
+    frame.drawOn(Canvas(image), density, textMeasurer, imageFor, transparent, wrap = region?.takeIf { wrap })
     val out = ByteArrayOutputStream()
     image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
     return out.toByteArray()
 }
 
+/**
+ * The whole document as OpenEXR (roadmap item 139): rendered like the PNG export, at
+ * [EXPORT_MAX_EDGE_PX], and stored as linear-light half floats, the form compositing and
+ * grading software expects. HDR layers keep their light past paper white: the layers are
+ * composited bottom to top in linear light, runs of ordinary layers rendered as the canvas
+ * draws them and each visible HDR layer laid over at its true values (normal blending, at its
+ * opacity; an HDR layer's mask and blend mode aren't applied here). Null for an empty document.
+ */
+fun exportDocumentExr(
+    source: CanvasState,
+    textMeasurer: TextMeasurer,
+    density: Density,
+    imageFor: (String) -> ImageBitmap?,
+    transparent: Boolean = false,
+): ByteArray? {
+    val frame = frameForExport(source, EXPORT_MAX_EDGE_PX) ?: return null
+    val w = frame.widthPx
+    val h = frame.heightPx
+    fun render(transparentPaper: Boolean): IntArray {
+        val image = ImageBitmap(w, h)
+        frame.drawOn(Canvas(image), density, textMeasurer, imageFor, transparentPaper)
+        return IntArray(w * h).also { image.readPixels(it) }
+    }
+    val camera = frame.camera
+    val allLayers = camera.layers.toList()
+    if (allLayers.none { it.hdr && it.visible }) return OpenExr.write(exrImageFromArgb(render(transparent), w, h))
+
+    val result = FloatArray(w * h * 4)
+    fun over(top: FloatArray) {
+        for (i in 0 until w * h) {
+            val a = top[i * 4 + 3]
+            for (c in 0 until 4) result[i * 4 + c] = top[i * 4 + c] + result[i * 4 + c] * (1 - a)
+        }
+    }
+    if (!transparent) {
+        val paper = camera.backgroundColor
+        for (i in 0 until w * h) {
+            result[i * 4] = srgbToLinear(paper.red); result[i * 4 + 1] = srgbToLinear(paper.green)
+            result[i * 4 + 2] = srgbToLinear(paper.blue); result[i * 4 + 3] = 1f
+        }
+    }
+    val images = camera.imageItems.toList()
+    val texts = camera.textItems.toList()
+    val hidden = allLayers.map { it.copy(visible = false) }
+    val center = Offset(w / 2f, h / 2f)
+    var start = 0
+    // Runs of ordinary layers between HDR ones, then each HDR layer.
+    while (start <= allLayers.size) {
+        val end = (start until allLayers.size).firstOrNull { allLayers[it].hdr && allLayers[it].visible } ?: allLayers.size
+        if (end > start || start == 0 || end == allLayers.size) {
+            camera.loadLayers(hidden.mapIndexed { i, layer -> if (i in start until end) allLayers[i] else layer })
+            camera.loadImageItems(if (start == 0) images else emptyList()) // images lie beneath every layer
+            camera.loadTextItems(if (end == allLayers.size) texts else emptyList()) // text above them all
+            over(exrImageFromArgb(render(transparentPaper = true), w, h).rgba)
+        }
+        if (end == allLayers.size) break
+        val layer = allLayers[end]
+        camera.rasters[layer.id]?.let { surface ->
+            val light = FloatArray(w * h * 4)
+            for (y in 0 until h) for (x in 0 until w) {
+                val (px, py) = surface.pixelOf(camera.screenToWorld(Offset(x + 0.5f, y + 0.5f), center))
+                val p = surface.pixel(px, py)
+                val a = p[3] * layer.opacity
+                if (a <= 0f) continue
+                for (c in 0 until 3) light[(y * w + x) * 4 + c] = srgbToLinear(p[c] / p[3] * HDR_ENCODED_MAX) * a
+                light[(y * w + x) * 4 + 3] = a
+            }
+            over(light)
+        }
+        start = end + 1
+    }
+    camera.loadLayers(allLayers)
+    return OpenExr.write(ExrImage(w, h, result))
+}
+
 // Each frame's cell in a sprite sheet; 512 px keeps a 24-frame sheet (5x5 grid) at 2560 px.
-private const val SPRITE_FRAME_EDGE_PX = 512
+internal const val SPRITE_FRAME_EDGE_PX = 512
 
 /**
  * Every animation frame as a sprite sheet: a near-square grid, left to right then top to
@@ -317,6 +408,28 @@ private fun exportBounds(state: CanvasState): Pair<WorldPoint, WorldPoint>? {
     for (item in state.textItems) {
         include(item.position.x, item.position.y)
         include(item.position.x + item.fontSizeWorld * item.text.length, item.position.y + item.fontSizeWorld * 1.5)
+    }
+    // Raster layers' paint, to the pixel (a tile is mostly empty around a small mark).
+    for (layer in state.layers) {
+        if (!layer.raster) continue
+        val surface = state.rasters[layer.id] ?: continue
+        for ((key, tile) in surface.tiles) {
+            var x0 = RASTER_TILE; var y0 = RASTER_TILE; var x1 = -1; var y1 = -1
+            for (i in 0 until RASTER_TILE * RASTER_TILE) {
+                if (tile.data[i * 4 + 3].toInt() == 0) continue
+                val x = i % RASTER_TILE
+                val y = i / RASTER_TILE
+                if (x < x0) x0 = x
+                if (x > x1) x1 = x
+                if (y < y0) y0 = y
+                if (y > y1) y1 = y
+            }
+            if (x1 < 0) continue
+            val baseX = RasterSurface.tileX(key) * RASTER_TILE
+            val baseY = RasterSurface.tileY(key) * RASTER_TILE
+            surface.worldOf((baseX + x0).toDouble(), (baseY + y0).toDouble()).let { include(it.x, it.y) }
+            surface.worldOf((baseX + x1 + 1).toDouble(), (baseY + y1 + 1).toDouble()).let { include(it.x, it.y) }
+        }
     }
     if (minX > maxX) return null
     return WorldPoint(minX, minY) to WorldPoint(maxX, maxY)

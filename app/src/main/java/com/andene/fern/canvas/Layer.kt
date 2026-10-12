@@ -54,6 +54,19 @@ data class Layer(
      * everything beneath it, at the layer's opacity, and can be changed or removed at any time.
      */
     val adjustment: Adjustment? = null,
+    /**
+     * A file layer (roadmap item 138, Krita's): the image file (a content URI) this raster layer
+     * shows. Its pixels come from the file - when it's added, when the document opens and on
+     * Reload - and it's locked so it isn't painted over; the last pixels read are saved with the
+     * document, so it still shows if the file goes away.
+     */
+    val fileSource: String? = null,
+    /**
+     * A high-dynamic-range raster layer (roadmap item 139): holds light brighter than paper
+     * white (see [HDR_ENCODED_MAX]), painted with [CanvasState.hdrIntensity] and shown through
+     * [CanvasState.hdrView].
+     */
+    val hdr: Boolean = false,
 )
 
 /** Where layer [layerId]'s mask lives among [CanvasState.rasters] and on disk. */

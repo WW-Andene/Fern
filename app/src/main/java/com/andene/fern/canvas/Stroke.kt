@@ -121,6 +121,7 @@ class Stroke(
         internal val maxY: Double,
         internal val revision: Int,
         internal val jointWeights: FloatArray? = null,
+        internal val drawnAt: Long = 0L,
     )
 
     /** This stroke's current geometry as an immutable [State]; O(1). */
@@ -128,7 +129,7 @@ class Stroke(
         // Plain revision: undo snapshots capture every stroke, and a million snapshot-state reads per action add up.
         cachedState?.let { if (it.revision == plainRevision) return it }
         dataShared = true
-        return State(xs, ys, pressureData, tiltData, orientationData, size, widthWorld, minX, minY, maxX, maxY, plainRevision, jointWeights).also { cachedState = it }
+        return State(xs, ys, pressureData, tiltData, orientationData, size, widthWorld, minX, minY, maxX, maxY, plainRevision, jointWeights, drawnAt).also { cachedState = it }
     }
 
     /** Sets this stroke's geometry back to [state] (an undo); O(1), the arrays stay shared until written. */
@@ -149,6 +150,7 @@ class Stroke(
         maxX = state.maxX
         maxY = state.maxY
         jointWeights = state.jointWeights
+        drawnAt = state.drawnAt
         dataShared = true
         revision++
     }
@@ -384,6 +386,39 @@ class Stroke(
         Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush, newGradient, groupId, boneId, lineStyle)
             .also { it.restoreState(captureState()) }
 
+    /**
+     * A deep copy drawn in [style] (roadmap item 121). Colour and blend carry over to anything;
+     * the outline attributes (width, pen, dashes, line style, brush) only from an outline to an
+     * outline, and the fill attributes (fade, screentone, gradient) only from a fill to a fill,
+     * so pasting an outline's style onto a fill recolours it and keeps its screentone, rather
+     * than taking attributes the outline never had.
+     */
+    fun withStyle(style: StrokeStyle): Stroke {
+        val outline = !filled && !style.fromFill
+        val fill = filled && style.fromFill
+        val copy = Stroke(
+            style.color,
+            if (outline) style.widthWorld else widthWorld,
+            if (outline) style.penType else penType,
+            filled,
+            style.blendMode,
+            layerId,
+            animFrame,
+            if (outline) style.dashed else dashed,
+            if (fill) style.fadeFill else fadeFill,
+            if (fill) style.screentone else screentone,
+            if (outline) style.brush else brush,
+            if (fill) style.gradient else gradient,
+            groupId,
+            boneId,
+            if (outline) style.lineStyle else lineStyle,
+        )
+        copy.restoreState(captureState())
+        // The geometry came over at the old width; an outline takes the style's.
+        if (outline) copy.setWidth(style.widthWorld)
+        return copy
+    }
+
     /** An independent copy: later edits to either stroke don't affect the other (copy-on-write, O(1)). */
     fun deepCopy(): Stroke = withColor(color)
 
@@ -400,6 +435,20 @@ class Stroke(
      */
     var jointWeights: FloatArray? = null
         private set
+
+    /**
+     * When the stroke was drawn (epoch milliseconds), or 0 when unknown (strokes from before
+     * this was recorded, shapes and fills). Audio notes use it to replay ink in step with a
+     * recording made while drawing (roadmap item 130). Carried with the geometry ([State]), so
+     * copies and undo keep it.
+     */
+    var drawnAt: Long = 0L
+        private set
+
+    fun setDrawnAt(millis: Long) {
+        drawnAt = millis
+        cachedState = null // a cached capture predates it
+    }
 
     fun setJointWeights(weights: FloatArray?) {
         require(weights == null || weights.size == size) { "One weight per point" }

@@ -10,6 +10,7 @@ import java.util.zip.DeflaterOutputStream
 import java.util.zip.InflaterInputStream
 import kotlin.math.ceil
 import kotlin.math.floor
+import kotlin.math.roundToInt
 import kotlin.math.hypot
 
 /** Edge of a raster tile in pixels; on the §7 scale. */
@@ -27,6 +28,8 @@ class RasterTile(val data: ShortArray = ShortArray(RASTER_TILE * RASTER_TILE * 4
 
     internal var bitmap: Bitmap? = null
     internal var bitmapRevision = -1
+    // The HDR view transform the bitmap was made with (null for an ordinary layer).
+    internal var bitmapView: HdrView? = null
 
     fun copy(): RasterTile = RasterTile(data.copyOf())
 
@@ -66,6 +69,20 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
     /** While set, only pixels it accepts are painted (a raster selection, roadmap item 91). */
     var clip: ((px: Int, py: Int) -> Boolean)? = null
 
+    /**
+     * An HDR layer's pixels (roadmap item 139): colour channels hold sRGB-encoded light divided
+     * by [HDR_ENCODED_MAX] (alpha is unscaled), and are shown through [hdrView].
+     */
+    var hdr = false
+
+    /** The view transform an HDR layer is shown through; changing it redraws every tile. */
+    var hdrView = HdrView()
+        set(value) {
+            if (field == value) return
+            field = value
+            revision++
+        }
+
     /** Alpha lock (roadmap item 91): painting changes colour only, keeping every pixel's coverage. */
     var alphaLock = false
 
@@ -79,8 +96,16 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
         afterTileChange(key)
     }
 
+    /** The pixel world point [world] falls in. */
+    fun pixelOf(world: WorldPoint): Pair<Int, Int> =
+        floor((world.x - originX) / pixelWorld).toInt() to floor((world.y - originY) / pixelWorld).toInt()
+
     /** A copy sharing tile data but with its own origin, for an export camera that may rebase. */
-    fun view(): RasterSurface = RasterSurface(depth, pixelWorld, originX, originY).also { it.tiles.putAll(tiles) }
+    fun view(): RasterSurface = RasterSurface(depth, pixelWorld, originX, originY).also {
+        it.tiles.putAll(tiles)
+        it.hdr = hdr
+        it.hdrView = hdrView
+    }
 
     fun shiftOrigin(offset: WorldPoint) {
         originX -= offset.x
@@ -217,6 +242,13 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
 
     /** Applies [adjustment] to every painted pixel (within [clip] when set); coverage is kept. */
     fun adjust(adjustment: Adjustment) {
+        if (adjustment is SpatialFilter) {
+            filter(adjustment)
+            return
+        }
+        adjustment as ColorAdjustment
+        // An HDR layer's channels are scaled down (see [hdr]); adjustments see the real values.
+        val scale = if (hdr) HDR_ENCODED_MAX else 1f
         val rgb = FloatArray(3)
         for ((key, tile) in tiles.toList()) {
             beforeTileChange(key)
@@ -227,14 +259,53 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
                 val a = u16(tile.data[index + 3])
                 if (a == 0) continue
                 if (clip?.invoke(baseX + i % RASTER_TILE, baseY + i / RASTER_TILE) == false) continue
-                for (c in 0 until 3) rgb[c] = u16(tile.data[index + c]).toFloat() / a
+                for (c in 0 until 3) rgb[c] = u16(tile.data[index + c]).toFloat() / a * scale
                 adjustment.apply(rgb)
-                for (c in 0 until 3) tile.data[index + c] = (rgb[c].coerceIn(0f, 1f) * a).toInt().toShort()
+                for (c in 0 until 3) tile.data[index + c] = ((rgb[c] / scale).coerceIn(0f, 1f) * a).toInt().toShort()
             }
             tile.revision++
             afterTileChange(key)
         }
         revision++
+    }
+
+    /**
+     * Runs [filter] (roadmap item 138) over the painted area, widened by the filter's reach so a
+     * blur can spread past the paint's edge; only pixels [clip] allows change. Worked at 8 bits
+     * per channel, as the platform's own image filters are, so a 16-bit layer's filtered area
+     * comes back at 8-bit precision.
+     */
+    private fun filter(filter: SpatialFilter) {
+        if (tiles.isEmpty()) return
+        val reach = ceil(filter.sizeWorld / pixelWorld).toInt().coerceIn(0, MAX_FILTER_REACH_PX)
+        val xs = tiles.keys.map { tileX(it) }
+        val ys = tiles.keys.map { tileY(it) }
+        val left = xs.min() * RASTER_TILE - reach
+        val top = ys.min() * RASTER_TILE - reach
+        val width = (xs.max() + 1) * RASTER_TILE + reach - left
+        val height = (ys.max() + 1) * RASTER_TILE + reach - top
+        if (width.toLong() * height > MAX_FILTER_PIXELS) return
+        val argb = IntArray(width * height)
+        for ((key, tile) in tiles) {
+            val baseX = tileX(key) * RASTER_TILE - left
+            val baseY = tileY(key) * RASTER_TILE - top
+            for (i in 0 until RASTER_TILE * RASTER_TILE) {
+                val index = i * 4
+                fun ch(c: Int) = u16(tile.data[index + c]) * 255 / 65535
+                argb[(baseY + i / RASTER_TILE) * width + baseX + i % RASTER_TILE] = (ch(3) shl 24) or (ch(0) shl 16) or (ch(1) shl 8) or ch(2)
+            }
+        }
+        val before = argb.copyOf()
+        filter.filter(argb, width, height, (filter.sizeWorld / pixelWorld).roundToInt())
+        forEachPixelIn(left.toDouble(), top.toDouble(), (left + width - 1).toDouble(), (top + height - 1).toDouble()) { tile, index, px, py ->
+            val k = (py - top) * width + (px - left)
+            val c = argb[k]
+            if (c == before[k]) return@forEachPixelIn // untouched: keep its full precision
+            tile.data[index] = (((c shr 16) and 0xFF) * 257).toShort()
+            tile.data[index + 1] = (((c shr 8) and 0xFF) * 257).toShort()
+            tile.data[index + 2] = ((c and 0xFF) * 257).toShort()
+            tile.data[index + 3] = ((c ushr 24) * 257).toShort()
+        }
     }
 
     /** Moves a pixel toward premultiplied colour [s] by [a]; under alpha lock its coverage stays and colour is rescaled to it. */
@@ -309,9 +380,29 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
 
     /** The tile's pixels as a bitmap at the layer's depth, rebuilt only after it changed. */
     fun bitmapOf(tile: RasterTile): Bitmap {
-        tile.bitmap?.let { if (tile.bitmapRevision == tile.revision) return it }
+        tile.bitmap?.let { if (tile.bitmapRevision == tile.revision && tile.bitmapView == (if (hdr) hdrView else null)) return it }
         val bitmap = tile.bitmap ?: Bitmap.createBitmap(RASTER_TILE, RASTER_TILE, if (depth == 16) Bitmap.Config.RGBA_F16 else Bitmap.Config.ARGB_8888)
-        if (depth == 16) {
+        if (hdr) {
+            // HDR: each pixel's light through the view transform, as screen-ready premultiplied halves.
+            val halves = ShortArray(tile.data.size)
+            for (i in 0 until RASTER_TILE * RASTER_TILE) {
+                val a = u16(tile.data[i * 4 + 3]) / 65535f
+                halves[i * 4 + 3] = Half.toHalf(a)
+                if (a == 0f) continue
+                for (c in 0 until 3) {
+                    val encoded = u16(tile.data[i * 4 + c]) / 65535f / a * HDR_ENCODED_MAX
+                    halves[i * 4 + c] = Half.toHalf(linearToSrgb(hdrView.display(srgbToLinear(encoded))) * a)
+                }
+            }
+            if (bitmap.config == Bitmap.Config.RGBA_F16) bitmap.copyPixelsFromBuffer(ShortBuffer.wrap(halves))
+            else bitmap.setPixels(IntArray(RASTER_TILE * RASTER_TILE) { i ->
+                val a = Half.toFloat(halves[i * 4 + 3])
+                if (a == 0f) 0 else {
+                    fun channel(c: Int) = (Half.toFloat(halves[i * 4 + c]) / a * 255 + 0.5f).toInt().coerceIn(0, 255)
+                    ((a * 255 + 0.5f).toInt() shl 24) or (channel(0) shl 16) or (channel(1) shl 8) or channel(2)
+                }
+            }, 0, RASTER_TILE, 0, 0, RASTER_TILE, RASTER_TILE)
+        } else if (depth == 16) {
             // Half floats, premultiplied, as RGBA_F16 stores them.
             val halves = ShortArray(tile.data.size) { Half.toHalf(u16(tile.data[it]) / 65535f) }
             bitmap.copyPixelsFromBuffer(ShortBuffer.wrap(halves))
@@ -328,6 +419,7 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
         }
         tile.bitmap = bitmap
         tile.bitmapRevision = tile.revision
+        tile.bitmapView = if (hdr) hdrView else null
         return bitmap
     }
 
@@ -364,6 +456,10 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
 
         // A tile is 512 KB raw at 16 bits; compressed it's never larger than that plus overhead.
         private const val MAX_TILE_BYTES = RASTER_TILE * RASTER_TILE * 8 + 4096
+        // A filter's working copy is two ARGB arrays of the painted area: past 8 million pixels
+        // (64 MB) it isn't run, rather than risk running out of memory on a phone.
+        private const val MAX_FILTER_PIXELS = 8_000_000L
+        private const val MAX_FILTER_REACH_PX = 512
     }
 }
 

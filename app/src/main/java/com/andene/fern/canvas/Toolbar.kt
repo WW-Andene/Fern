@@ -80,6 +80,15 @@ import androidx.compose.material.icons.filled.FlipToBack
 import androidx.compose.material.icons.filled.FlipToFront
 import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.FormatPaint
+import androidx.compose.material.icons.filled.SquareFoot
+import androidx.compose.material.icons.filled.BorderColor
+import androidx.compose.material.icons.filled.Texture
+import androidx.compose.material.icons.filled.QueryStats
+import androidx.compose.material.icons.filled.VerticalSplit
+import androidx.compose.material.icons.filled.SportsGymnastics
+import androidx.compose.material.icons.filled.FormatShapes
+import androidx.compose.material.icons.filled.ContentPasteGo
+import androidx.compose.material.icons.filled.Style
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Gradient
@@ -180,9 +189,13 @@ fun Toolbar(
     onExportSelection: () -> Unit = {},
     onExportSvg: () -> Unit = {},
     onExportEps: () -> Unit = {},
+    onExportDxf: () -> Unit = {},
+    onExportCmykPdf: () -> Unit = {},
+    onExportExr: () -> Unit = {},
     onShare: () -> Unit = {},
     onExportBundle: () -> Unit = {},
     onExportSpriteSheet: () -> Unit = {},
+    onExportSpriteAtlas: () -> Unit = {},
     onExportGif: () -> Unit = {},
     onExportApng: () -> Unit = {},
     onExportLottie: () -> Unit = {},
@@ -222,6 +235,21 @@ fun Toolbar(
     var showSearchDialog by remember { mutableStateOf(false) }
     var showSymmetryMenu by remember { mutableStateOf(false) }
     var showAlignMenu by remember { mutableStateOf(false) }
+    var showStatsDialog by remember { mutableStateOf(false) }
+    if (showStatsDialog) StatsDialog(state, onDismiss = { showStatsDialog = false })
+    var showSignatureDialog by remember { mutableStateOf(false) }
+    if (showSignatureDialog) {
+        val context = LocalContext.current
+        SignatureDialog(
+            saved = remember { SignatureStore.load(context) },
+            onPlace = { signature ->
+                SignatureStore.save(context, signature)
+                state.placeSignature(signature)
+                showSignatureDialog = false
+            },
+            onDismiss = { showSignatureDialog = false },
+        )
+    }
     var showScriptDialog by remember { mutableStateOf(false) }
     if (showScriptDialog) {
         ScriptDialog(
@@ -243,11 +271,24 @@ fun Toolbar(
         SymbolsDialog(
             symbols = list,
             canSaveSelection = state.selection.isNotEmpty(),
+            selectedInstanceOf = state.selectedSymbolInstance?.let { instance -> list.firstOrNull { it.id == instance.symbolId } },
+            onRedefine = {
+                val (instance, master) = state.symbolRedefinitionFromSelection() ?: return@SymbolsDialog
+                symbolScope.launch {
+                    val meta = withContext(Dispatchers.IO) { SymbolLibrary.update(context, instance.symbolId, master) }
+                    if (meta != null) state.syncSymbol(meta, master)
+                    symbols = null
+                }
+            },
+            onDetach = {
+                state.detachSymbolInstance()
+                symbols = null
+            },
             onInsert = { symbol ->
                 symbolScope.launch {
                     val strokes = withContext(Dispatchers.IO) { SymbolLibrary.load(context, symbol.id) }
                     state.activeTool = Tool.SELECT
-                    state.pasteStrokes(strokes)
+                    state.placeSymbol(symbol, strokes)
                     symbols = null
                 }
             },
@@ -826,7 +867,17 @@ fun Toolbar(
                         }
                     }
                 }
-                if (state.activeTool == Tool.SELECT && state.rasterSelection != null) {
+                if (state.activeLayerIsRaster && (state.activeTool == Tool.SELECT || state.paintingSelection)) {
+                    // Global selection mask (roadmap item 138): paint the selection with the pen and eraser.
+                    IconButton(onClick = { state.togglePaintingSelection() }) {
+                        Icon(
+                            Icons.Filled.BorderColor,
+                            contentDescription = stringResource(if (state.paintingSelection) R.string.raster_sel_paint_stop else R.string.raster_sel_paint),
+                            tint = if (state.paintingSelection) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
+                }
+                if (state.activeTool == Tool.SELECT && state.hasRasterSelection) {
                     // Raster selection actions (roadmap item 91).
                     IconButton(onClick = { state.deleteRasterSelectionPixels() }) {
                         Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.raster_sel_clear))
@@ -925,6 +976,12 @@ fun Toolbar(
                     IconButton(onClick = { state.recolorSelection() }) {
                         Icon(Icons.Filled.FormatPaint, contentDescription = stringResource(R.string.tb_apply_colour))
                     }
+                    IconButton(onClick = { state.copySelectionStyle() }, enabled = state.selection.isNotEmpty()) {
+                        Icon(Icons.Filled.Style, contentDescription = stringResource(R.string.tb_copy_style))
+                    }
+                    IconButton(onClick = { state.pasteStyleToSelection() }, enabled = state.selection.isNotEmpty() && state.copiedStyle != null) {
+                        Icon(Icons.Filled.ContentPasteGo, contentDescription = stringResource(R.string.tb_paste_style))
+                    }
                     IconButton(onClick = onCopySelection) {
                         Icon(Icons.Filled.CopyAll, contentDescription = stringResource(R.string.tb_copy))
                     }
@@ -952,12 +1009,19 @@ fun Toolbar(
                             tint = if (state.nodeEditing) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
-                    IconButton(onClick = { state.toggleMeshWarp() }) {
-                        Icon(
-                            Icons.Filled.GridOn,
-                            contentDescription = if (state.meshWarping) stringResource(R.string.tb_mesh_stop) else stringResource(R.string.tb_mesh),
-                            tint = if (state.meshWarping) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                        )
+                    for ((kind, icon, labels) in listOf(
+                        Triple(WarpKind.MESH, Icons.Filled.GridOn, R.string.tb_mesh to R.string.tb_mesh_stop),
+                        Triple(WarpKind.DISTORT, Icons.Filled.FormatShapes, R.string.tb_distort to R.string.tb_distort_stop),
+                        Triple(WarpKind.PUPPET, Icons.Filled.SportsGymnastics, R.string.tb_puppet to R.string.tb_puppet_stop),
+                    )) {
+                        val on = state.meshWarping && state.warpKind == kind
+                        IconButton(onClick = { state.toggleWarp(kind) }) {
+                            Icon(
+                                icon,
+                                contentDescription = stringResource(if (on) labels.second else labels.first),
+                                tint = if (on) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                            )
+                        }
                     }
                     val grouped = state.selectionHasGroup
                     IconButton(
@@ -1010,9 +1074,14 @@ fun Toolbar(
                             Triple(R.string.search_title, Icons.Filled.Search) { showSearchDialog = true },
                             Triple(R.string.pins_title, Icons.Filled.PushPin, onOpenPins),
                             Triple(R.string.frames_title, Icons.Filled.CropFree, onOpenFrames),
+                            Triple(R.string.second_view_title, Icons.Filled.VerticalSplit) { state.secondViewOpen = !state.secondViewOpen },
+                            Triple(if (state.showRulers) R.string.rulers_hide else R.string.rulers_show, Icons.Filled.SquareFoot) { state.showRulers = !state.showRulers },
+                            Triple(if (state.wrapFrameId == null) R.string.wrap_on else R.string.wrap_off, Icons.Filled.Texture) { state.toggleWrapAround() },
                             Triple(R.string.audio_title, Icons.Filled.Mic, onOpenAudioNotes),
                             Triple(R.string.versions_title, Icons.Filled.History, onOpenVersions),
+                            Triple(R.string.stats_title, Icons.Filled.QueryStats) { showStatsDialog = true },
                             Triple(R.string.symbols_title, Icons.Filled.Category) { openSymbols() },
+                            Triple(R.string.signature_title, Icons.Filled.Draw) { showSignatureDialog = true },
                             Triple(R.string.script_title, Icons.Filled.Code) { showScriptDialog = true },
                             Triple(R.string.settings_title, Icons.Filled.Settings, onOpenSettings),
                         )
@@ -1108,6 +1177,27 @@ fun Toolbar(
                             },
                         )
                         DropdownMenuItem(
+                            text = { Text(stringResource(R.string.tb_export_dxf)) },
+                            onClick = {
+                                showExportMenu = false
+                                onExportDxf()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.tb_export_cmyk_pdf)) },
+                            onClick = {
+                                showExportMenu = false
+                                onExportCmykPdf()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.tb_export_exr)) },
+                            onClick = {
+                                showExportMenu = false
+                                onExportExr()
+                            },
+                        )
+                        DropdownMenuItem(
                             text = { Text(stringResource(R.string.tb_export_replay)) },
                             onClick = {
                                 showExportMenu = false
@@ -1178,6 +1268,13 @@ fun Toolbar(
                                 onClick = {
                                     showExportMenu = false
                                     onExportSpriteSheet()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.tb_export_sprite_atlas)) },
+                                onClick = {
+                                    showExportMenu = false
+                                    onExportSpriteAtlas()
                                 },
                             )
                         }
@@ -1346,6 +1443,7 @@ fun Toolbar(
             presets = state.brushPresets,
             onSavePreset = { name, brush -> state.saveBrushPreset(name, brush) },
             onDeletePreset = { name -> state.deleteBrushPreset(name) },
+            onSetPresetTags = { name, tags -> state.setBrushPresetTags(name, tags) },
         )
     }
 

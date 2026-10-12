@@ -188,6 +188,10 @@ object CanvasStorage {
         historyFile(context, id).delete()
         legacyHistoryFile(context, id).delete()
         layersFile(context, id).delete()
+        layerCompsFile(context, id).delete()
+        statsFile(context, id).delete()
+        guidesFile(context, id).delete()
+        symbolInstancesFile(context, id).delete()
         framesFile(context, id).delete()
         AudioNotes.deleteAll(context, id)
         versionsDir(context, id).deleteRecursively()
@@ -207,6 +211,9 @@ object CanvasStorage {
         val imageItems = loadImageItems(context, id)
         val (backgroundColor, backgroundStyle) = loadBackground(context, id)
         val layers = loadLayers(context, id)
+        val layerComps = loadLayerComps(context, id)
+        val guides = loadGuides(context, id)
+        val symbolInstances = loadSymbolInstances(context, id)
         val frames = loadFrames(context, id)
         val meta = createDocument(context, newName)
         save(context, meta.id, strokes)
@@ -221,6 +228,9 @@ object CanvasStorage {
         saveImageItems(context, meta.id, imageItems)
         saveBackground(context, meta.id, backgroundColor, backgroundStyle)
         if (layers.isNotEmpty()) saveLayers(context, meta.id, layers)
+        if (layerComps.isNotEmpty()) saveLayerComps(context, meta.id, layerComps)
+        if (guides.isNotEmpty()) saveGuides(context, meta.id, guides)
+        if (symbolInstances.isNotEmpty()) saveSymbolInstances(context, meta.id, symbolInstances)
         if (frames.isNotEmpty()) saveFrames(context, meta.id, frames)
         return meta
     }
@@ -678,9 +688,104 @@ object CanvasStorage {
                 if (layer.alphaLocked) put("alphaLocked", true)
                 if (layer.blend != LayerBlend.NORMAL) put("blend", layer.blend.name)
                 layer.adjustment?.let { put("adjustment", adjustmentToJson(it)) }
+                layer.fileSource?.let { put("file", it) }
+                if (layer.hdr) put("hdr", true)
             })
         }
         writeStored(layersFile(context, documentId), root)
+    }
+
+    /** Saves the document's linked symbol instances (roadmap item 100). */
+    fun saveSymbolInstances(context: Context, documentId: String, instances: List<SymbolInstance>) {
+        val root = JSONArray()
+        for (i in instances) {
+            root.put(JSONObject().put("group", i.groupId).put("symbol", i.symbolId).put("revision", i.revision).put("masterWidth", i.masterWidth))
+        }
+        writeStored(symbolInstancesFile(context, documentId), root)
+    }
+
+    fun loadSymbolInstances(context: Context, documentId: String): List<SymbolInstance> {
+        val root = readStored(symbolInstancesFile(context, documentId)) { it as JSONArray } ?: return emptyList()
+        return (0 until root.length()).map { i ->
+            val e = root.getJSONObject(i)
+            SymbolInstance(e.getString("group"), e.getString("symbol"), e.optLong("revision"), e.getDouble("masterWidth"))
+        }
+    }
+
+    /** Saves the document's ruler guides (roadmap item 99). */
+    fun saveGuides(context: Context, documentId: String, guides: List<Guide>) {
+        val root = JSONArray()
+        for (g in guides) root.put(JSONObject().put("id", g.id).put("vertical", g.vertical).put("position", g.position))
+        writeStored(guidesFile(context, documentId), root)
+    }
+
+    fun loadGuides(context: Context, documentId: String): List<Guide> {
+        val root = readStored(guidesFile(context, documentId)) { it as JSONArray } ?: return emptyList()
+        return (0 until root.length()).map { i ->
+            val e = root.getJSONObject(i)
+            Guide(e.getString("id"), e.getBoolean("vertical"), e.getDouble("position"))
+        }
+    }
+
+    /** Saves the document's usage statistics (roadmap item 132). */
+    fun saveStats(context: Context, documentId: String, stats: DocumentStats) {
+        writeStored(
+            statsFile(context, documentId),
+            JSONObject()
+                .put("activeMillis", stats.activeMillis)
+                .put("strokesDrawn", stats.strokesDrawn)
+                .put("erases", stats.erases)
+                .put("firstAction", stats.firstAction)
+                .put("lastAction", stats.lastAction),
+        )
+    }
+
+    fun loadStats(context: Context, documentId: String): DocumentStats {
+        val root = readStored(statsFile(context, documentId)) { it as JSONObject } ?: return DocumentStats()
+        return DocumentStats(
+            activeMillis = root.optLong("activeMillis"),
+            strokesDrawn = root.optLong("strokesDrawn"),
+            erases = root.optLong("erases"),
+            firstAction = root.optLong("firstAction"),
+            lastAction = root.optLong("lastAction"),
+        )
+    }
+
+    /** Saves the document's layer comps (roadmap item 123). */
+    fun saveLayerComps(context: Context, documentId: String, comps: List<LayerComp>) {
+        val root = JSONArray()
+        for (comp in comps) {
+            val states = JSONObject()
+            for ((layerId, state) in comp.states) {
+                states.put(layerId, JSONObject().apply {
+                    put("visible", state.visible)
+                    put("opacity", state.opacity.toDouble())
+                    if (state.blend != LayerBlend.NORMAL) put("blend", state.blend.name)
+                })
+            }
+            root.put(JSONObject().put("id", comp.id).put("name", comp.name).put("layers", states))
+        }
+        writeStored(layerCompsFile(context, documentId), root)
+    }
+
+    fun loadLayerComps(context: Context, documentId: String): List<LayerComp> {
+        val root = readStored(layerCompsFile(context, documentId)) { it as JSONArray } ?: return emptyList()
+        return (0 until root.length()).map { i ->
+            val entry = root.getJSONObject(i)
+            val states = entry.getJSONObject("layers")
+            LayerComp(
+                entry.getString("id"),
+                entry.getString("name"),
+                states.keys().asSequence().associateWith { layerId ->
+                    val state = states.getJSONObject(layerId)
+                    LayerCompState(
+                        state.optBoolean("visible", true),
+                        state.optDouble("opacity", 1.0).toFloat(),
+                        LayerBlend.entries.firstOrNull { it.name == state.optString("blend") } ?: LayerBlend.NORMAL,
+                    )
+                },
+            )
+        }
     }
 
     /** The document's layers, bottom first; empty for a document from before layers (it gets the default layer). */
@@ -703,6 +808,8 @@ object CanvasStorage {
                 alphaLocked = entry.optBoolean("alphaLocked", false),
                 blend = LayerBlend.entries.firstOrNull { it.name == entry.optString("blend") } ?: LayerBlend.NORMAL,
                 adjustment = entry.optJSONObject("adjustment")?.let(::adjustmentFromJson),
+                fileSource = entry.optString("file").ifEmpty { null },
+                hdr = entry.optBoolean("hdr", false),
             )
         }
     }
@@ -922,6 +1029,10 @@ object CanvasStorage {
         "images.json" to imageItemsFile(context, documentId),
         "background.json" to backgroundFile(context, documentId),
         "layers.json" to layersFile(context, documentId),
+        "layercomps.json" to layerCompsFile(context, documentId),
+        "stats.json" to statsFile(context, documentId),
+        "guides.json" to guidesFile(context, documentId),
+        "symbols.json" to symbolInstancesFile(context, documentId),
         "frames.json" to framesFile(context, documentId),
     )
 
@@ -959,6 +1070,14 @@ object CanvasStorage {
     private fun framesFile(context: Context, documentId: String) = File(context.filesDir, "frames_$documentId.json")
 
     private fun layersFile(context: Context, documentId: String) = File(context.filesDir, "layers_$documentId.json")
+
+    private fun layerCompsFile(context: Context, documentId: String) = File(context.filesDir, "layercomps_$documentId.json")
+
+    private fun statsFile(context: Context, documentId: String) = File(context.filesDir, "stats_$documentId.json")
+
+    private fun guidesFile(context: Context, documentId: String) = File(context.filesDir, "guides_$documentId.json")
+
+    private fun symbolInstancesFile(context: Context, documentId: String) = File(context.filesDir, "symbolinstances_$documentId.json")
 
     private fun historyFile(context: Context, documentId: String) = File(context.filesDir, "history_$documentId.bin")
 

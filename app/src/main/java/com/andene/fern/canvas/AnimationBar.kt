@@ -5,6 +5,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.material.icons.filled.TableRows
+import androidx.compose.material.icons.filled.ViewTimeline
+import androidx.compose.material.icons.filled.Animation
 import androidx.compose.material.icons.filled.Merge
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
@@ -48,6 +50,10 @@ private val FPS_CHOICES = listOf(6, 8, 12, 24)
 fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
     var showXSheet by remember { mutableStateOf(false) }
     if (showXSheet) XSheetDialog(state, onDismiss = { showXSheet = false })
+    var showSway by remember { mutableStateOf(false) }
+    if (showSway) SwayDialog(state, onDismiss = { showSway = false })
+    var showDopesheet by remember { mutableStateOf(false) }
+    if (showDopesheet) DopesheetDialog(state, onDismiss = { showDopesheet = false })
     var editingCurve by remember { mutableStateOf(false) }
     var blendingPose by remember { mutableStateOf(false) }
     if (blendingPose) BlendPoseDialog(state, onDismiss = { blendingPose = false })
@@ -106,6 +112,14 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
             if (state.currentBones.isNotEmpty() && state.animFrameCount > 1) {
                 IconButton(onClick = { blendingPose = true }) {
                     Icon(Icons.Filled.Merge, contentDescription = stringResource(R.string.blend_pose_title))
+                }
+            }
+            if (state.bones.isNotEmpty()) {
+                IconButton(onClick = { showDopesheet = true }) {
+                    Icon(Icons.Filled.ViewTimeline, contentDescription = stringResource(R.string.dopesheet_title))
+                }
+                IconButton(onClick = { showSway = true }) {
+                    Icon(Icons.Filled.Animation, contentDescription = stringResource(R.string.sway_title))
                 }
             }
             IconButton(onClick = { showXSheet = true }) {
