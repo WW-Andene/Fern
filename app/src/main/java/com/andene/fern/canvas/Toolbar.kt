@@ -186,6 +186,7 @@ fun Toolbar(
     onExportReplayGif: () -> Unit = {},
     onExportReplayMp4: () -> Unit = {},
     onExportMp4: () -> Unit = {},
+    onExportWebm: () -> Unit = {},
     onImportPdf: () -> Unit = {},
     onOpenFrames: () -> Unit = {},
     onImportPalette: () -> Unit = {},
@@ -1047,6 +1048,13 @@ fun Toolbar(
                                 onClick = {
                                     showExportMenu = false
                                     onExportMp4()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.tb_export_webm)) },
+                                onClick = {
+                                    showExportMenu = false
+                                    onExportWebm()
                                 },
                             )
                             DropdownMenuItem(

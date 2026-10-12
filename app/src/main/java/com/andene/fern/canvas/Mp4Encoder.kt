@@ -18,26 +18,31 @@ import java.io.File
  * pixel conversion it relies on, [argbToYuv420], is). Not yet verified on a device.
  */
 object Mp4Encoder {
-    private const val MIME = MediaFormat.MIMETYPE_VIDEO_AVC
     private const val TIMEOUT_US = 10_000L
+
+    /** Container and codec: MP4 with H.264, or WebM with VP8 (both built into Android). */
+    enum class Format(val mime: String, val muxer: Int) {
+        MP4(MediaFormat.MIMETYPE_VIDEO_AVC, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4),
+        WEBM(MediaFormat.MIMETYPE_VIDEO_VP8, MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM),
+    }
 
     /**
      * Writes [frames] (ARGB pixels, [width] x [height], each shown for its [durationsMicros]
      * entry) to [out]. Pixels are produced one frame at a time, so a long video never holds
      * every frame in memory.
      */
-    fun encode(frames: List<() -> IntArray>, durationsMicros: List<Long>, width: Int, height: Int, out: File, padColor: Int = 0xFFFFFFFF.toInt()) {
+    fun encode(frames: List<() -> IntArray>, durationsMicros: List<Long>, width: Int, height: Int, out: File, padColor: Int = 0xFFFFFFFF.toInt(), container: Format = Format.MP4) {
         require(frames.isNotEmpty() && frames.size == durationsMicros.size)
         val codedWidth = (width + 15) / 16 * 16
         val codedHeight = (height + 15) / 16 * 16
-        val format = MediaFormat.createVideoFormat(MIME, codedWidth, codedHeight).apply {
+        val format = MediaFormat.createVideoFormat(container.mime, codedWidth, codedHeight).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)
             setInteger(MediaFormat.KEY_BIT_RATE, (codedWidth * codedHeight * 8).coerceAtLeast(1_000_000))
             setInteger(MediaFormat.KEY_FRAME_RATE, 30)
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
         }
-        val codec = MediaCodec.createEncoderByType(MIME)
-        val muxer = MediaMuxer(out.path, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+        val codec = MediaCodec.createEncoderByType(container.mime)
+        val muxer = MediaMuxer(out.path, container.muxer)
         var track = -1
         var muxing = false
         val info = MediaCodec.BufferInfo()

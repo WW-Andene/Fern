@@ -221,13 +221,14 @@ fun exportReplayMp4(
     return encodeToBytes(frames, durations, frame, workDir)
 }
 
-/** Every animation frame as an MP4 video at the playback speed, holds included; null for an empty document. */
-fun exportAnimationMp4(
+/** Every animation frame as a video ([container]: MP4 or WebM) at the playback speed, holds included; null for an empty document. */
+fun exportAnimationVideo(
     source: CanvasState,
     textMeasurer: TextMeasurer,
     density: Density,
     imageFor: (String) -> ImageBitmap?,
     workDir: File,
+    container: Mp4Encoder.Format = Mp4Encoder.Format.MP4,
 ): ByteArray? {
     val frame = frameForExport(source, SPRITE_FRAME_EDGE_PX) ?: return null
     val frames = (0 until source.animFrameCount).map { i ->
@@ -237,7 +238,7 @@ fun exportAnimationMp4(
         }
     }
     val frameMicros = 1_000_000L / source.animFps
-    return encodeToBytes(frames, List(frames.size) { frameMicros * source.holdOf(it) }, frame, workDir)
+    return encodeToBytes(frames, List(frames.size) { frameMicros * source.holdOf(it) }, frame, workDir, container)
 }
 
 /** One rendered export frame's pixels, composited onto white (video has no transparency). */
@@ -249,10 +250,10 @@ private fun framePixels(frame: ExportFrame, density: Density, textMeasurer: Text
     return IntArray(frame.widthPx * frame.heightPx).also { image.readPixels(it) }
 }
 
-private fun encodeToBytes(frames: List<() -> IntArray>, durations: List<Long>, frame: ExportFrame, workDir: File): ByteArray {
-    val file = File.createTempFile("export", ".mp4", workDir)
+private fun encodeToBytes(frames: List<() -> IntArray>, durations: List<Long>, frame: ExportFrame, workDir: File, container: Mp4Encoder.Format = Mp4Encoder.Format.MP4): ByteArray {
+    val file = File.createTempFile("export", ".video", workDir)
     try {
-        Mp4Encoder.encode(frames, durations, frame.widthPx, frame.heightPx, file)
+        Mp4Encoder.encode(frames, durations, frame.widthPx, frame.heightPx, file, container = container)
         return file.readBytes()
     } finally {
         file.delete()
