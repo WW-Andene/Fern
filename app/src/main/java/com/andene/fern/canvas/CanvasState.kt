@@ -220,7 +220,7 @@ class CanvasState(
     }
 
     fun deleteBrushPreset(name: String) {
-        if (brushPresets.removeAll { it.name == name }) onBrushPresetsChanged(brushPresets.toList())
+        if (brushPresets.removeWhere { it.name == name }) onBrushPresetsChanged(brushPresets.toList())
     }
 
     /** Restores persisted presets without reporting them back. */
@@ -408,7 +408,7 @@ class CanvasState(
         recordHistory()
         clearSelectionState()
         val removed = currentAnimFrame
-        strokes.removeAll { it.animFrame == removed }
+        strokes.removeWhere { it.animFrame == removed }
         for (i in strokes.indices) {
             if (strokes[i].animFrame > removed) strokes[i] = strokes[i].onAnimFrame(strokes[i].animFrame - 1)
         }
@@ -505,7 +505,7 @@ class CanvasState(
     }
 
     fun deleteFrame(id: String) {
-        frames.removeAll { it.id == id }
+        frames.removeWhere { it.id == id }
         onFramesChanged(frames.toList())
     }
 
@@ -576,8 +576,8 @@ class CanvasState(
         if (layers.size <= 1) return
         recordHistory()
         clearSelectionState()
-        strokes.removeAll { it.layerId == id }
-        layers.removeAll { it.id == id }
+        strokes.removeWhere { it.layerId == id }
+        layers.removeWhere { it.id == id }
         if (activeLayerId == id) activeLayerId = layers.last().id
         onChanged(strokes.toList())
         onLayersChanged(layers.toList())
@@ -599,8 +599,8 @@ class CanvasState(
         if (hidden.isEmpty() || hidden.size == layers.size) return
         recordHistory()
         clearSelectionState()
-        strokes.removeAll { it.layerId in hidden }
-        layers.removeAll { it.id in hidden }
+        strokes.removeWhere { it.layerId in hidden }
+        layers.removeWhere { it.id in hidden }
         if (activeLayerId in hidden) activeLayerId = layers.last().id
         onChanged(strokes.toList())
         onLayersChanged(layers.toList())
@@ -1202,10 +1202,10 @@ class CanvasState(
         var changed = false
         if (eraseWholeObjects) {
             // An image goes when its centre is inside, so a loop drawn across a page's corner doesn't delete it.
-            changed = imageItems.removeAll { image ->
+            changed = imageItems.removeWhere { image ->
                 polygonContains(lasso, WorldPoint(image.position.x + image.widthWorld / 2, image.position.y + image.heightWorld / 2))
             }
-            changed = strokes.removeAll { stroke ->
+            changed = strokes.removeWhere { stroke ->
                 isEditable(stroke) && stroke.intersects(minX, minY, maxX, maxY) &&
                     stroke.points.any { polygonContains(lasso, it) }
             } || changed
@@ -1237,11 +1237,11 @@ class CanvasState(
     private fun eraseAt(point: WorldPoint) {
         val radius = eraserRadiusWorld
         if (eraseWholeObjects) {
-            imageItems.removeAll { image ->
+            imageItems.removeWhere { image ->
                 point.x >= image.position.x && point.x <= image.position.x + image.widthWorld &&
                     point.y >= image.position.y && point.y <= image.position.y + image.heightWorld
             }
-            strokes.removeAll { stroke ->
+            strokes.removeWhere { stroke ->
                 isEditable(stroke) && (
                     if (stroke.filled) polygonContains(stroke.points, point)
                     else distanceToPolyline(stroke.points, point) <= radius + stroke.widthWorld / 2
@@ -1447,7 +1447,7 @@ class CanvasState(
         pendingTextEdit = null
         recordHistory()
         if (text.isBlank()) {
-            if (pending.id != null && textItems.removeAll { it.id == pending.id }) {
+            if (pending.id != null && textItems.removeWhere { it.id == pending.id }) {
                 onTextChanged(textItems.toList())
             }
             return
@@ -2079,7 +2079,7 @@ class CanvasState(
         val textId = selectedTextId
         if (textId != null) {
             recordHistory()
-            textItems.removeAll { it.id == textId }
+            textItems.removeWhere { it.id == textId }
             selectedTextId = null
             onTextChanged(textItems.toList())
             return
@@ -2087,7 +2087,7 @@ class CanvasState(
         val imageId = selectedImageId
         if (imageId != null) {
             recordHistory()
-            imageItems.removeAll { it.id == imageId }
+            imageItems.removeWhere { it.id == imageId }
             selectedImageId = null
             onImageChanged(imageItems.toList())
             return
