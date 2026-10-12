@@ -50,34 +50,41 @@ mathematical infinity (that would need arbitrary-precision arithmetic like
 benefit), but it is unbounded for any amount of actual drawing a person
 could do.
 
+## Features
+
+- **Drawing:** pen types (marker, pencil, highlighter, calligraphy), stylus pressure/tilt,
+  palm rejection, stylus eraser end and side button, stroke stabiliser, shape tool,
+  draw-and-hold shape recognition, vector fill, eyedropper, text (bold/italic), images,
+  ruler, symmetry (mirror, four-way, radial), opacity and blend modes.
+- **Editing:** snapshot undo/redo (also two/three-finger tap), rectangle and lasso
+  selection, move/scale/rotate, copy/paste between documents, recolour, smooth, align and
+  distribute, bring to front/send to back.
+- **Organisation:** layers (visibility, lock, opacity, reorder, merge), frames/artboards
+  with presentation mode, named pins, minimap, text search, two-finger canvas rotation.
+- **Documents:** library with thumbnails, folders, favourites, search, sort and a 30-day
+  trash; crash-safe versioned storage; undo history that survives restarts; a
+  version-history timeline.
+- **In and out:** export PNG, PDF (one page per frame) and SVG; share sheet; import PDFs
+  to annotate.
+- **App:** dark mode, first-launch gesture guide, on-device crash reports shared only by
+  choice.
+
 ## Architecture
 
-- `canvas/WorldPoint.kt` — a Double-precision 2D point type (Compose's
-  `Offset` is Float-only, so this is what world-space coordinates and the
-  pan offset are actually stored as).
-- `canvas/Stroke.kt` — a freehand stroke stored in **world-space**
-  `WorldPoint`s (independent of the current pan/zoom), with a cached
-  bounding box for cheap visibility checks, and a `shiftBy` used during
-  origin rebasing.
-- `canvas/CanvasState.kt` — the camera model: pan offset and scale (both
-  Double), world↔screen coordinate conversion, the floating-origin rebase,
-  and the active drawing tool state.
-- `canvas/DrawingCanvas.kt` — the Compose `Canvas` and gesture handling.
-  Only strokes whose bounding box intersects the current viewport are drawn
-  each frame (basic culling), so performance doesn't degrade as the sheet
-  fills up.
-- `canvas/Toolbar.kt` — floating color picker / undo / clear / reset-view
-  controls.
-- `MainActivity.kt` — wires it together.
+- `canvas/WorldPoint.kt` — Double-precision 2D point for world-space coordinates.
+- `canvas/Stroke.kt` — a stroke in world space with per-point pressure/tilt, its layer,
+  and a cached bounding box.
+- `canvas/CanvasState.kt` — camera (pan, zoom, rotation, floating-origin rebase), tools,
+  selection, layers, frames, symmetry and snapshot undo history.
+- `canvas/DrawingCanvas.kt` — gesture handling and rendering; `drawScene` draws the
+  document itself and is shared with export.
+- `canvas/CanvasStorage.kt` — persistence: one JSON file per concern per document, written
+  atomically inside a versioned envelope (`formatVersion`), with corrupt-file quarantine.
+- `canvas/ImageExport.kt`, `SvgExport.kt`, `PdfImport.kt` — export and import.
+- `canvas/Toolbar.kt` and `*Dialog.kt` — UI.
+- `CrashReporter.kt`, `MainActivity.kt` — app wiring.
 
-## Not yet built (natural next steps)
-
-- Persistence (save/load the sheet, e.g. to Room or a flat file).
-- Stylus pressure / tilt support (currently a fixed stroke width).
-- Multiple sheets / documents.
-- Export to image or PDF.
-- Smoothing/interpolation for faster strokes (currently raw point-to-point
-  line segments).
+The full feature roadmap lives outside the repository.
 
 ## Building
 
