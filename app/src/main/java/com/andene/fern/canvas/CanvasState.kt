@@ -14,6 +14,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import kotlin.math.PI
+import kotlin.random.Random
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -33,7 +34,7 @@ enum class StrokeAlignment(@StringRes val label: Int) {
     DISTRIBUTE_Y(R.string.align_distribute_y),
 }
 
-enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER, EYEDROPPER, CONNECT, BONE, BEZIER }
+enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER, EYEDROPPER, CONNECT, BONE, BEZIER, MEASURE }
 
 /**
  * Camera + document model for the infinite canvas.
@@ -94,6 +95,12 @@ class CanvasState(
     private val onLayerCompsChanged: (List<LayerComp>) -> Unit = {},
     private val onStatsChanged: (DocumentStats) -> Unit = {},
     private val onGuidesChanged: (List<Guide>) -> Unit = {},
+    /** The game objects or the game's world settings changed (roadmap items 155 and 159). */
+    private val onGameObjectsChanged: (List<GameObject>, GameSettings) -> Unit = { _, _ -> },
+    /** The animation branches changed (roadmap item 153): the branches and the current one's id. */
+    private val onBranchesChanged: (List<AnimationBranch>, String) -> Unit = { _, _ -> },
+    /** The document's drawing scale changed (roadmap item 143). */
+    private val onDrawingScaleChanged: (DrawingScale?) -> Unit = {},
     private val onSymbolInstancesChanged: (List<SymbolInstance>) -> Unit = {},
     /** Playback speed and frame holds changed (see [AnimationSettings]). */
     private val onAnimationSettingsChanged: (AnimationSettings) -> Unit = {},
@@ -223,6 +230,18 @@ class CanvasState(
         private const val FILL_CLOSE_TOLERANCE_SCREEN = 24.0
         // Gaps in line art up to about twice this (screen px) are closed by the fill.
         private const val FILL_GAP_SCREEN = 4.0
+        // How quickly the play camera catches up with its target: this share of the gap a second (roadmap item 161).
+        private const val CAMERA_EASE_PER_SECOND = 8.0
+        // How wide (screen px) a newly placed 3D model's picture is (roadmap item 108).
+        private const val MODEL_PLACED_SCREEN = 256.0
+        // World units (points) between pages of an imported vector PDF (roadmap item 103).
+        private const val IMPORTED_PAGE_GAP = 32.0
+        // How wide (screen px) a placed QR code is, quiet zone included (roadmap item 144).
+        private const val QR_SIZE_SCREEN = 256.0
+        // Gutter (screen px) the comic panel cutter leaves between the two panels (roadmap item 105).
+        private const val PANEL_GUTTER_SCREEN = 16.0
+        // Width (screen px) of the cut a knife stroke takes out of a closed shape (roadmap item 141).
+        private const val KNIFE_GAP_SCREEN = 2.0
 
         // How close (in screen pixels) a touch must land on the ruler's endpoint to grab it
         // for resizing, rather than translating the whole guide - same scale-dependent
@@ -260,6 +279,10 @@ class CanvasState(
         set(value) {
             // Leaving the Bézier pen keeps the path drawn so far, as an open path.
             if (activeToolState == Tool.BEZIER && value != Tool.BEZIER && bezierNodes.isNotEmpty()) finishBezierPath(closed = false)
+            // The shape builder and knife belong to the SELECT tool; the eraser is spared, since a
+            // flipped stylus switches to it for one gesture and back.
+            if (value != Tool.SELECT && value != Tool.ERASER) endShapeEdit()
+            if (value != Tool.MEASURE) measurement = null
             activeToolState = value
         }
     var activePenType by mutableStateOf(PenType.MARKER)
@@ -448,7 +471,394 @@ class CanvasState(
     /** When frame [frame] starts, in milliseconds from the first frame, following the X-sheet holds. */
     fun frameStartMillis(frame: Int): Long = (0 until frame).sumOf { holdOf(it).toLong() } * 1000L / animFps
 
-    fun animationSettings() = AnimationSettings(animFps, frameHolds.toMap(), frameMouths.toMap(), soundtrack)
+    fun animationSettings() = AnimationSettings(animFps, frameHolds.toMap(), frameMouths.toMap(), soundtrack, frameTags.toList())
+
+    /** Named frame ranges (roadmap item 145); see [FrameTag]. Saved with the animation settings; not part of undo. */
+    val frameTags = mutableStateListOf<FrameTag>()
+
+    /** Adds [tag], or replaces the tag of the same name. */
+    fun putFrameTag(tag: FrameTag) {
+        val clamped = tag.copy(from = tag.from.coerceIn(0, animFrameCount - 1), to = tag.to.coerceIn(tag.from.coerceIn(0, animFrameCount - 1), animFrameCount - 1))
+        val index = frameTags.indexOfFirst { it.name == tag.name }
+        if (index == -1) frameTags.add(clamped) else frameTags[index] = clamped
+        onAnimationSettingsChanged(animationSettings())
+    }
+
+    fun removeFrameTag(name: String) {
+        if (frameTags.removeWhere { it.name == name }) onAnimationSettingsChanged(animationSettings())
+        if (playingTag == name) playingTag = null
+    }
+
+    /**
+     * The tag playback is confined to (roadmap item 145): playback loops over its frames in its
+     * direction instead of the whole animation. Null plays everything.
+     */
+    var playingTag by mutableStateOf<String?>(null)
+
+    /** Plays only tag [name]'s frames, from its start. */
+    fun playTag(name: String) {
+        val tag = frameTags.firstOrNull { it.name == name } ?: return
+        playingTag = name
+        currentAnimFrame = if (tag.direction == TagDirection.REVERSE) tag.to else tag.from
+        playingBackwards = tag.direction == TagDirection.REVERSE
+        heldTicks = 0
+        playing = true
+    }
+
+    /** The document's game objects (roadmap item 155); see [GameObject]. Not part of undo, like frames and layers. */
+    val gameObjects = mutableStateListOf<GameObject>()
+
+    fun loadGameObjects(loaded: List<GameObject>, settings: GameSettings = GameSettings()) {
+        play = null // a game of another document stops
+        gameObjects.clear()
+        gameObjects.addAll(loaded)
+        gameSettings = settings
+    }
+
+    /** The game's gravity and walls (roadmap item 159). */
+    var gameSettings by mutableStateOf(GameSettings())
+        private set
+
+    fun changeGameSettings(settings: GameSettings) {
+        gameSettings = settings
+        onGameObjectsChanged(gameObjects.toList(), gameSettings)
+    }
+
+    /** The object the selection belongs to, if it's all one object's strokes. */
+    val selectedObject: GameObject?
+        get() = selection.map { it.groupId }.distinct().singleOrNull()?.let { id -> gameObjects.firstOrNull { it.id == id } }
+
+    /**
+     * Makes the selection a game object called [name] (roadmap item 155), or returns the object
+     * it already is. Strokes not yet in one group are grouped first (one undo step), since an
+     * object is a group - it then takes in the group's strokes on every frame.
+     */
+    fun makeObject(name: String): GameObject? {
+        selectedObject?.let { return it }
+        if (selection.isEmpty()) return null
+        val group = selection.map { it.groupId }.distinct().singleOrNull() ?: run {
+            val id = UUID.randomUUID().toString()
+            regroupSelection(id)
+            id
+        }
+        val made = GameObject(group, name)
+        gameObjects.add(made)
+        onGameObjectsChanged(gameObjects.toList(), gameSettings)
+        return made
+    }
+
+    /** Replaces the object with [updated]'s id. */
+    fun updateObject(updated: GameObject) {
+        val index = gameObjects.indexOfFirst { it.id == updated.id }
+        if (index == -1) return
+        gameObjects[index] = updated
+        onGameObjectsChanged(gameObjects.toList(), gameSettings)
+    }
+
+    /** Turns object [id] back into a plain drawing; its strokes stay (still grouped). Its links go with it. */
+    fun removeObject(id: String) {
+        if (!gameObjects.removeWhere { it.id == id }) return
+        gameSettings = gameSettings.copy(links = gameSettings.links.filter { it.from != id && it.to != id })
+        onGameObjectsChanged(gameObjects.toList(), gameSettings)
+    }
+
+    /**
+     * The object to edit for the selection (roadmap item 155), made from it when it isn't one yet
+     * (named [newName]), and a path for a FOLLOW_PATH behaviour: the one other stroke selected
+     * with the object, outside any object - a line drawn to show the way. Null when the selection
+     * spans several objects or is empty.
+     */
+    fun objectForEditing(newName: String): Pair<GameObject, List<WorldPoint>?>? {
+        val ids = gameObjects.map { it.id }.toSet()
+        val owned = selection.mapNotNull { it.groupId }.filter { it in ids }.distinct()
+        return when (owned.size) {
+            0 -> makeObject(newName)?.let { it to null }
+            1 -> {
+                val target = gameObjects.first { it.id == owned[0] }
+                val path = selection.filter { it.groupId != target.id }.singleOrNull()
+                    ?.takeIf { s -> s.groupId !in ids && s.points.size >= 2 }?.points?.toList()
+                target to path
+            }
+            else -> null
+        }
+    }
+
+    /** The one selected stroke outside every object, with the objects the rest of the selection belongs to. */
+    private fun freeStrokeAndObjects(): Pair<Stroke, List<GameObject>>? {
+        val ids = gameObjects.map { it.id }.toSet()
+        val free = selection.filter { it.groupId !in ids }.singleOrNull() ?: return null
+        val owners = selection.mapNotNull { it.groupId }.filter { it in ids }.distinct().map { id -> gameObjects.first { it.id == id } }
+        return free to owners
+    }
+
+    /** Whether the selection is one object and a closed line, which [useSelectionAsHitbox] would take. */
+    val canUseHitbox: Boolean
+        get() = freeStrokeAndObjects()?.let { (line, owners) -> owners.size == 1 && isClosedLoop(line.points, FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)) } ?: false
+
+    /**
+     * Makes the closed line selected with an object that object's hitbox (roadmap item 157): the
+     * line's points are kept as the hitbox, and the line leaves the drawing (an undo step; the
+     * hitbox, like the object, isn't part of undo).
+     */
+    fun useSelectionAsHitbox() {
+        if (!canUseHitbox) return
+        val (line, owners) = freeStrokeAndObjects() ?: return
+        recordHistory()
+        strokes.removeWhere { it === line }
+        updateObject(owners[0].copy(hitbox = line.points.toList()))
+        clearSelectionState()
+        strokesChanged()
+    }
+
+    /** Whether the selection is a line and two objects, which [linkSelection] would link. */
+    val canLink: Boolean get() = freeStrokeAndObjects()?.let { (line, owners) -> owners.size == 2 && line.points.size >= 2 } ?: false
+
+    /**
+     * Links the two objects selected with a line drawn between them (roadmap item 157): the
+     * object nearer the line's start is the link's first, its length the distance between their
+     * centres now. The line leaves the drawing (an undo step).
+     */
+    fun linkSelection(kind: LinkKind) {
+        if (!canLink) return
+        val (line, owners) = freeStrokeAndObjects() ?: return
+        val (a, b) = owners
+        val ca = objectCentre(a.id) ?: return
+        val cb = objectCentre(b.id) ?: return
+        val start = line.points.first()
+        val aFirst = hypot(ca.x - start.x, ca.y - start.y) <= hypot(cb.x - start.x, cb.y - start.y)
+        val (from, to) = if (aFirst) a to b else b to a
+        recordHistory()
+        strokes.removeWhere { it === line }
+        changeGameSettings(gameSettings.copy(links = gameSettings.links + ObjectLink(UUID.randomUUID().toString(), from.id, to.id, kind, hypot(cb.x - ca.x, cb.y - ca.y))))
+        clearSelectionState()
+        strokesChanged()
+    }
+
+    /** Object [id]'s centre as drawn on the current frame, or null when it has nothing there. */
+    fun objectCentre(id: String): WorldPoint? {
+        val own = strokes.filter { it.groupId == id && it.animFrame == currentAnimFrame && it.points.isNotEmpty() }
+        if (own.isEmpty()) return null
+        return WorldPoint((own.minOf { it.minX } + own.maxOf { it.maxX }) / 2, (own.minOf { it.minY } + own.maxOf { it.maxY }) / 2)
+    }
+
+    fun removeLink(id: String) {
+        changeGameSettings(gameSettings.copy(links = gameSettings.links.filter { it.id != id }))
+    }
+
+    /** The game being played (roadmap items 155 and 161), or null while editing. */
+    var play by mutableStateOf<GameWorld?>(null)
+        private set
+
+    /** Bumped on every game step, so the canvas redraws the moved objects. */
+    var playRevision by mutableIntStateOf(0)
+        private set
+
+    /** Whether the game is paused (roadmap item 161): the world stands still until resumed. */
+    var playPaused by mutableStateOf(false)
+
+    // The view before play started, restored when it stops.
+    private var viewBeforePlay: Triple<WorldPoint, Double, Double>? = null
+
+    /**
+     * Starts the game (roadmap items 155 and 161): every object, as drawn on the current frame,
+     * playing inside the scene - the game's scene frame, fitted to the screen, or the view as it
+     * is. The view comes back when play stops.
+     */
+    fun startPlay() {
+        if (gameObjects.isEmpty() || viewportSize.width <= 0f) return
+        clearSelectionState()
+        if (viewBeforePlay == null) viewBeforePlay = Triple(panWorld, scale, rotation)
+        // Fitted without a floating-origin rebase: the world, the saved view and the drawing must
+        // all stay in one coordinate space until play stops.
+        frames.firstOrNull { it.id == gameSettings.sceneFrameId }?.let { frame ->
+            rotation = 0.0
+            scale = minOf(viewportSize.width / (frame.max.x - frame.min.x).coerceAtLeast(1e-9), viewportSize.height / (frame.max.y - frame.min.y).coerceAtLeast(1e-9)).coerceIn(MIN_SCALE, MAX_SCALE)
+            panWorld = WorldPoint((frame.min.x + frame.max.x) / 2, (frame.min.y + frame.max.y) / 2)
+        }
+        playPaused = false
+        val boxes = HashMap<String, WorldBox>()
+        for (def in gameObjects) {
+            val own = strokes.filter { it.groupId == def.id && it.animFrame == currentAnimFrame && it.points.isNotEmpty() }
+            if (own.isEmpty()) continue
+            boxes[def.id] = WorldBox(WorldPoint(own.minOf { it.minX }, own.minOf { it.minY }), WorldPoint(own.maxOf { it.maxX }, own.maxOf { it.maxY }))
+        }
+        val center = Offset(viewportSize.width / 2f, viewportSize.height / 2f)
+        val corners = listOf(Offset.Zero, Offset(viewportSize.width, 0f), Offset(0f, viewportSize.height), Offset(viewportSize.width, viewportSize.height)).map { screenToWorld(it, center) }
+        val scene = frames.firstOrNull { it.id == gameSettings.sceneFrameId }?.let { WorldBox(it.min, it.max) }
+            ?: WorldBox(WorldPoint(corners.minOf { it.x }, corners.minOf { it.y }), WorldPoint(corners.maxOf { it.x }, corners.maxOf { it.y }))
+        play = GameWorld(gameObjects.toList(), boxes, scene, gameSettings, AnimationInfo(animFps, frameHolds.toMap(), frameTags.toList(), animFrameCount))
+        playRevision++
+    }
+
+    /**
+     * Advances the game by [dt] seconds, unless paused; the camera then follows its target
+     * (roadmap item 161), easing toward it and kept inside the scene where the scene is bigger
+     * than the view.
+     */
+    fun stepPlay(dt: Double) {
+        val world = play ?: return
+        if (playPaused) return
+        world.step(dt)
+        world.instanceOf(gameSettings.cameraTarget)?.takeIf { !it.removed }?.let { target ->
+            val goal = target.centre
+            val halfWidth = viewportSize.width / 2.0 / scale.coerceAtLeast(1e-300)
+            val halfHeight = viewportSize.height / 2.0 / scale.coerceAtLeast(1e-300)
+            val scene = world.scene
+            fun clampAxis(v: Double, min: Double, max: Double, half: Double) = if (max - min <= 2 * half) (min + max) / 2 else v.coerceIn(min + half, max - half)
+            val x = clampAxis(goal.x, scene.min.x, scene.max.x, halfWidth)
+            val y = clampAxis(goal.y, scene.min.y, scene.max.y, halfHeight)
+            val ease = (dt * CAMERA_EASE_PER_SECOND).coerceAtMost(1.0)
+            panWorld = WorldPoint(panWorld.x + (x - panWorld.x) * ease, panWorld.y + (y - panWorld.y) * ease)
+        }
+        playRevision++
+    }
+
+    /** Ends the game; everything is back where it was drawn, and the view where it was. */
+    fun stopPlay() {
+        play = null
+        playPaused = false
+        viewBeforePlay?.let { (pan, zoom, turn) ->
+            scale = zoom
+            panWorld = pan
+            rotation = turn
+        }
+        viewBeforePlay = null
+        playRevision++
+    }
+
+    /** Stops and starts again from the beginning, without losing the view to come back to. */
+    fun restartPlay() {
+        val view = viewBeforePlay
+        play = null
+        startPlay()
+        if (view != null) viewBeforePlay = view
+    }
+
+    /**
+     * Animation branches (roadmap item 153); empty until the first branch is made, when the work
+     * so far becomes the [MAIN_BRANCH_NAME] branch. The document always shows the current branch.
+     */
+    val branches = mutableStateListOf<AnimationBranch>()
+
+    /** The id of the branch the document shows; null while there are no branches. */
+    var currentBranchId by mutableStateOf<String?>(null)
+        private set
+
+    fun loadBranches(loaded: List<AnimationBranch>, currentId: String?) {
+        branches.clear()
+        branches.addAll(loaded)
+        currentBranchId = currentId?.takeIf { id -> loaded.any { it.id == id } }
+    }
+
+    /** The animation as it is now: strokes (copied), bones, holds and frame count. */
+    fun animationSnapshot() = AnimationSnapshot(strokes.map { it.deepCopy() }, bones.toList(), frameHolds.toMap(), animFrameCount)
+
+    private fun reportBranches() {
+        currentBranchId?.let { onBranchesChanged(branches.toList(), it) }
+    }
+
+    /** Stores the work on the current branch as its latest content. */
+    private fun saveCurrentHead() {
+        val index = branches.indexOfFirst { it.id == currentBranchId }
+        if (index != -1) branches[index] = AnimationBranch(branches[index].id, branches[index].name, branches[index].base, animationSnapshot())
+    }
+
+    /** Starts branch [name] from the animation as it is now and moves onto it; the content doesn't change. */
+    fun createBranch(name: String) {
+        val snapshot = animationSnapshot()
+        if (branches.isEmpty()) {
+            val main = AnimationBranch(UUID.randomUUID().toString(), MAIN_BRANCH_NAME, snapshot, snapshot)
+            branches.add(main)
+        } else {
+            saveCurrentHead()
+        }
+        val branch = AnimationBranch(UUID.randomUUID().toString(), name, snapshot, snapshot)
+        branches.add(branch)
+        currentBranchId = branch.id
+        reportBranches()
+    }
+
+    /**
+     * Moves onto branch [id]: the work on the current branch is kept as its latest content and
+     * [id]'s is shown. The undo history belonged to the other branch, so it's cleared, as on
+     * opening another document.
+     */
+    fun switchBranch(id: String) {
+        if (id == currentBranchId) return
+        val target = branches.firstOrNull { it.id == id } ?: return
+        saveCurrentHead()
+        showSnapshot(target.head)
+        currentBranchId = id
+        undoStack.clear()
+        redoStack.clear()
+        openLog(null)
+        reportBranches()
+    }
+
+    private fun showSnapshot(snapshot: AnimationSnapshot) {
+        clearSelectionState()
+        playing = false
+        strokes.clear()
+        strokes.addAll(snapshot.strokes.map { it.deepCopy() })
+        bones.clear()
+        bones.addAll(snapshot.bones)
+        frameHolds.clear()
+        frameHolds.putAll(snapshot.holds)
+        animFrameCount = snapshot.frameCount
+        currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
+        onBonesChanged(bones.toList())
+        onAnimationSettingsChanged(animationSettings())
+        strokesChanged()
+    }
+
+    /**
+     * Merges branch [id] into the current one (see [planMerge]): each frame it changed since it
+     * branched off is taken, unless ours changed too - a conflict, settled by [preference].
+     * Taken frames bring their strokes, bones and hold. One undo step. Frames are matched by
+     * number, so frames inserted or deleted mid-animation on one side shift the rest out of line.
+     */
+    fun mergeBranch(id: String, preference: MergePreference): MergeReport {
+        val other = branches.firstOrNull { it.id == id && it.id != currentBranchId } ?: return MergeReport(emptyList(), emptyList())
+        val ours = animationSnapshot()
+        val report = planMerge(other.base, ours, other.head, preference)
+        if (report.taken.isEmpty()) return report
+        recordHistory()
+        clearSelectionState()
+        val taken = report.taken.toSet()
+        strokes.removeWhere { it.animFrame in taken }
+        strokes.addAll(other.head.strokes.filter { it.animFrame in taken }.map { it.deepCopy() })
+        bones.removeWhere { it.animFrame in taken }
+        bones.addAll(other.head.bones.filter { it.animFrame in taken })
+        for (frame in taken) {
+            val hold = other.head.holds[frame]
+            if (hold == null) frameHolds.remove(frame) else frameHolds[frame] = hold
+        }
+        // A frame exists after the merge if the side it came from had it.
+        val last = (0 until maxOf(ours.frameCount, other.head.frameCount)).lastOrNull { f ->
+            if (f in taken) f < other.head.frameCount else f < ours.frameCount
+        } ?: 0
+        animFrameCount = last + 1
+        currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
+        onBonesChanged(bones.toList())
+        onAnimationSettingsChanged(animationSettings())
+        strokesChanged()
+        return report
+    }
+
+    /** Deletes branch [id]; the current branch can't be deleted. */
+    fun deleteBranch(id: String) {
+        if (id == currentBranchId) return
+        if (branches.removeWhere { it.id == id }) reportBranches()
+    }
+
+    /**
+     * Onion skin settings (roadmap item 145): how many frames before and after the current one
+     * show, and whether they're tinted red (before) and blue (after), as in Aseprite, instead of
+     * shown in their own colours. View settings, not saved.
+     */
+    var onionBefore by mutableIntStateOf(1)
+    var onionAfter by mutableIntStateOf(0)
+    var onionTinted by mutableStateOf(false)
 
     /** Applies settings read from storage, without reporting them back. */
     fun loadAnimationSettings(settings: AnimationSettings) {
@@ -458,6 +868,9 @@ class CanvasState(
         frameMouths.clear()
         frameMouths.putAll(settings.mouths)
         soundtrack = settings.soundtrack
+        frameTags.clear()
+        frameTags.addAll(settings.tags)
+        playingTag = null
     }
 
     private fun shiftHolds(from: Int, by: Int) {
@@ -469,6 +882,14 @@ class CanvasState(
         val mouths = frameMouths.entries.associate { (frame, mouth) -> (if (frame >= from) frame + by else frame) to mouth }
         frameMouths.clear()
         frameMouths.putAll(mouths)
+        onAnimationSettingsChanged(animationSettings())
+    }
+
+    private fun shiftTags(moved: List<FrameTag>) {
+        if (moved == frameTags.toList()) return
+        frameTags.clear()
+        frameTags.addAll(moved)
+        if (frameTags.none { it.name == playingTag }) playingTag = null
         onAnimationSettingsChanged(animationSettings())
     }
 
@@ -502,6 +923,26 @@ class CanvasState(
         if (animFrameCount <= 1) return
         if (++heldTicks < holdOf(currentAnimFrame)) return
         heldTicks = 0
+        // A played tag (roadmap item 145) loops its own frames in its own direction.
+        frameTags.firstOrNull { it.name == playingTag }?.let { tag ->
+            val from = tag.from.coerceAtMost(animFrameCount - 1)
+            val to = tag.to.coerceAtMost(animFrameCount - 1)
+            if (currentAnimFrame !in from..to) {
+                currentAnimFrame = if (tag.direction == TagDirection.REVERSE) to else from
+                return
+            }
+            when (tag.direction) {
+                TagDirection.FORWARD -> currentAnimFrame = if (currentAnimFrame >= to) from else currentAnimFrame + 1
+                TagDirection.REVERSE -> currentAnimFrame = if (currentAnimFrame <= from) to else currentAnimFrame - 1
+                TagDirection.PING_PONG -> {
+                    if (from == to) return
+                    if (currentAnimFrame >= to) playingBackwards = true
+                    if (currentAnimFrame <= from) playingBackwards = false
+                    currentAnimFrame += if (playingBackwards) -1 else 1
+                }
+            }
+            return
+        }
         if (!pingPong) {
             playingBackwards = false
             currentAnimFrame = (currentAnimFrame + 1) % animFrameCount
@@ -529,6 +970,7 @@ class CanvasState(
         }
         shiftBoneFrames(from = insertAt, by = 1)
         shiftHolds(from = insertAt, by = 1)
+        shiftTags(tagsAfterInsert(frameTags, insertAt))
         if (copyCurrent) bones.addAll(bones.filter { it.animFrame == currentAnimFrame }.map { it.copy(animFrame = insertAt) })
         if (bones.isNotEmpty()) onBonesChanged(bones.toList())
         animFrameCount++
@@ -640,6 +1082,7 @@ class CanvasState(
         val hadHold = frameHolds.remove(removed) != null
         if (frameMouths.remove(removed) != null || hadHold) onAnimationSettingsChanged(animationSettings())
         shiftHolds(from = removed + 1, by = -1)
+        shiftTags(tagsAfterDelete(frameTags, removed))
         animFrameCount--
         currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
         strokesChanged()
@@ -728,40 +1171,67 @@ class CanvasState(
     }
 
     /**
-     * Comic page template: a 2:3 page centred in the view, ruled into five panels (two, one
-     * wide, two) as ordinary rectangle strokes on the active layer, plus a frame named
-     * "Page N" so it can be presented and exported as a page. Undoable for the panels.
+     * Comic page template (roadmap item 105): a page of [size]'s proportions centred in the view,
+     * filling most of its height, ruled into [layout]'s panels as ordinary rectangle strokes on
+     * the active layer, plus a frame named "Page N" so it can be presented and exported as a
+     * page. The defaults are the classic 2:3 page of five panels. Undoable for the panels.
      */
-    fun insertComicPage() {
+    fun insertComicPage(size: ComicPageSize = ComicPageSize.CLASSIC, layout: ComicLayout = ComicLayout.CLASSIC_FIVE) {
         if (!activeLayerEditable || viewportSize.width <= 0f) return
         recordHistory()
         val s = scale.coerceAtLeast(1e-300)
-        // The page fills most of the screen's height at the current zoom.
-        val pageHeight = viewportSize.height * 0.8 / s
-        val pageWidth = pageHeight * 2.0 / 3.0
+        // The page fills most of the screen's height (or width, for a wide page) at the current zoom.
+        val fit = minOf(viewportSize.height * 0.8 / size.height, viewportSize.width * 0.8 / size.width) / s
+        val pageWidth = size.width * fit
+        val pageHeight = size.height * fit
         val left = panWorld.x - pageWidth / 2.0
         val top = panWorld.y - pageHeight / 2.0
-        val margin = pageWidth * 0.06
-        val gutter = pageWidth * 0.03
-        val innerWidth = pageWidth - 2 * margin
-        val rowHeight = (pageHeight - 2 * margin - 2 * gutter) / 3.0
-        val halfWidth = (innerWidth - gutter) / 2.0
-        val panels = listOf(
-            Triple(0, 0.0, halfWidth), Triple(0, halfWidth + gutter, halfWidth),
-            Triple(1, 0.0, innerWidth),
-            Triple(2, 0.0, halfWidth), Triple(2, halfWidth + gutter, halfWidth),
-        )
-        for ((row, x, width) in panels) {
-            val panelLeft = left + margin + x
-            val panelTop = top + margin + row * (rowHeight + gutter)
+        val panels = comicPanels(layout, left, top, pageWidth, pageHeight, pageWidth * COMIC_MARGIN_FRACTION, pageWidth * COMIC_GUTTER_FRACTION)
+        for ((panelLeft, panelTop, panelRight, panelBottom) in panels.map { it.toList() }) {
             val border = Stroke(Color.Black, PANEL_BORDER_SCREEN / s, PenType.MARKER, layerId = activeLayerId, animFrame = currentAnimFrame)
-            for (point in generateShapePoints(ShapeKind.RECTANGLE, WorldPoint(panelLeft, panelTop), WorldPoint(panelLeft + width, panelTop + rowHeight))) {
+            for (point in generateShapePoints(ShapeKind.RECTANGLE, WorldPoint(panelLeft, panelTop), WorldPoint(panelRight, panelBottom))) {
                 border.addPoint(point)
             }
             strokes.add(border)
         }
         frames.add(Frame(UUID.randomUUID().toString(), "Page ${frames.size + 1}", WorldPoint(left, top), WorldPoint(left + pageWidth, top + pageHeight)))
         onFramesChanged(frames.toList())
+        strokesChanged()
+    }
+
+    /**
+     * Speed or focus lines (roadmap item 105) over the selection's bounds, or the view when
+     * nothing is selected: [count] lines in the active colour at the active width, tapering
+     * toward the inner end ([comicLines] describes [inner] and [angleDegrees]), on the active
+     * layer as one selected group, the selection's strokes left as they are. One undo step.
+     */
+    fun addComicLines(kind: ComicLineKind, count: Int, inner: Double, angleDegrees: Double, seed: Int = Random.nextInt()) {
+        if (!activeLayerEditable) return
+        val (min, max) = selectionBounds() ?: run {
+            if (viewportSize.width <= 0f) return
+            val center = Offset(viewportSize.width / 2f, viewportSize.height / 2f)
+            val corners = listOf(Offset.Zero, Offset(viewportSize.width, 0f), Offset(0f, viewportSize.height), Offset(viewportSize.width, viewportSize.height))
+                .map { screenToWorld(it, center) }
+            WorldPoint(corners.minOf { it.x }, corners.minOf { it.y }) to WorldPoint(corners.maxOf { it.x }, corners.maxOf { it.y })
+        }
+        val lines = comicLines(kind, min, max, count, inner, angleDegrees, seed)
+        if (lines.isEmpty()) return
+        recordHistory()
+        val group = UUID.randomUUID().toString()
+        val added = lines.map { line ->
+            Stroke(
+                activeColor.copy(alpha = activeColor.alpha * activeOpacity.toFloat()),
+                activeWidthWorld / scale.coerceAtLeast(1e-300),
+                PenType.MARKER,
+                layerId = activeLayerId,
+                animFrame = currentAnimFrame,
+                groupId = group,
+                lineStyle = LineStyle(LineCap.ROUND, LineJoin.ROUND, WidthProfile.TAPER_END),
+            ).apply { for (p in line) addPoint(p) }
+        }
+        strokes.addAll(added)
+        clearSelectionState()
+        selection.addAll(added)
         strokesChanged()
     }
 
@@ -1443,6 +1913,87 @@ class CanvasState(
         onFramesChanged(frames.toList())
     }
 
+    /**
+     * Resizes frame [id] to [width] x [height] world units, its top-left corner staying put
+     * (roadmap item 144). The strokes on it - visible ones whose bounds' centre lies in the old
+     * frame - follow their [Stroke.constraints] (unconstrained ones stay pinned top-left, so they
+     * don't move); a group's members follow within the whole group's bounds. Their change is one undo step; the frame's size, like every frame edit, isn't
+     * part of the undo history, so resizing back is how to restore it.
+     */
+    fun resizeFrame(id: String, width: Double, height: Double) {
+        val index = frames.indexOfFirst { it.id == id }
+        if (index == -1 || width <= 0 || height <= 0 || !width.isFinite() || !height.isFinite()) return
+        val old = frames[index]
+        val resized = old.copy(max = WorldPoint(old.min.x + width, old.min.y + height))
+        val inside = strokes.filter { stroke ->
+            val cx = (stroke.minX + stroke.maxX) / 2
+            val cy = (stroke.minY + stroke.maxY) / 2
+            stroke.points.isNotEmpty() && isVisible(stroke) && cx in old.min.x..old.max.x && cy in old.min.y..old.max.y &&
+                stroke.constraints.let { it != null && it != LayoutConstraints() }
+        }
+        if (inside.isNotEmpty()) {
+            recordHistory()
+            // A group follows as one object: its members stretch or scale within the group's bounds.
+            val groupBounds = inside.filter { it.groupId != null }.groupBy { it.groupId }.mapValues { (_, members) ->
+                listOf(members.minOf { it.minX }, members.minOf { it.minY }, members.maxOf { it.maxX }, members.maxOf { it.maxY })
+            }
+            for (stroke in inside) {
+                val pins = stroke.constraints ?: continue
+                val (minX, minY, maxX, maxY) = groupBounds[stroke.groupId] ?: listOf(stroke.minX, stroke.minY, stroke.maxX, stroke.maxY)
+                stroke.setPoints(stroke.points.map { p ->
+                    WorldPoint(
+                        constrainedCoordinate(p.x, minX, maxX, old.min.x, old.max.x, resized.min.x, resized.max.x, pins.horizontal),
+                        constrainedCoordinate(p.y, minY, maxY, old.min.y, old.max.y, resized.min.y, resized.max.y, pins.vertical),
+                    )
+                })
+            }
+            strokesChanged()
+        }
+        frames[index] = resized
+        onFramesChanged(frames.toList())
+    }
+
+    /** The selected strokes' shared constraints (roadmap item 144): the default when they differ or have none. */
+    val selectionConstraints: LayoutConstraints
+        get() = selection.map { it.constraints ?: LayoutConstraints() }.distinct().singleOrNull() ?: LayoutConstraints()
+
+    /** Gives every selected stroke [constraints] (roadmap item 144). One undo step. */
+    fun setSelectionConstraints(constraints: LayoutConstraints) {
+        if (selection.isEmpty()) return
+        recordHistory()
+        val stored = constraints.takeIf { it != LayoutConstraints() }
+        for (stroke in selection) stroke.setConstraints(stored)
+        strokesChanged()
+    }
+
+    /** Lays [grid] over frame [id] (roadmap item 142), or removes its grid when null. Saved with the frames. */
+    fun setFrameLayoutGrid(id: String, grid: LayoutGrid?) {
+        val index = frames.indexOfFirst { it.id == id }
+        if (index == -1) return
+        frames[index] = frames[index].copy(layoutGrid = grid)
+        onFramesChanged(frames.toList())
+    }
+
+    /**
+     * The isometric plane (roadmap item 142) shapes are drawn on: a rectangle drag makes that
+     * face of a cube, an ellipse an isometric circle ([shapeOnPlane]). Null draws flat.
+     */
+    var isometricPlane: IsometricPlane? by mutableStateOf(null)
+
+    /**
+     * Lays the selected strokes onto [plane] (roadmap item 142): their shape as drawn flat is
+     * mapped onto that isometric face around the selection's centre, the way Affinity's
+     * isometric panel places an object on a plane. One undo step.
+     */
+    fun placeSelectionOnPlane(plane: IsometricPlane) {
+        val (min, max) = selectionBounds() ?: return
+        if (selection.isEmpty()) return
+        recordHistory()
+        val centre = WorldPoint((min.x + max.x) / 2, (min.y + max.y) / 2)
+        for (stroke in selection) stroke.setPoints(stroke.points.map { plane.toScreenPlane(it, centre) })
+        strokesChanged()
+    }
+
     fun loadFrames(loaded: List<Frame>) {
         frames.clear()
         frames.addAll(loaded)
@@ -1726,6 +2277,59 @@ class CanvasState(
         surface.forEachPixelIn(box[0].toDouble(), box[1].toDouble(), box[2].toDouble(), box[3].toDouble()) { tile, index, _, _ -> edit(tile, index) }
         surface.clip = null
         markRasterDirty(activeLayerId, emptySet())
+    }
+
+    /**
+     * Turns the raster selection's pixels - or, with no selection, all the active raster layer's
+     * paint - [degrees] clockwise about their centre (roadmap item 145), with RotSprite for pixel
+     * art ([rotSprite]) or plain nearest-neighbour sampling. The selection outline turns with
+     * them. Works at 8 bits per channel (as the raster warp does). One undo step.
+     */
+    fun rotateRasterPixels(degrees: Double, rotSprite: Boolean) {
+        val surface = activeRaster ?: return
+        val box = selectionPixelBox(surface) ?: paintedPixelBox(surface) ?: return
+        val width = box[2] - box[0] + 1
+        val height = box[3] - box[1] + 1
+        if (width <= 0 || height <= 0) return
+        recordHistory()
+        // Lift: the picture (inside the selection, if any) as straight 8-bit ARGB, cleared from the layer.
+        val lifted = IntArray(width * height)
+        surface.clip = if (hasRasterSelection) { x, y -> inRasterSelection(surface, x, y) } else null
+        surface.forEachPixelIn(box[0].toDouble(), box[1].toDouble(), box[2].toDouble(), box[3].toDouble()) { tile, index, px, py ->
+            val a = RasterSurface.u16(tile.data[index + 3])
+            if (a > 0) {
+                fun channel(c: Int) = (RasterSurface.u16(tile.data[index + c]).toLong() * 255 / a).toInt().coerceIn(0, 255)
+                lifted[(py - box[1]) * width + (px - box[0])] = ((a * 255 / 65535) shl 24) or (channel(0) shl 16) or (channel(1) shl 8) or channel(2)
+            }
+            for (c in 0 until 4) tile.data[index + c] = 0
+        }
+        surface.clip = null
+        val turned = rotatePixels(PixelImage(width, height, lifted), degrees, rotSprite)
+        // Centred where the source was centred.
+        val left = box[0] + (width - turned.width) / 2
+        val top = box[1] + (height - turned.height) / 2
+        surface.forEachPixelIn(left.toDouble(), top.toDouble(), (left + turned.width - 1).toDouble(), (top + turned.height - 1).toDouble()) { tile, index, px, py ->
+            val x = px - left
+            val y = py - top
+            if (x !in 0 until turned.width || y !in 0 until turned.height) return@forEachPixelIn
+            val argb = turned.at(x, y)
+            val a = (argb ushr 24) / 255.0
+            if (a == 0.0) return@forEachPixelIn
+            val src = doubleArrayOf(((argb shr 16) and 0xFF) / 255.0 * a, ((argb shr 8) and 0xFF) / 255.0 * a, (argb and 0xFF) / 255.0 * a, a)
+            for (c in 0 until 4) tile.data[index + c] = (src[c] * 65535 + RasterSurface.u16(tile.data[index + c]) * (1 - a)).toInt().coerceIn(0, 65535).toShort()
+        }
+        // The selection outline follows the pixels.
+        rasterSelection?.let { outline ->
+            val centre = surface.worldOf(box[0] + width / 2.0, box[1] + height / 2.0)
+            val radians = Math.toRadians(degrees)
+            rasterSelection = outline.map { p ->
+                val dx = p.x - centre.x
+                val dy = p.y - centre.y
+                WorldPoint(centre.x + dx * cos(radians) - dy * sin(radians), centre.y + dx * sin(radians) + dy * cos(radians))
+            }
+        }
+        markRasterDirty(activeLayerId, emptySet())
+        rasterRevision++
     }
 
     /** Copies the selected pixels of the active raster layer onto a new raster layer above it. */
@@ -2826,7 +3430,8 @@ class CanvasState(
      */
     val tileCacheEligible: Boolean
         get() = strokes.size >= TILE_CACHE_MIN_STROKES && currentStroke == null && selection.isEmpty() &&
-            !isErasing && !isMovingImage && !isMovingText && !animationMode && replayCount == null && audioReplay == null
+            !isErasing && !isMovingImage && !isMovingText && !animationMode && replayCount == null && audioReplay == null &&
+            play == null // objects move while a game plays
 
     private var isErasing = false
 
@@ -3456,12 +4061,21 @@ class CanvasState(
 
     /**
      * On grid or dot-grid paper, shape corners and endpoints land on the nearest pattern point,
-     * the way drawing on graph paper invites. Other paper styles leave points untouched.
+     * the way drawing on graph paper invites; on isometric paper, on the isometric lattice
+     * (roadmap item 142). On other paper, a frame's layout grid edges within
+     * [OBJECT_SNAP_RADIUS_SCREEN] attract each coordinate; otherwise points stay untouched.
      */
     private fun snappedToGrid(point: WorldPoint): WorldPoint {
-        if (backgroundStyle != BackgroundStyle.GRID && backgroundStyle != BackgroundStyle.DOT) return point
         val spacing = BACKGROUND_PATTERN_SPACING_WORLD
-        return WorldPoint(kotlin.math.round(point.x / spacing) * spacing, kotlin.math.round(point.y / spacing) * spacing)
+        when (backgroundStyle) {
+            BackgroundStyle.GRID, BackgroundStyle.DOT ->
+                return WorldPoint(kotlin.math.round(point.x / spacing) * spacing, kotlin.math.round(point.y / spacing) * spacing)
+            BackgroundStyle.ISOMETRIC -> return snappedToIsometric(point, spacing)
+            else -> {}
+        }
+        val radius = OBJECT_SNAP_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
+        fun nearest(value: Double, lines: List<Double>) = lines.minByOrNull { abs(it - value) }?.takeIf { abs(it - value) <= radius } ?: value
+        return WorldPoint(nearest(point.x, layoutGridLines(frames, vertical = true)), nearest(point.y, layoutGridLines(frames, vertical = false)))
     }
 
     fun continueShape(worldPoint: WorldPoint) {
@@ -3483,7 +4097,10 @@ class CanvasState(
         shapePreview = null
         val (start, end) = preview
         if (start == end) return
-        val stroke = Stroke(
+        // A shape drawn in several outlines (a thought balloon's trail) is one group.
+        val extras = extrasOnPlane(activeShapeKind, start, end, isometricPlane)
+        val group = if (extras.isEmpty()) null else UUID.randomUUID().toString()
+        fun styled(points: List<WorldPoint>) = Stroke(
             activeColor.copy(alpha = activeColor.alpha * activeOpacity.toFloat()),
             activeWidthWorld / scale.coerceAtLeast(1e-300),
             activePenType,
@@ -3493,9 +4110,10 @@ class CanvasState(
             dashed = activeDashed,
             lineStyle = activeLineStyle.takeIf { it != LineStyle() },
             brush = if (activePenType == PenType.STAMP) activeBrush else null,
-        )
-        for (point in generateShapePoints(activeShapeKind, start, end)) stroke.addPoint(point)
-        strokes.add(stroke)
+            groupId = group,
+        ).apply { for (point in points) addPoint(point) }
+        strokes.add(styled(shapeOnPlane(activeShapeKind, start, end, isometricPlane)))
+        for (extra in extras) strokes.add(styled(extra))
         countAction(StatsAction.DRAW, System.currentTimeMillis())
         strokesChanged()
     }
@@ -3744,9 +4362,35 @@ class CanvasState(
      * `MainActivity`'s photo-picker flow) at [position], sized to [widthWorld] x [heightWorld].
      */
     /** Places an image; undoable. Pass [recordUndo] = false for all but the first of a batch (e.g. PDF pages) so the batch undoes in one step. */
-    fun addImage(fileName: String, position: WorldPoint, widthWorld: Double, heightWorld: Double, recordUndo: Boolean = true) {
+    fun addImage(fileName: String, position: WorldPoint, widthWorld: Double, heightWorld: Double, recordUndo: Boolean = true, videoFileName: String? = null, modelFileName: String? = null) {
         if (recordUndo) recordHistory()
-        imageItems.add(ImageItem(UUID.randomUUID().toString(), fileName, position, widthWorld, heightWorld))
+        imageItems.add(ImageItem(UUID.randomUUID().toString(), fileName, position, widthWorld, heightWorld, videoFileName, modelFileName))
+        onImageChanged(imageItems.toList())
+    }
+
+    /**
+     * Places a saved 3D model (roadmap item 108) in the middle of the view as an image item,
+     * [MODEL_PLACED_SCREEN] screen pixels wide, selected so "Paint in 3D" can open it. Undoable.
+     */
+    fun placeModel(stored: StoredModel) {
+        val width = MODEL_PLACED_SCREEN / scale.coerceAtLeast(1e-300)
+        val height = width * stored.aspect
+        addImage(stored.posterFileName, WorldPoint(panWorld.x - width / 2, panWorld.y - height / 2), width, height, modelFileName = stored.modelFileName)
+        clearSelectionState()
+        selectedImageId = imageItems.last().id
+    }
+
+    /**
+     * Swaps image [id]'s picture for [fileName] and its 3D model for [modelFileName] (roadmap
+     * item 108: a painted model saved as new files), keeping its place and width; its height
+     * follows the new picture's [aspect] (height / width). One undo step.
+     */
+    fun replaceImageModel(id: String, fileName: String, modelFileName: String, aspect: Double) {
+        val index = imageItems.indexOfFirst { it.id == id }
+        if (index == -1) return
+        recordHistory()
+        val old = imageItems[index]
+        imageItems[index] = old.copy(fileName = fileName, modelFileName = modelFileName, heightWorld = old.widthWorld * aspect)
         onImageChanged(imageItems.toList())
     }
 
@@ -4047,6 +4691,10 @@ class CanvasState(
     }
 
     fun beginSelectGesture(worldPoint: WorldPoint) {
+        if (shapeEditMode != null) {
+            beginShapeEditGesture(worldPoint)
+            return
+        }
         // On a raster layer, a drag inside the raster selection moves its pixels.
         if (activeLayerIsRaster && beginMovingSelectedPixels(worldPoint)) return
         // The lattice belongs to the selection it was laid over; a changed selection ends it.
@@ -4125,6 +4773,10 @@ class CanvasState(
     }
 
     fun continueSelectGesture(worldPoint: WorldPoint) {
+        if (shapeEditMode != null) {
+            continueShapeEditGesture(worldPoint)
+            return
+        }
         if (floatingPixels != null) {
             moveSelectedPixels(worldPoint)
             return
@@ -4184,6 +4836,10 @@ class CanvasState(
     }
 
     fun endSelectGesture() {
+        if (shapeEditMode != null) {
+            endShapeEditGesture()
+            return
+        }
         if (floatingPixels != null) {
             endMovingSelectedPixels()
             return
@@ -4341,8 +4997,9 @@ class CanvasState(
         moveApplied = WorldPoint.Zero
         moveStartBounds = selectionBounds()
         // Ruler guides always attract a moved selection; other objects only with snapping on.
-        val rulerX = guides.filter { it.vertical }.map { it.position }
-        val rulerY = guides.filter { !it.vertical }.map { it.position }
+        // Frames' layout grid edges (roadmap item 142) attract it the same way.
+        val rulerX = guides.filter { it.vertical }.map { it.position } + layoutGridLines(frames, vertical = true)
+        val rulerY = guides.filter { !it.vertical }.map { it.position } + layoutGridLines(frames, vertical = false)
         if (!snapToObjects || viewportSize.width <= 0f) {
             guideTargetsX = rulerX.toDoubleArray()
             guideTargetsY = rulerY.toDoubleArray()
@@ -4358,6 +5015,61 @@ class CanvasState(
             .take(MAX_GUIDE_OBJECTS)
         guideTargetsX = (others.flatMap { listOf(it.minX, (it.minX + it.maxX) / 2, it.maxX) } + rulerX).toDoubleArray()
         guideTargetsY = (others.flatMap { listOf(it.minY, (it.minY + it.maxY) / 2, it.maxY) } + rulerY).toDoubleArray()
+    }
+
+    /** The document's real-world scale (roadmap item 143); null measures in world units. */
+    var drawingScale: DrawingScale? by mutableStateOf(null)
+        private set
+
+    fun changeDrawingScale(scale: DrawingScale?) {
+        drawingScale = scale
+        onDrawingScaleChanged(scale)
+    }
+
+    fun loadDrawingScale(scale: DrawingScale?) {
+        drawingScale = scale
+    }
+
+    /**
+     * What the MEASURE tool (roadmap item 143) is showing: a dragged line (two points, open), a
+     * tapped stroke's outline (closed when it's a closed shape: perimeter and area), or null.
+     * Not part of the document; it stays until the next measurement.
+     */
+    var measurement: Measurement? by mutableStateOf(null)
+        private set
+
+    /** Starts a measuring drag at [worldPoint], snapped to a nearby stroke end or corner when object snapping is on. */
+    fun beginMeasure(worldPoint: WorldPoint) {
+        val start = snappedToObject(worldPoint) ?: worldPoint
+        measurement = Measurement(listOf(start, start), closed = false)
+    }
+
+    fun continueMeasure(worldPoint: WorldPoint) {
+        val start = measurement?.points?.firstOrNull() ?: return
+        measurement = Measurement(listOf(start, snappedToObject(worldPoint) ?: worldPoint), closed = false)
+    }
+
+    /**
+     * Ends a measuring drag. A drag shorter than a tap measures what was tapped instead: the
+     * smallest visible closed shape around the point (perimeter and area), else the nearest
+     * visible line within reach (its length), else nothing.
+     */
+    fun endMeasure() {
+        snapIndicator = null
+        val line = measurement ?: return
+        val (a, b) = line.points
+        if (hypot(b.x - a.x, b.y - a.y) * scale > TAP_SLOP_SCREEN) return
+        val reach = OBJECT_SNAP_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
+        val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
+        val near = strokesNear(a.x - reach, a.y - reach, a.x + reach, a.y + reach).filter { isVisible(it) && it.points.size >= 2 }
+        val shape = strokes.filter { isVisible(it) && (it.filled || isClosedLoop(it.points, closeTolerance)) && polygonContains(it.points, a) }
+            .minByOrNull { polygonArea(it.points) }
+        measurement = when {
+            shape != null -> Measurement(shape.points, closed = true)
+            else -> near.minByOrNull { distanceToPolyline(it.points, a) }
+                ?.takeIf { distanceToPolyline(it.points, a) <= reach }
+                ?.let { Measurement(it.points, closed = false) }
+        }
     }
 
     /** Screen rulers along the canvas's top and left edges (roadmap item 99). A view setting. */
@@ -4604,6 +5316,147 @@ class CanvasState(
         pasteStrokes(placedSignature(signature, viewWidth / 3 / scale.coerceAtLeast(1e-300)))
     }
 
+    /**
+     * What a plugin (roadmap item 111) is given: the selected strokes in drawing order, the
+     * world area on screen, and the active pen (its width in world units at the current zoom).
+     */
+    fun pluginInput(): PluginInput {
+        val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
+        val chosen = selection.sortedBy { strokes.indexOf(it) }
+        val view = if (viewportSize.width > 0f) {
+            val center = Offset(viewportSize.width / 2f, viewportSize.height / 2f)
+            val corners = listOf(Offset.Zero, Offset(viewportSize.width, 0f), Offset(0f, viewportSize.height), Offset(viewportSize.width, viewportSize.height)).map { screenToWorld(it, center) }
+            WorldPoint(corners.minOf { it.x }, corners.minOf { it.y }) to WorldPoint(corners.maxOf { it.x }, corners.maxOf { it.y })
+        } else {
+            panWorld to panWorld
+        }
+        return PluginInput(
+            chosen.map { PluginStroke(it.points.toList(), it.color, it.widthWorld, it.filled, isClosedLoop(it.points, closeTolerance)) },
+            view,
+            activeColor,
+            activeWidthWorld / scale.coerceAtLeast(1e-300),
+        )
+    }
+
+    /**
+     * Applies a plugin's [changes] (roadmap item 111) to the selection [pluginInput] described:
+     * updates and removals by selection index, additions on the active layer and frame. One
+     * undo step; the strokes added or changed end up selected.
+     */
+    fun applyPluginChanges(changes: PluginResult.Changes) {
+        if (changes.add.isEmpty() && changes.update.isEmpty() && changes.remove.isEmpty()) return
+        if (changes.add.isNotEmpty() && !activeLayerEditable) return
+        recordHistory()
+        val chosen = selection.sortedBy { strokes.indexOf(it) }
+        val touched = ArrayList<Stroke>()
+        for (update in changes.update) {
+            val stroke = chosen.getOrNull(update.index) ?: continue
+            val at = strokes.indexOfFirst { it === stroke }
+            if (at == -1) continue
+            var edited = if (update.color != null) stroke.withColor(update.color) else stroke
+            update.points?.let { edited.setPoints(it) }
+            update.width?.let { edited.setWidth(it) }
+            if (edited !== stroke) strokes[at] = edited
+            touched.add(edited)
+        }
+        val removed = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Stroke, Boolean>()).apply { changes.remove.mapNotNullTo(this) { chosen.getOrNull(it) } }
+        strokes.removeWhere { it in removed }
+        touched.removeAll { it in removed }
+        val added = changes.add.map { s ->
+            Stroke(s.color, s.width, PenType.MARKER, filled = s.filled, layerId = activeLayerId, animFrame = currentAnimFrame).apply {
+                for (p in s.points) addPoint(p)
+                if (s.closed && s.points.size > 2 && s.points.first() != s.points.last()) addPoint(s.points.first())
+            }
+        }
+        strokes.addAll(added)
+        clearSelectionState()
+        selection.addAll(touched + added)
+        strokesChanged()
+    }
+
+    /**
+     * Places a QR code (roadmap item 144) at the centre of the view as one selected group:
+     * [qr]'s dark modules as filled outlines in the active colour, over a white square that
+     * includes the quiet zone when [lightBackground] (so it reads on any paper). The code is
+     * [QR_SIZE_SCREEN] screen pixels across at the current zoom. One undo step.
+     */
+    fun insertQrCode(qr: QrOutlines, lightBackground: Boolean) {
+        if (qr.outlines.isEmpty() || !activeLayerEditable) return
+        val side = qr.size + 2 * QR_QUIET_ZONE_MODULES
+        val module = QR_SIZE_SCREEN / side / scale.coerceAtLeast(1e-300)
+        val group = UUID.randomUUID().toString()
+        fun place(points: List<WorldPoint>, color: Color) = Stroke(color, 0.0, filled = true, groupId = group).apply {
+            for (p in points) addPoint(WorldPoint((p.x + QR_QUIET_ZONE_MODULES) * module, (p.y + QR_QUIET_ZONE_MODULES) * module))
+        }
+        val backing = if (lightBackground) {
+            val q = -QR_QUIET_ZONE_MODULES.toDouble()
+            val far = (qr.size + QR_QUIET_ZONE_MODULES).toDouble()
+            listOf(place(listOf(WorldPoint(q, q), WorldPoint(far, q), WorldPoint(far, far), WorldPoint(q, far), WorldPoint(q, q)), Color.White))
+        } else {
+            emptyList()
+        }
+        pasteStrokes(backing + qr.outlines.map { place(it, activeColor) })
+    }
+
+    /**
+     * Places PDF or Illustrator pages read as vectors (roadmap item 103), one point per world
+     * unit, stacked top to bottom with a gap, centred on the view, each page a group, selected.
+     * Paths marked with a PDF layer go onto the Fern layer of that name (made when missing);
+     * the rest onto the active layer. Fills become filled outlines (holes kept, by the path's
+     * own fill rule), strokes outlines with their colour, width, cap, join and dashes. One
+     * undo step for the strokes; layers it makes stay on undo, as layers always do. Returns
+     * how many strokes were added.
+     */
+    fun importVectorPages(pages: List<ImportedVectorPage>): Int {
+        if (!activeLayerEditable) return 0
+        val created = ArrayList<Stroke>()
+        var top = 0.0
+        val layerFor = HashMap<String, String>()
+        for (page in pages) {
+            val group = UUID.randomUUID().toString()
+            val pageTop = top
+            // PDF y points up; the page's top edge lands at this page's place in the stack.
+            fun place(p: WorldPoint) = WorldPoint(p.x, pageTop + page.height - p.y)
+            for (path in page.paths) {
+                val layerId = path.layer?.let { name ->
+                    layerFor.getOrPut(name) {
+                        layers.firstOrNull { it.name == name && !it.raster }?.id ?: Layer(UUID.randomUUID().toString(), name).also { layers.add(it) }.id
+                    }
+                } ?: activeLayerId
+                val subpaths = path.subpaths.map { (points, closed) -> points.map(::place) to closed }
+                path.fill?.let { fill ->
+                    for (outline in importedFillOutlines(subpaths.map { it.first }, path.evenOdd)) {
+                        created.add(Stroke(fill, 0.0, filled = true, layerId = layerId, animFrame = currentAnimFrame, groupId = group).apply {
+                            for (p in outline) addPoint(p)
+                        })
+                    }
+                }
+                path.stroke?.let { color ->
+                    val style = LineStyle(path.cap, path.join).takeIf { it != LineStyle() }
+                    for ((points, closed) in subpaths) {
+                        created.add(Stroke(color, path.width, filled = false, layerId = layerId, animFrame = currentAnimFrame, dashed = path.dashed, groupId = group, lineStyle = style).apply {
+                            for (p in points) addPoint(p)
+                            if (closed && points.size > 1) addPoint(points.first())
+                        })
+                    }
+                }
+            }
+            top += page.height + IMPORTED_PAGE_GAP
+        }
+        if (layerFor.isNotEmpty()) onLayersChanged(layers.toList())
+        if (created.isEmpty()) return 0
+        recordHistory()
+        val centreX = (created.minOf { it.minX } + created.maxOf { it.maxX }) / 2
+        val centreY = (created.minOf { it.minY } + created.maxOf { it.maxY }) / 2
+        val offset = WorldPoint(centreX - panWorld.x, centreY - panWorld.y)
+        for (stroke in created) stroke.shiftBy(offset)
+        strokes.addAll(created)
+        clearSelectionState()
+        selection.addAll(created)
+        strokesChanged()
+        return created.size
+    }
+
     /** Placed symbols that stay linked to the library (roadmap item 100); see [SymbolInstance]. */
     val symbolInstances = mutableStateListOf<SymbolInstance>()
 
@@ -4840,6 +5693,176 @@ class CanvasState(
         clearSelectionState()
         selection.addAll(results)
         strokesChanged()
+    }
+
+    /** Which of the shape builder's and knife's gestures (roadmap item 141) the SELECT tool is doing; null for neither. */
+    var shapeEditMode: ShapeEditMode? by mutableStateOf(null)
+        private set
+
+    /** The drag of the shape builder or knife in progress, in world space; empty when none is. */
+    val shapeEditPath = mutableStateListOf<WorldPoint>()
+
+    /**
+     * Turns [mode] on, or off when it's already on. The shape builder (either of its modes)
+     * starts by dividing the selected closed shapes into every region they make between them
+     * ([divideShapes]), one undo step; each region takes the style of the topmost shape over
+     * it. Drags across regions then merge them ([ShapeEditMode.BUILD_ADD]) or delete them
+     * ([ShapeEditMode.BUILD_REMOVE]). The knife needs a selection; each drag cuts it.
+     */
+    fun toggleShapeEdit(mode: ShapeEditMode) {
+        val current = shapeEditMode
+        if (current == mode) {
+            endShapeEdit()
+            return
+        }
+        val building = current == ShapeEditMode.BUILD_ADD || current == ShapeEditMode.BUILD_REMOVE
+        // The panel cutter works on whatever it crosses; it needs no selection.
+        if (mode != ShapeEditMode.PANEL_CUT && (mode == ShapeEditMode.KNIFE || !building)) {
+            if (selection.isEmpty()) return
+            if (mode != ShapeEditMode.KNIFE && !divideSelection()) return
+        }
+        shapeEditMode = mode
+        shapeEditPath.clear()
+    }
+
+    fun endShapeEdit() {
+        shapeEditMode = null
+        shapeEditPath.clear()
+    }
+
+    /**
+     * Replaces the selected closed shapes by their regions ([divideShapes]), selected. False,
+     * changing nothing, unless two or more strokes are selected and all of them are closed.
+     */
+    private fun divideSelection(): Boolean {
+        val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
+        val chosen = selection.toList()
+        if (chosen.size < 2 || chosen.any { !isClosedLoop(it.points, closeTolerance) }) return false
+        val ordered = chosen.sortedBy { strokes.indexOf(it) }
+        val regions = divideShapes(ordered.map { it.points })
+        if (regions.isEmpty()) return false
+        recordHistory()
+        val pieces = regions.map { region ->
+            val inside = interiorPoint(region)
+            val owner = ordered.lastOrNull { polygonContains(it.points, inside) } ?: ordered.last()
+            owner.withLoop(region)
+        }
+        replaceStrokes(chosen, pieces, at = strokes.indexOf(ordered.first()))
+        return true
+    }
+
+    fun beginShapeEditGesture(worldPoint: WorldPoint) {
+        shapeEditPath.clear()
+        shapeEditPath.add(worldPoint)
+    }
+
+    fun continueShapeEditGesture(worldPoint: WorldPoint) {
+        if (shapeEditPath.isNotEmpty()) shapeEditPath.add(worldPoint)
+    }
+
+    /**
+     * Finishes a shape builder or knife drag. The builder merges (union) or deletes the selected
+     * regions the drag passed through; the knife cuts every selected stroke it crosses - closed
+     * shapes into closed pieces ([cutShape]), lines at the crossings ([splitPolyline]). The
+     * pieces stay selected for the next drag. One undo step, none when nothing changed.
+     */
+    fun endShapeEditGesture() {
+        val path = shapeEditPath.toList()
+        shapeEditPath.clear()
+        val mode = shapeEditMode ?: return
+        if (path.isEmpty()) return
+        val chosen = selection.toList()
+        when (mode) {
+            ShapeEditMode.BUILD_ADD, ShapeEditMode.BUILD_REMOVE -> {
+                val touched = chosen.filter { stroke -> path.any { polygonContains(stroke.points, it) } }.sortedBy { strokes.indexOf(it) }
+                if (mode == ShapeEditMode.BUILD_REMOVE) {
+                    if (touched.isEmpty()) return
+                    recordHistory()
+                    replaceStrokes(touched, emptyList(), at = 0)
+                    selection.addAll(chosen.filter { it !in touched })
+                    return
+                }
+                if (touched.size < 2) return
+                val bottom = touched.first()
+                val merged = combineShapes(touched.map { it.points }, ShapeOp.UNION, bridgeHoles = bottom.filled)
+                if (merged.isEmpty()) return
+                recordHistory()
+                replaceStrokes(touched, merged.map { bottom.withLoop(it) }, at = strokes.indexOf(bottom))
+                selection.addAll(chosen.filter { it !in touched })
+            }
+            ShapeEditMode.PANEL_CUT -> {
+                // Comic panels (roadmap item 105): every closed outline on the active layer the
+                // drag crosses is split in two with a gutter between, selection or not.
+                if (path.size < 2) return
+                val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
+                val gutter = PANEL_GUTTER_SCREEN / scale.coerceAtLeast(1e-300)
+                val left = path.minOf { it.x }
+                val top = path.minOf { it.y }
+                val right = path.maxOf { it.x }
+                val bottom = path.maxOf { it.y }
+                val cuts = strokesNear(left, top, right, bottom)
+                    .filter { it.layerId == activeLayerId && isVisible(it) && isEditable(it) && isClosedLoop(it.points, closeTolerance) }
+                    .mapNotNull { stroke -> cutShape(stroke.points, path, gutter).takeIf { it.isNotEmpty() }?.let { stroke to it.map(stroke::withLoop) } }
+                if (cuts.isEmpty()) return
+                recordHistory()
+                for ((stroke, pieces) in cuts) replaceStrokes(listOf(stroke), pieces, at = strokes.indexOf(stroke))
+                clearSelectionState()
+            }
+            ShapeEditMode.KNIFE -> {
+                if (path.size < 2) return
+                val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
+                val gap = KNIFE_GAP_SCREEN / scale.coerceAtLeast(1e-300)
+                val cuts = chosen.mapNotNull { stroke ->
+                    val pieces = if (isClosedLoop(stroke.points, closeTolerance)) cutShape(stroke.points, path, gap).map(stroke::withLoop)
+                    else splitPolyline(stroke.points, path).takeIf { it.size >= 2 }?.map(stroke::withPoints) ?: emptyList()
+                    if (pieces.isEmpty()) null else stroke to pieces
+                }
+                if (cuts.isEmpty()) return
+                recordHistory()
+                val kept = chosen.filter { stroke -> cuts.none { it.first === stroke } }
+                for ((stroke, pieces) in cuts) replaceStrokes(listOf(stroke), pieces, at = strokes.indexOf(stroke))
+                selection.clear()
+                selection.addAll(kept)
+                selection.addAll(cuts.flatMap { it.second })
+            }
+        }
+        strokesChanged()
+    }
+
+    /**
+     * Contour (roadmap item 141): new outlines [distance] (world units; negative to shrink
+     * closed shapes) around the selected strokes, merged, in the active colour at the
+     * active width, laid above the selection and selected instead. One undo step; nothing
+     * when nothing would be drawn.
+     */
+    fun contourSelection(distance: Double, join: ContourJoin) {
+        if (selection.isEmpty() || !activeLayerEditable) return
+        val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
+        val ordered = selection.sortedBy { strokes.indexOf(it) }
+        val sources = ordered.map { ContourSource(it.points, if (it.filled) 0.0 else it.widthWorld, it.filled || isClosedLoop(it.points, closeTolerance)) }
+        val loops = contourOutlines(sources, distance, join)
+        if (loops.isEmpty()) return
+        recordHistory()
+        val top = ordered.last()
+        val outlines = loops.map { loop ->
+            Stroke(activeColor, activeWidthWorld, PenType.MARKER, layerId = top.layerId, animFrame = top.animFrame).apply {
+                for (point in loop) addPoint(point)
+                addPoint(loop.first())
+            }
+        }
+        strokes.addAll((strokes.indexOf(top) + 1).coerceAtMost(strokes.size), outlines)
+        clearSelectionState()
+        selection.addAll(outlines)
+        strokesChanged()
+    }
+
+    /** Swaps [old] for [new] (placed at [at] in the drawing order), and selects only [new]. Doesn't call [strokesChanged]. */
+    private fun replaceStrokes(old: List<Stroke>, new: List<Stroke>, at: Int) {
+        val removed = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Stroke, Boolean>()).apply { addAll(old) }
+        strokes.removeWhere { it in removed }
+        strokes.addAll(at.coerceIn(0, strokes.size), new)
+        clearSelectionState()
+        selection.addAll(new)
     }
 
     /**
@@ -5134,8 +6157,10 @@ class CanvasState(
         // spacing, so an arbitrary offset made it jump relative to the content on every rebase.
         // The leftover (under one cell) stays in panWorld, which is still near zero.
         val spacing = BACKGROUND_PATTERN_SPACING_WORLD
+        // Isometric paper repeats less often across (roadmap item 142).
+        val spacingX = if (backgroundStyle == BackgroundStyle.ISOMETRIC) isometricPeriodX(spacing) else spacing
         val offset = WorldPoint(
-            kotlin.math.round(panWorld.x / spacing) * spacing,
+            kotlin.math.round(panWorld.x / spacingX) * spacingX,
             kotlin.math.round(panWorld.y / spacing) * spacing,
         )
         endMeshWarp() // its box and starting points are in the old coordinates
@@ -5198,6 +6223,8 @@ data class AnimationSettings(
     val holds: Map<Int, Int> = emptyMap(),
     val mouths: Map<Int, MouthShape> = emptyMap(),
     val soundtrack: String? = null,
+    /** Named frame ranges (roadmap item 145). */
+    val tags: List<FrameTag> = emptyList(),
 )
 
 // Changed strokes tested directly before [CanvasState.strokesNear] rebuilds its index instead.

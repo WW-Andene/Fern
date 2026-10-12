@@ -165,21 +165,21 @@ All deferred: they need a server or cloud platform.
 - [x] 100. Shared colour styles (a saved colour changed everywhere it's used, opacity kept), symbol library across documents (save a selection, place copies); placed symbols are linked instances - redefining a symbol from a selected instance redraws every instance at its own place and size (in other documents when they open), and an instance can be detached
 - [x] 101. Image trace: a selected image's dark shapes (Otsu threshold) become filled vector outlines, holes kept, in the active colour over the image; one colour (no colour separation)
 - [x] 102. CMYK entry in the colour picker; ICC colour management (CMYK profiles loaded in Settings, v2/v4 lookup tables, perceptual intent); spot colours (named inks); print PDF in CMYK with spots as Separation colour spaces (own PDF writer; no transparency, text or images)
-- [~] 103. EPS export (paths, fills, caps, joins, dashes; checked by rendering); no AI import/export, Figma ⏸ (external platform); SVG export done in 57
+- [x] 103. EPS export (paths, fills, caps, joins, dashes; checked by rendering); Illustrator export as a PDF-compatible .ai (Fern layers as PDF layers, opacity kept; no text or images) and vector import of PDF and PDF-compatible .ai files (paths, fills with their fill rule, colours incl. CMYK and opacity, widths, caps, joins, dashes, PDF layers onto Fern layers; text, images, shadings, clipping and encrypted files not read; legacy PostScript-based .ai not read); Figma ⏸ (external platform, deferred); SVG export done in 57
 
 ## Phase 12 — Specialty modes
 
 - [x] 104. Pixel art — grid-aligned pixel pen; indexed palette (pixels snap to saved colours; reduce a selection to them; palette swaps via 100); sprites are animation frames exported as sprite sheets (80)
-- [~] 105. Comics — comic page template, speech bubbles, screentones
+- [x] 105. Comics — comic pages in six sizes (2:3, manga B5, A4, US comic, square, webtoon strip) and seven panel layouts (1 to 9 panels, 4-koma), each with a page frame; a panel cutter that divides crossed panels with a gutter; speech, thought (cloud with trail) and shout (burst) balloons; speed and focus lines (tapered, over the selection or the view); screentones
 - [x] 106. Notes — sticky notes, connectors between them (68), mind-map and planner templates (72)
-- [~] 107. Whiteboard — links in text labels open in the browser or another document; PDF pages imported onto the canvas to annotate; no embedded video (needs a device to verify a live video surface)
-- [~] 108. Posable mannequin in 2D (a rigged figure posed with the bone tool); no 3D painting
+- [x] 107. Whiteboard — links in text labels open in the browser or another document; PDF pages imported onto the canvas to annotate; embedded videos (copied in, shown by their first frame with a play badge, played over the canvas with play/pause, seek and mute; saved in .fern bundles). Playback isn't verified on a device here, and videos play in a player over the canvas rather than live on it
+- [x] 108. Posable mannequin in 2D (a rigged figure posed with the bone tool); 3D painting: built-in shapes (sphere, cube, cylinder, torus, plane) or imported OBJ models, painted in colour, roughness and metallic with a soft round brush that keeps its on-screen size, turned and zoomed with two fingers, under an adjustable light (software renderer); placed on the canvas as their render and saved with the document and in bundles. Brush dabs stop at texture seams; no layers on the model; interactive speed not yet measured on a device
 - [ ] 109. AR placement and tracing ⏸ (ARCore is a Google Play Services platform)
 - [ ] 110. Generative AI ⏸
 
 ## Phase 13 — Ecosystem
 
-- [~] 111. Scripting: sandboxed drawing scripts (see 164); no plugin API
+- [x] 111. Scripting: sandboxed drawing scripts (see 164); a plugin API: JavaScript plugins (Mozilla Rhino, interpreted, no Java access, instruction-limited) that read the selection, view and active pen and add, edit or remove strokes as one undo step, with declared number parameters; five built in, more installed from .js files or written in the app
 - [ ] 112. Marketplace ⏸ (hosted service)
 - [ ] 113. Community gallery and live-streaming ⏸ (hosted service)
 - [ ] 114. Team workspaces ⏸
@@ -217,13 +217,13 @@ Concepts, GoodNotes, Notability, Infinite Painter, Aseprite, Spine and Affinity 
 | 138 | Filter / file layers, global selection mask | Krita | 10 | done: blur, sharpen, pixelate, posterize, threshold and invert on raster and filter (adjustment) layers; file layers that reload from their image; the raster selection painted with the pen and eraser |
 | 139 | HDR / OpenEXR, OpenColorIO | Krita | 10 | done: HDR raster layers (light up to ~22x paper white, painted at an intensity), an exposure + clip/filmic view transform in place of OpenColorIO (no Android port; .ocio configs aren't read), OpenEXR export and import keeping HDR |
 | 140 | Multiple brush engines, brush tagging | Krita | 10 | done: raster engines paint, wet, smudge, blur, liquify, spray and bristle beside the stamp engine and vector pens; brush presets tagged and filtered by tag |
-| 141 | Shape builder, knife, contour | Affinity | 11 | not started |
-| 142 | Isometric panel, layout grids | Affinity | 11 | not started |
-| 143 | Real-world scale and measurement | Concepts, Affinity | 11 | not started |
-| 144 | UI constraints; QR code tool | Affinity | 11 | not started |
-| 145 | Red/blue onion skin, frame tags, RotSprite | Aseprite | 12 | not started |
-| 146 | 3D hands/heads, hand pose scanner | Clip Studio | 12 | not started |
-| 147 | 3D texture maps, lighting, AR export | Procreate | 12 | not started |
+| 141 | Shape builder, knife, contour | Affinity | 11 | done: the shape builder splits the selected closed shapes into their regions (each styled like the topmost shape over it), then drags merge or delete regions; the knife cuts selected shapes into closed pieces and lines at the crossings; contour outlines the selection at a distance (outward, or inward for closed shapes) with round, mitred or bevelled corners |
+| 142 | Isometric panel, layout grids | Affinity | 11 | done: isometric paper (lattice snapping for shapes); shapes drawn on the top, left or right plane of an isometric cube, and a selection placed onto a plane; per-frame layout grids (columns, rows, gutter, margin) shown as bands, saved with the frames, attracting shape corners and moved selections |
+| 143 | Real-world scale and measurement | Concepts, Affinity | 11 | done: a per-document drawing scale in mm, cm, m, km, in, ft, yd or mi, set directly or calibrated from a measured line; a measure tool (drag: distance and angle, snapping to stroke ends; tap: a shape's perimeter and area or a line's length); rulers, shape readouts and the transform dialog in the scale's unit; saved, in bundles and duplicates |
+| 144 | UI constraints; QR code tool | Affinity | 11 | done: per-stroke constraints (left, right, both/stretch, centre or scale, across and down; groups follow as one) that strokes follow when a frame is resized from the frames dialog (resizing isn't undoable, the content's move is); a QR code tool (ZXing core encoder) placing text or a link as a vector group, with error-correction level and an optional white backing with the quiet zone |
+| 145 | Red/blue onion skin, frame tags, RotSprite | Aseprite | 12 | done: onion skin of up to 4 frames before and after, fading with distance, optionally tinted red (before) and blue (after); frame tags (named ranges with colour and direction: forward, reverse, ping-pong) that follow inserted and deleted frames, play on their own, are saved and go into the sprite atlas JSON as Aseprite frameTags; raster pixels turned with RotSprite (Scale2x x3, then nearest) or nearest-neighbour |
+| 146 | 3D hands/heads, hand pose scanner | Clip Studio | 12 | done: a posable 3D hand (left or right; seven ready poses; curl and spread per finger, thumb across the palm) and a 3D head with Loomis construction lines, both turned with the 3D view and paintable; a hand pose scanner (MediaPipe hand landmarker, on the device) that poses the hand from a camera shot or photo. The scanner isn't verified on a device here (its landmark-to-pose step is tested); it adds ~25 MB to the APK |
+| 147 | 3D texture maps, lighting, AR export | Procreate | 12 | done: colour, roughness and metallic maps painted on models (item 108), exported as PNGs, a colour texture imported from a picture; a light with direction, height, strength, colour (white, warm, cool, sunset), ambient light and exposure; export for AR and 3D apps as glTF binary (.glb) and USDZ (text USD, 64-byte aligned), 30 cm across. Neither export has been opened in an AR viewer here |
 | 148 | Command-line batch interface | Aseprite | 13 | not started |
 
 ## Phase 14 — Co-creation: animate, rig and build logic together
@@ -236,18 +236,18 @@ Shared, multiplayer parts need a server and are deferred ⏸; single-player part
 - [ ] 150. Live presence on the timeline and rig ⏸
 - [ ] 151. Shared rig library ⏸
 - [ ] 152. Roles and permissions ⏸
-- [ ] 153. Branches and merges for animations
+- [x] 153. Branches and merges for animations — branch an animation into alternative takes (the work so far becomes "main"), switch between them, and merge one into another frame by frame against the frame as it was when the branch began (frames only it changed are taken; frames both changed are kept or taken as chosen); strokes, bones and holds; saved with the document and in bundles. Frames are matched by number, so a frame inserted mid-animation on one side shifts the rest; switching clears the undo history
 - [ ] 154. Voice and text chat in the canvas ⏸
 
 **From drawing to logic**
 
-- [ ] 155. Turn a drawing into an object with properties and behaviours
+- [x] 155. Turn a drawing into an object with properties and behaviours — a selection (grouped, so its strokes on every frame go together) becomes a named object with number properties and behaviours (move, rotate, swing, follow a drawn path, bounce off or wrap around the edges, blink, pulse) with their settings; Play runs them in the view, editing hidden, the drawing untouched; saved with the document and in bundles. Objects aren't part of undo, like frames and layers
 - [ ] 156. Visual scripting (nodes / blocks)
-- [~] 157. Drawn behaviours — a drawn path becomes motion (animate along path); hitboxes and links not started
-- [ ] 158. State machines linking rig animations to logic
-- [ ] 159. 2D physics
-- [ ] 160. Input mapping (touch, stylus, gamepad, keyboard)
-- [ ] 161. Play mode
+- [x] 157. Drawn behaviours — a drawn path becomes motion (animate along path; an object's follow-path behaviour, item 155); a closed line drawn over an object becomes its hitbox; a line drawn between two objects becomes a link (rod, rope or attachment) held while the game plays; hitboxes and links shown dashed while editing
+- [x] 158. State machines linking rig animations to logic — per object: states that play frame tags (drawn frames or a rig posed frame by frame), looping or not, and transitions from a state or any state when conditions hold (action held or pressed, on the ground or in the air, moving or still, touching an object, a property compared to a value, time in state, animation finished)
+- [x] 159. 2D physics — arcade physics for game objects: fixed (solid) or dynamic bodies as boxes or circles, with mass, bounce, friction and gravity scale; world gravity in any direction and scene edges as walls; contacts and standing-on-something reported for rules and scripts. Bodies are axis-aligned (an object's turn doesn't tilt its body)
+- [x] 160. Input mapping (touch, stylus, gamepad, keyboard) — named actions bound to keys, gamepad buttons and stick directions (and the d-pad hat), on-screen buttons (a d-pad and A/B shown while playing), a finger or the stylus on the game (with its world position); defaults for arrows/WASD, the d-pad, A/B, space and enter; keys bound by pressing them; platformer and top-down controls use them. Real gamepads are untested here (no device)
+- [x] 161. Play mode — the game plays full screen with editing hidden: in a chosen frame fitted to the screen (or the view as it is), the camera easing after a chosen object within the scene, pause and resume, restart, stop back to the view as it was; objects' properties shown on screen when asked
 - [ ] 162. Online multiplayer play ⏸
 - [ ] 163. AI logic assistant ⏸
 - [~] 164. Text scripting (sandboxed): a turtle-graphics drawing language run from the ⋮ menu, step-limited, no file or network access; drawing only

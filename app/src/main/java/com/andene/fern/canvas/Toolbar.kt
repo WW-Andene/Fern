@@ -1,10 +1,31 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.Gamepad
+import androidx.compose.material.icons.filled.Cable
+import androidx.compose.material.icons.filled.Fence
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.Toys
+import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.RotateRight
+import androidx.compose.material.icons.filled._3dRotation
+import android.content.Context
+
+import androidx.compose.material.icons.filled.VideoFile
+import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.ViewQuilt
+import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Adjust
+import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.RemoveCircleOutline
+import androidx.compose.material.icons.filled.Interests
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.EmojiPeople
 import androidx.compose.material.icons.filled.InvertColors
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.AutoFixHigh
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -189,6 +210,8 @@ fun Toolbar(
     onExportSelection: () -> Unit = {},
     onExportSvg: () -> Unit = {},
     onExportEps: () -> Unit = {},
+    /** Illustrator (.ai, PDF-compatible) export (roadmap item 103). */
+    onExportAi: () -> Unit = {},
     onExportDxf: () -> Unit = {},
     onExportCmykPdf: () -> Unit = {},
     onExportExr: () -> Unit = {},
@@ -206,6 +229,8 @@ fun Toolbar(
     onImportPdf: () -> Unit = {},
     onImportSpine: () -> Unit = {},
     onImportLayered: () -> Unit = {},
+    /** Vector import of a PDF or Illustrator file (roadmap item 103). */
+    onImportVectors: () -> Unit = {},
     onExportPsd: () -> Unit = {},
     onExportKra: () -> Unit = {},
     onExportSpine: () -> Unit = {},
@@ -222,6 +247,10 @@ fun Toolbar(
     onDragSelectionOut: () -> Unit = {},
     /** Trace the selected image into vector shapes (roadmap item 101). */
     onTraceImage: () -> Unit = {},
+    /** Embeds a video (roadmap item 107). */
+    onInsertVideo: () -> Unit = {},
+    /** Imports an OBJ model to paint in 3D (roadmap item 108). */
+    onImportObj: () -> Unit = {},
 ) {
     val dragOutLabel = stringResource(R.string.tb_drag_out)
     var showExportMenu by remember { mutableStateOf(false) }
@@ -238,6 +267,69 @@ fun Toolbar(
     var showStatsDialog by remember { mutableStateOf(false) }
     if (showStatsDialog) StatsDialog(state, onDismiss = { showStatsDialog = false })
     var showSignatureDialog by remember { mutableStateOf(false) }
+    var showQrDialog by remember { mutableStateOf(false) }
+    // Game objects (roadmap item 155).
+    var editingObject by remember { mutableStateOf<Pair<GameObject, List<WorldPoint>?>?>(null) }
+    editingObject?.let { (target, path) -> GameObjectDialog(state, target, path, onDismiss = { editingObject = null }) }
+    var showPlugins by remember { mutableStateOf(false) }
+    if (showPlugins) PluginsDialog(state, onDismiss = { showPlugins = false })
+    // 3D painting (roadmap item 108): adding a model, and the model open in the editor.
+    var showInsert3d by remember { mutableStateOf(false) }
+    var editingModel by remember { mutableStateOf<Pair<ImageItem, Model3d>?>(null) }
+    run {
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        if (showInsert3d) {
+            Insert3dDialog(
+                onPrimitive = { primitive ->
+                    showInsert3d = false
+                    scope.launch {
+                        val stored = withContext(Dispatchers.Default) { storeModel(context, newModel(primitiveMesh(primitive))) }
+                        state.placeModel(stored)
+                    }
+                },
+                onHand = {
+                    showInsert3d = false
+                    scope.launch { state.placeModel(withContext(Dispatchers.Default) { storeModel(context, newHandModel()) }) }
+                },
+                onHead = {
+                    showInsert3d = false
+                    scope.launch { state.placeModel(withContext(Dispatchers.Default) { storeModel(context, newHeadModel()) }) }
+                },
+                onImportObj = {
+                    showInsert3d = false
+                    onImportObj()
+                },
+                onDismiss = { showInsert3d = false },
+            )
+        }
+        editingModel?.let { (item, model) ->
+            Model3dEditor(
+                model,
+                initialColor = state.activeColor,
+                onSave = { painted ->
+                    editingModel = null
+                    scope.launch {
+                        val stored = withContext(Dispatchers.Default) { storeModel(context, painted) }
+                        state.replaceImageModel(item.id, stored.posterFileName, stored.modelFileName, stored.aspect)
+                    }
+                },
+                onDismiss = { editingModel = null },
+            )
+        }
+    }
+    fun openModel(item: ImageItem, context: Context, scope: CoroutineScope) {
+        val name = item.modelFileName ?: return
+        scope.launch {
+            val model = withContext(Dispatchers.IO) { runCatching { Model3dFile.read(CanvasStorage.modelFile(context, name).readBytes()) }.getOrNull() }
+            if (model != null) editingModel = item to model
+        }
+    }
+    var playingVideo by remember { mutableStateOf<ImageItem?>(null) }
+    playingVideo?.let { VideoPlayerDialog(it, onDismiss = { playingVideo = null }) }
+    var showComicDialog by remember { mutableStateOf(false) }
+    if (showComicDialog) ComicDialog(state, onDismiss = { showComicDialog = false })
+    if (showQrDialog) QrCodeDialog(state, onDismiss = { showQrDialog = false })
     if (showSignatureDialog) {
         val context = LocalContext.current
         SignatureDialog(
@@ -323,6 +415,8 @@ fun Toolbar(
         if (bounds == null) showTransformDialog = false
         else TransformDialog(
             bounds,
+            unitsPerWorld = state.drawingScale.factor,
+            unitSymbol = state.drawingScale.symbol,
             onApply = { left, top, width, height, rotation ->
                 state.transformSelection(left, top, width, height, rotation)
                 showTransformDialog = false
@@ -332,6 +426,18 @@ fun Toolbar(
     }
     var showLineStyleMenu by remember { mutableStateOf(false) }
     var showCombineMenu by remember { mutableStateOf(false) }
+    var showContourDialog by remember { mutableStateOf(false) }
+    var showRotatePixels by remember { mutableStateOf(false) }
+    if (showRotatePixels) RotatePixelsDialog(state, onDismiss = { showRotatePixels = false })
+    var showDrawingScaleDialog by remember { mutableStateOf(false) }
+    if (showDrawingScaleDialog) DrawingScaleDialog(state, onDismiss = { showDrawingScaleDialog = false })
+    var showPlaceOnPlaneMenu by remember { mutableStateOf(false) }
+    var showLinkMenu by remember { mutableStateOf(false) }
+    var showControls by remember { mutableStateOf(false) }
+    if (showControls) InputMappingDialog(state, onDismiss = { showControls = false })
+    var showConstraintsDialog by remember { mutableStateOf(false) }
+    if (showConstraintsDialog) ConstraintsDialog(state, onDismiss = { showConstraintsDialog = false })
+    if (showContourDialog) ContourDialog(state, onDismiss = { showContourDialog = false })
     var showMoreMenu by remember { mutableStateOf(false) }
     var showBlendModeMenu by remember { mutableStateOf(false) }
     var showBackgroundStyleMenu by remember { mutableStateOf(false) }
@@ -543,6 +649,33 @@ fun Toolbar(
                                 },
                             )
                         }
+                        // Isometric plane (roadmap item 142) the shapes are drawn on.
+                        HorizontalDivider()
+                        for (plane in listOf(null) + IsometricPlane.entries) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(isometricPlaneLabel(plane))) },
+                                leadingIcon = { if (state.isometricPlane == plane) Icon(Icons.Filled.Check, contentDescription = null) },
+                                onClick = {
+                                    state.isometricPlane = plane
+                                    state.activeTool = Tool.SHAPE
+                                    showShapeKindMenu = false
+                                },
+                            )
+                        }
+                    }
+                }
+                // Measure (roadmap item 143): drag for a distance and angle, tap a shape for its
+                // perimeter and area, tap a line for its length; the scale button sets real units.
+                IconButton(onClick = { state.activeTool = if (state.activeTool == Tool.MEASURE) Tool.PEN else Tool.MEASURE }) {
+                    Icon(
+                        Icons.Filled.SquareFoot,
+                        contentDescription = stringResource(R.string.tb_measure),
+                        tint = if (state.activeTool == Tool.MEASURE) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                    )
+                }
+                if (state.activeTool == Tool.MEASURE) {
+                    TextButton(onClick = { showDrawingScaleDialog = true }) {
+                        Text(stringResource(R.string.scale_button, state.drawingScale.symbol))
                     }
                 }
                 // Bézier pen (roadmap item 96): tap for corners, drag for curves, tap the first node to close.
@@ -892,8 +1025,30 @@ fun Toolbar(
                         Icon(Icons.Filled.Deselect, contentDescription = stringResource(R.string.raster_sel_deselect))
                     }
                 }
+                if (state.activeTool == Tool.SELECT && state.activeLayerIsRaster) {
+                    // RotSprite (roadmap item 145): turn the selection's pixels, or the layer's.
+                    IconButton(onClick = { showRotatePixels = true }) {
+                        Icon(Icons.Filled.RotateRight, contentDescription = stringResource(R.string.rotate_pixels_title))
+                    }
+                }
                 if (state.activeTool == Tool.SELECT) {
                     if (state.selectedImageId != null) {
+                        // An embedded video (roadmap item 107) plays from here.
+                        val video = state.imageItems.firstOrNull { it.id == state.selectedImageId && it.videoFileName != null }
+                        if (video != null) {
+                            IconButton(onClick = { playingVideo = video }) {
+                                Icon(Icons.Filled.PlayCircle, contentDescription = stringResource(R.string.video_play))
+                            }
+                        }
+                        // A 3D model (roadmap item 108) opens for painting from here.
+                        val modelItem = state.imageItems.firstOrNull { it.id == state.selectedImageId && it.modelFileName != null }
+                        if (modelItem != null) {
+                            val context = LocalContext.current
+                            val scope = rememberCoroutineScope()
+                            IconButton(onClick = { openModel(modelItem, context, scope) }) {
+                                Icon(Icons.Filled._3dRotation, contentDescription = stringResource(R.string.model_paint))
+                            }
+                        }
                         IconButton(onClick = onTraceImage) {
                             Icon(Icons.Filled.AutoFixHigh, contentDescription = stringResource(R.string.tb_trace_image))
                         }
@@ -950,6 +1105,91 @@ fun Toolbar(
                                 )
                             }
                         }
+                    }
+                    // Game object (roadmap item 155): the selection as an object with properties and behaviours.
+                    val newObjectName = stringResource(R.string.object_default_name, state.gameObjects.size + 1)
+                    IconButton(onClick = { editingObject = state.objectForEditing(newObjectName) }, enabled = state.selection.isNotEmpty()) {
+                        Icon(Icons.Filled.Toys, contentDescription = stringResource(R.string.object_title))
+                    }
+                    // Drawn hitboxes and links (roadmap item 157).
+                    if (state.canUseHitbox) {
+                        IconButton(onClick = { state.useSelectionAsHitbox() }) {
+                            Icon(Icons.Filled.Fence, contentDescription = stringResource(R.string.object_use_hitbox))
+                        }
+                    }
+                    if (state.canLink) {
+                        Box {
+                            IconButton(onClick = { showLinkMenu = true }) {
+                                Icon(Icons.Filled.Cable, contentDescription = stringResource(R.string.object_link))
+                            }
+                            DropdownMenu(expanded = showLinkMenu, onDismissRequest = { showLinkMenu = false }) {
+                                for ((kind, label) in listOf(LinkKind.ROD to R.string.link_rod, LinkKind.ROPE to R.string.link_rope, LinkKind.ATTACH to R.string.link_attach)) {
+                                    DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = {
+                                        showLinkMenu = false
+                                        state.linkSelection(kind)
+                                    })
+                                }
+                            }
+                        }
+                    }
+                    // Constraints (roadmap item 144): how the selection follows a resized frame.
+                    IconButton(onClick = { showConstraintsDialog = true }, enabled = state.selection.isNotEmpty()) {
+                        Icon(Icons.Filled.PushPin, contentDescription = stringResource(R.string.constraints_title))
+                    }
+                    // Isometric panel (roadmap item 142): lay the selection onto a cube face.
+                    Box {
+                        IconButton(onClick = { showPlaceOnPlaneMenu = true }, enabled = state.selection.isNotEmpty()) {
+                            Icon(Icons.Filled.ViewInAr, contentDescription = stringResource(R.string.tb_place_on_plane))
+                        }
+                        DropdownMenu(expanded = showPlaceOnPlaneMenu, onDismissRequest = { showPlaceOnPlaneMenu = false }) {
+                            for (plane in IsometricPlane.entries) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(isometricPlaneLabel(plane))) },
+                                    onClick = {
+                                        state.placeSelectionOnPlane(plane)
+                                        showPlaceOnPlaneMenu = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    // Shape builder, knife and contour (roadmap item 141).
+                    val building = state.shapeEditMode == ShapeEditMode.BUILD_ADD || state.shapeEditMode == ShapeEditMode.BUILD_REMOVE
+                    IconButton(onClick = { state.toggleShapeEdit(if (building) state.shapeEditMode!! else ShapeEditMode.BUILD_ADD) }, enabled = building || state.selection.size >= 2) {
+                        Icon(
+                            Icons.Filled.Interests,
+                            contentDescription = stringResource(if (building) R.string.tb_shape_builder_stop else R.string.tb_shape_builder),
+                            tint = if (building) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
+                    if (building) {
+                        val removing = state.shapeEditMode == ShapeEditMode.BUILD_REMOVE
+                        IconButton(onClick = { state.toggleShapeEdit(if (removing) ShapeEditMode.BUILD_ADD else ShapeEditMode.BUILD_REMOVE) }) {
+                            Icon(
+                                if (removing) Icons.Filled.RemoveCircleOutline else Icons.Filled.AddCircleOutline,
+                                contentDescription = stringResource(if (removing) R.string.tb_shape_builder_remove else R.string.tb_shape_builder_add),
+                            )
+                        }
+                    }
+                    // Comic panel cutter (roadmap item 105): a drag splits the panels it crosses.
+                    val dividing = state.shapeEditMode == ShapeEditMode.PANEL_CUT
+                    IconButton(onClick = { state.toggleShapeEdit(ShapeEditMode.PANEL_CUT) }) {
+                        Icon(
+                            Icons.Filled.ViewQuilt,
+                            contentDescription = stringResource(if (dividing) R.string.tb_panel_cut_stop else R.string.tb_panel_cut),
+                            tint = if (dividing) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
+                    val cutting = state.shapeEditMode == ShapeEditMode.KNIFE
+                    IconButton(onClick = { state.toggleShapeEdit(ShapeEditMode.KNIFE) }, enabled = cutting || state.selection.isNotEmpty()) {
+                        Icon(
+                            Icons.Filled.ContentCut,
+                            contentDescription = stringResource(if (cutting) R.string.tb_knife_stop else R.string.tb_knife),
+                            tint = if (cutting) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
+                    IconButton(onClick = { showContourDialog = true }, enabled = state.selection.isNotEmpty()) {
+                        Icon(Icons.Filled.Adjust, contentDescription = stringResource(R.string.contour_title))
                     }
                     IconButton(onClick = { showTransformDialog = true }, enabled = state.selection.isNotEmpty()) {
                         Icon(Icons.Filled.Transform, contentDescription = stringResource(R.string.transform_title))
@@ -1039,6 +1279,16 @@ fun Toolbar(
                     }
                 }
 
+                // Play the game (roadmap item 155) once something is an object.
+                if (state.gameObjects.isNotEmpty()) {
+                    IconButton(onClick = { state.startPlay() }) {
+                        Icon(Icons.Filled.SportsEsports, contentDescription = stringResource(R.string.play_start))
+                    }
+                    // The game's controls (roadmap item 160).
+                    IconButton(onClick = { showControls = true }) {
+                        Icon(Icons.Filled.Gamepad, contentDescription = stringResource(R.string.controls_title))
+                    }
+                }
                 IconButton(onClick = { state.undo() }) {
                     Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.action_undo))
                 }
@@ -1068,9 +1318,12 @@ fun Toolbar(
                     DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
                         val moreItems = listOf(
                             Triple(R.string.menu_insert_image, Icons.Filled.Image, onInsertImage),
+                            Triple(R.string.menu_insert_video, Icons.Filled.VideoFile, onInsertVideo),
+                            Triple(R.string.model_insert_title, Icons.Filled._3dRotation) { showInsert3d = true },
                             Triple(R.string.menu_import_pdf, Icons.Filled.PictureAsPdf, onImportPdf),
                             Triple(R.string.menu_import_spine, Icons.Filled.AccessibilityNew, onImportSpine),
                             Triple(R.string.menu_import_layered, Icons.Filled.Layers, onImportLayered),
+                            Triple(R.string.menu_import_vectors, Icons.Filled.Polyline, onImportVectors),
                             Triple(R.string.search_title, Icons.Filled.Search) { showSearchDialog = true },
                             Triple(R.string.pins_title, Icons.Filled.PushPin, onOpenPins),
                             Triple(R.string.frames_title, Icons.Filled.CropFree, onOpenFrames),
@@ -1082,7 +1335,10 @@ fun Toolbar(
                             Triple(R.string.stats_title, Icons.Filled.QueryStats) { showStatsDialog = true },
                             Triple(R.string.symbols_title, Icons.Filled.Category) { openSymbols() },
                             Triple(R.string.signature_title, Icons.Filled.Draw) { showSignatureDialog = true },
+                            Triple(R.string.qr_title, Icons.Filled.QrCode2) { showQrDialog = true },
+                            Triple(R.string.comic_title, Icons.Filled.AutoStories) { showComicDialog = true },
                             Triple(R.string.script_title, Icons.Filled.Code) { showScriptDialog = true },
+                            Triple(R.string.plugins_title, Icons.Filled.Extension) { showPlugins = true },
                             Triple(R.string.settings_title, Icons.Filled.Settings, onOpenSettings),
                         )
                         for ((label, icon, action) in moreItems) {
@@ -1174,6 +1430,13 @@ fun Toolbar(
                             onClick = {
                                 showExportMenu = false
                                 onExportEps()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.tb_export_ai)) },
+                            onClick = {
+                                showExportMenu = false
+                                onExportAi()
                             },
                         )
                         DropdownMenuItem(
@@ -1541,6 +1804,8 @@ internal fun shapeKindIcon(kind: ShapeKind) = when (kind) {
     ShapeKind.ELLIPSE -> Icons.Filled.Circle
     ShapeKind.ARROW -> Icons.AutoMirrored.Filled.ArrowForward
     ShapeKind.SPEECH_BUBBLE -> Icons.Filled.ChatBubbleOutline
+    ShapeKind.THOUGHT_BUBBLE -> Icons.Filled.Cloud
+    ShapeKind.SHOUT_BUBBLE -> Icons.Filled.Flare
 }
 
 @StringRes
@@ -1550,6 +1815,8 @@ private fun shapeKindLabel(kind: ShapeKind) = when (kind) {
     ShapeKind.ELLIPSE -> R.string.shape_ellipse
     ShapeKind.ARROW -> R.string.shape_arrow
     ShapeKind.SPEECH_BUBBLE -> R.string.shape_bubble
+    ShapeKind.THOUGHT_BUBBLE -> R.string.shape_thought
+    ShapeKind.SHOUT_BUBBLE -> R.string.shape_shout
 }
 
 @StringRes
@@ -1560,9 +1827,18 @@ private fun blendModeLabel(mode: StrokeBlendMode) = when (mode) {
 }
 
 @StringRes
+private fun isometricPlaneLabel(plane: IsometricPlane?) = when (plane) {
+    null -> R.string.iso_plane_flat
+    IsometricPlane.TOP -> R.string.iso_plane_top
+    IsometricPlane.LEFT -> R.string.iso_plane_left
+    IsometricPlane.RIGHT -> R.string.iso_plane_right
+}
+
+@StringRes
 private fun backgroundStyleLabel(style: BackgroundStyle) = when (style) {
     BackgroundStyle.PLAIN -> R.string.paper_plain
     BackgroundStyle.GRID -> R.string.paper_grid
     BackgroundStyle.DOT -> R.string.template_dot
     BackgroundStyle.RULED -> R.string.paper_ruled
+    BackgroundStyle.ISOMETRIC -> R.string.paper_isometric
 }

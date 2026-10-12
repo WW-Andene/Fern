@@ -11,12 +11,13 @@ import androidx.compose.ui.graphics.luminance
  * - [GRID]: evenly spaced horizontal and vertical lines, like graph paper.
  * - [DOT]: dots at the same spacing as [GRID], like dot-grid paper.
  * - [RULED]: evenly spaced horizontal lines only, like lined notebook paper.
+ * - [ISOMETRIC]: vertical lines and two families of 30° lines, like isometric paper (roadmap item 142).
  *
  * Drawn in world space at a fixed world-unit spacing (see `DrawingCanvas`'s
  * `BACKGROUND_PATTERN_SPACING_WORLD`), so the pattern pans and zooms together with the
  * content sitting on it, the way a real sheet of patterned paper would.
  */
-enum class BackgroundStyle { PLAIN, GRID, DOT, RULED }
+enum class BackgroundStyle { PLAIN, GRID, DOT, RULED, ISOMETRIC }
 
 /**
  * World-unit spacing between pattern lines/dots - the page pattern's own fixed "grain",
@@ -31,6 +32,7 @@ enum class DocumentTemplate(@StringRes val label: Int, val paper: BackgroundStyl
     GRID(R.string.template_grid, BackgroundStyle.GRID),
     DOT(R.string.template_dot, BackgroundStyle.DOT),
     RULED(R.string.template_ruled, BackgroundStyle.RULED),
+    ISOMETRIC(R.string.paper_isometric, BackgroundStyle.ISOMETRIC),
     COMIC(R.string.frames_comic, BackgroundStyle.PLAIN),
     STORYBOARD(R.string.template_storyboard, BackgroundStyle.PLAIN),
     PLANNER(R.string.template_planner, BackgroundStyle.PLAIN),

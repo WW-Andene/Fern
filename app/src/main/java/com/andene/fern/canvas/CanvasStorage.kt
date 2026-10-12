@@ -42,6 +42,8 @@ data class PinMeta(
 
 /** Where a document's placed images live and how their metadata is named. */
 private const val IMAGES_DIR_NAME = "images"
+private const val VIDEOS_DIR_NAME = "videos"
+private const val MODELS_DIR_NAME = "models"
 
 /**
  * Persists canvas documents to local app storage: an index file listing every document's
@@ -193,6 +195,9 @@ object CanvasStorage {
         guidesFile(context, id).delete()
         symbolInstancesFile(context, id).delete()
         framesFile(context, id).delete()
+        drawingScaleFile(context, id).delete()
+        branchesFile(context, id).delete()
+        gameObjectsFile(context, id).delete()
         AudioNotes.deleteAll(context, id)
         versionsDir(context, id).deleteRecursively()
         // Deliberately not deleting files under images/: they're shared/immutable and may
@@ -215,6 +220,9 @@ object CanvasStorage {
         val guides = loadGuides(context, id)
         val symbolInstances = loadSymbolInstances(context, id)
         val frames = loadFrames(context, id)
+        val drawingScale = loadDrawingScale(context, id)
+        val branches = branchesFile(context, id).takeIf { it.exists() }?.readBytes()
+        val gameObjects = loadGameObjects(context, id)
         val meta = createDocument(context, newName)
         save(context, meta.id, strokes)
         saveTextItems(context, meta.id, textItems)
@@ -232,6 +240,9 @@ object CanvasStorage {
         if (guides.isNotEmpty()) saveGuides(context, meta.id, guides)
         if (symbolInstances.isNotEmpty()) saveSymbolInstances(context, meta.id, symbolInstances)
         if (frames.isNotEmpty()) saveFrames(context, meta.id, frames)
+        if (drawingScale != null) saveDrawingScale(context, meta.id, drawingScale)
+        if (branches != null) writeAtomically(branchesFile(context, meta.id), branches)
+        if (gameObjects.first.isNotEmpty()) saveGameObjects(context, meta.id, gameObjects.first, gameObjects.second)
         return meta
     }
 
@@ -401,7 +412,14 @@ object CanvasStorage {
         for ((frame, mouth) in settings.mouths) mouths.put(frame.toString(), mouth.name)
         writeStored(
             animationFile(context, documentId),
-            JSONObject().put("fps", settings.fps).put("holds", holds).put("mouths", mouths).apply { settings.soundtrack?.let { put("soundtrack", it) } },
+            JSONObject().put("fps", settings.fps).put("holds", holds).put("mouths", mouths).apply {
+                settings.soundtrack?.let { put("soundtrack", it) }
+                if (settings.tags.isNotEmpty()) {
+                    put("tags", JSONArray().apply {
+                        for (tag in settings.tags) put(JSONObject().put("name", tag.name).put("from", tag.from).put("to", tag.to).put("color", tag.color).put("direction", tag.direction.name))
+                    })
+                }
+            },
         )
     }
 
@@ -418,6 +436,15 @@ object CanvasStorage {
                 MouthShape.entries.firstOrNull { it.name == mouths.optString(key) }?.let { frame to it }
             }?.toMap().orEmpty(),
             root.optString("soundtrack").ifEmpty { null }?.takeIf { soundtrackFile(context, it).exists() },
+            root.optJSONArray("tags")?.let { tags ->
+                (0 until tags.length()).mapNotNull { i ->
+                    val t = tags.optJSONObject(i) ?: return@mapNotNull null
+                    val from = t.optInt("from", -1)
+                    val to = t.optInt("to", -1)
+                    if (from < 0 || to < from) return@mapNotNull null
+                    FrameTag(t.optString("name"), from, to, t.optInt("color", TAG_COLORS[0]), enumOrDefault(t.optString("direction"), TagDirection.FORWARD))
+                }
+            }.orEmpty(),
         )
     }
 
@@ -500,6 +527,8 @@ object CanvasStorage {
                     position = WorldPoint(entry.getDouble("x"), entry.getDouble("y")),
                     widthWorld = entry.getDouble("width"),
                     heightWorld = entry.getDouble("height"),
+                    videoFileName = entry.optString("video").takeIf { it.isNotEmpty() },
+                    modelFileName = entry.optString("model").takeIf { it.isNotEmpty() },
                 )
             )
         }
@@ -546,6 +575,8 @@ object CanvasStorage {
                     put("y", item.position.y)
                     put("width", item.widthWorld)
                     put("height", item.heightWorld)
+                    item.videoFileName?.let { put("video", it) }
+                    item.modelFileName?.let { put("model", it) }
                 }
             )
         }
@@ -653,6 +684,9 @@ object CanvasStorage {
                 put("minY", frame.min.y)
                 put("maxX", frame.max.x)
                 put("maxY", frame.max.y)
+                frame.layoutGrid?.let { grid ->
+                    put("grid", JSONObject().put("columns", grid.columns).put("rows", grid.rows).put("gutter", grid.gutter).put("margin", grid.margin))
+                }
             })
         }
         writeStored(framesFile(context, documentId), root)
@@ -667,6 +701,9 @@ object CanvasStorage {
                 name = entry.getString("name"),
                 min = WorldPoint(entry.getDouble("minX"), entry.getDouble("minY")),
                 max = WorldPoint(entry.getDouble("maxX"), entry.getDouble("maxY")),
+                layoutGrid = entry.optJSONObject("grid")?.let { grid ->
+                    LayoutGrid(grid.getInt("columns"), grid.getInt("rows"), grid.getDouble("gutter"), grid.getDouble("margin"))
+                },
             )
         }
     }
@@ -710,6 +747,48 @@ object CanvasStorage {
             val e = root.getJSONObject(i)
             SymbolInstance(e.getString("group"), e.getString("symbol"), e.optLong("revision"), e.getDouble("masterWidth"))
         }
+    }
+
+    /** Saves the document's game objects and world settings (roadmap items 155 and 159). */
+    fun saveGameObjects(context: Context, documentId: String, objects: List<GameObject>, settings: GameSettings) {
+        if (objects.isEmpty() && settings == GameSettings()) gameObjectsFile(context, documentId).delete()
+        else writeStored(gameObjectsFile(context, documentId), GameObjectsJson.writeGame(objects, settings))
+    }
+
+    /** The saved objects and settings; files from before settings existed hold only the object list. */
+    fun loadGameObjects(context: Context, documentId: String): Pair<List<GameObject>, GameSettings> =
+        readStored(gameObjectsFile(context, documentId)) { it }?.let(GameObjectsJson::readGame) ?: (emptyList<GameObject>() to GameSettings())
+
+    /**
+     * Saves the document's animation branches (roadmap item 153) and which one is current. The
+     * current branch's own latest content is the document itself, so its stored copy may lag.
+     */
+    fun saveBranches(context: Context, documentId: String, branches: List<AnimationBranch>, currentId: String) {
+        writeAtomically(branchesFile(context, documentId), AnimationBranchFile.write(branches, currentId))
+    }
+
+    /** The saved branches and the current one's id, or nothing for a document without branches (or a damaged file). */
+    fun loadBranches(context: Context, documentId: String): Pair<List<AnimationBranch>, String?> {
+        val file = branchesFile(context, documentId)
+        if (!file.exists()) return emptyList<AnimationBranch>() to null
+        return runCatching { AnimationBranchFile.read(file.readBytes()) }.getOrNull()?.let { (b, c) -> b to c } ?: (emptyList<AnimationBranch>() to null)
+    }
+
+    /** Saves the document's drawing scale (roadmap item 143); null removes it (world units). */
+    fun saveDrawingScale(context: Context, documentId: String, scale: DrawingScale?) {
+        val file = drawingScaleFile(context, documentId)
+        if (scale == null) {
+            file.delete()
+            return
+        }
+        writeStored(file, JSONObject().put("unit", scale.unit.name).put("unitsPerWorld", scale.unitsPerWorld))
+    }
+
+    fun loadDrawingScale(context: Context, documentId: String): DrawingScale? {
+        val root = readStored(drawingScaleFile(context, documentId)) { it as JSONObject } ?: return null
+        val unit = MeasureUnit.entries.firstOrNull { it.name == root.optString("unit") } ?: return null
+        val factor = root.optDouble("unitsPerWorld", Double.NaN)
+        return if (factor > 0 && factor.isFinite()) DrawingScale(unit, factor) else null
     }
 
     /** Saves the document's ruler guides (roadmap item 99). */
@@ -900,6 +979,16 @@ object CanvasStorage {
 
     fun imageFile(context: Context, fileName: String): File = File(imagesDir(context), fileName)
 
+    /** Directory holding embedded videos (roadmap item 107), shared and immutable like [imagesDir]. */
+    fun videosDir(context: Context): File = File(context.filesDir, VIDEOS_DIR_NAME).also { if (!it.exists()) it.mkdirs() }
+
+    fun videoFile(context: Context, fileName: String): File = File(videosDir(context), fileName)
+
+    /** Directory holding 3D models (roadmap item 108), shared and immutable like [imagesDir]. */
+    fun modelsDir(context: Context): File = File(context.filesDir, MODELS_DIR_NAME).also { if (!it.exists()) it.mkdirs() }
+
+    fun modelFile(context: Context, fileName: String): File = File(modelsDir(context), fileName)
+
     /**
      * One-time upgrade from the pre-multi-document single `canvas.json` file: wraps its
      * content as a document named "My Canvas" so existing saved work isn't lost, then removes
@@ -1034,6 +1123,9 @@ object CanvasStorage {
         "guides.json" to guidesFile(context, documentId),
         "symbols.json" to symbolInstancesFile(context, documentId),
         "frames.json" to framesFile(context, documentId),
+        "scale.json" to drawingScaleFile(context, documentId),
+        "branches.bin" to branchesFile(context, documentId),
+        "objects.json" to gameObjectsFile(context, documentId),
     )
 
     /** Adds an index entry for files already written under [id] (used by bundle import). */
@@ -1068,6 +1160,9 @@ object CanvasStorage {
     private fun versionsDir(context: Context, documentId: String) = File(context.filesDir, "versions_$documentId")
 
     private fun framesFile(context: Context, documentId: String) = File(context.filesDir, "frames_$documentId.json")
+    private fun drawingScaleFile(context: Context, documentId: String) = File(context.filesDir, "scale_$documentId.json")
+    private fun branchesFile(context: Context, documentId: String) = File(context.filesDir, "branches_$documentId.bin")
+    private fun gameObjectsFile(context: Context, documentId: String) = File(context.filesDir, "objects_$documentId.json")
 
     private fun layersFile(context: Context, documentId: String) = File(context.filesDir, "layers_$documentId.json")
 

@@ -73,6 +73,11 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    // MediaPipe maps its model straight from the APK, which needs it stored uncompressed (roadmap item 146).
+    androidResources {
+        noCompress += "task"
+    }
 }
 
 dependencies {
@@ -83,6 +88,13 @@ dependencies {
     implementation("androidx.input:input-motionprediction:1.0.0")
     // Front-buffered rendering for low-latency ink (FrontBufferedInk).
     implementation("androidx.graphics:graphics-core:1.0.2")
+    // QR code encoding for the QR code tool (roadmap item 144); the core library only, no platform services.
+    implementation("com.google.zxing:core:3.5.3")
+    // Hand landmark detection for the hand pose scanner (roadmap item 146): runs on the device,
+    // no platform services; the model ships in assets/hand_landmarker.task.
+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
+    // JavaScript for plugins (roadmap item 111): Mozilla Rhino, interpreted, sandboxed in PluginEngine.
+    implementation("org.mozilla:rhino:1.7.15")
 
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)

@@ -23,6 +23,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.ImageBitmap
@@ -215,6 +216,7 @@ fun DrawingCanvas(
                             Tool.BONE -> state.endBone()
                             Tool.BEZIER -> {} // a node is placed on press; nothing to end
                             Tool.RULER -> state.endRulerGesture()
+                            Tool.MEASURE -> state.endMeasure()
                             Tool.SELECT -> when (selectionGestureKind) {
                                 SelectionGestureKind.SCALE -> state.endScaleSelection()
                                 SelectionGestureKind.ROTATE -> state.endRotateSelection()
@@ -277,8 +279,10 @@ fun DrawingCanvas(
                                     Tool.BONE -> state.beginBone(world)
                                     Tool.BEZIER -> state.beginBezierNode(world)
                                     Tool.RULER -> state.beginRulerGesture(world)
+                                    Tool.MEASURE -> state.beginMeasure(world)
                                     Tool.SELECT -> {
-                                        val handles = selectionHandles(state, screenCenter)
+                                        // The shape builder and knife (roadmap item 141) take every drag, handles included.
+                                        val handles = if (state.shapeEditMode == null) selectionHandles(state, screenCenter) else null
                                         selectionGestureKind = when {
                                             handles != null && (downPos - handles.scaleHandle).getDistance() <= HANDLE_HIT_RADIUS_SCREEN -> {
                                                 state.beginScaleSelection(world)
@@ -311,6 +315,7 @@ fun DrawingCanvas(
                                         Tool.BONE -> state.continueBone(world)
                                         Tool.BEZIER -> state.dragBezierHandle(world)
                                         Tool.RULER -> state.continueRulerGesture(world)
+                                        Tool.MEASURE -> state.continueMeasure(world)
                                         Tool.SELECT -> when (selectionGestureKind) {
                                             SelectionGestureKind.SCALE -> state.continueScaleSelection(world)
                                             SelectionGestureKind.ROTATE -> state.continueRotateSelection(world)
@@ -425,6 +430,21 @@ fun DrawingCanvas(
                 )
             }
 
+            // Embedded videos (roadmap item 107): a play badge on their first frame.
+            for (video in state.imageItems) {
+                if (video.videoFileName == null) continue
+                val centre = state.worldToScreen(WorldPoint(video.position.x + video.widthWorld / 2, video.position.y + video.heightWorld / 2), screenCenter)
+                drawCircle(VIDEO_BADGE_COLOR, radius = VIDEO_BADGE_RADIUS_PX, center = centre)
+                val r = VIDEO_BADGE_RADIUS_PX / 2
+                val triangle = Path().apply {
+                    moveTo(centre.x - r * 0.6f, centre.y - r)
+                    lineTo(centre.x + r, centre.y)
+                    lineTo(centre.x - r * 0.6f, centre.y + r)
+                    close()
+                }
+                drawPath(triangle, Color.White)
+            }
+
             state.imageItems.firstOrNull { it.id == state.selectedImageId }?.let { image ->
                 val topLeft = state.worldToScreen(image.position, screenCenter)
                 val bottomRight = state.worldToScreen(
@@ -505,6 +525,21 @@ fun DrawingCanvas(
             for (frame in state.frames) {
                 val a = state.worldToScreen(frame.min, screenCenter)
                 val b = state.worldToScreen(frame.max, screenCenter)
+                // Layout grid (roadmap item 142): its columns and rows as faint bands.
+                frame.layoutGrid?.let { grid ->
+                    val columns = grid.columnEdges(frame).chunked(2)
+                    val rows = grid.rowEdges(frame).chunked(2)
+                    for ((left, right) in columns) {
+                        val l = state.worldToScreen(WorldPoint(left, frame.min.y), screenCenter)
+                        val r = state.worldToScreen(WorldPoint(right, frame.max.y), screenCenter)
+                        drawRect(LAYOUT_GRID_COLOR, topLeft = l, size = Size(r.x - l.x, r.y - l.y))
+                    }
+                    for ((top, bottom) in rows) {
+                        val t = state.worldToScreen(WorldPoint(frame.min.x, top), screenCenter)
+                        val u = state.worldToScreen(WorldPoint(frame.max.x, bottom), screenCenter)
+                        drawRect(LAYOUT_GRID_COLOR, topLeft = t, size = Size(u.x - t.x, u.y - t.y))
+                    }
+                }
                 drawRect(
                     color = FRAME_COLOR,
                     topLeft = a,
@@ -572,6 +607,35 @@ fun DrawingCanvas(
                 lasso.close()
                 drawPath(lasso, color = MARQUEE_FILL_COLOR)
                 drawPath(lasso, color = MARQUEE_BORDER_COLOR, style = DrawStyle(width = 2f))
+            }
+
+            // Game objects' drawn hitboxes and links (roadmap item 157), while editing with the selection tool.
+            if (state.play == null && state.activeTool == Tool.SELECT && state.gameObjects.isNotEmpty()) {
+                val dashes = PathEffect.dashPathEffect(floatArrayOf(6f, 6f))
+                for (o in state.gameObjects) {
+                    val hitbox = o.hitbox ?: continue
+                    val path = Path()
+                    hitbox.forEachIndexed { i, p -> val s = state.worldToScreen(p, screenCenter); if (i == 0) path.moveTo(s.x, s.y) else path.lineTo(s.x, s.y) }
+                    path.close()
+                    drawPath(path, GAME_GUIDE_COLOR, style = DrawStyle(width = 2f, pathEffect = dashes))
+                }
+                for (link in state.gameSettings.links) {
+                    val a = state.objectCentre(link.from) ?: continue
+                    val b = state.objectCentre(link.to) ?: continue
+                    drawLine(GAME_GUIDE_COLOR, state.worldToScreen(a, screenCenter), state.worldToScreen(b, screenCenter), strokeWidth = 2f, pathEffect = dashes)
+                }
+            }
+
+            // Shape builder / knife drag (roadmap item 141): an open line, red when it removes or cuts.
+            if (state.shapeEditPath.size >= 2) {
+                val trail = Path()
+                state.shapeEditPath.forEachIndexed { index, point ->
+                    val screen = state.worldToScreen(point, screenCenter)
+                    if (index == 0) trail.moveTo(screen.x, screen.y) else trail.lineTo(screen.x, screen.y)
+                }
+                val adding = state.shapeEditMode == ShapeEditMode.BUILD_ADD
+                drawPath(trail, color = Color.White, style = DrawStyle(width = 4f))
+                drawPath(trail, color = if (adding) MARQUEE_BORDER_COLOR else SHAPE_CUT_COLOR, style = DrawStyle(width = 2f))
             }
 
             // Node editing: a square handle on each node of the stroke being edited.
@@ -675,19 +739,53 @@ fun DrawingCanvas(
             }
 
             state.shapePreview?.let { (start, end) ->
-                val screenPoints = generateShapePoints(state.activeShapeKind, start, end).map { state.worldToScreen(it, screenCenter) }
+                val outlines = listOf(shapeOnPlane(state.activeShapeKind, start, end, state.isometricPlane)) +
+                    extrasOnPlane(state.activeShapeKind, start, end, state.isometricPlane)
                 val rawWidthScreen = state.activeWidthWorld
                 val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
                 val path = Path()
-                path.moveTo(screenPoints[0].x, screenPoints[0].y)
-                for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
+                for (outline in outlines) {
+                    val screenPoints = outline.map { state.worldToScreen(it, screenCenter) }
+                    path.moveTo(screenPoints[0].x, screenPoints[0].y)
+                    for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
+                }
                 drawPath(path = path, color = state.activeColor, style = DrawStyle(width = widthScreen, cap = StrokeCap.Round, join = StrokeJoin.Round))
                 // Dimensions (roadmap item 99): the line's length, or the box's width x height,
                 // in world units, beside the finger.
-                val label = shapeDimensions(state.activeShapeKind, start, end)
+                val label = shapeDimensions(state.activeShapeKind, start, end, state.drawingScale)
                 val layout = textMeasurer.measure(label, TextStyle(color = Color.White, fontSize = 12.sp))
                 val at = state.worldToScreen(end, screenCenter) + Offset(16f, 16f)
                 drawRect(MARQUEE_BORDER_COLOR, topLeft = at - Offset(4f, 2f), size = Size(layout.size.width + 8f, layout.size.height + 4f))
+                drawText(layout, topLeft = at)
+            }
+
+            // Measurement (roadmap item 143): the measured line or outline, and its readout.
+            if (state.activeTool == Tool.MEASURE) state.measurement?.let { measured ->
+                val screen = measured.points.map { state.worldToScreen(it, screenCenter) }
+                val path = Path().apply {
+                    moveTo(screen[0].x, screen[0].y)
+                    for (i in 1 until screen.size) lineTo(screen[i].x, screen[i].y)
+                    if (measured.closed) close()
+                }
+                drawPath(path, Color.White, style = DrawStyle(width = 4f))
+                drawPath(path, MEASURE_COLOR, style = DrawStyle(width = 2f))
+                val scaleOf = state.drawingScale
+                val label: String
+                val at: Offset
+                if (measured.points.size == 2 && !measured.closed) {
+                    for (end in screen) drawCircle(MEASURE_COLOR, radius = 4f, center = end)
+                    val (a, b) = measured.points
+                    // Compass angle as on screen: 0° to the right, counter-clockwise positive (y is down).
+                    val degrees = Math.toDegrees(kotlin.math.atan2(a.y - b.y, b.x - a.x))
+                    label = "${scaleOf.formatLength(measured.length)} · ${formatMeasure(degrees)}°"
+                    at = (screen[0] + screen[1]) / 2f + Offset(8f, 8f)
+                } else {
+                    label = if (measured.closed) "${scaleOf.formatLength(measured.length)} · ${scaleOf.formatArea(measured.area)}"
+                    else scaleOf.formatLength(measured.length)
+                    at = screen.reduce { acc, p -> acc + p } / screen.size.toFloat()
+                }
+                val layout = textMeasurer.measure(label, TextStyle(color = Color.White, fontSize = 12.sp))
+                drawRect(MEASURE_COLOR, topLeft = at - Offset(4f, 2f), size = Size(layout.size.width + 8f, layout.size.height + 4f))
                 drawText(layout, topLeft = at)
             }
 
@@ -863,6 +961,35 @@ private fun DrawScope.drawBackgroundPattern(state: CanvasState, screenCenter: Of
                 val screenY = state.worldToScreen(WorldPoint(0.0, y), screenCenter).y
                 drawLine(color = lineColor, start = Offset(0f, screenY), end = Offset(size.width, screenY), strokeWidth = 1f)
                 y += spacing
+            }
+        }
+        BackgroundStyle.ISOMETRIC -> {
+            // Vertical lines a lattice column apart, then the two 30° families, each a spacing
+            // apart vertically ([snappedToIsometric]'s lattice).
+            val column = isometricPeriodX(spacing) / 2
+            var x = kotlin.math.floor(topLeftWorld.x / column) * column
+            while (x <= bottomRightWorld.x) {
+                val screenX = state.worldToScreen(WorldPoint(x, 0.0), screenCenter).x
+                drawLine(color = lineColor, start = Offset(screenX, 0f), end = Offset(screenX, size.height), strokeWidth = 1f)
+                x += column
+            }
+            val slope = 0.5 / (column / spacing) // tan 30°
+            for (sign in listOf(1.0, -1.0)) {
+                // Lines y = sign * slope * x + k * spacing crossing the view: k from the lowest
+                // intercept at either view edge to the highest.
+                val intercepts = listOf(topLeftWorld.x, bottomRightWorld.x).flatMap { edgeX ->
+                    listOf(topLeftWorld.y - sign * slope * edgeX, bottomRightWorld.y - sign * slope * edgeX)
+                }
+                if ((intercepts.max() - intercepts.min()) / spacing > MAX_BACKGROUND_PATTERN_LINES) break
+                var k = kotlin.math.floor(intercepts.min() / spacing)
+                val last = kotlin.math.ceil(intercepts.max() / spacing)
+                while (k <= last) {
+                    val c = k * spacing
+                    val a = state.worldToScreen(WorldPoint(topLeftWorld.x, sign * slope * topLeftWorld.x + c), screenCenter)
+                    val b = state.worldToScreen(WorldPoint(bottomRightWorld.x, sign * slope * bottomRightWorld.x + c), screenCenter)
+                    drawLine(color = lineColor, start = a, end = b, strokeWidth = 1f)
+                    k += 1.0
+                }
             }
         }
         BackgroundStyle.PLAIN -> {} // handled by the early return above
@@ -1314,6 +1441,20 @@ private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
 private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
+// Aseprite's onion skin colours (roadmap item 145): earlier frames red, later ones blue.
+private val ONION_BEFORE_TINT = Color(0xFFE53935)
+private val ONION_AFTER_TINT = Color(0xFF1E88E5)
+// The play badge on an embedded video (roadmap item 107).
+private val VIDEO_BADGE_COLOR = Color(0x99000000)
+private const val VIDEO_BADGE_RADIUS_PX = 24f
+// The measure tool's line and readout (roadmap item 143).
+private val MEASURE_COLOR = Color(0xFF00897B)
+// Game objects' hitboxes and links, while editing (roadmap item 157).
+private val GAME_GUIDE_COLOR = Color(0xFF43A047)
+// A frame's layout grid bands (roadmap item 142): the frame colour, faint, so overlaps read darker.
+private val LAYOUT_GRID_COLOR = Color(0x1A7E57C2)
+// The shape builder's remove drag and the knife's cut line (roadmap item 141).
+private val SHAPE_CUT_COLOR = Color(0xFFE53935)
 // Widest a text box is laid out on screen; beyond this (deep zoom) the box is cropped to it.
 private const val MAX_TEXT_BOX_PX = 65536.0
 
@@ -1328,10 +1469,18 @@ private const val BONE_JOINT_RADIUS_PX = 6f
 
 private val GUIDE_COLOR = Color(0xFFE91E63)
 
-/** The shape-tool readout: a line or arrow's length, otherwise the box's width x height, rounded to whole units. */
-internal fun shapeDimensions(kind: ShapeKind, start: WorldPoint, end: WorldPoint): String {
+/**
+ * The shape-tool readout: a line or arrow's length, otherwise the box's width x height. Whole
+ * world units without a drawing scale; with one (roadmap item 143), three significant digits
+ * and the unit.
+ */
+internal fun shapeDimensions(kind: ShapeKind, start: WorldPoint, end: WorldPoint, drawingScale: DrawingScale? = null): String {
     val dx = abs(end.x - start.x)
     val dy = abs(end.y - start.y)
+    if (drawingScale != null) return when (kind) {
+        ShapeKind.LINE, ShapeKind.ARROW -> drawingScale.formatLength(kotlin.math.hypot(dx, dy))
+        else -> "${formatMeasure(dx * drawingScale.unitsPerWorld)} × ${drawingScale.formatLength(dy)}"
+    }
     return when (kind) {
         ShapeKind.LINE, ShapeKind.ARROW -> "%.0f".format(kotlin.math.hypot(dx, dy))
         else -> "%.0f × %.0f".format(dx, dy)
@@ -1500,10 +1649,21 @@ internal fun DrawScope.drawScene(
     // no longer exists is drawn with the bottom layer rather than disappearing.
     val layerIndex = state.layers.withIndex().associate { (index, layer) -> layer.id to index }
     // Only the current animation frame is drawn (outside animation everything is frame 0), plus
-    // the previous frame as a faint onion skin while editing an animation.
-    val onionFrame = if (state.animationMode && state.onionSkin && !state.playing && state.currentAnimFrame > 0) state.currentAnimFrame - 1 else null
-    // Only strokes near the view, from the spatial index - not a pass over the whole document.
-    val nearby = state.strokesNear(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)
+    // neighbouring frames as a faint onion skin while editing an animation: [onionBefore] before
+    // and [onionAfter] after, fainter the further they are, tinted red and blue when asked
+    // (roadmap item 145).
+    val onionFrames = if (state.animationMode && state.onionSkin && !state.playing) {
+        (1..state.onionBefore).map { state.currentAnimFrame - it to it } + (1..state.onionAfter).map { state.currentAnimFrame + it to it }
+    } else {
+        emptyList()
+    }.filter { (frame, _) -> frame in 0 until state.animFrameCount }
+    // Only strokes near the view, from the spatial index - not a pass over the whole document -
+    // plus, while a game plays (roadmap item 155), every object's strokes wherever they've gone.
+    val world = state.play
+    state.playRevision // redraw on each game step
+    val nearby = state.strokesNear(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y).let { near ->
+        if (world == null) near else (near + state.strokes.filter { world.instanceOf(it.groupId) != null }).distinct()
+    }
     // Replay draws the first replayCount strokes of the document, in drawing order.
     val replayedOrAll = state.replayCount?.let { count -> state.strokes.take(count).toHashSet().let { shown -> nearby.filter { it in shown } } } ?: nearby
     // Audio sync (roadmap item 130): ink the playing voice note hasn't reached yet is drawn
@@ -1511,13 +1671,26 @@ internal fun DrawScope.drawScene(
     val audio = state.audioReplay
     val ahead = if (audio == null) emptyList() else replayedOrAll.filter { audio.isAhead(it) }
     val replayed = if (ahead.isEmpty()) replayedOrAll else ahead.toHashSet().let { later -> replayedOrAll.filter { it !in later } }
-    val strokesByLayer = replayed.filter { it.animFrame == state.currentAnimFrame }.groupBy { layerIndex[it.layerId] ?: 0 }
+    // A playing object shows the frame its state's animation is on (roadmap item 158).
+    val strokesByLayer = replayed.filter { s ->
+        val shown = world?.instanceOf(s.groupId)?.frame ?: state.currentAnimFrame
+        s.animFrame == shown
+    }.groupBy { layerIndex[it.layerId] ?: 0 }
     // Offscreen bounds for a translucent layer: the square around the screen centre that covers
     // the screen at any canvas rotation.
     val halfDiagonal = hypot(size.width, size.height) / 2f
     val layerBounds = Rect(screenCenter - Offset(halfDiagonal, halfDiagonal), screenCenter + Offset(halfDiagonal, halfDiagonal))
-    if (onionFrame != null) {
-        drawContext.canvas.saveLayer(layerBounds, Paint().apply { alpha = ONION_SKIN_ALPHA })
+    // Furthest first, so nearer frames show over them.
+    for ((onionFrame, distance) in onionFrames.sortedByDescending { it.second }) {
+        val tint = when {
+            !state.onionTinted -> null
+            onionFrame < state.currentAnimFrame -> ONION_BEFORE_TINT
+            else -> ONION_AFTER_TINT
+        }
+        drawContext.canvas.saveLayer(layerBounds, Paint().apply {
+            alpha = ONION_SKIN_ALPHA / distance
+            if (tint != null) colorFilter = ColorFilter.tint(tint, BlendMode.SrcIn)
+        })
         for (stroke in nearby) {
             if (stroke.animFrame != onionFrame || stroke.points.isEmpty()) continue
             if (state.layers.firstOrNull { it.id == stroke.layerId }?.visible == false) continue
@@ -1551,57 +1724,74 @@ internal fun DrawScope.drawScene(
             return
         }
         val layerStrokes = strokesByLayer[index] ?: return
+        // One stroke where it's drawn; [culled] skips it when it's off screen (not for a playing
+        // object, which may have moved anywhere).
+        fun DrawScope.drawOne(stroke: Stroke, culled: Boolean) {
+            // Reading revision here (and only here) is what subscribes this draw phase to
+            // the stroke's mutations, so a redraw is triggered as each new point is added
+            // mid-stroke rather than waiting for an unrelated pan/zoom to happen to redraw.
+            stroke.revision
+            if (culled && !stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) return
+            val points = stroke.points
+            if (points.isEmpty()) return
+            // Level of detail: a stroke smaller than a pixel on screen (far zoomed out) is
+            // drawn as one dot, skipping the per-point transform and path building that
+            // dominate the cost of drawing thousands of distant strokes.
+            // Width counts too: a single-point dot has zero extent but can be large on screen.
+            val extentScreen = (maxOf(stroke.maxX - stroke.minX, stroke.maxY - stroke.minY) + stroke.widthWorld) * state.scale
+            if (extentScreen < 1.0) {
+                val center = state.worldToScreen(WorldPoint((stroke.minX + stroke.maxX) / 2.0, (stroke.minY + stroke.maxY) / 2.0), screenCenter)
+                drawCircle(color = stroke.color, radius = 0.5f, center = center)
+                return
+            }
+            // Points closer together than a pixel on screen add path-building cost but no
+            // visible detail, so only those at least MIN_POINT_SPACING_SCREEN apart are drawn;
+            // [source] maps each drawn point back to its index for pressure/tilt lookups.
+            val source = stroke.decimatedIndices(MIN_POINT_SPACING_SCREEN / state.scale)
+            val screenPoints = source.map { state.worldToScreen(points[it], screenCenter) }
+            if (stroke.filled) {
+                val path = Path()
+                path.moveTo(screenPoints[0].x, screenPoints[0].y)
+                for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
+                path.close()
+                if (stroke.screentone) {
+                    drawScreentone(path, stroke.color, screenPoints)
+                } else if (stroke.gradient != null) {
+                    val (start, end) = gradientEndpoints(screenPoints, stroke.gradient.angleDegrees)
+                    drawPath(path = path, brush = Brush.linearGradient(listOf(stroke.color, stroke.gradient.endColor), start = start, end = end))
+                } else if (stroke.fadeFill) {
+                    // Gradient spans the fill's own height on screen, so it zooms with the shape.
+                    val top = screenPoints.minOf { it.y }
+                    val bottom = screenPoints.maxOf { it.y }
+                    drawPath(
+                        path = path,
+                        brush = Brush.verticalGradient(listOf(stroke.color, stroke.color.copy(alpha = 0f)), startY = top, endY = bottom),
+                    )
+                } else {
+                    drawPath(path = path, color = stroke.color)
+                }
+                return
+            }
+            val rawWidthScreen = stroke.widthWorld * state.scale
+            if (!rawWidthScreen.isFinite()) return
+            val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
+            if (stroke.penType == PenType.PIXEL) drawPixelStroke(stroke, state, screenCenter)
+            else drawStroke(stroke, screenPoints, source, widthScreen, stroke.blendMode.toComposeBlendMode())
+        }
         for (stroke in layerStrokes) {
-                // Reading revision here (and only here) is what subscribes this draw phase to
-                // the stroke's mutations, so a redraw is triggered as each new point is added
-                // mid-stroke rather than waiting for an unrelated pan/zoom to happen to redraw.
-                stroke.revision
-                if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
-                val points = stroke.points
-                if (points.isEmpty()) continue
-                // Level of detail: a stroke smaller than a pixel on screen (far zoomed out) is
-                // drawn as one dot, skipping the per-point transform and path building that
-                // dominate the cost of drawing thousands of distant strokes.
-                // Width counts too: a single-point dot has zero extent but can be large on screen.
-                val extentScreen = (maxOf(stroke.maxX - stroke.minX, stroke.maxY - stroke.minY) + stroke.widthWorld) * state.scale
-                if (extentScreen < 1.0) {
-                    val center = state.worldToScreen(WorldPoint((stroke.minX + stroke.maxX) / 2.0, (stroke.minY + stroke.maxY) / 2.0), screenCenter)
-                    drawCircle(color = stroke.color, radius = 0.5f, center = center)
-                    continue
-                }
-                // Points closer together than a pixel on screen add path-building cost but no
-                // visible detail, so only those at least MIN_POINT_SPACING_SCREEN apart are drawn;
-                // [source] maps each drawn point back to its index for pressure/tilt lookups.
-                val source = stroke.decimatedIndices(MIN_POINT_SPACING_SCREEN / state.scale)
-                val screenPoints = source.map { state.worldToScreen(points[it], screenCenter) }
-                if (stroke.filled) {
-                    val path = Path()
-                    path.moveTo(screenPoints[0].x, screenPoints[0].y)
-                    for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
-                    path.close()
-                    if (stroke.screentone) {
-                        drawScreentone(path, stroke.color, screenPoints)
-                    } else if (stroke.gradient != null) {
-                        val (start, end) = gradientEndpoints(screenPoints, stroke.gradient.angleDegrees)
-                        drawPath(path = path, brush = Brush.linearGradient(listOf(stroke.color, stroke.gradient.endColor), start = start, end = end))
-                    } else if (stroke.fadeFill) {
-                        // Gradient spans the fill's own height on screen, so it zooms with the shape.
-                        val top = screenPoints.minOf { it.y }
-                        val bottom = screenPoints.maxOf { it.y }
-                        drawPath(
-                            path = path,
-                            brush = Brush.verticalGradient(listOf(stroke.color, stroke.color.copy(alpha = 0f)), startY = top, endY = bottom),
-                        )
-                    } else {
-                        drawPath(path = path, color = stroke.color)
-                    }
-                    continue
-                }
-                val rawWidthScreen = stroke.widthWorld * state.scale
-                if (!rawWidthScreen.isFinite()) continue
-                val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
-                if (stroke.penType == PenType.PIXEL) drawPixelStroke(stroke, state, screenCenter)
-                else drawStroke(stroke, screenPoints, source, widthScreen, stroke.blendMode.toComposeBlendMode())
+            // While a game plays (roadmap item 155), an object's strokes are drawn where it is now.
+            val playing = world?.instanceOf(stroke.groupId)
+            if (playing == null) {
+                drawOne(stroke, culled = true)
+                continue
+            }
+            if (!playing.visible || playing.removed) continue
+            val pivot = state.worldToScreen(playing.pivot, screenCenter)
+            withTransform({
+                translate(((playing.x + playing.swingX) * state.scale).toFloat(), ((playing.y + playing.swingY) * state.scale).toFloat())
+                rotate(playing.angle.toFloat(), pivot)
+                scale(playing.scale.toFloat(), playing.scale.toFloat(), pivot)
+            }) { drawOne(stroke, culled = false) }
         }
     }
 

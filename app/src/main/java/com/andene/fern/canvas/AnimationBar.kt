@@ -1,5 +1,10 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.AccountTree
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.automirrored.filled.Label
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -54,6 +59,12 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
     if (showSway) SwayDialog(state, onDismiss = { showSway = false })
     var showDopesheet by remember { mutableStateOf(false) }
     if (showDopesheet) DopesheetDialog(state, onDismiss = { showDopesheet = false })
+    var showBranches by remember { mutableStateOf(false) }
+    if (showBranches) BranchesDialog(state, onDismiss = { showBranches = false })
+    var showTags by remember { mutableStateOf(false) }
+    if (showTags) FrameTagsDialog(state, onDismiss = { showTags = false })
+    var showOnionSettings by remember { mutableStateOf(false) }
+    if (showOnionSettings) OnionSkinDialog(state, onDismiss = { showOnionSettings = false })
     var editingCurve by remember { mutableStateOf(false) }
     var blendingPose by remember { mutableStateOf(false) }
     if (blendingPose) BlendPoseDialog(state, onDismiss = { blendingPose = false })
@@ -97,7 +108,19 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
                     contentDescription = if (state.onionSkin) stringResource(R.string.anim_onion_on) else stringResource(R.string.anim_onion_off),
                 )
             }
-            IconButton(onClick = { state.playing = !state.playing }, enabled = state.animFrameCount > 1) {
+            IconButton(onClick = { showOnionSettings = true }) {
+                Icon(Icons.Filled.Tune, contentDescription = stringResource(R.string.onion_title))
+            }
+            // Frame tags (roadmap item 145): the current frame's tag, tap to manage them all.
+            val currentTag = state.frameTags.lastOrNull { state.currentAnimFrame in it }
+            TextButton(onClick = { showTags = true }) {
+                Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null, tint = currentTag?.let { Color(it.color) } ?: LocalContentColor.current)
+                Text(currentTag?.name ?: stringResource(R.string.tags_title), modifier = Modifier.padding(start = 4.dp))
+            }
+            IconButton(onClick = {
+                if (state.playing) state.playingTag = null
+                state.playing = !state.playing
+            }, enabled = state.animFrameCount > 1) {
                 Icon(
                     if (state.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     contentDescription = if (state.playing) stringResource(R.string.action_pause) else stringResource(R.string.action_play),
@@ -121,6 +144,10 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
                 IconButton(onClick = { showSway = true }) {
                     Icon(Icons.Filled.Animation, contentDescription = stringResource(R.string.sway_title))
                 }
+            }
+            // Branches (roadmap item 153): alternative takes of the animation.
+            IconButton(onClick = { showBranches = true }, enabled = !state.playing) {
+                Icon(Icons.Filled.AccountTree, contentDescription = stringResource(R.string.branches_title))
             }
             IconButton(onClick = { showXSheet = true }) {
                 Icon(Icons.Filled.TableRows, contentDescription = stringResource(R.string.xsheet_title))

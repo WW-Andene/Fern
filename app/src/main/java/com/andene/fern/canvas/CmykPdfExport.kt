@@ -2,9 +2,6 @@ package com.andene.fern.canvas
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import java.io.ByteArrayOutputStream
-import java.util.Locale
-import java.util.zip.Deflater
 
 /**
  * The document's strokes as a print-ready PDF in CMYK (roadmap item 102) - the platform's PDF
@@ -92,54 +89,4 @@ internal fun pdfName(name: String): String = buildString {
     }
 }
 
-/** A minimal PDF file builder: numbered objects, then a cross-reference table and trailer. */
-private class PdfWriter {
-    private val objects = ArrayList<ByteArray?>()
-
-    fun reserve(): Int {
-        objects.add(null)
-        return objects.size
-    }
-
-    fun set(number: Int, body: String) {
-        objects[number - 1] = body.toByteArray(Charsets.ISO_8859_1)
-    }
-
-    fun add(body: String): Int = add(body.toByteArray(Charsets.ISO_8859_1))
-
-    fun add(body: ByteArray): Int {
-        objects.add(body)
-        return objects.size
-    }
-
-    fun write(root: Int): ByteArray {
-        val out = ByteArrayOutputStream()
-        fun put(s: String) = out.write(s.toByteArray(Charsets.ISO_8859_1))
-        put("%PDF-1.4\n%âãÏÓ\n") // a binary comment marks the file as binary
-        val offsets = IntArray(objects.size)
-        for ((i, body) in objects.withIndex()) {
-            offsets[i] = out.size()
-            put("${i + 1} 0 obj\n")
-            out.write(body ?: error("PDF object ${i + 1} was never written"))
-            put("\nendobj\n")
-        }
-        val xref = out.size()
-        put("xref\n0 ${objects.size + 1}\n0000000000 65535 f \n")
-        for (offset in offsets) put(String.format(Locale.ROOT, "%010d 00000 n \n", offset))
-        put("trailer\n<< /Size ${objects.size + 1} /Root $root 0 R >>\nstartxref\n$xref\n%%EOF\n")
-        return out.toByteArray()
-    }
-}
-
-private fun deflate(bytes: ByteArray): ByteArray {
-    val deflater = Deflater(Deflater.BEST_COMPRESSION)
-    deflater.setInput(bytes)
-    deflater.finish()
-    val out = ByteArrayOutputStream()
-    val chunk = ByteArray(65536)
-    while (!deflater.finished()) out.write(chunk, 0, deflater.deflate(chunk))
-    deflater.end()
-    return out.toByteArray()
-}
-
-private fun n(value: Double): String = String.format(Locale.ROOT, "%.3f", value).trimEnd('0').trimEnd('.').let { if (it.isEmpty() || it == "-0") "0" else it }
+private fun n(value: Double): String = pdfNumber(value)

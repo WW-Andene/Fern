@@ -2,6 +2,10 @@
 
 package com.andene.fern
 
+import com.andene.fern.canvas.GameInputState
+import android.view.MotionEvent
+import android.view.KeyEvent
+import android.view.InputDevice
 import com.andene.fern.canvas.traceImage
 import com.andene.fern.canvas.TRACE_MAX_EDGE_PX
 import java.time.format.TextStyle as JavaTextStyle
@@ -82,6 +86,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.andene.fern.canvas.AnimationBar
+import com.andene.fern.canvas.PlayOverlay
 import com.andene.fern.canvas.AppSettings
 import com.andene.fern.canvas.AudioNotes
 import com.andene.fern.canvas.AudioNotesDialog
@@ -133,6 +138,13 @@ import com.andene.fern.canvas.exportDocumentDxf
 import com.andene.fern.canvas.exportDocumentExr
 import com.andene.fern.canvas.exportSlicesZip
 import com.andene.fern.canvas.exportDocumentEps
+import com.andene.fern.canvas.exportDocumentAi
+import com.andene.fern.canvas.embedVideo
+import com.andene.fern.canvas.decodeDownsampled
+import com.andene.fern.canvas.newModel
+import com.andene.fern.canvas.readObj
+import com.andene.fern.canvas.storeModel
+import com.andene.fern.canvas.readPdfVectors
 import com.andene.fern.canvas.exportReplayGif
 import com.andene.fern.canvas.StrokeChunkFile
 import com.andene.fern.canvas.SpineImport
@@ -176,30 +188,29 @@ private const val MAX_IMAGE_EDGE_PX = 2048
 // scale (512 + 256), which also takes in a portrait tablet.
 private const val WIDE_WINDOW_DP = 768
 
-/**
- * Decodes the image at [uri] no larger than [maxEdgePx] on its longest edge: first reads only
- * the size, decodes with the largest power-of-two subsampling that stays at or above the
- * target (cheap, done by the decoder), then scales the rest of the way exactly.
- */
-private fun decodeDownsampled(context: android.content.Context, uri: Uri, maxEdgePx: Int): Bitmap? {
-    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-    val longest = maxOf(bounds.outWidth, bounds.outHeight)
-    if (longest <= 0) return null
-    var sample = 1
-    while (longest / (sample * 2) >= maxEdgePx) sample *= 2
-    val decoded = context.contentResolver.openInputStream(uri)?.use {
-        BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
-    } ?: return null
-    val decodedLongest = maxOf(decoded.width, decoded.height)
-    if (decodedLongest <= maxEdgePx) return decoded
-    val factor = maxEdgePx.toFloat() / decodedLongest
-    return Bitmap.createScaledBitmap(decoded, (decoded.width * factor).toInt(), (decoded.height * factor).toInt(), true)
-        .also { if (it !== decoded) decoded.recycle() }
-}
-
 class MainActivity : ComponentActivity() {
     private val powerMonitor by lazy { PowerMonitor(applicationContext) }
+
+    // The playing game's input, for gamepad sticks, which reach only the activity (roadmap item 160).
+    private var playInput: GameInputState? = null
+
+    /**
+     * Gamepad sticks and hats while a game plays: the sticks' axes feed the input mapping; a hat
+     * (d-pad reported as axes) presses the d-pad keys, as most games expect.
+     */
+    override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+        val input = playInput
+        if (input == null || !event.isFromSource(InputDevice.SOURCE_JOYSTICK) || event.action != MotionEvent.ACTION_MOVE) return super.dispatchGenericMotionEvent(event)
+        input.axis(MotionEvent.AXIS_X, event.getAxisValue(MotionEvent.AXIS_X))
+        input.axis(MotionEvent.AXIS_Y, event.getAxisValue(MotionEvent.AXIS_Y))
+        val hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X)
+        val hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y)
+        input.key(KeyEvent.KEYCODE_DPAD_LEFT, hatX < -0.5f)
+        input.key(KeyEvent.KEYCODE_DPAD_RIGHT, hatX > 0.5f)
+        input.key(KeyEvent.KEYCODE_DPAD_UP, hatY < -0.5f)
+        input.key(KeyEvent.KEYCODE_DPAD_DOWN, hatY > 0.5f)
+        return true
+    }
 
     override fun onStart() {
         super.onStart()
@@ -302,6 +313,13 @@ class MainActivity : ComponentActivity() {
                             onLayerCompsChanged = { comps -> CanvasStorage.saveLayerComps(context, currentDocumentId, comps) },
                             onStatsChanged = { stats -> CanvasStorage.saveStats(context, currentDocumentId, stats) },
                             onGuidesChanged = { guides -> CanvasStorage.saveGuides(context, currentDocumentId, guides) },
+                            onDrawingScaleChanged = { scale -> CanvasStorage.saveDrawingScale(context, currentDocumentId, scale) },
+                            onGameObjectsChanged = { objects, settings -> CanvasStorage.saveGameObjects(context, currentDocumentId, objects, settings) },
+                            // Branch snapshots can be large: written off the main thread (roadmap item 153).
+                            onBranchesChanged = { branches, current ->
+                                val documentId = currentDocumentId
+                                coroutineScope.launch(Dispatchers.IO) { CanvasStorage.saveBranches(context, documentId, branches, current) }
+                            },
                             onSymbolInstancesChanged = { instances -> CanvasStorage.saveSymbolInstances(context, currentDocumentId, instances) },
                             onBonesChanged = { bones -> CanvasStorage.saveBones(context, currentDocumentId, bones) },
                             onAnimationSettingsChanged = { settings -> CanvasStorage.saveAnimationSettings(context, currentDocumentId, settings) },
@@ -434,6 +452,12 @@ class MainActivity : ComponentActivity() {
                     ) { uri ->
                         if (uri != null) writeExport(uri) { exportDocumentEps(canvasState)?.toByteArray() }
                     }
+                    // A PDF-compatible Illustrator file (roadmap item 103).
+                    val aiExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/illustrator"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportDocumentAi(canvasState) }
+                    }
                     val exrExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("image/x-exr"),
                     ) { uri ->
@@ -512,6 +536,22 @@ class MainActivity : ComponentActivity() {
                         contract = ActivityResultContracts.CreateDocument("application/x-krita"),
                     ) { uri ->
                         if (uri != null) writeExport(uri) { renderLayers(canvasState, textMeasurer, density, imageForExport)?.let(KraFormat::write) }
+                    }
+                    // A PDF or Illustrator file's paths as strokes (roadmap item 103).
+                    val vectorImportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocument(),
+                    ) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val pages = withContext(Dispatchers.IO) {
+                                runCatching {
+                                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
+                                    readPdfVectors(bytes)
+                                }.getOrNull()
+                            }
+                            val added = if (pages == null) 0 else canvasState.importVectorPages(pages)
+                            if (added == 0) Toast.makeText(context, context.getString(R.string.toast_bad_vectors), Toast.LENGTH_SHORT).show()
+                        }
                     }
                     // PSD, Krita or Procreate, told apart by their contents (roadmap item 95).
                     val layeredImportLauncher = rememberLauncherForActivityResult(
@@ -628,6 +668,43 @@ class MainActivity : ComponentActivity() {
                         val heightWorld = targetHeightScreen / scale
                         val position = WorldPoint(at.x - widthWorld / 2.0, at.y - heightWorld / 2.0)
                         canvasState.addImage(fileName, position, widthWorld, heightWorld)
+                    }
+
+                    // An OBJ model to paint in 3D (roadmap item 108).
+                    val objImportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocument(),
+                    ) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val stored = withContext(Dispatchers.Default) {
+                                runCatching {
+                                    val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+                                    text?.let(::readObj)?.let { mesh -> storeModel(context, newModel(mesh)) }
+                                }.getOrNull()
+                            }
+                            if (stored == null) Toast.makeText(context, context.getString(R.string.toast_bad_obj), Toast.LENGTH_SHORT).show()
+                            else canvasState.placeModel(stored)
+                        }
+                    }
+
+                    // Embedded video (roadmap item 107): copied in, shown by its first frame.
+                    val videoPickerLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocument(),
+                    ) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val video = withContext(Dispatchers.IO) { embedVideo(context, uri, MAX_IMAGE_EDGE_PX) }
+                            if (video == null) {
+                                Toast.makeText(context, context.getString(R.string.toast_bad_video), Toast.LENGTH_SHORT).show()
+                                return@launch
+                            }
+                            // Placed like a picked image: 300 screen px wide, centred on the view.
+                            val scale = canvasState.scale.coerceAtLeast(1e-300)
+                            val widthWorld = 300.0 / scale
+                            val heightWorld = widthWorld * video.heightPx / video.widthPx
+                            val at = canvasState.panWorld
+                            canvasState.addImage(video.posterFileName, WorldPoint(at.x - widthWorld / 2, at.y - heightWorld / 2), widthWorld, heightWorld, videoFileName = video.videoFileName)
+                        }
                     }
 
                     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -765,6 +842,9 @@ class MainActivity : ComponentActivity() {
                                     CanvasStorage.loadRasters(context, documentId, layers.filter { it.raster }.map { it.id } + layers.filter { it.masked }.map { maskIdOf(it.id) })
                                 },
                                 frames = CanvasStorage.loadFrames(context, documentId),
+                                drawingScale = CanvasStorage.loadDrawingScale(context, documentId),
+                                branches = CanvasStorage.loadBranches(context, documentId),
+                                gameObjects = CanvasStorage.loadGameObjects(context, documentId),
                                 history = CanvasStorage.loadHistory(context, documentId),
                                 texts = CanvasStorage.loadTextItems(context, documentId),
                                 connectors = CanvasStorage.loadConnectors(context, documentId),
@@ -787,6 +867,9 @@ class MainActivity : ComponentActivity() {
                         }
                         canvasState.loadStats(loaded.stats)
                         canvasState.loadGuides(loaded.guides)
+                        canvasState.loadDrawingScale(loaded.drawingScale)
+                        canvasState.loadBranches(loaded.branches.first, loaded.branches.second)
+                        canvasState.loadGameObjects(loaded.gameObjects.first, loaded.gameObjects.second)
                         canvasState.loadSymbolInstances(loaded.symbolInstances)
                         // Symbols redefined since this document was last open: catch its instances up.
                         if (loaded.symbolInstances.isNotEmpty()) {
@@ -1021,6 +1104,14 @@ class MainActivity : ComponentActivity() {
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(16.dp),
                             )
+                        } else if (canvasState.play != null) {
+                            val playing = canvasState.play
+                            DisposableEffect(playing) {
+                                playInput = playing?.input
+                                onDispose { playInput = null }
+                            }
+                            // The game playing (roadmap item 155): editing chrome hidden.
+                            PlayOverlay(canvasState)
                         } else {
                             Toolbar(
                                 state = canvasState,
@@ -1045,6 +1136,8 @@ class MainActivity : ComponentActivity() {
                                 onOpenSettings = { showSettings = true },
                                 onCopySelection = { copySelectionToClipboard() },
                                 onDragSelectionOut = { dragSelectionOut() },
+                                onInsertVideo = { videoPickerLauncher.launch(arrayOf("video/*")) },
+                                onImportObj = { objImportLauncher.launch(arrayOf("*/*")) },
                                 onTraceImage = { traceSelectedImage() },
                                 onPaste = { pasteFromClipboard() },
                                 onOpenAudioNotes = {
@@ -1063,6 +1156,7 @@ class MainActivity : ComponentActivity() {
                                 onExportPdf = { pdfExportLauncher.launch("${currentDocumentName()}.pdf") },
                                 onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
                                 onExportEps = { epsExportLauncher.launch("${currentDocumentName()}.eps") },
+                                onExportAi = { aiExportLauncher.launch("${currentDocumentName()}.ai") },
                                 onExportDxf = { dxfExportLauncher.launch("${currentDocumentName()}.dxf") },
                                 onExportCmykPdf = { cmykPdfExportLauncher.launch("${currentDocumentName()} CMYK.pdf") },
                                 onExportExr = { exrExportLauncher.launch("${currentDocumentName()}.exr") },
@@ -1104,6 +1198,7 @@ class MainActivity : ComponentActivity() {
                                 onImportPdf = { pdfImportLauncher.launch(arrayOf("application/pdf")) },
                                 onImportSpine = { spineImportLauncher.launch(arrayOf("application/json", "application/zip", "application/octet-stream")) },
                                 onImportLayered = { layeredImportLauncher.launch(arrayOf("*/*")) },
+                                onImportVectors = { vectorImportLauncher.launch(arrayOf("application/pdf", "application/illustrator", "application/postscript", "*/*")) },
                                 onExportPsd = { psdExportLauncher.launch("${currentDocumentName()}.psd") },
                                 onExportKra = { kraExportLauncher.launch("${currentDocumentName()}.kra") },
                                 onExportSpine = { spineExportLauncher.launch("${currentDocumentName()} (Spine).zip") },
@@ -1402,6 +1497,9 @@ class MainActivity : ComponentActivity() {
                                 slicesExportLauncher.launch("${currentDocumentName()} slices.zip")
                             },
                             onDelete = { frame -> canvasState.deleteFrame(frame.id) },
+                            onSetLayoutGrid = { frame, grid -> canvasState.setFrameLayoutGrid(frame.id, grid) },
+                            onResize = { frame, width, height -> canvasState.resizeFrame(frame.id, width, height) },
+                            drawingScale = canvasState.drawingScale,
                             onCreate = { name -> canvasState.addFrameFromView(name) },
                             onAddComicPage = {
                                 canvasState.insertComicPage()

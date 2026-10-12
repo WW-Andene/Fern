@@ -34,22 +34,48 @@ fun combineShapes(shapes: List<List<WorldPoint>>, op: ShapeOp, bridgeHoles: Bool
     val nonEmpty = shapes.filter { it.size >= 3 }
     if (nonEmpty.size < 2) return emptyList()
     val origin = nonEmpty[0][0]
-    fun pathOf(points: List<WorldPoint>) = Path().apply {
-        moveTo((points[0].x - origin.x).toFloat(), (points[0].y - origin.y).toFloat())
-        for (i in 1 until points.size) lineTo((points[i].x - origin.x).toFloat(), (points[i].y - origin.y).toFloat())
-        close()
-    }
-    val result = pathOf(nonEmpty[0])
-    for (shape in nonEmpty.drop(1)) result.op(pathOf(shape), op.pathOp)
-    val loops = contoursOf(result).map { loop -> loop.map { WorldPoint(it.first + origin.x, it.second + origin.y) } }.filter { it.size >= 3 }
+    val result = pathOf(nonEmpty[0], origin)
+    for (shape in nonEmpty.drop(1)) result.op(pathOf(shape, origin), op.pathOp)
+    return shapesOf(result, origin, bridgeHoles)
+}
+
+/** [points] as a closed platform path, relative to [origin] (see [combineShapes] on precision). */
+internal fun pathOf(points: List<WorldPoint>, origin: WorldPoint, close: Boolean = true) = Path().apply {
+    moveTo((points[0].x - origin.x).toFloat(), (points[0].y - origin.y).toFloat())
+    for (i in 1 until points.size) lineTo((points[i].x - origin.x).toFloat(), (points[i].y - origin.y).toFloat())
+    if (close) close()
+}
+
+/**
+ * The outlines of [path] (relative to [origin]) as world point loops, outer outlines first;
+ * holes bridged into their outline or returned as loops of their own, as in [combineShapes].
+ */
+internal fun shapesOf(path: Path, origin: WorldPoint, bridgeHoles: Boolean): List<List<WorldPoint>> {
+    val loops = contoursOf(path).map { loop -> loop.map { WorldPoint(it.first + origin.x, it.second + origin.y) } }.filter { it.size >= 3 }
     if (loops.isEmpty()) return emptyList()
     // A loop inside another is a hole of it (the platform returns holes with the opposite winding).
     val outers = loops.filter { loop -> loops.none { other -> other !== loop && abs(polygonArea(other)) > abs(polygonArea(loop)) && polygonContains(other, loop[0]) } }
     val holes = loops.filter { it !in outers }
     if (!bridgeHoles) return outers + holes
     return outers.map { outer ->
-        holes.filter { polygonContains(outer, it[0]) }.fold(outer) { joined, hole -> bridge(joined, hole) }
+        // A hole must wind against its outline for the non-zero fill to leave it empty; the
+        // platform usually returns it that way, but not always (an even-odd path's holes).
+        val outerSign = signedArea(outer) > 0
+        holes.filter { polygonContains(outer, it[0]) }
+            .map { hole -> if ((signedArea(hole) > 0) == outerSign) hole.reversed() else hole }
+            .fold(outer) { joined, hole -> bridge(joined, hole) }
     }
+}
+
+/** Twice the signed area of the polygon [points] (shoelace): its sign tells the winding direction. */
+private fun signedArea(points: List<WorldPoint>): Double {
+    var sum = 0.0
+    var j = points.size - 1
+    for (i in points.indices) {
+        sum += (points[j].x - points[i].x) * (points[j].y + points[i].y)
+        j = i
+    }
+    return sum
 }
 
 /** The point loops of [path], flattened ([Path.approximate]); a new loop starts where the fraction repeats. */

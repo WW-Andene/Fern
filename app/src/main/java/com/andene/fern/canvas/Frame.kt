@@ -10,4 +10,6 @@ data class Frame(
     val name: String,
     val min: WorldPoint,
     val max: WorldPoint,
+    /** Columns and rows laid over the frame (roadmap item 142); null for none. */
+    val layoutGrid: LayoutGrid? = null,
 )

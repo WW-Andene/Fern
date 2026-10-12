@@ -11,7 +11,7 @@ import kotlin.math.sign
 import kotlin.math.sin
 
 /** The shape a [Tool.SHAPE] drag commits, as regular stroke points - see [generateShapePoints]. */
-enum class ShapeKind { LINE, RECTANGLE, ELLIPSE, ARROW, SPEECH_BUBBLE }
+enum class ShapeKind { LINE, RECTANGLE, ELLIPSE, ARROW, SPEECH_BUBBLE, THOUGHT_BUBBLE, SHOUT_BUBBLE }
 
 private const val ELLIPSE_SEGMENTS = 48
 private const val ANGLE_SNAP_STEP_DEGREES = 15.0
@@ -49,7 +49,7 @@ private fun snapAspect(start: WorldPoint, end: WorldPoint): WorldPoint {
 /** The actual end point to use for [kind]'s live preview/final commit, after any relevant snapping. */
 fun snappedShapeEnd(kind: ShapeKind, start: WorldPoint, end: WorldPoint): WorldPoint = when (kind) {
     ShapeKind.LINE, ShapeKind.ARROW -> snapLineEnd(start, end)
-    ShapeKind.RECTANGLE, ShapeKind.ELLIPSE, ShapeKind.SPEECH_BUBBLE -> snapAspect(start, end)
+    ShapeKind.RECTANGLE, ShapeKind.ELLIPSE, ShapeKind.SPEECH_BUBBLE, ShapeKind.THOUGHT_BUBBLE, ShapeKind.SHOUT_BUBBLE -> snapAspect(start, end)
 }
 
 /**
@@ -105,6 +105,10 @@ fun generateShapePoints(kind: ShapeKind, start: WorldPoint, end: WorldPoint): Li
         before + withSharpCorners(listOf(before.last(), onEllipse(tailStart), tip, onEllipse(tailEnd), after.first())).drop(1).dropLast(1) + after
     }
 
+    // Comic balloons (roadmap item 105); a thought balloon's trailing circles are [shapeExtras].
+    ShapeKind.THOUGHT_BUBBLE -> thoughtCloudPoints(start, end)
+    ShapeKind.SHOUT_BUBBLE -> shoutBurstPoints(start, end)
+
     ShapeKind.ARROW -> {
         val dx = end.x - start.x
         val dy = end.y - start.y
@@ -120,6 +124,16 @@ fun generateShapePoints(kind: ShapeKind, start: WorldPoint, end: WorldPoint): Li
         val rightWing = rotatedOffset(end, -ux, -uy, -headAngle, headLength)
         withSharpCorners(listOf(start, end, leftWing, end, rightWing))
     }
+}
+
+/**
+ * Further outlines a shape is drawn with besides its main one (roadmap item 105): a thought
+ * balloon's trailing circles. Empty for every other shape. They are committed as their own
+ * strokes, grouped with the main one.
+ */
+fun shapeExtras(kind: ShapeKind, start: WorldPoint, end: WorldPoint): List<List<WorldPoint>> = when (kind) {
+    ShapeKind.THOUGHT_BUBBLE -> thoughtTrail(start, end)
+    else -> emptyList()
 }
 
 /**

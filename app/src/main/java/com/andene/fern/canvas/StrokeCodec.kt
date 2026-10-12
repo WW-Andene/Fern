@@ -28,6 +28,7 @@ import java.io.IOException
  *   [if FLAG2_STYLE: byte packed line style (LineStyle.pack)]            (version 5+)
  *   [if FLAG2_TIP_MASK: short mask size, then size x size coverage bytes] (version 6+)
  *   [if FLAG2_TIME: long drawn-at time, epoch milliseconds]              (version 8+)
+ *   [if FLAG2_CONSTRAINTS: byte packed constraints (LayoutConstraints.pack)] (version 9+)
  *   [if FLAG2_WEIGHTS: after the points, one float joint weight per point] (version 7+)
  *   int point count
  *   per point: double x, double y [, float pressure, float tilt, float orientation]
@@ -50,8 +51,9 @@ object StrokeCodec {
      * 6: optional image-tip picture for a stamp brush ([FLAG2_TIP_MASK]).
      * 7: optional painted joint weights ([FLAG2_WEIGHTS]).
      * 8: optional time the stroke was drawn ([FLAG2_TIME]).
+     * 9: optional frame constraints ([FLAG2_CONSTRAINTS]).
      */
-    const val VERSION = 8
+    const val VERSION = 9
 
     private const val FLAG_FILLED = 1
     private const val FLAG_DASHED = 2
@@ -68,6 +70,7 @@ object StrokeCodec {
     private const val FLAG2_TIP_MASK = 4
     private const val FLAG2_WEIGHTS = 8
     private const val FLAG2_TIME = 16
+    private const val FLAG2_CONSTRAINTS = 32
     // Guards against a corrupt size allocating a huge array; real masks are TIP_MASK_SIZE.
     private const val MAX_TIP_MASK_SIZE = 512
 
@@ -116,7 +119,7 @@ object StrokeCodec {
             out.writeByte(
                 (if (boneId != null) FLAG2_BONE else 0) or (if (lineStyle != null) FLAG2_STYLE else 0) or
                     (if (mask != null) FLAG2_TIP_MASK else 0) or (if (weights != null) FLAG2_WEIGHTS else 0) or
-                    (if (stroke.drawnAt != 0L) FLAG2_TIME else 0),
+                    (if (stroke.drawnAt != 0L) FLAG2_TIME else 0) or (if (stroke.constraints != null) FLAG2_CONSTRAINTS else 0),
             )
             if (brush != null) {
                 out.writeShort(nameIndex(brush.tip.name))
@@ -138,6 +141,7 @@ object StrokeCodec {
                 out.write(mask.alpha)
             }
             if (stroke.drawnAt != 0L) out.writeLong(stroke.drawnAt)
+            stroke.constraints?.let { out.writeByte(it.pack()) }
             val points = stroke.points
             out.writeInt(points.size)
             for (i in points.indices) {
@@ -204,6 +208,7 @@ object StrokeCodec {
                 null
             }
             val drawnAt = if ((flags2 and FLAG2_TIME) != 0) input.readLong() else 0L
+            val constraints = if ((flags2 and FLAG2_CONSTRAINTS) != 0) LayoutConstraints.unpack(input.readUnsignedByte()) else null
             val stroke = Stroke(
                 color, width, penType,
                 filled = (flags and FLAG_FILLED) != 0,
@@ -227,6 +232,7 @@ object StrokeCodec {
             }
             if ((flags2 and FLAG2_WEIGHTS) != 0) stroke.setJointWeights(FloatArray(stroke.points.size) { input.readFloat() })
             if (drawnAt != 0L) stroke.setDrawnAt(drawnAt)
+            if (constraints != null) stroke.setConstraints(constraints)
             strokes.add(stroke)
         }
         return strokes
