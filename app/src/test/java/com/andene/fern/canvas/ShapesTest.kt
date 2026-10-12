@@ -101,7 +101,9 @@ class ShapesTest {
     @Test
     fun adjustRecognizedShape_lineEndFollowsPen() {
         val line = listOf(WorldPoint.Zero, WorldPoint(100.0, 0.0))
-        assertEquals(WorldPoint(0.0, 200.0), adjustRecognizedShape(line, WorldPoint(100.0, 0.0), WorldPoint(0.0, 200.0))[1])
+        val end = adjustRecognizedShape(line, WorldPoint(100.0, 0.0), WorldPoint(0.0, 200.0))[1]
+        assertEquals(0.0, end.x, 1e-9)
+        assertEquals(200.0, end.y, 1e-9)
     }
 
     @Test

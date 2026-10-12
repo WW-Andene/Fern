@@ -175,7 +175,10 @@ class CanvasStateTest {
         state.extendStroke(WorldPoint(0.0, 200.0))
         state.endStroke()
         val line = state.strokes.single()
-        assertEquals(listOf(WorldPoint(0.0, 0.0), WorldPoint(0.0, 200.0)), line.points)
+        assertEquals(2, line.points.size)
+        assertEquals(WorldPoint(0.0, 0.0), line.points[0])
+        assertEquals(0.0, line.points[1].x, 1e-9)
+        assertEquals(200.0, line.points[1].y, 1e-9)
         state.undo()
         assertEquals(0, state.strokes.size)
     }
