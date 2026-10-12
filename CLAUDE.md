@@ -302,3 +302,7 @@ Standardization · coherency · consistency · pixel-accurate precision · symme
 ## 8. Project-Specific Standards
 
 Use this section to record any reference proportions, component precedents, or exceptions unique to this project (e.g. header/navbar reference dimensions, known off-scale tokens not yet fixed, other standing exceptions). Keep such content isolated here so it stays easy to identify and to strip out when reusing this document as a template for a different project.
+
+### 8.1 No external platforms (standing decision by the project owner)
+
+Fern stays fully on-device for now. Do not add anything that depends on an external platform or service: Firebase, Google Play Services, ML Kit, cloud backends, accounts, analytics or telemetry, or any library that pulls these in transitively. Features that need them (handwriting recognition via ML Kit, sync, collaboration, cloud backup, generative AI) are deferred until the owner says otherwise. Plain AndroidX/Jetpack libraries that run entirely on the device are fine.
