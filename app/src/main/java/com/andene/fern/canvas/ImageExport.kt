@@ -353,6 +353,28 @@ private fun exportBounds(state: CanvasState): Pair<WorldPoint, WorldPoint>? {
         include(item.position.x, item.position.y)
         include(item.position.x + item.fontSizeWorld * item.text.length, item.position.y + item.fontSizeWorld * 1.5)
     }
+    // Raster layers' paint, to the pixel (a tile is mostly empty around a small mark).
+    for (layer in state.layers) {
+        if (!layer.raster) continue
+        val surface = state.rasters[layer.id] ?: continue
+        for ((key, tile) in surface.tiles) {
+            var x0 = RASTER_TILE; var y0 = RASTER_TILE; var x1 = -1; var y1 = -1
+            for (i in 0 until RASTER_TILE * RASTER_TILE) {
+                if (tile.data[i * 4 + 3].toInt() == 0) continue
+                val x = i % RASTER_TILE
+                val y = i / RASTER_TILE
+                if (x < x0) x0 = x
+                if (x > x1) x1 = x
+                if (y < y0) y0 = y
+                if (y > y1) y1 = y
+            }
+            if (x1 < 0) continue
+            val baseX = RasterSurface.tileX(key) * RASTER_TILE
+            val baseY = RasterSurface.tileY(key) * RASTER_TILE
+            surface.worldOf((baseX + x0).toDouble(), (baseY + y0).toDouble()).let { include(it.x, it.y) }
+            surface.worldOf((baseX + x1 + 1).toDouble(), (baseY + y1 + 1).toDouble()).let { include(it.x, it.y) }
+        }
+    }
     if (minX > maxX) return null
     return WorldPoint(minX, minY) to WorldPoint(maxX, maxY)
 }
