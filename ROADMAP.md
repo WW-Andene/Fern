@@ -82,7 +82,6 @@ Goal: anything drawn can be rearranged later.
 - [x] 44. Smooth and straighten selected strokes; node editing (drag a stroke's nodes; freehand strokes bend smoothly between nodes)
 - [x] 45. Frames/artboards: named, navigable, exportable, presentable
 - [x] 46. Links between canvas regions and documents — a text label can link to a named pin or another document (underlined; "Follow link" in its dialog)
-- [~] 47. Search text labels and jump to them; handwriting search ⏸ (needs item 67)
 
 ## Phase 5 — Performance at scale
 
@@ -183,7 +182,6 @@ All deferred: they need a server or cloud platform.
 - [ ] 112. Marketplace ⏸ (hosted service)
 - [ ] 113. Community gallery and live-streaming ⏸ (hosted service)
 - [ ] 114. Team workspaces ⏸
-- [ ] 115. iOS, Windows, macOS and web versions (separate apps, outside this Android project)
 
 ## Competitor parity additions (116–148)
 
@@ -224,7 +222,7 @@ Concepts, GoodNotes, Notability, Infinite Painter, Aseprite, Spine and Affinity 
 | 145 | Red/blue onion skin, frame tags, RotSprite | Aseprite | 12 | done: onion skin of up to 4 frames before and after, fading with distance, optionally tinted red (before) and blue (after); frame tags (named ranges with colour and direction: forward, reverse, ping-pong) that follow inserted and deleted frames, play on their own, are saved and go into the sprite atlas JSON as Aseprite frameTags; raster pixels turned with RotSprite (Scale2x x3, then nearest) or nearest-neighbour |
 | 146 | 3D hands/heads, hand pose scanner | Clip Studio | 12 | done: a posable 3D hand (left or right; seven ready poses; curl and spread per finger, thumb across the palm) and a 3D head with Loomis construction lines, both turned with the 3D view and paintable; a hand pose scanner (MediaPipe hand landmarker, on the device) that poses the hand from a camera shot or photo. The scanner isn't verified on a device here (its landmark-to-pose step is tested); it adds ~25 MB to the APK |
 | 147 | 3D texture maps, lighting, AR export | Procreate | 12 | done: colour, roughness and metallic maps painted on models (item 108), exported as PNGs, a colour texture imported from a picture; a light with direction, height, strength, colour (white, warm, cool, sunset), ambient light and exposure; export for AR and 3D apps as glTF binary (.glb) and USDZ (text USD, 64-byte aligned), 30 cm across. Neither export has been opened in an AR viewer here |
-| 148 | Command-line batch interface | Aseprite | 13 | not started |
+| 148 | Command-line batch interface | Aseprite | 13 | not a priority (see Non prioritaire) |
 
 ## Phase 14 — Co-creation: animate, rig and build logic together
 
@@ -251,5 +249,14 @@ Shared, multiplayer parts need a server and are deferred ⏸; single-player part
 - [ ] 162. Online multiplayer play ⏸
 - [ ] 163. AI logic assistant ⏸
 - [x] 164. Text scripting (sandboxed) — one language, step-limited, no file or network access, with variables, arithmetic, texts, `if`/`else`, `while`, `repeat`, procedures (recursion depth-limited) and maths functions; used by drawing scripts (turtle graphics, ⋮ menu) and by object scripts that run every step of the game, reading the object, input, contacts and properties and moving, showing, removing, scoring and switching states. A script that fails during play stops and shows its line on screen
-- [ ] 165. Publishing (link, gallery, Android/web export)
-- [ ] 166. Moderation and safety for shared content
+
+## Non prioritaire
+
+What is left of the roadmap that can be built without an external platform, set aside by the
+project owner: not to be started unless asked. Numbers are kept from the phase each item came from.
+
+- [~] 47. Search text labels and jump to them; handwriting search ⏸ (needs item 67) — from Phase 4
+- [ ] 148. Command-line batch interface (competitor parity, Aseprite)
+- [ ] 115. iOS, Windows, macOS and web versions (separate apps, outside this Android project) — from Phase 13
+- [ ] 165. Publishing (link, gallery, Android/web export) — from Phase 14
+- [ ] 166. Moderation and safety for shared content — from Phase 14
