@@ -345,6 +345,6 @@
     <string name="xsheet_title">Feuille d\'exposition (durée des images)</string>
     <string name="xsheet_frame">Image %1$d</string>
     <string name="xsheet_hold">×%1$d</string>
-    <string name="xsheet_shorter">Tenir l\'image %1$d moins longtemps</string>
-    <string name="xsheet_longer">Tenir l\'image %1$d plus longtemps</string>
+    <string name="xsheet_shorter">Tenue plus courte, image %1$d</string>
+    <string name="xsheet_longer">Tenue plus longue, image %1$d</string>
 </resources>

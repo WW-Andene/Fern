@@ -343,6 +343,6 @@
     <string name="xsheet_title">Exposure sheet (frame timing)</string>
     <string name="xsheet_frame">Frame %1$d</string>
     <string name="xsheet_hold">×%1$d</string>
-    <string name="xsheet_shorter">Hold frame %1$d for less</string>
-    <string name="xsheet_longer">Hold frame %1$d for longer</string>
+    <string name="xsheet_shorter">Shorter hold, frame %1$d</string>
+    <string name="xsheet_longer">Longer hold, frame %1$d</string>
 </resources>
