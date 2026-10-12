@@ -1,5 +1,9 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernColors
+
+import com.andene.fern.FernType
+
 import com.andene.fern.R
 import android.graphics.BitmapFactory
 import android.view.MotionEvent
@@ -53,6 +57,9 @@ import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
@@ -65,7 +72,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.sp
 import androidx.input.motionprediction.MotionEventPredictor
 import kotlinx.coroutines.delay
 import kotlin.math.PI
@@ -145,6 +151,12 @@ fun DrawingCanvas(
             // Screen readers otherwise announce nothing for the drawing surface.
             .semantics {
                 contentDescription = context.resources.getQuantityString(R.plurals.canvas_description, state.strokes.size, state.strokes.size)
+                // The tool, zoom and selection, announced as they change (design roadmap D4).
+                stateDescription = context.resources.getQuantityString(
+                    R.plurals.canvas_state, state.selection.size,
+                    context.getString(toolName(state.activeTool)), (state.scale * 100).roundToInt(), state.selection.size,
+                )
+                liveRegion = LiveRegionMode.Polite
             }
             .pointerInteropFilter { event ->
                 if (event.pointerCount > 0) {
@@ -550,7 +562,7 @@ fun DrawingCanvas(
                     textMeasurer = textMeasurer,
                     text = frame.name,
                     topLeft = Offset(a.x, a.y - 24f),
-                    style = TextStyle(color = FRAME_COLOR, fontSize = 12.sp),
+                    style = TextStyle(color = FRAME_COLOR, fontSize = FernType.caption),
                 )
             }
 
@@ -753,7 +765,7 @@ fun DrawingCanvas(
                 // Dimensions (roadmap item 99): the line's length, or the box's width x height,
                 // in world units, beside the finger.
                 val label = shapeDimensions(state.activeShapeKind, start, end, state.drawingScale)
-                val layout = textMeasurer.measure(label, TextStyle(color = Color.White, fontSize = 12.sp))
+                val layout = textMeasurer.measure(label, TextStyle(color = FernColors.current.onScrim, fontSize = FernType.caption))
                 val at = state.worldToScreen(end, screenCenter) + Offset(16f, 16f)
                 drawRect(MARQUEE_BORDER_COLOR, topLeft = at - Offset(4f, 2f), size = Size(layout.size.width + 8f, layout.size.height + 4f))
                 drawText(layout, topLeft = at)
@@ -784,7 +796,7 @@ fun DrawingCanvas(
                     else scaleOf.formatLength(measured.length)
                     at = screen.reduce { acc, p -> acc + p } / screen.size.toFloat()
                 }
-                val layout = textMeasurer.measure(label, TextStyle(color = Color.White, fontSize = 12.sp))
+                val layout = textMeasurer.measure(label, TextStyle(color = FernColors.current.onScrim, fontSize = FernType.caption))
                 drawRect(MEASURE_COLOR, topLeft = at - Offset(4f, 2f), size = Size(layout.size.width + 8f, layout.size.height + 4f))
                 drawText(layout, topLeft = at)
             }
@@ -1439,35 +1451,35 @@ private fun selectionHandles(state: CanvasState, screenCenter: Offset): Selectio
 private const val HANDLE_HIT_RADIUS_SCREEN = 16f
 private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
-private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
-private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
+private val SELECTION_HIGHLIGHT_COLOR: Color get() = FernColors.current.selection
+private val MARQUEE_BORDER_COLOR: Color get() = FernColors.current.selection
 // Aseprite's onion skin colours (roadmap item 145): earlier frames red, later ones blue.
-private val ONION_BEFORE_TINT = Color(0xFFE53935)
-private val ONION_AFTER_TINT = Color(0xFF1E88E5)
+private val ONION_BEFORE_TINT: Color get() = FernColors.current.before
+private val ONION_AFTER_TINT: Color get() = FernColors.current.after
 // The play badge on an embedded video (roadmap item 107).
-private val VIDEO_BADGE_COLOR = Color(0x99000000)
+private val VIDEO_BADGE_COLOR: Color get() = FernColors.current.scrim
 private const val VIDEO_BADGE_RADIUS_PX = 24f
 // The measure tool's line and readout (roadmap item 143).
-private val MEASURE_COLOR = Color(0xFF00897B)
+private val MEASURE_COLOR: Color get() = FernColors.current.measure
 // Game objects' hitboxes and links, while editing (roadmap item 157).
-private val GAME_GUIDE_COLOR = Color(0xFF43A047)
+private val GAME_GUIDE_COLOR: Color get() = FernColors.current.game
 // A frame's layout grid bands (roadmap item 142): the frame colour, faint, so overlaps read darker.
-private val LAYOUT_GRID_COLOR = Color(0x1A7E57C2)
+private val LAYOUT_GRID_COLOR: Color get() = FernColors.current.frame.copy(alpha = 0.1f)
 // The shape builder's remove drag and the knife's cut line (roadmap item 141).
-private val SHAPE_CUT_COLOR = Color(0xFFE53935)
+private val SHAPE_CUT_COLOR: Color get() = FernColors.current.danger
 // Widest a text box is laid out on screen; beyond this (deep zoom) the box is cropped to it.
 private const val MAX_TEXT_BOX_PX = 65536.0
 
-private val CONNECTOR_COLOR = Color(0xFF455A64)
+private val CONNECTOR_COLOR: Color get() = FernColors.current.neutral
 
 /** A connector arrow from [a] to [b] in screen space: a 2 px line and an arrowhead at [b]. */
 // Bone overlay: a tapered wedge from joint to tail, with a ring on the joint (sizes in px on the §7 scale).
-private val BONE_COLOR = Color(0xCC5E35B1)
-private val SELECTED_BONE_COLOR = Color(0xFFFF6F00)
+private val BONE_COLOR: Color get() = FernColors.current.construction.copy(alpha = 0.8f)
+private val SELECTED_BONE_COLOR: Color get() = FernColors.current.active
 private const val BONE_HALF_WIDTH_PX = 6f
 private const val BONE_JOINT_RADIUS_PX = 6f
 
-private val GUIDE_COLOR = Color(0xFFE91E63)
+private val GUIDE_COLOR: Color get() = FernColors.current.guide
 
 /**
  * The shape-tool readout: a line or arrow's length, otherwise the box's width x height. Whole
@@ -1532,7 +1544,7 @@ private val STICKY_NOTE_COLOR = Color(0xFFFFF59D)
 private const val ONION_SKIN_ALPHA = 0.25f
 private const val AUDIO_AHEAD_ALPHA = 0.2f
 private const val SELECTION_MASK_ALPHA = 0.35f
-private val SELECTION_MASK_TINT = Color(0xFFE53935)
+private val SELECTION_MASK_TINT: Color get() = FernColors.current.danger
 private const val MAX_SCREEN_FILTER_PX = 256 // a filter layer's reach on screen, zoomed in far
 
 private fun premultiply(c: Int): Int {
@@ -1567,16 +1579,16 @@ private const val MULTI_FINGER_TAP_MAX_MILLIS = 250L
 private const val MULTI_FINGER_TAP_SLOP_PX = 24f // on the §7 scale
 
 // Translucent teal so the axes guide without competing with the drawing.
-private val SYMMETRY_COLOR = Color(0x6600897B)
-private val PERSPECTIVE_RAY_COLOR = Color(0x335E35B1)
-private val PERSPECTIVE_HORIZON_COLOR = Color(0x995E35B1)
+private val SYMMETRY_COLOR: Color get() = FernColors.current.measure.copy(alpha = 0.4f)
+private val PERSPECTIVE_RAY_COLOR: Color get() = FernColors.current.construction.copy(alpha = 0.2f)
+private val PERSPECTIVE_HORIZON_COLOR: Color get() = FernColors.current.construction.copy(alpha = 0.6f)
 // One ray every 15 degrees.
 private const val PERSPECTIVE_RAYS = 24
 // Muted purple, distinct from the blue selection/marquee colours.
-private val FRAME_COLOR = Color(0xFF7E57C2)
-private val MARQUEE_FILL_COLOR = Color(0x1A1E88E5)
-private val HANDLE_COLOR = Color(0xFF1E88E5)
-private val RULER_COLOR = Color(0xFFFB8C00)
+private val FRAME_COLOR: Color get() = FernColors.current.frame
+private val MARQUEE_FILL_COLOR: Color get() = FernColors.current.selection.copy(alpha = 0.1f)
+private val HANDLE_COLOR: Color get() = FernColors.current.selection
+private val RULER_COLOR: Color get() = FernColors.current.active
 
 private enum class Mode { NONE, DRAW, NAVIGATE }
 private enum class SelectionGestureKind { SCALE, ROTATE, OTHER }
@@ -1950,7 +1962,22 @@ private fun DrawScope.drawTextOnPath(layout: TextLayoutResult, path: List<Offset
 }
 
 // Weight-painting overlay colours: automatic, following the parent (0), following the bone (1).
-private val WEIGHT_AUTO_COLOR = Color(0xFF9E9E9E)
-private val WEIGHT_PARENT_COLOR = Color(0xFF1E88E5)
-private val WEIGHT_BONE_COLOR = Color(0xFFE53935)
+private val WEIGHT_AUTO_COLOR: Color get() = FernColors.current.neutral
+private val WEIGHT_PARENT_COLOR: Color get() = FernColors.current.selection
+private val WEIGHT_BONE_COLOR: Color get() = FernColors.current.danger
 
+/** The spoken name of [tool] (design roadmap D4). */
+internal fun toolName(tool: Tool): Int = when (tool) {
+    Tool.PEN -> R.string.tool_name_pen
+    Tool.ERASER -> R.string.tool_name_eraser
+    Tool.SELECT -> R.string.tool_name_select
+    Tool.SHAPE -> R.string.tool_name_shape
+    Tool.FILL -> R.string.tool_name_fill
+    Tool.TEXT -> R.string.tool_name_text
+    Tool.RULER -> R.string.tool_name_ruler
+    Tool.EYEDROPPER -> R.string.tool_name_eyedropper
+    Tool.CONNECT -> R.string.tool_name_connect
+    Tool.BONE -> R.string.tool_name_bone
+    Tool.BEZIER -> R.string.tool_name_bezier
+    Tool.MEASURE -> R.string.tool_name_measure
+}

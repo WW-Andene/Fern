@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
@@ -14,7 +16,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import java.text.DateFormat
 import java.util.Date
 
@@ -35,7 +36,7 @@ fun VersionsDialog(
         text = {
             Column(
                 modifier = Modifier
-                    .heightIn(max = 384.dp)
+                    .heightIn(max = FernScale.s384)
                     .verticalScroll(rememberScrollState()),
             ) {
                 if (versions.isEmpty()) {
@@ -47,7 +48,7 @@ fun VersionsDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onRestore(timestamp) }
-                            .padding(vertical = 12.dp),
+                            .padding(vertical = FernScale.s12),
                     )
                 }
             }

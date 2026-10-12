@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,7 +31,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 
 /**
@@ -47,7 +48,7 @@ fun StateMachineDialog(state: CanvasState, objectId: String, onDismiss: () -> Un
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.states_title)) },
         text = {
-            Column(Modifier.heightIn(max = 512.dp).verticalScroll(rememberScrollState())) {
+            Column(Modifier.heightIn(max = FernScale.s512).verticalScroll(rememberScrollState())) {
                 for ((i, s) in machine.states.withIndex()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(selected = machine.initial == s.name, onClick = { save(machine.copy(initial = s.name)) })
@@ -60,7 +61,7 @@ fun StateMachineDialog(state: CanvasState, objectId: String, onDismiss: () -> Un
                         Choice(s.tag ?: stringResource(R.string.states_no_tag), listOf(null) + state.frameTags.map { it.name }, { it ?: "—" }) { tag ->
                             save(machine.copy(states = machine.states.mapIndexed { k, x -> if (k == i) x.copy(tag = tag) else x }))
                         }
-                        Text(stringResource(R.string.states_loop), modifier = Modifier.padding(start = 8.dp))
+                        Text(stringResource(R.string.states_loop), modifier = Modifier.padding(start = FernScale.s8))
                         Switch(checked = s.loop, onCheckedChange = { loop -> save(machine.copy(states = machine.states.mapIndexed { k, x -> if (k == i) x.copy(loop = loop) else x })) })
                     }
                 }
@@ -71,7 +72,7 @@ fun StateMachineDialog(state: CanvasState, objectId: String, onDismiss: () -> Un
                         newState = ""
                     }, enabled = newState.isNotBlank() && machine.states.none { it.name == newState.trim() }) { Text(stringResource(R.string.object_add)) }
                 }
-                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(Modifier.padding(vertical = FernScale.s8))
                 Text(stringResource(R.string.states_transitions), style = MaterialTheme.typography.titleSmall)
                 val names = machine.states.map { it.name }
                 for ((i, t) in machine.transitions.withIndex()) {

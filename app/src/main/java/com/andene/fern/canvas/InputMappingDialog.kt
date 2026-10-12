@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import android.view.KeyEvent
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
@@ -42,7 +44,6 @@ import androidx.compose.ui.input.key.nativeKeyCode
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 
 /**
@@ -67,7 +68,7 @@ fun InputMappingDialog(state: CanvasState, onDismiss: () -> Unit) {
         text = {
             Column(
                 Modifier
-                    .heightIn(max = 512.dp)
+                    .heightIn(max = FernScale.s512)
                     .verticalScroll(rememberScrollState())
                     .focusRequester(focus)
                     .focusable()
@@ -94,7 +95,7 @@ fun InputMappingDialog(state: CanvasState, onDismiss: () -> Unit) {
                                 onClick = { bindingsOf(index) { it - binding } },
                                 label = { Text(bindingLabel(binding)) },
                                 trailingIcon = { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.controls_remove_binding)) },
-                                modifier = Modifier.padding(end = 4.dp),
+                                modifier = Modifier.padding(end = FernScale.s4),
                             )
                         }
                     }

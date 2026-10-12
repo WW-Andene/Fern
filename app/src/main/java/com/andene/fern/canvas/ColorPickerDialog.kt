@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -36,7 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.unit.dp
 
 /**
  * A full HSV + hex color picker, covering the whole color space rather than a fixed swatch
@@ -91,12 +93,12 @@ fun ColorPickerDialog(
             // Scrolls: with the harmony rows the picker is taller than a landscape phone screen.
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Surface(
-                    modifier = Modifier.size(48.dp),
+                    modifier = Modifier.size(FernScale.s48),
                     shape = CircleShape,
                     color = currentColor(),
                 ) {}
 
-                Text(stringResource(R.string.color_hue), modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(R.string.color_hue), modifier = Modifier.padding(top = FernScale.s8))
                 Slider(
                     value = hue,
                     onValueChange = {
@@ -128,19 +130,19 @@ fun ColorPickerDialog(
 
                 // Colour harmonies: hues related to the current one by the classic colour-wheel
                 // rules. Tapping a swatch makes it the current colour.
-                Text(stringResource(R.string.color_harmonies), modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(R.string.color_harmonies), modifier = Modifier.padding(top = FernScale.s8))
                 for ((label, offsets) in HARMONIES) {
                     Row(
-                        modifier = Modifier.padding(vertical = 4.dp),
+                        modifier = Modifier.padding(vertical = FernScale.s4),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(stringResource(label), modifier = Modifier.width(128.dp))
+                        Text(stringResource(label), modifier = Modifier.width(FernScale.s128))
                         for (offset in offsets) {
                             val swatchHue = (hue + offset) % 360f
                             Surface(
                                 modifier = Modifier
-                                    .padding(end = 8.dp)
-                                    .size(24.dp)
+                                    .padding(end = FernScale.s8)
+                                    .minimumInteractiveComponentSize().size(FernScale.s24)
                                     .clickable {
                                         hue = swatchHue
                                         hexText = hexOf(hue, saturation, value)
@@ -152,7 +154,7 @@ fun ColorPickerDialog(
                     }
                 }
 
-                Row(modifier = Modifier.padding(top = 8.dp)) {
+                Row(modifier = Modifier.padding(top = FernScale.s8)) {
                     OutlinedTextField(
                         value = hexText,
                         onValueChange = { text ->
@@ -173,7 +175,7 @@ fun ColorPickerDialog(
                 // one (Settings), else plain device CMYK - a way to enter print values.
                 Text(
                     ColorManagement.cmykProfile?.let { stringResource(R.string.color_cmyk_profile, it.description.ifEmpty { "ICC" }) } ?: stringResource(R.string.color_cmyk),
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(top = FernScale.s8),
                 )
                 Row {
                     for ((channel, label) in listOf("C", "M", "Y", "K").withIndex()) {
@@ -194,13 +196,13 @@ fun ColorPickerDialog(
                             label = { Text(label) },
                             singleLine = true,
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
-                            modifier = Modifier.width(62.dp).padding(end = 4.dp),
+                            modifier = Modifier.width(FernScale.s62).padding(end = FernScale.s4),
                         )
                     }
                 }
                 // Spot colours (roadmap item 102): named inks, kept as their own separations in print PDFs.
                 val context = LocalContext.current
-                Text(stringResource(R.string.color_spots), modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(R.string.color_spots), modifier = Modifier.padding(top = FernScale.s8))
                 Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     for (spot in ColorManagement.spotColors) {
                         InputChip(
@@ -212,15 +214,15 @@ fun ColorPickerDialog(
                                 hexText = hexOf(hue, saturation, value)
                             },
                             label = { Text(spot.name) },
-                            leadingIcon = { Box(Modifier.size(16.dp).background(spot.color, CircleShape)) },
+                            leadingIcon = { Box(Modifier.size(FernScale.s16).background(spot.color, CircleShape)) },
                             trailingIcon = {
                                 Icon(
                                     Icons.Filled.Close,
                                     contentDescription = stringResource(R.string.color_spot_delete, spot.name),
-                                    modifier = Modifier.size(16.dp).clickable { ColorManagement.deleteSpot(context, spot.name) },
+                                    modifier = Modifier.minimumInteractiveComponentSize().size(FernScale.s16).clickable { ColorManagement.deleteSpot(context, spot.name) },
                                 )
                             },
-                            modifier = Modifier.padding(end = 4.dp),
+                            modifier = Modifier.padding(end = FernScale.s4),
                         )
                     }
                 }

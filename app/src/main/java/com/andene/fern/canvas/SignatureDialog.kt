@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -24,7 +26,6 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStyle
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 
 /**
@@ -48,7 +49,7 @@ fun SignatureDialog(saved: List<Stroke>, onPlace: (List<Stroke>) -> Unit, onDism
                 Canvas(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(192.dp)
+                        .height(FernScale.s192)
                         .background(Color.White)
                         .pointerInput(Unit) {
                             awaitEachGesture {

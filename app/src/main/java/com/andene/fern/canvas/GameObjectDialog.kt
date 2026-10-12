@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.material3.Switch
 import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.layout.FlowRow
@@ -36,7 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 
 /**
@@ -60,9 +61,9 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.object_title)) },
         text = {
-            Column(Modifier.heightIn(max = 512.dp).verticalScroll(rememberScrollState())) {
+            Column(Modifier.heightIn(max = FernScale.s512).verticalScroll(rememberScrollState())) {
                 OutlinedTextField(current.name, { save(current.copy(name = it)) }, label = { Text(stringResource(R.string.object_name)) }, singleLine = true)
-                Text(stringResource(R.string.object_properties), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(R.string.object_properties), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = FernScale.s8))
                 for ((key, value) in current.properties) key(key) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(key, modifier = Modifier.weight(1f))
@@ -79,7 +80,7 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                         newProperty = ""
                     }, enabled = newProperty.isNotEmpty() && newProperty !in current.properties) { Text(stringResource(R.string.object_add)) }
                 }
-                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(Modifier.padding(vertical = FernScale.s8))
                 Text(stringResource(R.string.object_behaviours), style = MaterialTheme.typography.titleSmall)
                 for ((index, behaviour) in current.behaviours.withIndex()) key(index, behaviour.kind) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -108,7 +109,7 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                     }
                 }
                 // On screen while playing (roadmap item 161).
-                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(Modifier.padding(vertical = FernScale.s8))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.object_show_in_hud), modifier = Modifier.weight(1f))
                     Switch(checked = current.showInHud, onCheckedChange = { save(current.copy(showInHud = it)) })
@@ -141,7 +142,7 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                 })
                 PhysicsSection(state, current.body) { save(current.copy(body = it)) }
                 // Drawn hitbox and links (roadmap item 157).
-                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(Modifier.padding(vertical = FernScale.s8))
                 Text(stringResource(if (current.hitbox == null) R.string.object_no_hitbox else R.string.object_has_hitbox), style = MaterialTheme.typography.bodySmall)
                 if (current.hitbox != null) TextButton(onClick = { save(current.copy(hitbox = null)) }) { Text(stringResource(R.string.object_clear_hitbox)) }
                 for (link in state.gameSettings.links.filter { it.from == current.id || it.to == current.id }) {
@@ -190,7 +191,7 @@ internal fun NumberField(value: Double, onChange: (Double) -> Unit) {
         },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        modifier = Modifier.width(96.dp),
+        modifier = Modifier.width(FernScale.s96),
     )
 }
 
@@ -202,17 +203,17 @@ internal fun plainNumber(value: Double): String =
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PhysicsSection(state: CanvasState, body: PhysicsBody, onChange: (PhysicsBody) -> Unit) {
-    HorizontalDivider(Modifier.padding(vertical = 8.dp))
+    HorizontalDivider(Modifier.padding(vertical = FernScale.s8))
     Text(stringResource(R.string.physics_title), style = MaterialTheme.typography.titleSmall)
     FlowRow {
         for ((type, label) in listOf(BodyType.NONE to R.string.physics_none, BodyType.STATIC to R.string.physics_static, BodyType.DYNAMIC to R.string.physics_dynamic)) {
-            FilterChip(selected = body.type == type, onClick = { onChange(body.copy(type = type)) }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = 8.dp))
+            FilterChip(selected = body.type == type, onClick = { onChange(body.copy(type = type)) }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = FernScale.s8))
         }
     }
     if (body.type == BodyType.NONE) return
     FlowRow {
         for ((shape, label) in listOf(BodyShape.BOX to R.string.physics_box, BodyShape.CIRCLE to R.string.physics_circle)) {
-            FilterChip(selected = body.shape == shape, onClick = { onChange(body.copy(shape = shape)) }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = 8.dp))
+            FilterChip(selected = body.shape == shape, onClick = { onChange(body.copy(shape = shape)) }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = FernScale.s8))
         }
     }
     LabelledNumber(R.string.physics_bounce, body.bounce) { onChange(body.copy(bounce = it.coerceIn(0.0, 1.0))) }
@@ -222,7 +223,7 @@ private fun PhysicsSection(state: CanvasState, body: PhysicsBody, onChange: (Phy
         LabelledNumber(R.string.physics_gravity_scale, body.gravityScale) { onChange(body.copy(gravityScale = it)) }
     }
     val world = state.gameSettings
-    Text(stringResource(R.string.physics_world), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+    Text(stringResource(R.string.physics_world), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = FernScale.s8))
     LabelledNumber(R.string.physics_gravity_down, world.gravityY) { state.changeGameSettings(world.copy(gravityY = it)) }
     LabelledNumber(R.string.physics_gravity_across, world.gravityX) { state.changeGameSettings(world.copy(gravityX = it)) }
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -237,11 +238,11 @@ private fun PhysicsSection(state: CanvasState, body: PhysicsBody, onChange: (Phy
 @Composable
 private fun SceneChooser(state: CanvasState) {
     val settings = state.gameSettings
-    Text(stringResource(R.string.play_scene), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+    Text(stringResource(R.string.play_scene), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = FernScale.s8))
     FlowRow {
-        FilterChip(selected = settings.sceneFrameId == null, onClick = { state.changeGameSettings(settings.copy(sceneFrameId = null)) }, label = { Text(stringResource(R.string.play_scene_view)) }, modifier = Modifier.padding(end = 8.dp))
+        FilterChip(selected = settings.sceneFrameId == null, onClick = { state.changeGameSettings(settings.copy(sceneFrameId = null)) }, label = { Text(stringResource(R.string.play_scene_view)) }, modifier = Modifier.padding(end = FernScale.s8))
         for (frame in state.frames) {
-            FilterChip(selected = settings.sceneFrameId == frame.id, onClick = { state.changeGameSettings(settings.copy(sceneFrameId = frame.id)) }, label = { Text(frame.name) }, modifier = Modifier.padding(end = 8.dp))
+            FilterChip(selected = settings.sceneFrameId == frame.id, onClick = { state.changeGameSettings(settings.copy(sceneFrameId = frame.id)) }, label = { Text(frame.name) }, modifier = Modifier.padding(end = FernScale.s8))
         }
     }
 }

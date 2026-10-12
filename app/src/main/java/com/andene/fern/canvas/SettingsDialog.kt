@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import android.content.Context
@@ -14,7 +16,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import org.json.JSONArray
@@ -29,6 +30,7 @@ private const val KEY_TOOL_SLOTS = "tool_slots"
 private const val KEY_SNAP_TO_OBJECTS = "snap_to_objects"
 private const val KEY_BRUSH_PRESETS = "brush_presets"
 private const val KEY_HIGH_CONTRAST = "high_contrast"
+private const val KEY_COLOR_BLIND_SAFE = "color_blind_safe"
 private const val KEY_HIDDEN_TOOLBAR_GROUPS = "hidden_toolbar_groups"
 private const val KEY_QUICK_MENU = "quick_menu_actions"
 
@@ -53,6 +55,14 @@ object AppSettings {
 
     fun setHighContrast(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_HIGH_CONTRAST, value).apply()
+    }
+
+    /** Colour-blind-safe marks on the canvas (design roadmap D2). */
+    fun colorBlindSafe(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean(KEY_COLOR_BLIND_SAFE, false)
+
+    fun setColorBlindSafe(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_COLOR_BLIND_SAFE, value).apply()
     }
 
     /** Toolbar groups the user hid; names no longer in [ToolbarGroup] (from an older version) are ignored. */
@@ -194,6 +204,8 @@ fun SettingsDialog(
     onToolbarAtBottomChange: (Boolean) -> Unit,
     highContrast: Boolean,
     onHighContrastChange: (Boolean) -> Unit,
+    colorBlindSafe: Boolean,
+    onColorBlindSafeChange: (Boolean) -> Unit,
     snapToObjects: Boolean,
     onSnapToObjectsChange: (Boolean) -> Unit,
     onShowGuide: () -> Unit,
@@ -207,28 +219,35 @@ fun SettingsDialog(
         text = {
             Column {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(stringResource(R.string.settings_left_handed), modifier = Modifier.weight(1f))
                     Switch(checked = leftHanded, onCheckedChange = onLeftHandedChange)
                 }
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(stringResource(R.string.settings_toolbar_bottom), modifier = Modifier.weight(1f))
                     Switch(checked = toolbarAtBottom, onCheckedChange = onToolbarAtBottomChange)
                 }
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(stringResource(R.string.settings_high_contrast), modifier = Modifier.weight(1f))
                     Switch(checked = highContrast, onCheckedChange = onHighContrastChange)
                 }
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(stringResource(R.string.settings_color_blind_safe), modifier = Modifier.weight(1f))
+                    Switch(checked = colorBlindSafe, onCheckedChange = onColorBlindSafeChange)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(stringResource(R.string.settings_snap_objects), modifier = Modifier.weight(1f))
@@ -259,7 +278,7 @@ private fun CmykProfileRow() {
         if (!ok) android.widget.Toast.makeText(context, context.getString(R.string.settings_cmyk_bad), android.widget.Toast.LENGTH_SHORT).show()
     }
     val profile = ColorManagement.cmykProfile
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8), verticalAlignment = Alignment.CenterVertically) {
         Text(
             stringResource(R.string.settings_cmyk_profile, profile?.description?.ifEmpty { "ICC" } ?: stringResource(R.string.settings_cmyk_none)),
             modifier = Modifier.weight(1f),

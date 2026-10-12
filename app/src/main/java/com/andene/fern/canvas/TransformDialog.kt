@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -19,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 import java.util.Locale
 
@@ -62,8 +63,8 @@ fun TransformDialog(
         text = {
             Column {
                 Row {
-                    OutlinedTextField(x, { x = it }, label = { Text("X ($unitSymbol)") }, singleLine = true, keyboardOptions = numeric, modifier = Modifier.width(128.dp).padding(end = 8.dp))
-                    OutlinedTextField(y, { y = it }, label = { Text("Y ($unitSymbol)") }, singleLine = true, keyboardOptions = numeric, modifier = Modifier.width(128.dp))
+                    OutlinedTextField(x, { x = it }, label = { Text("X ($unitSymbol)") }, singleLine = true, keyboardOptions = numeric, modifier = Modifier.width(FernScale.s128).padding(end = FernScale.s8))
+                    OutlinedTextField(y, { y = it }, label = { Text("Y ($unitSymbol)") }, singleLine = true, keyboardOptions = numeric, modifier = Modifier.width(FernScale.s128))
                 }
                 Row {
                     OutlinedTextField(
@@ -73,7 +74,7 @@ fun TransformDialog(
                             if (locked && startWidth > 0) parse(text)?.let { h = format(it * startHeight / startWidth) }
                         },
                         label = { Text("${stringResource(R.string.transform_width)} ($unitSymbol)") }, singleLine = true, keyboardOptions = numeric,
-                        modifier = Modifier.width(128.dp).padding(end = 8.dp),
+                        modifier = Modifier.width(FernScale.s128).padding(end = FernScale.s8),
                     )
                     OutlinedTextField(
                         h,
@@ -82,14 +83,14 @@ fun TransformDialog(
                             if (locked && startHeight > 0) parse(text)?.let { w = format(it * startWidth / startHeight) }
                         },
                         label = { Text("${stringResource(R.string.transform_height)} ($unitSymbol)") }, singleLine = true, keyboardOptions = numeric,
-                        modifier = Modifier.width(128.dp),
+                        modifier = Modifier.width(FernScale.s128),
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = locked, onCheckedChange = { locked = it })
                     Text(stringResource(R.string.transform_keep_proportions))
                 }
-                OutlinedTextField(angle, { angle = it }, label = { Text(stringResource(R.string.transform_rotate)) }, singleLine = true, keyboardOptions = numeric, modifier = Modifier.width(128.dp))
+                OutlinedTextField(angle, { angle = it }, label = { Text(stringResource(R.string.transform_rotate)) }, singleLine = true, keyboardOptions = numeric, modifier = Modifier.width(FernScale.s128))
             }
         },
         confirmButton = {

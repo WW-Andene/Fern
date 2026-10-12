@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.annotation.StringRes
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
@@ -89,7 +91,7 @@ fun QuickMenuButton(onOpen: () -> Unit, modifier: Modifier = Modifier) {
             .clickable(onClick = onOpen),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.secondaryContainer,
-        shadowElevation = 4.dp,
+        shadowElevation = FernScale.s4,
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(Icons.Filled.DonutLarge, contentDescription = null)
@@ -128,7 +130,7 @@ fun QuickMenuOverlay(state: CanvasState, onDismiss: () -> Unit, actions: List<Qu
                     },
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 4.dp,
+                shadowElevation = FernScale.s4,
             ) {
                 Box(contentAlignment = Alignment.Center) { Icon(action.icon(state), contentDescription = null) }
             }

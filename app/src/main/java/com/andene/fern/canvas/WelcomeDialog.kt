@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import android.content.Context
@@ -10,7 +12,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 
 private const val PREFS_NAME = "onboarding"
 private const val KEY_WELCOME_SEEN = "welcome_seen"
@@ -42,7 +43,7 @@ fun WelcomeDialog(onDismiss: () -> Unit) {
         text = {
             Column {
                 for (tip in tips) {
-                    Text("• " + stringResource(tip), modifier = Modifier.padding(vertical = 4.dp))
+                    Text("• " + stringResource(tip), modifier = Modifier.padding(vertical = FernScale.s4))
                 }
             }
         },

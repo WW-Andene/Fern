@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.annotation.StringRes
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
@@ -33,7 +35,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 
 /** How new fills are shaded: solid, faded to transparent (top to bottom), or a two-colour gradient. */
 enum class GradientMode(@StringRes val label: Int) { NONE(R.string.gradient_solid), FADE(R.string.gradient_fade), TWO_COLOURS(R.string.gradient_two) }
@@ -70,32 +71,32 @@ fun GradientFillDialog(
                             selected = mode == option,
                             onClick = { mode = option },
                             label = { Text(stringResource(option.label)) },
-                            modifier = Modifier.padding(end = 4.dp),
+                            modifier = Modifier.padding(end = FernScale.s4),
                         )
                     }
                 }
                 if (mode == GradientMode.TWO_COLOURS) {
-                    Row(modifier = Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.gradient_end), modifier = Modifier.padding(end = 8.dp))
+                    Row(modifier = Modifier.padding(top = FernScale.s8), verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.gradient_end), modifier = Modifier.padding(end = FernScale.s8))
                         Box(
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(FernScale.s32)
                                 .background(endColor, CircleShape)
-                                .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                                .border(FernScale.s1, MaterialTheme.colorScheme.outline, CircleShape)
                                 .clickable { pickingEndColor = true }
                                 .semantics { contentDescription = chooseEndLabel },
                         )
                     }
                     // Two rows of four directions.
                     for (row in GRADIENT_DIRECTIONS.chunked(4)) {
-                        Row(modifier = Modifier.padding(top = 4.dp)) {
+                        Row(modifier = Modifier.padding(top = FernScale.s4)) {
                             for ((degrees, arrow) in row) {
                                 val directionLabel = stringResource(R.string.gradient_direction, degrees)
                                 FilterChip(
                                     selected = angle == degrees,
                                     onClick = { angle = degrees },
                                     label = { Text(arrow) },
-                                    modifier = Modifier.padding(end = 4.dp).semantics { contentDescription = directionLabel },
+                                    modifier = Modifier.padding(end = FernScale.s4).semantics { contentDescription = directionLabel },
                                 )
                             }
                         }
@@ -104,10 +105,10 @@ fun GradientFillDialog(
                 // Live preview of what the next fill will look like.
                 Box(
                     modifier = Modifier
-                        .padding(top = 8.dp)
+                        .padding(top = FernScale.s8)
                         .fillMaxWidth()
-                        .height(48.dp)
-                        .border(1.dp, MaterialTheme.colorScheme.outline)
+                        .height(FernScale.s48)
+                        .border(FernScale.s1, MaterialTheme.colorScheme.outline)
                         .drawBehind {
                             val corners = listOf(Offset.Zero, Offset(size.width, 0f), Offset(size.width, size.height), Offset(0f, size.height))
                             when (mode) {

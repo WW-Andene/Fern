@@ -1,5 +1,9 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernColors
+
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -31,7 +35,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 import kotlinx.coroutines.delay
 import java.io.File
@@ -53,10 +56,10 @@ fun AudioBar(audio: AudioNotes, state: CanvasState, playing: File?, onClosePlayb
                 delay(BAR_TICK_MILLIS)
             }
         }
-        Surface(modifier = modifier, shape = MaterialTheme.shapes.large, tonalElevation = 4.dp, shadowElevation = 4.dp) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 12.dp)) {
+        Surface(modifier = modifier, shape = MaterialTheme.shapes.large, tonalElevation = FernScale.s4, shadowElevation = FernScale.s4) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = FernScale.s12)) {
                 Icon(Icons.Filled.FiberManualRecord, contentDescription = null, tint = RECORDING_COLOR)
-                Text(stringResource(R.string.audio_recording_for, clock(now - since)), modifier = Modifier.padding(start = 8.dp))
+                Text(stringResource(R.string.audio_recording_for, clock(now - since)), modifier = Modifier.padding(start = FernScale.s8))
                 IconButton(onClick = { audio.stop() }) {
                     Icon(Icons.Filled.Stop, contentDescription = stringResource(R.string.audio_stop_recording))
                 }
@@ -84,7 +87,7 @@ fun AudioBar(audio: AudioNotes, state: CanvasState, playing: File?, onClosePlayb
             delay(BAR_TICK_MILLIS)
         }
     }
-    Surface(modifier = modifier, shape = MaterialTheme.shapes.large, tonalElevation = 4.dp, shadowElevation = 4.dp) {
+    Surface(modifier = modifier, shape = MaterialTheme.shapes.large, tonalElevation = FernScale.s4, shadowElevation = FernScale.s4) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = {
                 if (paused) audio.resume() else audio.pause()
@@ -101,9 +104,9 @@ fun AudioBar(audio: AudioNotes, state: CanvasState, playing: File?, onClosePlayb
                     position = (fraction * duration).toLong()
                     audio.seekTo(position)
                 },
-                modifier = Modifier.width(192.dp),
+                modifier = Modifier.width(FernScale.s192),
             )
-            Text(clock(position), modifier = Modifier.padding(horizontal = 8.dp))
+            Text(clock(position), modifier = Modifier.padding(horizontal = FernScale.s8))
             IconButton(onClick = onClosePlayback) {
                 Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.audio_close_playback))
             }
@@ -136,4 +139,4 @@ private fun clock(millis: Long): String {
 }
 
 private const val BAR_TICK_MILLIS = 64L
-private val RECORDING_COLOR = Color(0xFFC0392B)
+private val RECORDING_COLOR: Color get() = FernColors.current.danger

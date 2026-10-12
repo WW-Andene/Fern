@@ -35,9 +35,19 @@ val HighContrastDark: ColorScheme = darkColorScheme(
     outline = Color.White, outlineVariant = Color.White,
 )
 
-/** The app theme: the system's light or dark, in standard or high contrast. */
+/**
+ * The app theme: the system's light or dark, in standard or high contrast; and the canvas's
+ * marks ([FernColors]) in standard, high-contrast or colour-blind-safe colours.
+ */
 @Composable
-fun FernTheme(highContrast: Boolean, content: @Composable () -> Unit) {
+fun FernTheme(highContrast: Boolean, colorBlindSafe: Boolean = false, content: @Composable () -> Unit) {
+    FernColors.current = FernColors.roles(
+        when {
+            colorBlindSafe -> FernColorMode.COLOR_BLIND_SAFE
+            highContrast -> FernColorMode.HIGH_CONTRAST
+            else -> FernColorMode.STANDARD
+        },
+    )
     val dark = isSystemInDarkTheme()
     val scheme = when {
         highContrast && dark -> HighContrastDark

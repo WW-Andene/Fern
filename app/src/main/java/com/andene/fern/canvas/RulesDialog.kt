@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,7 +24,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 
 /**
@@ -39,12 +40,12 @@ fun RulesDialog(state: CanvasState, objectId: String, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.rules_title)) },
         text = {
-            Column(Modifier.heightIn(max = 512.dp).verticalScroll(rememberScrollState())) {
+            Column(Modifier.heightIn(max = FernScale.s512).verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.rules_help), style = MaterialTheme.typography.bodySmall)
                 for ((i, rule) in rules.withIndex()) {
                     fun update(change: Rule) = save(rules.mapIndexed { k, r -> if (k == i) change else r })
-                    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                        Column(Modifier.padding(8.dp)) {
+                    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(top = FernScale.s8)) {
+                        Column(Modifier.padding(FernScale.s8)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(stringResource(R.string.rules_when), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                                 if (i > 0) IconButton(onClick = { save(rules.toMutableList().apply { add(i - 1, removeAt(i)) }) }) {
@@ -57,7 +58,7 @@ fun RulesDialog(state: CanvasState, objectId: String, onDismiss: () -> Unit) {
                             if (rule.conditions.isEmpty()) Text(stringResource(R.string.rules_always), style = MaterialTheme.typography.bodySmall)
                             ConditionsEditor(rule.conditions) { update(rule.copy(conditions = it)) }
                             Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth()) {
-                                Column(Modifier.padding(8.dp)) {
+                                Column(Modifier.padding(FernScale.s8)) {
                                     Text(stringResource(R.string.rules_do), style = MaterialTheme.typography.titleSmall)
                                     ActionsEditor(rule.actions) { update(rule.copy(actions = it)) }
                                 }

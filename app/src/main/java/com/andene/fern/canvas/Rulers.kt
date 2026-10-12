@@ -1,5 +1,11 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernColors
+
+import com.andene.fern.FernType
+
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -27,7 +33,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.sp
 import com.andene.fern.R
 import kotlin.math.abs
 
@@ -40,7 +45,7 @@ import kotlin.math.abs
  * screen's edges).
  */
 @Composable
-fun Rulers(state: CanvasState, modifier: Modifier = Modifier, topInset: Dp = 0.dp) {
+fun Rulers(state: CanvasState, modifier: Modifier = Modifier, topInset: Dp = FernScale.none) {
     if (state.rotation != 0.0) return
     val textMeasurer = rememberTextMeasurer()
     // Where each ruler's top-left sits on the canvas, so its local positions map to the canvas's.
@@ -79,7 +84,7 @@ fun Rulers(state: CanvasState, modifier: Modifier = Modifier, topInset: Dp = 0.d
                     val length = if (tick.major) thickness * 0.5f else thickness * 0.25f
                     if (top) drawLine(ink, Offset(at, thickness - length), Offset(at, thickness)) else drawLine(ink, Offset(thickness - length, at), Offset(thickness, at))
                     if (tick.major) {
-                        val text = textMeasurer.measure(rulerLabel(tick.position, step), TextStyle(fontSize = 8.sp, color = ink))
+                        val text = textMeasurer.measure(rulerLabel(tick.position, step), TextStyle(fontSize = FernType.caption, color = ink))
                         drawText(text, topLeft = if (top) Offset(at + 2f, 1f) else Offset(1f, at + 2f))
                     }
                 }
@@ -147,4 +152,4 @@ private const val MARKER_PX = 6f
 private const val MARKER_HIT_PX = 24f
 private const val MOVE_SLOP_PX = 8f
 private const val HOLD_TO_REMOVE_MILLIS = 500L
-internal val RULER_GUIDE_COLOR = androidx.compose.ui.graphics.Color(0xFF00A3C4)
+internal val RULER_GUIDE_COLOR: androidx.compose.ui.graphics.Color get() = FernColors.current.measure

@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.Cable
 import androidx.compose.material.icons.filled.Fence
@@ -34,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Transform
 import androidx.compose.material.icons.filled.TextRotationAngleup
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.filled.JoinFull
 import androidx.compose.material.icons.filled.Close
@@ -171,8 +174,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 
 private val palette = listOf(
     Color(0xFF1B1B1B),
@@ -449,10 +452,10 @@ fun Toolbar(
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
-        tonalElevation = 4.dp,
-        shadowElevation = 4.dp,
+        tonalElevation = FernScale.s4,
+        shadowElevation = FernScale.s4,
     ) {
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Column(modifier = Modifier.padding(horizontal = FernScale.s12, vertical = FernScale.s8)) {
             // Saved palette colours (squares; long-press removes one), then recently used colours
             // (circles) not already shown - both smaller than the fixed palette's swatches.
             val recents = state.recentColors.filter { it !in palette && it !in state.savedColors }
@@ -460,14 +463,14 @@ fun Toolbar(
                 Row(
                     modifier = Modifier
                         .horizontalScroll(rememberScrollState())
-                        .padding(bottom = 8.dp),
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                        .padding(bottom = FernScale.s8),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(FernScale.s8),
                 ) {
                     for (color in state.savedColors) {
                         Box {
                             Surface(
                                 modifier = Modifier
-                                    .size(24.dp)
+                                    .minimumInteractiveComponentSize().size(FernScale.s24)
                                     .pointerInput(color) {
                                         detectTapGestures(
                                             onTap = {
@@ -477,7 +480,7 @@ fun Toolbar(
                                             onLongPress = { savedColorMenu = color },
                                         )
                                     },
-                                shape = RoundedCornerShape(6.dp), // §7.3: 0.24 × 24 = 5.8, nearest scale value 6
+                                shape = RoundedCornerShape(FernScale.s6), // §7.3: 0.24 × 24 = 5.8, nearest scale value 6
                                 color = color,
                             ) {}
                             // Touch and hold: change this colour everywhere it's used (a shared colour
@@ -503,7 +506,7 @@ fun Toolbar(
                     for (color in recents) {
                         Surface(
                             modifier = Modifier
-                                .size(24.dp)
+                                .minimumInteractiveComponentSize().size(FernScale.s24)
                                 .clickable {
                                     state.activeColor = color
                                     state.activeTool = Tool.PEN
@@ -526,15 +529,14 @@ fun Toolbar(
                         val selected = state.activeTool == Tool.PEN && state.activeColor == color
                         Surface(
                             modifier = Modifier
-                                // 48dp tall like the buttons beside it, so wrapped rows line up.
-                                .padding(vertical = 8.dp)
-                                .size(32.dp)
+                                // A 48dp touch target like the buttons beside it, so wrapped rows line up (design roadmap D3).
+                                .minimumInteractiveComponentSize().size(FernScale.s32)
                                 .clickable {
                                     state.activeColor = color
                                     state.activeTool = Tool.PEN // picking a color implies "draw", per §6 baseline expectations
                                 }
                                 .then(
-                                    if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                                    if (selected) Modifier.border(FernScale.s2, MaterialTheme.colorScheme.primary, CircleShape)
                                     else Modifier
                                 ),
                             shape = CircleShape,
@@ -545,7 +547,7 @@ fun Toolbar(
                 IconButton(onClick = { showColorPicker = true }) {
                     Icon(Icons.Filled.Palette, contentDescription = stringResource(R.string.tb_custom_color))
                 }
-                IconButton(onClick = {
+                IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.EYEDROPPER), onClick = {
                     state.activeTool = if (state.activeTool == Tool.EYEDROPPER) Tool.PEN else Tool.EYEDROPPER
                 }) {
                     Icon(
@@ -589,7 +591,7 @@ fun Toolbar(
                 }
                 if (state.activeLayerIsRaster) RasterBrushControls(state)
 
-                IconButton(onClick = {
+                IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.ERASER), onClick = {
                     state.activeTool = if (state.activeTool == Tool.ERASER) Tool.PEN else Tool.ERASER
                 }) {
                     Icon(
@@ -615,7 +617,7 @@ fun Toolbar(
                         )
                     }
                 }
-                IconButton(onClick = {
+                IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.SELECT), onClick = {
                     state.activeTool = if (state.activeTool == Tool.SELECT) Tool.PEN else Tool.SELECT
                 }) {
                     Icon(
@@ -626,7 +628,7 @@ fun Toolbar(
                     )
                 }
                 Box {
-                    IconButton(onClick = {
+                    IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.SHAPE), onClick = {
                         if (state.activeTool == Tool.SHAPE) showShapeKindMenu = true
                         else state.activeTool = Tool.SHAPE
                     }) {
@@ -666,7 +668,7 @@ fun Toolbar(
                 }
                 // Measure (roadmap item 143): drag for a distance and angle, tap a shape for its
                 // perimeter and area, tap a line for its length; the scale button sets real units.
-                IconButton(onClick = { state.activeTool = if (state.activeTool == Tool.MEASURE) Tool.PEN else Tool.MEASURE }) {
+                IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.MEASURE), onClick = { state.activeTool = if (state.activeTool == Tool.MEASURE) Tool.PEN else Tool.MEASURE }) {
                     Icon(
                         Icons.Filled.SquareFoot,
                         contentDescription = stringResource(R.string.tb_measure),
@@ -679,7 +681,7 @@ fun Toolbar(
                     }
                 }
                 // Bézier pen (roadmap item 96): tap for corners, drag for curves, tap the first node to close.
-                IconButton(onClick = { state.activeTool = if (state.activeTool == Tool.BEZIER) Tool.PEN else Tool.BEZIER }) {
+                IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.BEZIER), onClick = { state.activeTool = if (state.activeTool == Tool.BEZIER) Tool.PEN else Tool.BEZIER }) {
                     Icon(
                         Icons.Filled.Polyline,
                         contentDescription = stringResource(R.string.tb_bezier),
@@ -829,7 +831,7 @@ fun Toolbar(
                         )
                     }
                     // Skeleton (roadmap item 83): draw bones, then pose them frame by frame.
-                    IconButton(onClick = { state.activeTool = if (state.activeTool == Tool.BONE) Tool.PEN else Tool.BONE }) {
+                    IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.BONE), onClick = { state.activeTool = if (state.activeTool == Tool.BONE) Tool.PEN else Tool.BONE }) {
                         Icon(
                             Icons.Filled.AccessibilityNew,
                             contentDescription = stringResource(R.string.tb_bones),
@@ -941,7 +943,7 @@ fun Toolbar(
                     }
                 }
                 if (ToolbarGroup.FILL !in hiddenGroups) {
-                    IconButton(onClick = {
+                    IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.FILL), onClick = {
                         state.activeTool = if (state.activeTool == Tool.FILL) Tool.PEN else Tool.FILL
                     }) {
                         Icon(
@@ -974,7 +976,7 @@ fun Toolbar(
                     }
                 }
                 if (ToolbarGroup.TEXT !in hiddenGroups) {
-                    IconButton(onClick = {
+                    IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.TEXT), onClick = {
                         state.activeTool = if (state.activeTool == Tool.TEXT) Tool.PEN else Tool.TEXT
                     }) {
                         Icon(
@@ -984,7 +986,7 @@ fun Toolbar(
                             else LocalContentColor.current,
                         )
                     }
-                    IconButton(onClick = {
+                    IconButton(modifier = Modifier.toolSelected(state.activeTool == Tool.CONNECT), onClick = {
                         state.activeTool = if (state.activeTool == Tool.CONNECT) Tool.PEN else Tool.CONNECT
                     }) {
                         Icon(
@@ -1229,7 +1231,7 @@ fun Toolbar(
                     // (Copy and Paste do the same without a gesture).
                     Box(
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(FernScale.s48)
                             .semantics { contentDescription = dragOutLabel }
                             .pointerInput(Unit) { detectDragGestures(onDragStart = { onDragSelectionOut() }) { change, _ -> change.consume() } },
                         contentAlignment = Alignment.Center,
@@ -1600,14 +1602,14 @@ fun Toolbar(
                         }
             if (wrap) {
                 FlowRow(
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
-                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(FernScale.s8),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(FernScale.s8),
                 ) { tools() }
             } else {
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(FernScale.s8),
                 ) { tools() }
             }
             if (showWidthSlider) {
@@ -1616,8 +1618,8 @@ fun Toolbar(
                     onValueChange = { state.activeWidthWorld = it.toDouble() },
                     valueRange = MIN_WIDTH_SCREEN..MAX_WIDTH_SCREEN,
                     modifier = Modifier
-                        .padding(top = 8.dp)
-                        .width(192.dp),
+                        .padding(top = FernScale.s8)
+                        .width(FernScale.s192),
                 )
             }
             if (showOpacitySlider) {
@@ -1626,8 +1628,8 @@ fun Toolbar(
                     onValueChange = { state.activeOpacity = it.toDouble() },
                     valueRange = MIN_OPACITY..1f,
                     modifier = Modifier
-                        .padding(top = 8.dp)
-                        .width(192.dp),
+                        .padding(top = FernScale.s8)
+                        .width(FernScale.s192),
                 )
             }
             if (showStabilizationSlider) {
@@ -1636,8 +1638,8 @@ fun Toolbar(
                     onValueChange = { state.activeStabilization = it.toDouble() },
                     valueRange = 0f..CanvasState.MAX_STABILIZATION.toFloat(),
                     modifier = Modifier
-                        .padding(top = 8.dp)
-                        .width(192.dp),
+                        .padding(top = FernScale.s8)
+                        .width(FernScale.s192),
                 )
             }
         }
@@ -1736,9 +1738,8 @@ private fun ToolSlotButton(state: CanvasState, index: Int) {
         Box(
             modifier = Modifier
                 // 48dp tall like the buttons beside it, so wrapped rows line up.
-                .padding(vertical = 8.dp)
-                .size(32.dp)
-                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)) // §7.3: 0.24 × 32 = 7.7 → 8
+                .minimumInteractiveComponentSize().size(FernScale.s32)
+                .border(FernScale.s1, MaterialTheme.colorScheme.outline, RoundedCornerShape(FernScale.s8)) // §7.3: 0.24 × 32 = 7.7 → 8
                 .semantics { contentDescription = description }
                 .pointerInput(preset) {
                     detectTapGestures(
@@ -1749,9 +1750,9 @@ private fun ToolSlotButton(state: CanvasState, index: Int) {
             contentAlignment = Alignment.Center,
         ) {
             if (preset == null) {
-                Icon(Icons.Filled.Add, contentDescription = null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(16.dp))
+                Icon(Icons.Filled.Add, contentDescription = null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(FernScale.s16))
             } else {
-                Icon(penTypeIcon(preset.penType), contentDescription = null, tint = preset.color, modifier = Modifier.size(16.dp))
+                Icon(penTypeIcon(preset.penType), contentDescription = null, tint = preset.color, modifier = Modifier.size(FernScale.s16))
             }
         }
         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
@@ -1842,3 +1843,6 @@ private fun backgroundStyleLabel(style: BackgroundStyle) = when (style) {
     BackgroundStyle.RULED -> R.string.paper_ruled
     BackgroundStyle.ISOMETRIC -> R.string.paper_isometric
 }
+
+/** Tells screen readers whether a tool's button is the active tool (design roadmap D4). */
+internal fun Modifier.toolSelected(active: Boolean): Modifier = semantics { selected = active }

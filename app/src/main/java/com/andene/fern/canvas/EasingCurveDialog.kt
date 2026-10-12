@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Column
@@ -23,7 +25,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 
 /**
@@ -46,7 +47,7 @@ fun EasingCurveDialog(initial: CubicEasing, onApply: (CubicEasing) -> Unit, onDi
             Column {
                 Canvas(
                     modifier = Modifier
-                        .size(192.dp)
+                        .size(FernScale.s192)
                         .semantics { contentDescription = description }
                         .pointerInput(Unit) {
                             fun toCurve(p: Offset): Pair<Double, Double> {
@@ -89,7 +90,7 @@ fun EasingCurveDialog(initial: CubicEasing, onApply: (CubicEasing) -> Unit, onDi
                 Text(
                     "%.2f, %.2f, %.2f, %.2f".format(curve.x1, curve.y1, curve.x2, curve.y2),
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(top = FernScale.s8),
                 )
             }
         },

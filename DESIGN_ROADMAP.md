@@ -143,17 +143,21 @@ Numbers measured in the source at the time of the audit.
 
 Goal: a design system everything else is built from, accessible by default.
 
-- [ ] D1. **Design tokens.** One `FernTokens` file for spacing, size, radius (§7.3), type scale,
+- [x] D1. **Design tokens.** One `FernTokens` file for spacing, size, radius (§7.3), type scale,
   elevation and motion, all on the §7 scale. Replace every raw `dp`, `sp` and `Color(0x…)` in UI
   code with a token.
-- [ ] D2. **Semantic colour roles.** Canvas chrome, accent, selection, guide, danger and HUD,
+  Done: `FernTokens.kt` (scale, spacing, sizes, type, motion, §7.3 radius); no raw `dp`/`sp` literal left in UI code, checked by `FernTokensTest`. Named on-scale constants (`CELL`, `PAD_DP`…) remain for pixel maths.
+- [x] D2. **Semantic colour roles.** Canvas chrome, accent, selection, guide, danger and HUD,
   each in light, dark, high-contrast and colour-blind-safe themes. Remove the hard-coded colours
   listed in the audit.
-- [ ] D3. **Touch targets.** 48 dp minimum hit area everywhere. Swatches can stay 24 dp to look
+  Done: `FernColors.kt` roles (selection, guide, danger, measure, frame, construction, active, game, onion, neutral, scrim) in standard, high-contrast and colour-blind-safe (Okabe-Ito) sets; a Settings switch for the last. Paper, palette and ink colours are content and stay as they are.
+- [x] D3. **Touch targets.** 48 dp minimum hit area everywhere. Swatches can stay 24 dp to look
   at, with a 48 dp hit area.
-- [ ] D4. **Screen reader pass.** Every control gets a label and a role, and the state is
+  Done: swatches, tool slots and small delete buttons keep their look with a 48 dp touch target (`minimumInteractiveComponentSize`).
+- [x] D4. **Screen reader pass.** Every control gets a label and a role, and the state is
   announced ("Pen, 4 px, selected"). The canvas gets a live description (tool, zoom, selection
   count). No more `contentDescription = null` on actionable elements.
+  Done: tool buttons announce whether they are the active tool; the canvas announces the tool, zoom and selection count as they change (polite live region). Remaining `contentDescription = null` are decorative icons inside labelled controls.
 - [ ] D5. **Font scale and reduced motion.** Layouts hold up to 200 % font scale. Nothing is
   under 12 sp. Animations respect the system's "remove animations" setting.
 - [ ] D6. **Snackbars replace toasts.** Messages can be acted on ("Layer deleted — Undo"),

@@ -231,7 +231,8 @@ class MainActivity : ComponentActivity() {
             // Follows the system light/dark setting for the app's own UI (toolbar, dialogs). The
             // canvas paper keeps each document's chosen background colour either way.
             var highContrast by remember { mutableStateOf(AppSettings.highContrast(this)) }
-            FernTheme(highContrast = highContrast) {
+            var colorBlindSafe by remember { mutableStateOf(AppSettings.colorBlindSafe(this)) }
+            FernTheme(highContrast = highContrast, colorBlindSafe = colorBlindSafe) {
                 Surface(color = Color(0xFFF7F5F0)) {
                     val context = LocalContext.current
                     val lifecycleOwner = LocalLifecycleOwner.current
@@ -1082,7 +1083,7 @@ class MainActivity : ComponentActivity() {
                         // Below the status bar, and below the toolbar when it's at the top.
                         if (canvasState.showRulers) {
                             val insetTop = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
-                            Rulers(canvasState, topInset = insetTop + if (toolbarAtBottom) 0.dp else TOOLBAR_CLEARANCE_DP.dp)
+                            Rulers(canvasState, topInset = insetTop + if (toolbarAtBottom) FernScale.none else TOOLBAR_CLEARANCE_DP.dp)
                         }
                         // Above the canvas, beneath every control: while a voice note plays, a tap on its ink seeks.
                         if (playingNote != null && audioNotes.recordingSince == null) {
@@ -1102,7 +1103,7 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(16.dp),
+                                    .padding(FernScale.s16),
                             )
                         } else if (canvasState.play != null) {
                             val playing = canvasState.play
@@ -1120,7 +1121,7 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier
                                     .align(if (toolbarAtBottom) Alignment.BottomCenter else Alignment.TopCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(vertical = 12.dp),
+                                    .padding(vertical = FernScale.s12),
                                 onOpenDocuments = {
                                     // Autosave skips thumbnails, so bring this document's up to date for the library.
                                     val id = currentDocumentId
@@ -1216,7 +1217,7 @@ class MainActivity : ComponentActivity() {
                                         // Opposite edge from the toolbar so the two never overlap.
                                         .align(if (toolbarAtBottom) Alignment.TopCenter else Alignment.BottomCenter)
                                         .padding(WindowInsets.systemBars.asPaddingValues())
-                                        .padding(bottom = 16.dp),
+                                        .padding(bottom = FernScale.s16),
                                 )
                             }
                             if (canvasState.secondViewOpen) {
@@ -1226,7 +1227,7 @@ class MainActivity : ComponentActivity() {
                                         // Opposite the drawing hand, above the minimap.
                                         .align(if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft)
                                         .padding(WindowInsets.systemBars.asPaddingValues())
-                                        .padding(top = 64.dp, start = 12.dp, end = 12.dp)
+                                        .padding(top = FernScale.s64, start = FernScale.s12, end = FernScale.s12)
                                         .fillMaxWidth(0.5f)
                                         .fillMaxHeight(0.4f),
                                 )
@@ -1238,7 +1239,7 @@ class MainActivity : ComponentActivity() {
                                     // Physical sides (not start/end): the hands are the same in a right-to-left language.
                                     .align(if (leftHanded) AbsoluteAlignment.BottomRight else AbsoluteAlignment.BottomLeft)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(12.dp),
+                                    .padding(FernScale.s12),
                             )
                             AudioBar(
                                 audio = audioNotes,
@@ -1249,7 +1250,7 @@ class MainActivity : ComponentActivity() {
                                     // Opposite edge from the toolbar, like the animation bar.
                                     .align(if (toolbarAtBottom) Alignment.TopCenter else Alignment.BottomCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(vertical = 64.dp),
+                                    .padding(vertical = FernScale.s64),
                             )
                             QuickMenuButton(
                                 onOpen = { showQuickMenu = true },
@@ -1257,7 +1258,7 @@ class MainActivity : ComponentActivity() {
                                     // Same side as the minimap, mid-height: in reach of the free hand's thumb.
                                     .align(if (leftHanded) AbsoluteAlignment.CenterRight else AbsoluteAlignment.CenterLeft)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(12.dp),
+                                    .padding(FernScale.s12),
                             )
                             if (showQuickMenu) QuickMenuOverlay(state = canvasState, onDismiss = { showQuickMenu = false }, actions = quickMenuActions)
                             if (loadingDocument) DocumentLoadingOverlay()
@@ -1429,6 +1430,11 @@ class MainActivity : ComponentActivity() {
                             onHighContrastChange = { value ->
                                 highContrast = value
                                 AppSettings.setHighContrast(context, value)
+                            },
+                            colorBlindSafe = colorBlindSafe,
+                            onColorBlindSafeChange = { value ->
+                                colorBlindSafe = value
+                                AppSettings.setColorBlindSafe(context, value)
                             },
                             snapToObjects = canvasState.snapToObjects,
                             onSnapToObjectsChange = { value ->

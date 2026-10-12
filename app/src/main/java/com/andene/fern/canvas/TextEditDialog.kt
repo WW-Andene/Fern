@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Column
@@ -28,7 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 
 /** What the text dialog was confirmed with; see [CanvasState.confirmTextEdit]. */
 data class TextEditResult(
@@ -94,34 +95,34 @@ fun TextEditDialog(
                     ),
                 )
                 // OpenType features (roadmap item 98).
-                Row(modifier = Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState())) {
+                Row(modifier = Modifier.padding(top = FernScale.s8).horizontalScroll(rememberScrollState())) {
                     for (feature in OpenTypeFeature.entries) {
                         FilterChip(
                             selected = feature in features,
                             onClick = { features = if (feature in features) features - feature else features + feature },
                             label = { Text(stringResource(feature.label)) },
-                            modifier = Modifier.padding(end = 8.dp),
+                            modifier = Modifier.padding(end = FernScale.s8),
                         )
                     }
                 }
-                Row(modifier = Modifier.padding(top = 8.dp)) {
+                Row(modifier = Modifier.padding(top = FernScale.s8)) {
                     FilterChip(
                         selected = bold,
                         onClick = { bold = !bold },
                         label = { Text(stringResource(R.string.text_bold), fontWeight = FontWeight.Bold) },
-                        modifier = Modifier.padding(end = 8.dp),
+                        modifier = Modifier.padding(end = FernScale.s8),
                     )
                     FilterChip(
                         selected = italic,
                         onClick = { italic = !italic },
                         label = { Text(stringResource(R.string.text_italic), fontStyle = FontStyle.Italic) },
-                        modifier = Modifier.padding(end = 8.dp),
+                        modifier = Modifier.padding(end = FernScale.s8),
                     )
                     FilterChip(
                         selected = sticky,
                         onClick = { sticky = !sticky },
                         label = { Text(stringResource(R.string.text_sticky)) },
-                        modifier = Modifier.padding(end = 8.dp),
+                        modifier = Modifier.padding(end = FernScale.s8),
                     )
                     FilterChip(
                         selected = outlined,
@@ -129,46 +130,46 @@ fun TextEditDialog(
                         label = { Text(stringResource(R.string.text_outlined)) },
                     )
                 }
-                Row(modifier = Modifier.padding(top = 8.dp)) {
+                Row(modifier = Modifier.padding(top = FernScale.s8)) {
                     for ((size, label) in TEXT_SIZES_PX.zip(listOf("S", "M", "L", "XL"))) {
                         FilterChip(
                             selected = sizePx == size,
                             onClick = { sizePx = size },
                             label = { Text(label) },
-                            modifier = Modifier.padding(end = 8.dp),
+                            modifier = Modifier.padding(end = FernScale.s8),
                         )
                     }
                 }
-                Row(modifier = Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState())) {
+                Row(modifier = Modifier.padding(top = FernScale.s8).horizontalScroll(rememberScrollState())) {
                     for (option in TextFont.entries) {
                         FilterChip(
                             selected = font == option,
                             onClick = { font = option },
                             label = { Text(stringResource(option.label), fontFamily = option.fontFamily) },
-                            modifier = Modifier.padding(end = 8.dp),
+                            modifier = Modifier.padding(end = FernScale.s8),
                         )
                     }
                 }
-                Row(modifier = Modifier.padding(top = 8.dp)) {
+                Row(modifier = Modifier.padding(top = FernScale.s8)) {
                     for (option in TextAlignment.entries) {
                         FilterChip(
                             selected = alignment == option,
                             onClick = { alignment = option },
                             label = { Text(stringResource(option.label)) },
-                            modifier = Modifier.padding(end = 8.dp),
+                            modifier = Modifier.padding(end = FernScale.s8),
                         )
                     }
                 }
                 // Link to a pin (a place on this canvas) or to another document.
-                Row(modifier = Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    FilterChip(selected = link == null, onClick = { link = null }, label = { Text(stringResource(R.string.text_no_link)) }, modifier = Modifier.padding(end = 8.dp))
+                Row(modifier = Modifier.padding(top = FernScale.s8), verticalAlignment = Alignment.CenterVertically) {
+                    FilterChip(selected = link == null, onClick = { link = null }, label = { Text(stringResource(R.string.text_no_link)) }, modifier = Modifier.padding(end = FernScale.s8))
                     Box {
                         FilterChip(
                             selected = link is LinkTarget.Pin,
                             onClick = { linkMenu = LinkMenu.PINS },
                             enabled = linkChoices.pins.isNotEmpty(),
                             label = { Text(stringResource(R.string.text_link_pin)) },
-                            modifier = Modifier.padding(end = 8.dp),
+                            modifier = Modifier.padding(end = FernScale.s8),
                         )
                         DropdownMenu(expanded = linkMenu == LinkMenu.PINS, onDismissRequest = { linkMenu = null }) {
                             for (pin in linkChoices.pins) {
@@ -204,13 +205,13 @@ fun TextEditDialog(
                     Text(
                         if (name != null) stringResource(R.string.text_links_to, name) else stringResource(R.string.text_link_missing),
                         style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 4.dp),
+                        modifier = Modifier.padding(top = FernScale.s4),
                     )
                 }
                 // Only offered for a label that has a box (dragged out with the text tool):
                 // switching it off turns the box back into a plain single-line label.
                 if (pending.boxWidthWorld != null) {
-                    Row(modifier = Modifier.padding(top = 8.dp)) {
+                    Row(modifier = Modifier.padding(top = FernScale.s8)) {
                         FilterChip(
                             selected = keepBox,
                             onClick = { keepBox = !keepBox },

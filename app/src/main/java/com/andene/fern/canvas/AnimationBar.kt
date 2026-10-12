@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.automirrored.filled.Label
@@ -39,7 +41,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 
 // In-betweens generated per tap: 3 turns two keyframes into a smooth 5-frame move.
 private const val IN_BETWEEN_COUNT = 3
@@ -78,14 +79,14 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
-        tonalElevation = 4.dp,
-        shadowElevation = 4.dp,
+        tonalElevation = FernScale.s4,
+        shadowElevation = FernScale.s4,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { state.goToAnimFrame(state.currentAnimFrame - 1) }, enabled = !state.playing && state.currentAnimFrame > 0) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.presentation_previous))
             }
-            Text(stringResource(R.string.presentation_position, state.currentAnimFrame + 1, state.animFrameCount), modifier = Modifier.padding(horizontal = 8.dp))
+            Text(stringResource(R.string.presentation_position, state.currentAnimFrame + 1, state.animFrameCount), modifier = Modifier.padding(horizontal = FernScale.s8))
             IconButton(onClick = { state.goToAnimFrame(state.currentAnimFrame + 1) }, enabled = !state.playing && state.currentAnimFrame < state.animFrameCount - 1) {
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.presentation_next))
             }
@@ -115,7 +116,7 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
             val currentTag = state.frameTags.lastOrNull { state.currentAnimFrame in it }
             TextButton(onClick = { showTags = true }) {
                 Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null, tint = currentTag?.let { Color(it.color) } ?: LocalContentColor.current)
-                Text(currentTag?.name ?: stringResource(R.string.tags_title), modifier = Modifier.padding(start = 4.dp))
+                Text(currentTag?.name ?: stringResource(R.string.tags_title), modifier = Modifier.padding(start = FernScale.s4))
             }
             IconButton(onClick = {
                 if (state.playing) state.playingTag = null

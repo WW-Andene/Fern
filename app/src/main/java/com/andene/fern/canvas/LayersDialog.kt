@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.filled.Refresh
 import kotlinx.coroutines.withContext
@@ -61,7 +63,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 
 /**
  * The layer stack, listed top layer first like every paint app. Tap a name to make it the
@@ -115,7 +116,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
         text = {
             Column(
                 modifier = Modifier
-                    .heightIn(max = 384.dp)
+                    .heightIn(max = FernScale.s384)
                     .verticalScroll(rememberScrollState()),
             ) {
                 val skins = state.skins
@@ -127,7 +128,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                                 selected = state.activeSkin == skin,
                                 onClick = { state.applySkin(skin) },
                                 label = { Text(skin) },
-                                modifier = Modifier.padding(end = 4.dp),
+                                modifier = Modifier.padding(end = FernScale.s4),
                             )
                         }
                     }
@@ -180,7 +181,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                                 modifier = Modifier
                                     .weight(1f)
                                     .clickable { state.activeLayerId = layer.id }
-                                    .padding(vertical = 12.dp),
+                                    .padding(vertical = FernScale.s12),
                             )
                             IconButton(onClick = {
                                 renamingId = layer.id
@@ -328,7 +329,7 @@ private fun LayerCompsSection(state: CanvasState) {
                 selected = comp.id == current,
                 onClick = { state.applyLayerComp(comp.id); chosenId = comp.id },
                 label = { Text(comp.name) },
-                modifier = Modifier.padding(end = 4.dp),
+                modifier = Modifier.padding(end = FernScale.s4),
             )
         }
         val newName = stringResource(R.string.layers_comp_default_name, state.layerComps.size + 1)
@@ -367,7 +368,7 @@ private fun HdrSection(state: CanvasState) {
     Slider(value = view.exposureStops, onValueChange = { state.changeHdrView(view.copy(exposureStops = it)) }, valueRange = -6f..6f)
     Row {
         for ((mode, label) in listOf(ToneMap.CLIP to R.string.hdr_clip, ToneMap.FILMIC to R.string.hdr_filmic)) {
-            FilterChip(selected = view.toneMap == mode, onClick = { state.changeHdrView(view.copy(toneMap = mode)) }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = 4.dp))
+            FilterChip(selected = view.toneMap == mode, onClick = { state.changeHdrView(view.copy(toneMap = mode)) }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = FernScale.s4))
         }
     }
     Text(stringResource(R.string.hdr_intensity, "%.1f".format(state.hdrIntensity)))

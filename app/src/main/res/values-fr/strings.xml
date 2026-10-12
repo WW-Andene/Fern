@@ -12,6 +12,7 @@
     <string name="settings_left_handed">Disposition pour gaucher</string>
     <string name="settings_toolbar_bottom">Barre d\'outils en bas</string>
     <string name="settings_high_contrast">Contraste élevé</string>
+    <string name="settings_color_blind_safe">Repères du canevas adaptés au daltonisme</string>
     <string name="settings_snap_objects">Aimanter les formes aux objets</string>
     <string name="settings_show_guide">Afficher le guide des gestes</string>
     <string name="action_done">Terminé</string>
@@ -914,4 +915,21 @@
     <string name="game_script_stopped">%1$s : script arrêté, ligne %2$d : %3$s</string>
     <string name="script_run">Exécuter</string>
     <string name="script_error">Ligne %1$d : %2$s</string>
+    <plurals name="canvas_state">
+        <item quantity="one">%1$s, zoom %2$d %%, %3$d élément sélectionné</item>
+        <item quantity="many">%1$s, zoom %2$d %%, %3$d éléments sélectionnés</item>
+        <item quantity="other">%1$s, zoom %2$d %%, %3$d éléments sélectionnés</item>
+    </plurals>
+    <string name="tool_name_pen">Stylo</string>
+    <string name="tool_name_eraser">Gomme</string>
+    <string name="tool_name_select">Sélection</string>
+    <string name="tool_name_shape">Forme</string>
+    <string name="tool_name_fill">Remplissage</string>
+    <string name="tool_name_text">Texte</string>
+    <string name="tool_name_ruler">Règle</string>
+    <string name="tool_name_eyedropper">Pipette</string>
+    <string name="tool_name_connect">Connecteur</string>
+    <string name="tool_name_bone">Os</string>
+    <string name="tool_name_bezier">Tracé de Bézier</string>
+    <string name="tool_name_measure">Mesure</string>
 </resources>

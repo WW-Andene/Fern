@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,7 +26,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 
 /**
@@ -54,10 +55,10 @@ fun SymbolsDialog(
         text = {
             Column {
                 if (symbols.isEmpty()) Text(stringResource(R.string.symbols_empty))
-                LazyColumn(modifier = Modifier.heightIn(max = 256.dp)) {
+                LazyColumn(modifier = Modifier.heightIn(max = FernScale.s256)) {
                     items(symbols, key = { it.id }) { symbol ->
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(symbol.name, modifier = Modifier.weight(1f).clickable { onInsert(symbol) }.padding(vertical = 12.dp))
+                            Text(symbol.name, modifier = Modifier.weight(1f).clickable { onInsert(symbol) }.padding(vertical = FernScale.s12))
                             IconButton(onClick = { onDelete(symbol) }) {
                                 Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.symbols_delete, symbol.name))
                             }
@@ -70,7 +71,7 @@ fun SymbolsDialog(
                     TextButton(onClick = onDetach) { Text(stringResource(R.string.symbols_detach)) }
                 }
                 if (canSaveSelection) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = FernScale.s8)) {
                         OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.symbols_name)) }, singleLine = true, modifier = Modifier.weight(1f))
                         TextButton(onClick = {
                             onSaveSelection(name)

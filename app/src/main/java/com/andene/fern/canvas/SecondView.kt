@@ -1,5 +1,9 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernColors
+
+import com.andene.fern.FernScale
+
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -32,7 +36,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 
 /**
@@ -82,8 +85,8 @@ fun SecondView(state: CanvasState, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.medium,
-        tonalElevation = 4.dp,
-        shadowElevation = 4.dp,
+        tonalElevation = FernScale.s4,
+        shadowElevation = FernScale.s4,
     ) {
         Box(modifier = Modifier.onSizeChanged { paneSize = it }) {
             Canvas(
@@ -179,4 +182,4 @@ fun SecondView(state: CanvasState, modifier: Modifier = Modifier) {
 
 private const val FIT_FILL = 0.9 // the fitted drawing fills 90% of the pane
 
-private val MAIN_VIEW_FRAME_COLOR = androidx.compose.ui.graphics.Color(0xFF4A7A52)
+private val MAIN_VIEW_FRAME_COLOR: androidx.compose.ui.graphics.Color get() = FernColors.current.game

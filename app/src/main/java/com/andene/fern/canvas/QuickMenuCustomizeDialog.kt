@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -12,7 +14,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 
 /**
@@ -34,7 +35,7 @@ fun QuickMenuCustomizeDialog(
         text = {
             Column {
                 Text(stringResource(R.string.quick_menu_customize_hint, QUICK_MENU_MAX_ACTIONS))
-                FlowRow(modifier = Modifier.padding(top = 8.dp)) {
+                FlowRow(modifier = Modifier.padding(top = FernScale.s8)) {
                     for (action in QuickMenuAction.entries) {
                         val on = action in chosen
                         FilterChip(
@@ -43,7 +44,7 @@ fun QuickMenuCustomizeDialog(
                             enabled = on || chosen.size < QUICK_MENU_MAX_ACTIONS,
                             leadingIcon = { Icon(action.icon(state), contentDescription = null) },
                             label = { Text(stringResource(action.label)) },
-                            modifier = Modifier.padding(end = 4.dp),
+                            modifier = Modifier.padding(end = FernScale.s4),
                         )
                     }
                 }

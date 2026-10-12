@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -19,7 +21,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 
 private const val EXAMPLE_GAME_SCRIPT = "// Collect coins; win at 10\nif touching(\"Coin\") [\n  removetouching \"Coin\"\n  addprop \"score\" 1\n]\nif prop(\"score\") >= 10 [ setstate \"win\" ]"
@@ -38,7 +39,7 @@ fun GameScriptDialog(state: CanvasState, objectId: String, onDismiss: () -> Unit
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.game_script_title)) },
         text = {
-            Column(Modifier.heightIn(max = 512.dp).verticalScroll(rememberScrollState())) {
+            Column(Modifier.heightIn(max = FernScale.s512).verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.game_script_help), style = MaterialTheme.typography.bodySmall)
                 OutlinedTextField(
                     value = source,
@@ -47,9 +48,9 @@ fun GameScriptDialog(state: CanvasState, objectId: String, onDismiss: () -> Unit
                         error = null
                     },
                     textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 128.dp).padding(top = 8.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = FernScale.s128).padding(top = FernScale.s8),
                 )
-                error?.let { Text(stringResource(R.string.script_error, it.line, it.message.orEmpty()), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
+                error?.let { Text(stringResource(R.string.script_error, it.line, it.message.orEmpty()), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = FernScale.s8)) }
             }
         },
         confirmButton = {

@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,7 +30,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 
 /**
@@ -48,7 +49,7 @@ fun BranchesDialog(state: CanvasState, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.branches_title)) },
         text = {
-            Column(Modifier.heightIn(max = 512.dp).verticalScroll(rememberScrollState())) {
+            Column(Modifier.heightIn(max = FernScale.s512).verticalScroll(rememberScrollState())) {
                 if (state.branches.isEmpty()) Text(stringResource(R.string.branches_empty))
                 for (branch in state.branches) {
                     val current = branch.id == state.currentBranchId
@@ -57,7 +58,7 @@ fun BranchesDialog(state: CanvasState, onDismiss: () -> Unit) {
                         Text(
                             branch.name,
                             style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.weight(1f).clickable(enabled = !current) { state.switchBranch(branch.id) }.padding(8.dp),
+                            modifier = Modifier.weight(1f).clickable(enabled = !current) { state.switchBranch(branch.id) }.padding(FernScale.s8),
                         )
                         if (!current) {
                             IconButton(onClick = {
@@ -72,10 +73,10 @@ fun BranchesDialog(state: CanvasState, onDismiss: () -> Unit) {
                     }
                 }
                 report?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(Modifier.padding(vertical = FernScale.s8))
                 Text(stringResource(R.string.branches_conflict_rule))
                 Row {
-                    FilterChip(selected = preference == MergePreference.OURS, onClick = { preference = MergePreference.OURS }, label = { Text(stringResource(R.string.branches_keep_ours)) }, modifier = Modifier.padding(end = 8.dp))
+                    FilterChip(selected = preference == MergePreference.OURS, onClick = { preference = MergePreference.OURS }, label = { Text(stringResource(R.string.branches_keep_ours)) }, modifier = Modifier.padding(end = FernScale.s8))
                     FilterChip(selected = preference == MergePreference.THEIRS, onClick = { preference = MergePreference.THEIRS }, label = { Text(stringResource(R.string.branches_take_theirs)) })
                 }
                 OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.branches_new_name)) }, singleLine = true)

@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -17,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 
 /**
@@ -37,8 +38,8 @@ fun FrameResizeDialog(frame: Frame, drawingScale: DrawingScale?, onApply: (width
         text = {
             Column {
                 Row {
-                    OutlinedTextField(width, { width = it }, label = { Text("${stringResource(R.string.transform_width)} (${drawingScale.symbol})") }, singleLine = true, isError = parse(width) == null, keyboardOptions = numeric, modifier = Modifier.width(128.dp).padding(end = 8.dp))
-                    OutlinedTextField(height, { height = it }, label = { Text("${stringResource(R.string.transform_height)} (${drawingScale.symbol})") }, singleLine = true, isError = parse(height) == null, keyboardOptions = numeric, modifier = Modifier.width(128.dp))
+                    OutlinedTextField(width, { width = it }, label = { Text("${stringResource(R.string.transform_width)} (${drawingScale.symbol})") }, singleLine = true, isError = parse(width) == null, keyboardOptions = numeric, modifier = Modifier.width(FernScale.s128).padding(end = FernScale.s8))
+                    OutlinedTextField(height, { height = it }, label = { Text("${stringResource(R.string.transform_height)} (${drawingScale.symbol})") }, singleLine = true, isError = parse(height) == null, keyboardOptions = numeric, modifier = Modifier.width(FernScale.s128))
                 }
                 Text(stringResource(R.string.frame_resize_hint))
             }

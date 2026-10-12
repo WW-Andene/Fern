@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -18,7 +20,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -50,9 +51,9 @@ fun ScriptDialog(onRun: (List<ScriptLine>) -> Unit, onDismiss: () -> Unit) {
                         error = null
                     },
                     textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 128.dp).padding(top = 8.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = FernScale.s128).padding(top = FernScale.s8),
                 )
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = FernScale.s8)) }
             }
         },
         confirmButton = {
