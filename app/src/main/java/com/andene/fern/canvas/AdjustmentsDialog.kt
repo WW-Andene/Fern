@@ -1,6 +1,8 @@
 package com.andene.fern.canvas
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
@@ -38,11 +40,18 @@ private enum class AdjustmentKind(val label: Int) {
     LEVELS(R.string.adjust_levels),
     CURVES(R.string.adjust_curves),
     HUE(R.string.adjust_hue),
+    BLUR(R.string.adjust_blur),
+    SHARPEN(R.string.adjust_sharpen),
+    PIXELATE(R.string.adjust_pixelate),
+    POSTERIZE(R.string.adjust_posterize),
+    THRESHOLD(R.string.adjust_threshold),
+    INVERT(R.string.adjust_invert),
 }
 
 /**
- * Adjustments for the active raster layer (roadmap item 92) - levels, curves or
- * hue/saturation/lightness - previewed live on the layer (within its selection, if any). Apply
+ * Adjustments for the active raster layer (roadmap item 92) - levels, curves,
+ * hue/saturation/lightness, and the filters of item 138 (blur, sharpen, pixelate, posterize,
+ * threshold, invert) - previewed live on the layer (within its selection, if any). Apply
  * keeps the result as one undo step; Cancel or dismissing puts the layer back.
  */
 @Composable
@@ -59,15 +68,38 @@ fun AdjustmentsDialog(state: CanvasState, onDismiss: () -> Unit) {
 @Composable
 fun AdjustmentsDialog(initial: Adjustment?, onPreview: (Adjustment) -> Unit, onApply: (Adjustment) -> Unit, onCancel: () -> Unit) {
     var kind by remember {
-        mutableStateOf(when (initial) { is Curves -> AdjustmentKind.CURVES; is HueSaturation -> AdjustmentKind.HUE; else -> AdjustmentKind.LEVELS })
+        mutableStateOf(
+            when (initial) {
+                is Curves -> AdjustmentKind.CURVES
+                is HueSaturation -> AdjustmentKind.HUE
+                is GaussianBlur -> AdjustmentKind.BLUR
+                is Sharpen -> AdjustmentKind.SHARPEN
+                is Pixelate -> AdjustmentKind.PIXELATE
+                is Posterize -> AdjustmentKind.POSTERIZE
+                is Threshold -> AdjustmentKind.THRESHOLD
+                is Invert -> AdjustmentKind.INVERT
+                is Levels, null -> AdjustmentKind.LEVELS
+            },
+        )
     }
     var levels by remember { mutableStateOf(initial as? Levels ?: Levels()) }
     var curves by remember { mutableStateOf(initial as? Curves ?: Curves()) }
     var hue by remember { mutableStateOf(initial as? HueSaturation ?: HueSaturation()) }
+    var blur by remember { mutableStateOf(initial as? GaussianBlur ?: GaussianBlur()) }
+    var sharpen by remember { mutableStateOf(initial as? Sharpen ?: Sharpen()) }
+    var pixelate by remember { mutableStateOf(initial as? Pixelate ?: Pixelate()) }
+    var posterize by remember { mutableStateOf(initial as? Posterize ?: Posterize()) }
+    var threshold by remember { mutableStateOf(initial as? Threshold ?: Threshold()) }
     val current: Adjustment = when (kind) {
         AdjustmentKind.LEVELS -> levels
         AdjustmentKind.CURVES -> curves
         AdjustmentKind.HUE -> hue
+        AdjustmentKind.BLUR -> blur
+        AdjustmentKind.SHARPEN -> sharpen
+        AdjustmentKind.PIXELATE -> pixelate
+        AdjustmentKind.POSTERIZE -> posterize
+        AdjustmentKind.THRESHOLD -> threshold
+        AdjustmentKind.INVERT -> Invert
     }
     // Previewed after a short pause, so dragging a slider doesn't recompute every pixel per step.
     LaunchedEffect(current) {
@@ -79,7 +111,7 @@ fun AdjustmentsDialog(initial: Adjustment?, onPreview: (Adjustment) -> Unit, onA
         title = { Text(stringResource(R.string.adjust_title)) },
         text = {
             Column {
-                Row {
+                Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     for (k in AdjustmentKind.entries) {
                         FilterChip(selected = kind == k, onClick = { kind = k }, label = { Text(stringResource(k.label)) }, modifier = Modifier.padding(end = 4.dp))
                     }
@@ -98,6 +130,19 @@ fun AdjustmentsDialog(initial: Adjustment?, onPreview: (Adjustment) -> Unit, onA
                         LabeledSlider(stringResource(R.string.adjust_saturation), hue.saturation, -1f..1f) { hue = hue.copy(saturation = it) }
                         LabeledSlider(stringResource(R.string.adjust_lightness), hue.lightness, -1f..1f) { hue = hue.copy(lightness = it) }
                     }
+                    AdjustmentKind.BLUR ->
+                        LabeledSlider(stringResource(R.string.adjust_radius), blur.sizeWorld.toFloat(), 1f..64f) { blur = GaussianBlur(it.toDouble()) }
+                    AdjustmentKind.SHARPEN -> {
+                        LabeledSlider(stringResource(R.string.adjust_radius), sharpen.sizeWorld.toFloat(), 1f..16f) { sharpen = sharpen.copy(sizeWorld = it.toDouble()) }
+                        LabeledSlider(stringResource(R.string.adjust_amount), sharpen.amount, 0.1f..4f) { sharpen = sharpen.copy(amount = it) }
+                    }
+                    AdjustmentKind.PIXELATE ->
+                        LabeledSlider(stringResource(R.string.adjust_cell), pixelate.sizeWorld.toFloat(), 2f..64f) { pixelate = Pixelate(it.toDouble()) }
+                    AdjustmentKind.POSTERIZE ->
+                        LabeledSlider(stringResource(R.string.adjust_levels_count), posterize.levels.toFloat(), 2f..16f) { posterize = Posterize(it.roundToInt()) }
+                    AdjustmentKind.THRESHOLD ->
+                        LabeledSlider(stringResource(R.string.adjust_threshold_level), threshold.level, 0f..1f) { threshold = Threshold(it) }
+                    AdjustmentKind.INVERT -> {}
                 }
             }
         },

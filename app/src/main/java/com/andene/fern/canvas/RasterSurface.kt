@@ -10,6 +10,7 @@ import java.util.zip.DeflaterOutputStream
 import java.util.zip.InflaterInputStream
 import kotlin.math.ceil
 import kotlin.math.floor
+import kotlin.math.roundToInt
 import kotlin.math.hypot
 
 /** Edge of a raster tile in pixels; on the §7 scale. */
@@ -217,6 +218,11 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
 
     /** Applies [adjustment] to every painted pixel (within [clip] when set); coverage is kept. */
     fun adjust(adjustment: Adjustment) {
+        if (adjustment is SpatialFilter) {
+            filter(adjustment)
+            return
+        }
+        adjustment as ColorAdjustment
         val rgb = FloatArray(3)
         for ((key, tile) in tiles.toList()) {
             beforeTileChange(key)
@@ -235,6 +241,45 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
             afterTileChange(key)
         }
         revision++
+    }
+
+    /**
+     * Runs [filter] (roadmap item 138) over the painted area, widened by the filter's reach so a
+     * blur can spread past the paint's edge; only pixels [clip] allows change. Worked at 8 bits
+     * per channel, as the platform's own image filters are, so a 16-bit layer's filtered area
+     * comes back at 8-bit precision.
+     */
+    private fun filter(filter: SpatialFilter) {
+        if (tiles.isEmpty()) return
+        val reach = ceil(filter.sizeWorld / pixelWorld).toInt().coerceIn(0, MAX_FILTER_REACH_PX)
+        val xs = tiles.keys.map { tileX(it) }
+        val ys = tiles.keys.map { tileY(it) }
+        val left = xs.min() * RASTER_TILE - reach
+        val top = ys.min() * RASTER_TILE - reach
+        val width = (xs.max() + 1) * RASTER_TILE + reach - left
+        val height = (ys.max() + 1) * RASTER_TILE + reach - top
+        if (width.toLong() * height > MAX_FILTER_PIXELS) return
+        val argb = IntArray(width * height)
+        for ((key, tile) in tiles) {
+            val baseX = tileX(key) * RASTER_TILE - left
+            val baseY = tileY(key) * RASTER_TILE - top
+            for (i in 0 until RASTER_TILE * RASTER_TILE) {
+                val index = i * 4
+                fun ch(c: Int) = u16(tile.data[index + c]) * 255 / 65535
+                argb[(baseY + i / RASTER_TILE) * width + baseX + i % RASTER_TILE] = (ch(3) shl 24) or (ch(0) shl 16) or (ch(1) shl 8) or ch(2)
+            }
+        }
+        val before = argb.copyOf()
+        filter.filter(argb, width, height, (filter.sizeWorld / pixelWorld).roundToInt())
+        forEachPixelIn(left.toDouble(), top.toDouble(), (left + width - 1).toDouble(), (top + height - 1).toDouble()) { tile, index, px, py ->
+            val k = (py - top) * width + (px - left)
+            val c = argb[k]
+            if (c == before[k]) return@forEachPixelIn // untouched: keep its full precision
+            tile.data[index] = (((c shr 16) and 0xFF) * 257).toShort()
+            tile.data[index + 1] = (((c shr 8) and 0xFF) * 257).toShort()
+            tile.data[index + 2] = ((c and 0xFF) * 257).toShort()
+            tile.data[index + 3] = ((c ushr 24) * 257).toShort()
+        }
     }
 
     /** Moves a pixel toward premultiplied colour [s] by [a]; under alpha lock its coverage stays and colour is rescaled to it. */
@@ -364,6 +409,10 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
 
         // A tile is 512 KB raw at 16 bits; compressed it's never larger than that plus overhead.
         private const val MAX_TILE_BYTES = RASTER_TILE * RASTER_TILE * 8 + 4096
+        // A filter's working copy is two ARGB arrays of the painted area: past 8 million pixels
+        // (64 MB) it isn't run, rather than risk running out of memory on a phone.
+        private const val MAX_FILTER_PIXELS = 8_000_000L
+        private const val MAX_FILTER_REACH_PX = 512
     }
 }
 

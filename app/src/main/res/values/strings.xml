@@ -129,6 +129,17 @@
     <string name="adjust_levels">Levels</string>
     <string name="adjust_curves">Curves</string>
     <string name="adjust_hue">Hue/Saturation</string>
+    <string name="adjust_blur">Blur</string>
+    <string name="adjust_sharpen">Sharpen</string>
+    <string name="adjust_pixelate">Pixelate</string>
+    <string name="adjust_posterize">Posterize</string>
+    <string name="adjust_threshold">Threshold</string>
+    <string name="adjust_invert">Invert</string>
+    <string name="adjust_radius">Radius</string>
+    <string name="adjust_amount">Amount</string>
+    <string name="adjust_cell">Cell size</string>
+    <string name="adjust_levels_count">Levels</string>
+    <string name="adjust_threshold_level">Level</string>
     <string name="adjust_in_black">Input black</string>
     <string name="adjust_in_white">Input white</string>
     <string name="adjust_gamma">Midtones (gamma)</string>

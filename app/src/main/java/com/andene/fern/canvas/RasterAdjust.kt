@@ -6,11 +6,15 @@ import kotlin.math.abs
 import kotlin.math.pow
 
 /**
- * Colour adjustments for raster layers (roadmap item 92), each a function of one pixel's
- * non-premultiplied colour (0..1), applied to a layer or its selection by
- * [CanvasState.applyAdjustment], and to everything beneath by adjustment layers (item 93).
+ * Adjustments for raster layers (roadmap item 92), applied to a layer or its selection by
+ * [CanvasState.previewAdjustment], and to everything beneath by adjustment (filter) layers
+ * (items 93, 138): per-pixel colour changes ([ColorAdjustment]) or filters that look at a
+ * pixel's neighbours ([SpatialFilter]).
  */
-sealed interface Adjustment {
+sealed interface Adjustment
+
+/** An adjustment that's a function of one pixel's non-premultiplied colour (0..1). */
+sealed interface ColorAdjustment : Adjustment {
     /** Adjusts [rgb] (three channels, 0..1) in place. */
     fun apply(rgb: FloatArray)
 }
@@ -25,7 +29,7 @@ data class Levels(
     val gamma: Float = 1f,
     val outBlack: Float = 0f,
     val outWhite: Float = 1f,
-) : Adjustment {
+) : ColorAdjustment {
     fun map(v: Float): Float {
         val span = (inWhite - inBlack).coerceAtLeast(1e-4f)
         val normalized = ((v - inBlack) / span).coerceIn(0f, 1f)
@@ -43,7 +47,7 @@ data class Levels(
  * ends are pinned at (0,0) and (1,1) unless given), applied to every channel. Monotone cubic
  * (Fritsch-Carlson), so the curve never overshoots between points the way a plain spline can.
  */
-data class Curves(val points: List<Pair<Float, Float>> = listOf(0f to 0f, 1f to 1f)) : Adjustment {
+data class Curves(val points: List<Pair<Float, Float>> = listOf(0f to 0f, 1f to 1f)) : ColorAdjustment {
     private val table: FloatArray by lazy { buildTable() }
 
     fun map(v: Float): Float = table[(v.coerceIn(0f, 1f) * (TABLE_SIZE - 1)).toInt()]
@@ -104,7 +108,7 @@ data class Curves(val points: List<Pair<Float, Float>> = listOf(0f to 0f, 1f to 
  * Hue/saturation/lightness: hue turned by [hueDegrees], saturation scaled by (1 + [saturation])
  * and lightness moved by [lightness] toward white (positive) or black (negative), each -1..1.
  */
-data class HueSaturation(val hueDegrees: Float = 0f, val saturation: Float = 0f, val lightness: Float = 0f) : Adjustment {
+data class HueSaturation(val hueDegrees: Float = 0f, val saturation: Float = 0f, val lightness: Float = 0f) : ColorAdjustment {
     override fun apply(rgb: FloatArray) {
         val hsl = rgbToHsl(rgb[0], rgb[1], rgb[2])
         hsl[0] = ((hsl[0] + hueDegrees / 360f) % 1f + 1f) % 1f
@@ -155,6 +159,12 @@ fun adjustmentToJson(adjustment: Adjustment): JSONObject = when (adjustment) {
     is Curves -> JSONObject().put("type", "curves").put("points", JSONArray().apply { for ((x, y) in adjustment.points) put(JSONArray().put(x.toDouble()).put(y.toDouble())) })
     is HueSaturation -> JSONObject().put("type", "hue").put("hue", adjustment.hueDegrees.toDouble())
         .put("saturation", adjustment.saturation.toDouble()).put("lightness", adjustment.lightness.toDouble())
+    is Invert -> JSONObject().put("type", "invert")
+    is Posterize -> JSONObject().put("type", "posterize").put("levels", adjustment.levels)
+    is Threshold -> JSONObject().put("type", "threshold").put("level", adjustment.level.toDouble())
+    is GaussianBlur -> JSONObject().put("type", "blur").put("size", adjustment.sizeWorld)
+    is Sharpen -> JSONObject().put("type", "sharpen").put("size", adjustment.sizeWorld).put("amount", adjustment.amount.toDouble())
+    is Pixelate -> JSONObject().put("type", "pixelate").put("size", adjustment.sizeWorld)
 }
 
 /** The adjustment [adjustmentToJson] wrote, or null for an unknown or damaged one. */
@@ -163,6 +173,12 @@ fun adjustmentFromJson(json: JSONObject): Adjustment? = runCatching {
         "levels" -> Levels(json.getDouble("inBlack").toFloat(), json.getDouble("inWhite").toFloat(), json.getDouble("gamma").toFloat(), json.getDouble("outBlack").toFloat(), json.getDouble("outWhite").toFloat())
         "curves" -> json.getJSONArray("points").let { a -> Curves((0 until a.length()).map { i -> a.getJSONArray(i).let { it.getDouble(0).toFloat() to it.getDouble(1).toFloat() } }) }
         "hue" -> HueSaturation(json.getDouble("hue").toFloat(), json.getDouble("saturation").toFloat(), json.getDouble("lightness").toFloat())
+        "invert" -> Invert
+        "posterize" -> Posterize(json.getInt("levels"))
+        "threshold" -> Threshold(json.getDouble("level").toFloat())
+        "blur" -> GaussianBlur(json.getDouble("size"))
+        "sharpen" -> Sharpen(json.getDouble("size"), json.getDouble("amount").toFloat())
+        "pixelate" -> Pixelate(json.getDouble("size"))
         else -> null
     }
 }.getOrNull()

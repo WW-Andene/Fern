@@ -129,6 +129,17 @@
     <string name="adjust_levels">Niveaux</string>
     <string name="adjust_curves">Courbes</string>
     <string name="adjust_hue">Teinte/Saturation</string>
+    <string name="adjust_blur">Flou</string>
+    <string name="adjust_sharpen">Netteté</string>
+    <string name="adjust_pixelate">Pixeliser</string>
+    <string name="adjust_posterize">Postériser</string>
+    <string name="adjust_threshold">Seuil</string>
+    <string name="adjust_invert">Inverser</string>
+    <string name="adjust_radius">Rayon</string>
+    <string name="adjust_amount">Intensité</string>
+    <string name="adjust_cell">Taille des cellules</string>
+    <string name="adjust_levels_count">Niveaux</string>
+    <string name="adjust_threshold_level">Niveau</string>
     <string name="adjust_in_black">Noir en entrée</string>
     <string name="adjust_in_white">Blanc en entrée</string>
     <string name="adjust_gamma">Tons moyens (gamma)</string>
