@@ -189,6 +189,11 @@ Goal: the screen layout that replaces the single scrolling toolbar and the ⋮ j
 - [ ] D14. **Command palette.** Search every action, tool, setting and recent document by name
   or synonym, in English and French, with the shortcut and location shown beside each. It opens
   from a button, a gesture or Ctrl/⌘ K.
+- [ ] D78. **Full-screen canvas on demand.** One gesture or tap hides every bar and panel; a
+  second brings them back exactly as they were. Edge-to-edge drawing under the system bars, with
+  the gesture navigation area protected from stray strokes.
+- [ ] D79. **Undo and redo always in thumb reach** on the phone, as buttons as well as gestures,
+  with a long-press on undo to scrub back through the history.
 
 ## Phase D3 — Second nature: muscle memory, gestures, stylus, keys
 
@@ -212,6 +217,12 @@ Goal: switching tools and adjusting without looking or opening anything.
   action, not a hidden long-press.
 - [ ] D21. **The quick menu becomes a radial menu** that opens from any gesture, key or button,
   holds any action, and supports flick selection without looking.
+- [ ] D80. **Last-tool toggle.** One tap (or gesture) swaps between the current and the previous
+  tool, with each keeping its own size, colour and settings.
+- [ ] D81. **Per-tool memory.** Every tool remembers its last size, opacity, colour and options;
+  the eraser never inherits the pen's size by surprise.
+- [ ] D82. **Pressure curve tuning in one screen**, drawn on the screen with your own stylus or
+  finger, with a live test stroke; per-pen presets.
 
 ## Phase D4 — Customisation everywhere
 
@@ -228,6 +239,12 @@ Goal: every surface rearrangeable, layouts portable.
   colour management. Every setting can be reset on its own.
 - [ ] D25. **UI density and size.** Compact, comfortable or large, scaled on the §7 steps,
   separate from the system font scale.
+- [ ] D83. **Per-workspace layouts.** Each workspace (D11) remembers its own rail, panels and quick
+  menu; switching workspace brings them back.
+- [ ] D84. **Custom tool presets on the rail.** Save a tool with its settings as a named preset
+  ("Ink 2 px blue", "Soft eraser") and pin it like a tool.
+- [ ] D85. **Reset to defaults** per surface and for everything, with a preview before applying
+  and an undo after.
 
 ## Phase D5 — Zero friction, zero frustration
 
@@ -248,6 +265,14 @@ Goal: nothing lost, nothing blocking, nothing to hunt for.
 - [ ] D31. **Performance as UX.** Panels and menus open in under 100 ms, no layout shift on the
   canvas when a bar appears, and long jobs (exports, imports) run in the background with
   progress and cancel.
+- [ ] D86. **No accidental loss of state.** Leaving a tool, closing a panel or rotating the phone
+  never discards a half-done action (a text being typed, a Bézier path, a selection); it's kept
+  or finished.
+- [ ] D87. **Smart defaults.** New documents, layers, exports and objects start with the choice
+  most people make, named sensibly in the user's language; nothing asks a question it can answer
+  itself.
+- [ ] D88. **Interruptions handled.** A phone call, a notification or switching apps mid-stroke
+  ends the stroke cleanly and saves; returning resumes without a prompt.
 
 ## Phase D6 — Depth for experts without cost for beginners
 
@@ -262,6 +287,10 @@ Goal: complete and deep to master, while the first minute stays simple.
   bind it to a key or gesture (it builds on the scripting language of ROADMAP item 164).
 - [ ] D35. **Usage-aware suggestions (on-device only).** Offer to pin a tool or action you use
   often but reach through menus. No telemetry leaves the device (CLAUDE.md §8.1).
+- [ ] D89. **Gesture and shortcut discoverability.** Long-press any control to see what it does,
+  its gesture and its shortcut, in both languages; a "tips you haven't tried" list in Help.
+- [ ] D90. **Expert density.** An optional compact mode for experienced users showing more tools
+  at once on the phone, without shrinking hit areas below 48 dp.
 
 ## Phase D7 — The canvas itself: feedback while drawing
 
@@ -305,6 +334,10 @@ Goal: every panel from Phase D2 designed to the same pattern and fast to work in
   dialogs on top of each other.
 - [ ] D47. **Inspector for the selection.** Transform, style, constraints (ROADMAP item 144) and
   the measurement for whatever is selected, always in the same place.
+- [ ] D91. **Swipe between panels.** On the phone, swipe sideways inside the bottom sheet to move
+  between the open panels (layers, brushes, timeline) without closing and reopening.
+- [ ] D92. **Panel peek values.** A collapsed panel still shows the one thing that matters (the
+  active layer, the current frame, the brush) so most changes need no expansion.
 
 ## Phase D9 — Home, documents and files
 
@@ -320,6 +353,10 @@ Goal: getting into a drawing and back out is instant.
   copy.
 - [ ] D51. **Sharing in one step.** Share opens the system sheet with a sensible image right
   away; options (format, size, background) come after, not before.
+- [ ] D93. **Gallery gestures.** Swipe a document card for duplicate, share, delete (with Undo);
+  pinch the gallery to change thumbnail size; drag documents into folders.
+- [ ] D94. **Quick capture.** A home-screen shortcut and a widget to start a blank note or a
+  sketch in one tap, straight into the pen.
 
 ## Phase D10 — Forms of device
 
@@ -352,6 +389,8 @@ Goal: an app with a character that never gets in the way.
   default.
 - [ ] D60. **Dark, light and canvas-matched themes**, with the chrome able to follow the
   document's background to reduce glare while painting.
+- [ ] D95. **Icon labels.** Each icon has a short label in both languages, shown below it, as a
+  tooltip, or hidden, as the user chooses; icons are recognisable without colour.
 
 ## Phase D12 — Languages and content
 
@@ -391,8 +430,23 @@ Goal: when something goes wrong, the user is never the one who pays.
   moment they're needed, with why, and a working fallback when refused.
 - [ ] D68. **Privacy visible.** A plain statement in Settings that everything stays on the
   device (CLAUDE.md §8.1), and nothing that suggests otherwise.
+- [ ] D96. **Storage-full and low-memory handling.** Warn before the phone runs out of space with
+  what to free; huge documents degrade gracefully (lower preview quality) instead of crashing.
 
-## Phase D14 — Verification
+## Phase D14 — Notes and handwriting on the phone
+
+Goal: Fern as pleasant for quick notes and PDF markup as for drawing, on a phone.
+
+- [ ] D98. **Paper templates on the phone.** Lined, grid, dotted and Cornell pages that fit the
+  phone width, with zoom that keeps handwriting a comfortable size.
+- [ ] D99. **Writing comfort.** An auto-scrolling writing zone (write in a magnified strip at the
+  bottom, the page fills above), palm rest area, and a shift of the page as you reach the edge.
+- [ ] D100. **PDF markup flow.** Open a PDF, highlight, write, sign (ROADMAP item 129) and share
+  it back in a few taps, with the tools a reader needs and nothing else.
+- [ ] D101. **Audio notes in reach.** Record, pause and play back (ROADMAP item 130) from a small
+  bar that stays out of the writing area.
+
+## Phase D15 — Verification
 
 Goal: proof that the rework met the priorities.
 
@@ -409,3 +463,5 @@ Goal: proof that the rework met the priorities.
 - [ ] D73. **Friction log.** Every "where is…?" and "how do I…?" found in testing or feedback is
   recorded against the item that should fix it, and a phase is not closed while one of its
   entries is open.
+- [ ] D97. **Contrast and colour-blind checks** of every theme, automated against WCAG 2.2 AA
+  (4.5:1 text, 3:1 controls), with simulations for protanopia, deuteranopia and tritanopia.
