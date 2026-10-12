@@ -210,7 +210,7 @@ Concepts, GoodNotes, Notability, Infinite Painter, Aseprite, Spine and Affinity 
 | 131 | AI over notes | GoodNotes, Notability | 8 | ⏸ |
 | 132 | Usage statistics | Clip Studio | 8 | done: per-document time drawing (idle gaps capped at a minute), strokes drawn, erasures, first and last worked on, and what the document holds; ⋮ > Statistics |
 | 133 | Customisable panels and QuickMenu | Krita, Procreate | 8 | done: toolbar groups shown or hidden (item 71); the quick menu ring holds the actions the user picks (up to 12 of 14) |
-| 134 | Dopesheet and curve editor | Spine | 9 | not started |
+| 134 | Dopesheet and curve editor | Spine | 9 | done: bones x frames with keys and holds, tap to go to a frame; each bone's angle curve, dragged to turn it (children, ink, joint limits); hold previous frame |
 | 135 | Free-form deformation, procedural animation | Spine | 9 | not started |
 | 136 | Game-engine runtimes, texture packer | Spine | 9 | partly (sprite sheet) |
 | 137 | Wrap-around tiled mode | Krita, Aseprite | 10 | not started |

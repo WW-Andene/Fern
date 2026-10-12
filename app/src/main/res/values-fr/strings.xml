@@ -477,6 +477,12 @@
     <string name="tb_ik_off">Cinématique inverse : désactivée</string>
     <string name="tb_export_lottie">Animation Lottie (JSON)</string>
     <string name="xsheet_title">Feuille d\'exposition (durée des images)</string>
+    <string name="dopesheet_title">Feuille d\'exposition</string>
+    <string name="dopesheet_bone">Os</string>
+    <string name="dopesheet_cell">%1$s, image %2$d</string>
+    <string name="dopesheet_curve">%1$s : angle par image</string>
+    <string name="dopesheet_hold">Garder l\'image précédente</string>
+    <string name="dopesheet_empty">Pas encore d\'os : dessinez-en avec l\'outil os.</string>
     <string name="xsheet_add_soundtrack">Ajouter une bande son</string>
     <string name="xsheet_replace_soundtrack">Remplacer la bande son</string>
     <string name="xsheet_remove_soundtrack">Retirer la bande son</string>

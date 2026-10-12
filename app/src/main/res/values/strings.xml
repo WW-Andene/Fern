@@ -475,6 +475,12 @@
     <string name="tb_ik_off">Inverse kinematics: off</string>
     <string name="tb_export_lottie">Lottie animation (JSON)</string>
     <string name="xsheet_title">Exposure sheet (frame timing)</string>
+    <string name="dopesheet_title">Dopesheet</string>
+    <string name="dopesheet_bone">Bone</string>
+    <string name="dopesheet_cell">%1$s, frame %2$d</string>
+    <string name="dopesheet_curve">%1$s: angle by frame</string>
+    <string name="dopesheet_hold">Hold previous frame</string>
+    <string name="dopesheet_empty">No bones yet: draw some with the bone tool.</string>
     <string name="xsheet_add_soundtrack">Add soundtrack</string>
     <string name="xsheet_replace_soundtrack">Replace soundtrack</string>
     <string name="xsheet_remove_soundtrack">Remove soundtrack</string>

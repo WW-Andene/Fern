@@ -1084,8 +1084,7 @@ class CanvasState(
         }
     }
 
-    private fun startTurn(bone: Bone, pointer: WorldPoint): BoneTurn {
-        val frame = currentAnimFrame
+    private fun startTurn(bone: Bone, pointer: WorldPoint, frame: Int = currentAnimFrame): BoneTurn {
         val frameBones = bones.filter { it.animFrame == frame }
         val moved = boneSubtree(frameBones, bone.id)
         val parent = if (smoothJoints) bone.parentId?.let { id -> frameBones.firstOrNull { it.id == id } } else null
@@ -1135,21 +1134,7 @@ class CanvasState(
                     turned.parentId?.let { start[it] },
                     normalizeAngle(atan2(world.y - turn.center.y, world.x - turn.center.x) - turn.startAngle),
                 )
-                for (i in bones.indices) {
-                    val b = bones[i]
-                    if (b.animFrame == currentAnimFrame && b.id in turn.moved) {
-                        val s0 = start[b.id] ?: continue
-                        bones[i] = b.copy(head = rotateAbout(s0.head, turn.center, angle), tail = rotateAbout(s0.tail, turn.center, angle))
-                    }
-                }
-                for ((stroke, points, weights) in turn.strokes) {
-                    if (stroke.points.size != points.size) continue
-                    stroke.setPoints(
-                        if (weights == null) points.map { rotateAbout(it, turn.center, angle) }
-                        else points.mapIndexed { i, p -> rotateAbout(p, turn.center, angle * weights[i]) }
-                    )
-                }
-                geometryEpoch++
+                applyTurn(turn, angle, currentAnimFrame)
                 boneGesture = gesture.copy(last = world)
             }
             BoneGestureKind.PAINT -> paintWeightsAt(world)
@@ -1164,6 +1149,48 @@ class CanvasState(
             }
             BoneGestureKind.NONE -> {}
         }
+    }
+
+    /** Puts [turn]'s bones and ink at [angle] radians from where the turn started, in [frame]. */
+    private fun applyTurn(turn: BoneTurn, angle: Double, frame: Int) {
+        val start = turn.startBones.associateBy { it.id }
+        for (i in bones.indices) {
+            val b = bones[i]
+            if (b.animFrame == frame && b.id in turn.moved) {
+                val s0 = start[b.id] ?: continue
+                bones[i] = b.copy(head = rotateAbout(s0.head, turn.center, angle), tail = rotateAbout(s0.tail, turn.center, angle))
+            }
+        }
+        for ((stroke, points, weights) in turn.strokes) {
+            if (stroke.points.size != points.size) continue
+            stroke.setPoints(
+                if (weights == null) points.map { rotateAbout(it, turn.center, angle) }
+                else points.mapIndexed { i, p -> rotateAbout(p, turn.center, angle * weights[i]) }
+            )
+        }
+        geometryEpoch++
+    }
+
+    /** Every bone's timeline across the animation, for the dopesheet (roadmap item 134). */
+    fun boneTimeline(label: (Int) -> String): List<BoneTrack> = boneTracks(bones.toList(), animFrameCount, label)
+
+    /**
+     * Turns bone [boneId] in [frame] so its angle (relative to its parent's, or its own for a
+     * root - see [BoneTrack]) is [target] radians, carrying its children and bound ink the way
+     * turning it by hand does, within its joint limits. The curve editor's edit (roadmap item
+     * 134). [recordUndo] false continues the previous call's undo step (later moves of one drag).
+     */
+    fun setBoneAngle(boneId: String, frame: Int, target: Double, recordUndo: Boolean = true) {
+        val frameBones = bones.filter { it.animFrame == frame }
+        val bone = frameBones.firstOrNull { it.id == boneId } ?: return
+        val parent = bone.parentId?.let { id -> frameBones.firstOrNull { it.id == id } }
+        val current = if (parent != null) relativeAngle(bone, parent) else bone.angle
+        val turn = limitedTurn(bone, parent, normalizeAngle(target - current))
+        if (abs(turn) < 1e-12) return
+        if (recordUndo) recordHistory()
+        applyTurn(startTurn(bone, bone.tail, frame), turn, frame)
+        onBonesChanged(bones.toList())
+        strokesChanged()
     }
 
     fun endBone() {
