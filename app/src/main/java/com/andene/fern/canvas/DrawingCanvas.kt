@@ -10,6 +10,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,6 +66,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import androidx.input.motionprediction.MotionEventPredictor
+import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -119,6 +121,15 @@ fun DrawingCanvas(
     // canvas. Placed first in the Box so the canvas, not the surface, receives touches; the
     // surface is still composited on top because it's ordered above the window.
     var frontInk by remember { mutableStateOf<FrontBufferedInk?>(null) }
+    // Live QuickShape (roadmap item 118): a held pen stroke snaps to its shape while still down.
+    // Touch events stop while the pen is still, so a clock has to notice the hold.
+    LaunchedEffect(state) {
+        while (true) {
+            delay(SHAPE_HOLD_POLL_MILLIS)
+            // The front buffer still shows the freehand ink; wipe it so the clean shape shows.
+            if (state.holdTick()) frontInk?.clear()
+        }
+    }
 
     Box(modifier) {
     if (FrontBufferedInk.isSupported) {
@@ -143,7 +154,7 @@ fun DrawingCanvas(
                     stylusSample.eraserEnd = event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER
                     stylusSample.buttonPressed = isStylus && (event.buttonState and MotionEvent.BUTTON_STYLUS_PRIMARY) != 0
                     predictor.record(event)
-                    frontInk?.onTouchEvent(event, state.strokeInProgress?.takeIf { state.activeStabilization <= 0.0 }, state.scale)
+                    frontInk?.onTouchEvent(event, state.strokeInProgress?.takeIf { state.activeStabilization <= 0.0 && !state.isAdjustingShape }, state.scale)
                     predictedScreen = when (event.actionMasked) {
                         MotionEvent.ACTION_MOVE -> predictor.predict()?.let { predicted ->
                             Offset(predicted.x, predicted.y).also { predicted.recycle() }
@@ -806,6 +817,8 @@ private fun DrawScope.drawBackgroundPattern(state: CanvasState, screenCenter: Of
         BackgroundStyle.PLAIN -> {} // handled by the early return above
     }
 }
+
+private const val SHAPE_HOLD_POLL_MILLIS = 64L // well under the 500 ms hold, so the snap feels immediate
 
 private const val MAX_BACKGROUND_PATTERN_LINES = 500.0
 private val BACKGROUND_PATTERN_COLOR = Color(0xFFD8D3C8)

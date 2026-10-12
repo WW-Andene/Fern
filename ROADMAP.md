@@ -194,7 +194,7 @@ Concepts, GoodNotes, Notability, Infinite Painter, Aseprite, Spine and Affinity 
 |---|---|---|---|---|
 | 116 | Stroke stabiliser | Procreate, Krita, Affinity, Clip Studio | 1 | done |
 | 117 | Velocity dynamics | Clip Studio | 3 | done |
-| 118 | Drawing assist / live snap | Procreate, Concepts | 3 | partly (shape recognition) |
+| 118 | Drawing assist / live snap | Procreate, Concepts | 3 | done: a held stroke snaps while the pen is still down and the pen then resizes/rotates it; lines, polylines, arcs, rectangles, polygons, ellipses |
 | 119 | Colour harmonies | Aseprite, Affinity | 3 | done |
 | 120 | COPIC and PANTONE libraries | Concepts, Affinity | 3 | not started (licensing) |
 | 121 | Style picker | Affinity | 4 | not started |

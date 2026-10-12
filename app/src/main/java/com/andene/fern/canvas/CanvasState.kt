@@ -2663,6 +2663,11 @@ class CanvasState(
             return
         }
         val stroke = currentStroke ?: return
+        liveShape?.let { live ->
+            val adjusted = adjustRecognizedShape(live.clean, live.snappedAt, worldPoint)
+            replaceLiveShape(adjusted)
+            return
+        }
         // Touchscreens report sub-pixel jitter even from a still finger; only real movement
         // (more than HOLD_JITTER_SCREEN px) restarts the hold timer for shape recognition.
         // Measured from where the timer last restarted, not the previous event, so slow
@@ -2783,12 +2788,45 @@ class CanvasState(
     private var lastRawPoint: WorldPoint? = null
 
     /** Swaps [stroke] for a clean shape with the same style; pressure is dropped, as with SHAPE-tool strokes. */
-    private fun replaceWithShape(stroke: Stroke, cleanPoints: List<WorldPoint>) {
+    private fun replaceWithShape(stroke: Stroke, cleanPoints: List<WorldPoint>): Stroke? {
         val index = strokes.indexOf(stroke)
-        if (index == -1) return
+        if (index == -1) return null
         val shape = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode, layerId = stroke.layerId, animFrame = stroke.animFrame, dashed = stroke.dashed, brush = stroke.brush)
         for (point in cleanPoints) shape.addPoint(point)
         strokes[index] = shape
+        return shape
+    }
+
+    /** A shape recognised while the pen is still down: its clean points and the pen position at the snap. */
+    private class LiveShape(val clean: List<WorldPoint>, val snappedAt: WorldPoint)
+
+    private var liveShape: LiveShape? = null
+
+    /**
+     * Called periodically while a pen stroke is in progress (roadmap item 118, QuickShape's live
+     * snap): once the pen has held still for [SHAPE_HOLD_MILLIS] the stroke snaps to the shape
+     * it resembles right away, before the pen lifts, and from then on moving the pen adjusts
+     * that shape (see [adjustRecognizedShape]) instead of drawing. Lifting commits it.
+     * Returns true when the stroke snapped on this call.
+     */
+    fun holdTick(now: Long = System.currentTimeMillis()): Boolean {
+        val stroke = currentStroke ?: return false
+        if (liveShape != null || !strokeMovedAway || now - lastStrokeMoveMillis < SHAPE_HOLD_MILLIS) return false
+        val clean = recognizeShape(stroke.points) ?: return false
+        liveShape = LiveShape(clean, lastRawPoint ?: stroke.points.last())
+        replaceLiveShape(clean)
+        return true
+    }
+
+    /** True while the stroke in progress has snapped to a shape the pen is adjusting (see [holdTick]). */
+    val isAdjustingShape: Boolean get() = liveShape != null
+
+    private fun replaceLiveShape(clean: List<WorldPoint>) {
+        val stroke = currentStroke ?: return
+        currentStroke = replaceWithShape(stroke, clean) ?: return
+        // Copies get the same clean shape, transformed, so symmetry still holds.
+        symmetryCopies = symmetryCopies.map { (copy, transform) -> (replaceWithShape(copy, clean.map(transform)) ?: copy) to transform }
+        geometryEpoch++ // redraw; autosave waits for the lift (endStroke)
     }
 
     /**
@@ -2831,11 +2869,11 @@ class CanvasState(
             return
         }
         val raw = lastRawPoint
-        if (stroke != null && raw != null && activeStabilization > 0.0) {
+        if (stroke != null && raw != null && activeStabilization > 0.0 && liveShape == null) {
             // Smoothing trails behind the pen; close the gap so the stroke ends at the lift point.
             addStrokePoint(stroke, guided(raw), stroke.pressures.last(), stroke.tilts.last(), stroke.orientations.last())
         }
-        if (stroke != null && System.currentTimeMillis() - lastStrokeMoveMillis >= SHAPE_HOLD_MILLIS) {
+        if (stroke != null && liveShape == null && System.currentTimeMillis() - lastStrokeMoveMillis >= SHAPE_HOLD_MILLIS) {
             recognizeShape(stroke.points)?.let { clean ->
                 replaceWithShape(stroke, clean)
                 // Copies get the same clean shape, transformed, so symmetry still holds.
@@ -2843,6 +2881,7 @@ class CanvasState(
             }
         }
         symmetryCopies = emptyList()
+        liveShape = null
         lastRawPoint = null
         holdAnchor = null
         currentStroke = null

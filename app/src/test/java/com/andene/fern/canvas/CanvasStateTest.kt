@@ -162,4 +162,21 @@ class CanvasStateTest {
         assertEquals(2, state.strokes.size)
         assertTrue(state.strokes.none { stroke -> stroke.points.any { abs(it.x - 50.0) < 10.0 } })
     }
+
+    @Test
+    fun heldStrokeSnapsBeforeLiftAndFollowsThePen() {
+        // Roadmap item 118: QuickShape's live snap, then adjusting the shape before lifting.
+        val state = CanvasState()
+        state.beginStroke(WorldPoint(0.0, 0.0))
+        for (i in 1..10) state.extendStroke(WorldPoint(i * 10.0, if (i % 2 == 0) 1.0 else -1.0))
+        assertEquals(false, state.holdTick(System.currentTimeMillis()))
+        assertTrue(state.holdTick(System.currentTimeMillis() + 1000))
+        assertEquals(2, state.strokes.single().points.size)
+        state.extendStroke(WorldPoint(0.0, 200.0))
+        state.endStroke()
+        val line = state.strokes.single()
+        assertEquals(listOf(WorldPoint(0.0, 0.0), WorldPoint(0.0, 200.0)), line.points)
+        state.undo()
+        assertEquals(0, state.strokes.size)
+    }
 }
