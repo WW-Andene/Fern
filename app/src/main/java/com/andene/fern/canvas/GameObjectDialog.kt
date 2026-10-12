@@ -104,6 +104,19 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                         }) { Text(stringResource(R.string.object_use_path)) }
                     }
                 }
+                // On screen while playing (roadmap item 161).
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.object_show_in_hud), modifier = Modifier.weight(1f))
+                    Switch(checked = current.showInHud, onCheckedChange = { save(current.copy(showInHud = it)) })
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.object_camera_follows), modifier = Modifier.weight(1f))
+                    Switch(
+                        checked = state.gameSettings.cameraTarget == current.id,
+                        onCheckedChange = { follow -> state.changeGameSettings(state.gameSettings.copy(cameraTarget = if (follow) current.id else null)) },
+                    )
+                }
                 PhysicsSection(state, current.body) { save(current.copy(body = it)) }
                 // Drawn hitbox and links (roadmap item 157).
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
@@ -193,6 +206,21 @@ private fun PhysicsSection(state: CanvasState, body: PhysicsBody, onChange: (Phy
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.physics_walls), modifier = Modifier.weight(1f))
         Switch(checked = world.walls, onCheckedChange = { state.changeGameSettings(world.copy(walls = it)) })
+    }
+    SceneChooser(state)
+}
+
+/** Which frame the game plays in (roadmap item 161), or the view as it is. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SceneChooser(state: CanvasState) {
+    val settings = state.gameSettings
+    Text(stringResource(R.string.play_scene), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+    FlowRow {
+        FilterChip(selected = settings.sceneFrameId == null, onClick = { state.changeGameSettings(settings.copy(sceneFrameId = null)) }, label = { Text(stringResource(R.string.play_scene_view)) }, modifier = Modifier.padding(end = 8.dp))
+        for (frame in state.frames) {
+            FilterChip(selected = settings.sceneFrameId == frame.id, onClick = { state.changeGameSettings(settings.copy(sceneFrameId = frame.id)) }, label = { Text(frame.name) }, modifier = Modifier.padding(end = 8.dp))
+        }
     }
 }
 

@@ -81,6 +81,8 @@ data class GameObject(
      * Null: the drawing's own box.
      */
     val hitbox: List<WorldPoint>? = null,
+    /** Its properties shown on screen while the game plays (roadmap item 161), e.g. a score. */
+    val showInHud: Boolean = false,
 )
 
 /** How a link holds two objects together (roadmap item 157). */
@@ -103,6 +105,10 @@ data class GameSettings(
     val links: List<ObjectLink> = emptyList(),
     /** The game's actions and their inputs (roadmap item 160). */
     val actions: List<InputAction> = DEFAULT_ACTIONS,
+    /** The frame the game plays in (roadmap item 161), fitted to the screen; null: the view when play starts. */
+    val sceneFrameId: String? = null,
+    /** The object the camera follows while playing (roadmap item 161); null: the camera stays put. */
+    val cameraTarget: String? = null,
 )
 
 /** Reading and writing the objects (objects_<document>.json). */
@@ -114,7 +120,11 @@ object GameObjectsJson {
             .put("links", JSONArray().apply {
                 for (l in settings.links) put(JSONObject().put("id", l.id).put("from", l.from).put("to", l.to).put("kind", l.kind.name).put("length", l.length))
             })
-            .put("actions", InputActionsJson.write(settings.actions)))
+            .put("actions", InputActionsJson.write(settings.actions))
+            .apply {
+                settings.sceneFrameId?.let { put("scene", it) }
+                settings.cameraTarget?.let { put("camera", it) }
+            })
 
     /** Objects and settings from [writeGame]'s form, or from the plain object list saved before settings existed. */
     fun readGame(stored: Any): Pair<List<GameObject>, GameSettings> = when (stored) {
@@ -131,6 +141,8 @@ object GameObjectsJson {
                     }
                 }.orEmpty(),
                 s?.optJSONArray("actions")?.let(InputActionsJson::read) ?: DEFAULT_ACTIONS,
+                s?.optString("scene")?.takeIf { it.isNotEmpty() },
+                s?.optString("camera")?.takeIf { it.isNotEmpty() },
             )
         }
         else -> emptyList<GameObject>() to GameSettings()
@@ -147,7 +159,10 @@ object GameObjectsJson {
                 })
                 .put("body", JSONObject().put("type", o.body.type.name).put("shape", o.body.shape.name).put("mass", o.body.mass)
                     .put("bounce", o.body.bounce).put("friction", o.body.friction).put("gravityScale", o.body.gravityScale))
-                .apply { o.hitbox?.let { h -> put("hitbox", JSONArray(h.map { JSONArray().put(it.x).put(it.y) })) } },
+                .apply {
+                    o.hitbox?.let { h -> put("hitbox", JSONArray(h.map { JSONArray().put(it.x).put(it.y) })) }
+                    if (o.showInHud) put("hud", true)
+                },
         )
     }
 
@@ -176,6 +191,7 @@ object GameObjectsJson {
                 )
             } ?: PhysicsBody(),
             o.optJSONArray("hitbox")?.let { pts -> (0 until pts.length()).map { WorldPoint(pts.getJSONArray(it).getDouble(0), pts.getJSONArray(it).getDouble(1)) } }?.takeIf { it.size >= 3 },
+            o.optBoolean("hud", false),
         )
     }
 }

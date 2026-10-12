@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Icon
@@ -100,8 +102,24 @@ fun PlayOverlay(state: CanvasState, modifier: Modifier = Modifier) {
     ) {
         Surface(shape = MaterialTheme.shapes.large, tonalElevation = 4.dp, modifier = Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.systemBars).padding(16.dp)) {
             Row {
-                IconButton(onClick = { state.stopPlay(); state.startPlay() }) { Icon(Icons.Filled.RestartAlt, contentDescription = stringResource(R.string.play_restart)) }
+                IconButton(onClick = { state.playPaused = !state.playPaused }) {
+                    Icon(
+                        if (state.playPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                        contentDescription = stringResource(if (state.playPaused) R.string.play_resume else R.string.play_pause),
+                    )
+                }
+                IconButton(onClick = { state.restartPlay() }) { Icon(Icons.Filled.RestartAlt, contentDescription = stringResource(R.string.play_restart)) }
                 IconButton(onClick = { state.stopPlay() }) { Icon(Icons.Filled.Stop, contentDescription = stringResource(R.string.play_stop)) }
+            }
+        }
+        // The heads-up display (roadmap item 161): the properties of objects that show them.
+        state.playRevision // refresh with every step
+        val shown = world?.instances?.filter { it.def.showInHud && !it.removed }.orEmpty()
+        if (shown.isNotEmpty()) {
+            Column(Modifier.align(Alignment.TopStart).windowInsetsPadding(WindowInsets.systemBars).padding(16.dp).background(HUD_COLOR, MaterialTheme.shapes.medium).padding(8.dp)) {
+                for (instance in shown) for ((name, value) in instance.properties.toSortedMap()) {
+                    Text("${instance.def.name} $name: ${plainNumber(value)}", color = Color.White, style = MaterialTheme.typography.bodyLarge)
+                }
             }
         }
         val buttons = world?.input?.touchButtons.orEmpty()
@@ -151,3 +169,4 @@ private fun PadButton(state: CanvasState, button: TouchButton, label: String) {
 private const val MAX_STEP_SECONDS = 0.05
 private const val PAD_DP = 64
 private val PAD_COLOR = Color(0x66000000)
+private val HUD_COLOR = Color(0x99000000)

@@ -799,6 +799,12 @@
     <string name="controls_touch_button">On-screen %1$s</string>
     <string name="controls_screen">Finger on the game</string>
     <string name="controls_stylus">Stylus on the game</string>
+    <string name="play_pause">Pause</string>
+    <string name="play_resume">Resume</string>
+    <string name="play_scene">Scene</string>
+    <string name="play_scene_view">The view when play starts</string>
+    <string name="object_show_in_hud">Show its properties while playing</string>
+    <string name="object_camera_follows">The camera follows it</string>
     <string name="tb_line_style">Line style</string>
     <string name="cap_round">Round ends</string>
     <string name="cap_square">Square ends</string>

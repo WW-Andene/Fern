@@ -230,6 +230,8 @@ class CanvasState(
         private const val FILL_CLOSE_TOLERANCE_SCREEN = 24.0
         // Gaps in line art up to about twice this (screen px) are closed by the fill.
         private const val FILL_GAP_SCREEN = 4.0
+        // How quickly the play camera catches up with its target: this share of the gap a second (roadmap item 161).
+        private const val CAMERA_EASE_PER_SECOND = 8.0
         // How wide (screen px) a newly placed 3D model's picture is (roadmap item 108).
         private const val MODEL_PLACED_SCREEN = 256.0
         // World units (points) between pages of an imported vector PDF (roadmap item 103).
@@ -651,10 +653,29 @@ class CanvasState(
     var playRevision by mutableIntStateOf(0)
         private set
 
-    /** Starts the game: every object, as drawn on the current frame, playing inside the view. */
+    /** Whether the game is paused (roadmap item 161): the world stands still until resumed. */
+    var playPaused by mutableStateOf(false)
+
+    // The view before play started, restored when it stops.
+    private var viewBeforePlay: Triple<WorldPoint, Double, Double>? = null
+
+    /**
+     * Starts the game (roadmap items 155 and 161): every object, as drawn on the current frame,
+     * playing inside the scene - the game's scene frame, fitted to the screen, or the view as it
+     * is. The view comes back when play stops.
+     */
     fun startPlay() {
         if (gameObjects.isEmpty() || viewportSize.width <= 0f) return
         clearSelectionState()
+        if (viewBeforePlay == null) viewBeforePlay = Triple(panWorld, scale, rotation)
+        // Fitted without a floating-origin rebase: the world, the saved view and the drawing must
+        // all stay in one coordinate space until play stops.
+        frames.firstOrNull { it.id == gameSettings.sceneFrameId }?.let { frame ->
+            rotation = 0.0
+            scale = minOf(viewportSize.width / (frame.max.x - frame.min.x).coerceAtLeast(1e-9), viewportSize.height / (frame.max.y - frame.min.y).coerceAtLeast(1e-9)).coerceIn(MIN_SCALE, MAX_SCALE)
+            panWorld = WorldPoint((frame.min.x + frame.max.x) / 2, (frame.min.y + frame.max.y) / 2)
+        }
+        playPaused = false
         val boxes = HashMap<String, WorldBox>()
         for (def in gameObjects) {
             val own = strokes.filter { it.groupId == def.id && it.animFrame == currentAnimFrame && it.points.isNotEmpty() }
@@ -663,22 +684,54 @@ class CanvasState(
         }
         val center = Offset(viewportSize.width / 2f, viewportSize.height / 2f)
         val corners = listOf(Offset.Zero, Offset(viewportSize.width, 0f), Offset(0f, viewportSize.height), Offset(viewportSize.width, viewportSize.height)).map { screenToWorld(it, center) }
-        val scene = WorldBox(WorldPoint(corners.minOf { it.x }, corners.minOf { it.y }), WorldPoint(corners.maxOf { it.x }, corners.maxOf { it.y }))
+        val scene = frames.firstOrNull { it.id == gameSettings.sceneFrameId }?.let { WorldBox(it.min, it.max) }
+            ?: WorldBox(WorldPoint(corners.minOf { it.x }, corners.minOf { it.y }), WorldPoint(corners.maxOf { it.x }, corners.maxOf { it.y }))
         play = GameWorld(gameObjects.toList(), boxes, scene, gameSettings)
         playRevision++
     }
 
-    /** Advances the game by [dt] seconds. */
+    /**
+     * Advances the game by [dt] seconds, unless paused; the camera then follows its target
+     * (roadmap item 161), easing toward it and kept inside the scene where the scene is bigger
+     * than the view.
+     */
     fun stepPlay(dt: Double) {
         val world = play ?: return
+        if (playPaused) return
         world.step(dt)
+        world.instanceOf(gameSettings.cameraTarget)?.takeIf { !it.removed }?.let { target ->
+            val goal = target.centre
+            val halfWidth = viewportSize.width / 2.0 / scale.coerceAtLeast(1e-300)
+            val halfHeight = viewportSize.height / 2.0 / scale.coerceAtLeast(1e-300)
+            val scene = world.scene
+            fun clampAxis(v: Double, min: Double, max: Double, half: Double) = if (max - min <= 2 * half) (min + max) / 2 else v.coerceIn(min + half, max - half)
+            val x = clampAxis(goal.x, scene.min.x, scene.max.x, halfWidth)
+            val y = clampAxis(goal.y, scene.min.y, scene.max.y, halfHeight)
+            val ease = (dt * CAMERA_EASE_PER_SECOND).coerceAtMost(1.0)
+            panWorld = WorldPoint(panWorld.x + (x - panWorld.x) * ease, panWorld.y + (y - panWorld.y) * ease)
+        }
         playRevision++
     }
 
-    /** Ends the game; everything is back where it was drawn. */
+    /** Ends the game; everything is back where it was drawn, and the view where it was. */
     fun stopPlay() {
         play = null
+        playPaused = false
+        viewBeforePlay?.let { (pan, zoom, turn) ->
+            scale = zoom
+            panWorld = pan
+            rotation = turn
+        }
+        viewBeforePlay = null
         playRevision++
+    }
+
+    /** Stops and starts again from the beginning, without losing the view to come back to. */
+    fun restartPlay() {
+        val view = viewBeforePlay
+        play = null
+        startPlay()
+        if (view != null) viewBeforePlay = view
     }
 
     /**

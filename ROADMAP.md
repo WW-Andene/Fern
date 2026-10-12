@@ -247,7 +247,7 @@ Shared, multiplayer parts need a server and are deferred ⏸; single-player part
 - [ ] 158. State machines linking rig animations to logic
 - [x] 159. 2D physics — arcade physics for game objects: fixed (solid) or dynamic bodies as boxes or circles, with mass, bounce, friction and gravity scale; world gravity in any direction and scene edges as walls; contacts and standing-on-something reported for rules and scripts. Bodies are axis-aligned (an object's turn doesn't tilt its body)
 - [x] 160. Input mapping (touch, stylus, gamepad, keyboard) — named actions bound to keys, gamepad buttons and stick directions (and the d-pad hat), on-screen buttons (a d-pad and A/B shown while playing), a finger or the stylus on the game (with its world position); defaults for arrows/WASD, the d-pad, A/B, space and enter; keys bound by pressing them; platformer and top-down controls use them. Real gamepads are untested here (no device)
-- [ ] 161. Play mode
+- [x] 161. Play mode — the game plays full screen with editing hidden: in a chosen frame fitted to the screen (or the view as it is), the camera easing after a chosen object within the scene, pause and resume, restart, stop back to the view as it was; objects' properties shown on screen when asked
 - [ ] 162. Online multiplayer play ⏸
 - [ ] 163. AI logic assistant ⏸
 - [~] 164. Text scripting (sandboxed): a turtle-graphics drawing language run from the ⋮ menu, step-limited, no file or network access; drawing only

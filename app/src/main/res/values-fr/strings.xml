@@ -801,6 +801,12 @@
     <string name="controls_touch_button">%1$s à l’écran</string>
     <string name="controls_screen">Doigt sur le jeu</string>
     <string name="controls_stylus">Stylet sur le jeu</string>
+    <string name="play_pause">Pause</string>
+    <string name="play_resume">Reprendre</string>
+    <string name="play_scene">Scène</string>
+    <string name="play_scene_view">La vue au lancement</string>
+    <string name="object_show_in_hud">Afficher ses propriétés pendant le jeu</string>
+    <string name="object_camera_follows">La caméra le suit</string>
     <string name="tb_line_style">Style de trait</string>
     <string name="cap_round">Extrémités rondes</string>
     <string name="cap_square">Extrémités carrées</string>
