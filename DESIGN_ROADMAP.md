@@ -6,6 +6,19 @@ learned and used.
 
 **Status key:** `[x]` done · `[~]` partly done · `[ ]` not started.
 
+**Ground rules (set by the project owner).** They hold for every item below and override any
+item that seems to say otherwise.
+
+- **Phone first, for now.** The phone held in one or two hands is the reference device. Every
+  item is designed, built and judged on a phone first: thumb reach, small screens, portrait and
+  landscape, a finger as often as a stylus. Tablet, foldable, keyboard and mouse work comes after
+  the phone version of the same item and must never make the phone version worse. Items that
+  only matter on larger devices are marked **(after phone)**.
+- **100 % bilingual, English and French.** Every word the user can see or hear exists in both
+  languages and reads naturally in each, with nothing left in only one: labels, content
+  descriptions for TalkBack, errors, script and import messages, default names, help, examples
+  and store text. No item is done until both languages are.
+
 **Absolute priorities.** Every item here serves at least one of them. When two items conflict,
 the earlier priority wins.
 
@@ -88,6 +101,20 @@ Numbers measured in the source at the time of the audit.
 - **The app can't be driven without touch:** no keyboard focus order, and no D-pad or Switch
   Access path through the toolbar. *(2)*
 
+### Languages
+
+- **The string files match:** 906 keys in English (`values/`), 906 in French (`values-fr/`), none
+  missing on either side.
+- **But text still escapes translation.** The 38+ script error messages (`ScriptError(…, "…")`)
+  and the 54 exception messages thrown in importers and exporters are English only; some of them
+  reach the user. Default names are hard-coded in English: "Layer 1", "Layer N", "Frame",
+  "Frame N", "Object". The play HUD builds its text by joining strings in code instead of using a
+  translatable template. *(ground rule: bilingual)*
+- **Nothing checks this mechanically.** A new string missing a translation, or a literal in a
+  `Text("…")`, would pass unnoticed. *(ground rule: bilingual)*
+- **Layouts aren't checked with French**, which runs 15–30 % longer than English. *(3, ground
+  rule: bilingual)*
+
 ### Visual design
 
 - **Mostly on the dp scale** (8, 4, 12, 16, 128 and 512 dominate). Off-scale and odd spots
@@ -138,7 +165,7 @@ Goal: a design system everything else is built from, accessible by default.
 
 Goal: the screen layout that replaces the single scrolling toolbar and the ⋮ junk drawer.
 
-- [ ] D8. **The tool rail.** A short, fixed rail of the main tools (pen, eraser, select, shape,
+- [ ] D8. **The tool rail.** On a phone, a bottom bar in thumb reach (a side rail in landscape). A short, fixed rail of the main tools (pen, eraser, select, shape,
   fill, text, eyedropper, plus user-pinned ones) that never scrolls. A tool keeps its position
   for good, so muscle memory works. It docks left, right or bottom, and follows the hand setting.
 - [ ] D9. **A contextual properties bar.** Only the settings of the active tool or the current
@@ -147,7 +174,8 @@ Goal: the screen layout that replaces the single scrolling toolbar and the ⋮ j
   options, fill and text toolbar groups.
 - [ ] D10. **Docked side panels instead of modal dialogs** for layers, frames, symbols,
   pins, versions, objects and game logic. They're non-modal, can be resized or collapsed, and
-  stay open while you draw. On a phone they're bottom sheets with peek heights. These are the
+  stay open while you draw. On a phone (the reference) they're bottom sheets with peek heights
+  that leave the drawing visible; side docking comes on larger screens (after phone). These are the
   dialogs that today block the canvas.
 - [ ] D11. **A workspace switcher**: Draw, Paint (raster), Design (vector), Animate, Game, Notes
   (PDF and audio). Each one shows the tools and panels its work needs. The user can edit
@@ -174,7 +202,7 @@ Goal: switching tools and adjusting without looking or opening anything.
   sensitivity setting.
 - [ ] D17. **Hold to switch for a moment.** Hold a key, a stylus button or a rail tool to use
   another tool (eraser, eyedropper, pan); release to go back.
-- [ ] D18. **Keyboard shortcuts.** A full default set (B pen, E eraser, V select, Z/Y undo/redo,
+- [ ] D18. **(after phone) Keyboard shortcuts.** A full default set (B pen, E eraser, V select, Z/Y undo/redo,
   [ ] size, space pan, and so on), all of them remappable, with a cheat sheet that appears while
   you hold Ctrl.
 - [ ] D19. **On-canvas adjusting.** Drag up or down on a rail tool to change its size, sideways
@@ -295,16 +323,17 @@ Goal: getting into a drawing and back out is instant.
 
 ## Phase D10 — Forms of device
 
-Goal: the same app at home on a phone, a tablet, a foldable, a Chromebook and with a mouse.
+Goal: the phone layout perfected first, then the same app at home on a tablet, a foldable, a
+Chromebook and with a mouse.
 
-- [ ] D52. **Responsive layouts** for compact, medium and expanded widths (Material window size
+- [ ] D52. **Phone layouts first, then responsive.** Phone portrait and landscape are designed first and kept the reference. Then responsive layouts for compact, medium and expanded widths (Material window size
   classes): a bottom rail and sheets on phones, side rail and docked panels on tablets, several
   panels at once on wide screens.
-- [ ] D53. **Foldables and multi-window.** The layout follows the hinge (tabletop mode: canvas
+- [ ] D53. **(after phone) Foldables and multi-window.** The layout follows the hinge (tabletop mode: canvas
   above, tools below); drag and drop of images and text in and out of the app.
-- [ ] D54. **Mouse and trackpad.** Hover states, right-click context menus, scroll to zoom, middle
+- [ ] D54. **(after phone) Mouse and trackpad.** Hover states, right-click context menus, scroll to zoom, middle
   drag to pan, and tooltips that show the shortcut.
-- [ ] D55. **One-hand mode.** Everything reachable in the bottom third of a phone; the rail and
+- [ ] D55. **One-hand mode** (phone priority). Everything reachable in the bottom third of a phone; the rail and
   the quick menu mirrored for the left hand.
 - [ ] D56. **Orientation without loss.** Rotating keeps the view centre, the open panel and the
   selection, with no relayout jump.
@@ -328,14 +357,27 @@ Goal: an app with a character that never gets in the way.
 
 Goal: the app reads naturally everywhere it's offered.
 
-- [ ] D61. **Text that fits.** Layouts tested with long French (and later German) strings, no
-  truncated labels, and icons with labels where a label is needed.
-- [ ] D62. **Right-to-left ready.** Mirrored layouts where they should be, but the canvas and
+- [ ] D61. **Text that fits.** Every phone layout tested in English and French at the system's
+  largest font size, no truncated labels, and icons with labels where a label is needed.
+- [ ] D62. **(later, if more languages) Right-to-left ready.** Mirrored layouts where they should be, but the canvas and
   timeline direction kept as the user chooses.
 - [ ] D63. **A glossary.** One term per concept (frame, layer, object, symbol, comp, tag) used
   the same way in UI, help and errors, in both languages.
 - [ ] D64. **Built-in help.** Searchable, offline, with short animated examples per tool, reached
   from the command palette and from a long-press on any control ("What is this?").
+
+- [ ] D74. **Everything translated.** Move every user-visible literal into string resources in
+  both languages: script and import/export error messages (with their values as arguments),
+  default names (layer, frame, object), the play HUD's text, example scripts and templates.
+  Messages from libraries are wrapped in a translated sentence.
+- [ ] D75. **Translation checks in CI.** A check fails the build when a key exists in one
+  language only, when a `Text("…")` or `Toast` uses a literal, or when a French string is
+  untranslated (identical to English where it shouldn't be). Lint `HardcodedText` and
+  `MissingTranslation` set to errors.
+- [ ] D76. **In-app language choice.** English or French chosen in Settings, independent of the
+  phone's language (Android per-app language), applied without restart.
+- [ ] D77. **Bilingual store and help content.** Help, coach marks (D29), templates and the store
+  listing in both languages, written natively rather than translated word for word.
 
 ## Phase D13 — Recovery and trust
 
@@ -356,10 +398,11 @@ Goal: proof that the rework met the priorities.
 
 - [ ] D69. **Accessibility checks in CI.** Compose UI tests with `assertHasClickAction`,
   label, touch-size and contrast checks on every screen.
-- [ ] D70. **Task-time benchmarks.** Taps and seconds to do the 20 most common tasks (draw, change
+- [ ] D70. **Task-time benchmarks.** On a phone, taps and seconds to do the 20 most common tasks (draw, change
   colour, undo, new layer, select and move, export to share, …), measured before and after the
   rework, and kept from regressing.
-- [ ] D71. **Real-device passes** with TalkBack, Switch Access, a keyboard, a stylus and one hand.
+- [ ] D71. **Real-device passes** on phones first (a small and a large phone), with TalkBack,
+  Switch Access, a stylus and one hand, in English and in French; keyboard and tablet passes after.
   The results go in the commit that closes each phase.
 - [ ] D72. **Usability sessions.** A few people new to Fern and a few experienced artists try the
   same scripted tasks after each phase; what made them hesitate becomes items here.
