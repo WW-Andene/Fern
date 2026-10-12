@@ -275,13 +275,14 @@ class MainActivity : ComponentActivity() {
                             val widthWorld = 512.0 / scale
                             val gapWorld = 32.0 / scale
                             var top = canvasState.panWorld.y
-                            for (page in pages) {
+                            for ((index, page) in pages.withIndex()) {
                                 val heightWorld = widthWorld * page.heightPx / page.widthPx
                                 canvasState.addImage(
                                     page.fileName,
                                     WorldPoint(canvasState.panWorld.x - widthWorld / 2.0, top),
                                     widthWorld,
                                     heightWorld,
+                                    recordUndo = index == 0, // the whole import undoes in one step
                                 )
                                 top += heightWorld + gapWorld
                             }

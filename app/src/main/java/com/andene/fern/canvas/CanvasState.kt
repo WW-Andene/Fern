@@ -929,7 +929,9 @@ class CanvasState(
      * Places a newly-inserted image (already decoded and saved to disk by the caller - see
      * `MainActivity`'s photo-picker flow) at [position], sized to [widthWorld] x [heightWorld].
      */
-    fun addImage(fileName: String, position: WorldPoint, widthWorld: Double, heightWorld: Double) {
+    /** Places an image; undoable. Pass [recordUndo] = false for all but the first of a batch (e.g. PDF pages) so the batch undoes in one step. */
+    fun addImage(fileName: String, position: WorldPoint, widthWorld: Double, heightWorld: Double, recordUndo: Boolean = true) {
+        if (recordUndo) recordHistory()
         imageItems.add(ImageItem(UUID.randomUUID().toString(), fileName, position, widthWorld, heightWorld))
         onImageChanged(imageItems.toList())
     }
