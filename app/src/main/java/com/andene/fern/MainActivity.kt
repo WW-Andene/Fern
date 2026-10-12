@@ -12,6 +12,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -35,9 +36,19 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -58,6 +69,7 @@ import com.andene.fern.canvas.Minimap
 import com.andene.fern.canvas.PinMeta
 import com.andene.fern.canvas.PinsDialog
 import com.andene.fern.canvas.PresentationControls
+import com.andene.fern.canvas.Tool
 import com.andene.fern.canvas.Toolbar
 import com.andene.fern.canvas.VersionsDialog
 import com.andene.fern.canvas.WelcomeDialog
@@ -359,7 +371,36 @@ class MainActivity : ComponentActivity() {
                         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
                     }
 
-                    Box(modifier = Modifier.fillMaxSize()) {
+                    val shortcutFocus = remember { FocusRequester() }
+                    LaunchedEffect(Unit) { shortcutFocus.requestFocus() }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            // Hardware-keyboard shortcuts (tablets with keyboards, Chromebooks),
+                            // the standard desktop set. Pen tool on P, eraser on E, select on V
+                            // follow common drawing-app letters.
+                            .focusRequester(shortcutFocus)
+                            .focusable()
+                            .onPreviewKeyEvent { event ->
+                                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                                val ctrl = event.isCtrlPressed || event.isMetaPressed
+                                when {
+                                    ctrl && event.key == Key.Z && event.isShiftPressed -> canvasState.redo()
+                                    ctrl && event.key == Key.Z -> canvasState.undo()
+                                    ctrl && event.key == Key.Y -> canvasState.redo()
+                                    ctrl && event.key == Key.C -> canvasState.copySelection()
+                                    ctrl && event.key == Key.V -> canvasState.paste()
+                                    ctrl && event.key == Key.D -> canvasState.duplicateSelection()
+                                    event.key == Key.Delete || event.key == Key.Backspace -> canvasState.deleteSelection()
+                                    event.key == Key.P -> canvasState.activeTool = Tool.PEN
+                                    event.key == Key.E -> canvasState.activeTool = Tool.ERASER
+                                    event.key == Key.V -> canvasState.activeTool = Tool.SELECT
+                                    event.key == Key.Zero -> canvasState.zoomToFit()
+                                    else -> return@onPreviewKeyEvent false
+                                }
+                                true
+                            },
+                    ) {
                         DrawingCanvas(state = canvasState, modifier = Modifier.fillMaxSize())
                         val presenting = presentingIndex
                         if (presenting != null && presenting in canvasState.frames.indices) {
