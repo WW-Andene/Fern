@@ -79,6 +79,7 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Tonality
 import androidx.compose.material.icons.filled.ViewModule
@@ -163,6 +164,7 @@ fun Toolbar(
     var showBackgroundColorPicker by remember { mutableStateOf(false) }
     var showBrushEditor by remember { mutableStateOf(false) }
     var showGradientDialog by remember { mutableStateOf(false) }
+    var showPerspectiveMenu by remember { mutableStateOf(false) }
 
     Surface(
         modifier = modifier,
@@ -387,6 +389,27 @@ fun Toolbar(
                                 onClick = {
                                     state.setSymmetry(mode)
                                     showSymmetryMenu = false
+                                },
+                            )
+                        }
+                    }
+                }
+                Box {
+                    IconButton(onClick = { showPerspectiveMenu = true }) {
+                        Icon(
+                            Icons.Filled.ViewInAr,
+                            contentDescription = "Perspective guide: ${state.perspectiveMode.label}",
+                            tint = if (state.perspectiveMode != PerspectiveMode.OFF) MaterialTheme.colorScheme.primary
+                            else LocalContentColor.current,
+                        )
+                    }
+                    DropdownMenu(expanded = showPerspectiveMenu, onDismissRequest = { showPerspectiveMenu = false }) {
+                        for (mode in PerspectiveMode.entries) {
+                            DropdownMenuItem(
+                                text = { Text(mode.label) },
+                                onClick = {
+                                    state.setPerspective(mode)
+                                    showPerspectiveMenu = false
                                 },
                             )
                         }

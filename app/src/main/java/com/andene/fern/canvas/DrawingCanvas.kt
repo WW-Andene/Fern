@@ -404,6 +404,30 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                 }
             }
 
+            // Perspective guide: construction lines radiating from each vanishing point, the horizon
+            // through them, and a handle on each to drag it. A guide only: never exported.
+            if (state.perspectiveMode != PerspectiveMode.OFF && state.vanishingPoints.isNotEmpty()) {
+                val reach = hypot(size.width, size.height) * 2f
+                val points = state.vanishingPoints.map { state.worldToScreen(it, screenCenter) }
+                val horizonY = points.first().y
+                if (points.size == 2) {
+                    // The horizon is the line through both points, extended across the screen.
+                    val d = points[1] - points[0]
+                    val unit = d / d.getDistance().coerceAtLeast(1e-3f)
+                    drawLine(PERSPECTIVE_HORIZON_COLOR, points[0] - unit * reach, points[0] + unit * reach, strokeWidth = 2f)
+                } else {
+                    drawLine(PERSPECTIVE_HORIZON_COLOR, Offset(points[0].x - reach, horizonY), Offset(points[0].x + reach, horizonY), strokeWidth = 2f)
+                }
+                for (vp in points) {
+                    for (k in 0 until PERSPECTIVE_RAYS) {
+                        val angle = 2 * PI * k / PERSPECTIVE_RAYS
+                        drawLine(PERSPECTIVE_RAY_COLOR, vp, vp + Offset((cos(angle) * reach).toFloat(), (sin(angle) * reach).toFloat()), strokeWidth = 1f)
+                    }
+                    drawCircle(color = RULER_COLOR, radius = 12f, center = vp)
+                    drawCircle(color = Color.White, radius = 6f, center = vp)
+                }
+            }
+
             // Frame outlines and names: editing guides only, so not part of drawScene and never exported.
             for (frame in state.frames) {
                 val a = state.worldToScreen(frame.min, screenCenter)
@@ -974,6 +998,10 @@ private const val MULTI_FINGER_TAP_SLOP_PX = 24f // on the §7 scale
 
 // Translucent teal so the axes guide without competing with the drawing.
 private val SYMMETRY_COLOR = Color(0x6600897B)
+private val PERSPECTIVE_RAY_COLOR = Color(0x335E35B1)
+private val PERSPECTIVE_HORIZON_COLOR = Color(0x995E35B1)
+// One ray every 15 degrees.
+private const val PERSPECTIVE_RAYS = 24
 // Muted purple, distinct from the blue selection/marquee colours.
 private val FRAME_COLOR = Color(0xFF7E57C2)
 private val MARQUEE_FILL_COLOR = Color(0x1A1E88E5)

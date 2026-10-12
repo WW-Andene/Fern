@@ -113,6 +113,14 @@ class CanvasState(
         // Movement under this many screen px still counts as a tap; on the §7 scale.
         private const val TAP_SLOP_SCREEN = 8.0
 
+        // Touch radius of a vanishing point's handle, and how far a stroke must travel before its
+        // perspective direction is chosen; both on the §7 scale.
+        private const val VANISHING_POINT_HANDLE_SCREEN = 24.0
+        private const val PERSPECTIVE_DECIDE_SCREEN = 16.0
+
+        // Assumed view width before the first layout pass reports the real one.
+        private const val DEFAULT_VIEW_WIDTH_SCREEN = 1024f
+
         // Velocity dynamics tuning: at 2 screen px/ms (a brisk stroke) the line is at its
         // thinnest; 30% blending per point keeps width changes smooth.
         private const val VELOCITY_THINNING = 0.3
@@ -825,6 +833,15 @@ class CanvasState(
     }
 
     fun beginStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
+        // Touching a vanishing point's handle moves it instead of drawing (works on locked layers too: it's a guide).
+        if (perspectiveMode != PerspectiveMode.OFF) {
+            val hit = vanishingPoints.indexOfFirst { hypot(it.x - worldPoint.x, it.y - worldPoint.y) * scale <= VANISHING_POINT_HANDLE_SCREEN }
+            if (hit != -1) {
+                draggingVanishingPoint = hit
+                return
+            }
+        }
+        perspectiveDirection = null
         if (!activeLayerEditable) return
         strokeStartDepth = undoStack.size
         strokeStartMillis = System.currentTimeMillis()
@@ -878,6 +895,10 @@ class CanvasState(
     }
 
     fun extendStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
+        draggingVanishingPoint?.let { index ->
+            vanishingPoints[index] = worldPoint
+            return
+        }
         val stroke = currentStroke ?: return
         // Touchscreens report sub-pixel jitter even from a still finger; only real movement
         // (more than HOLD_JITTER_SCREEN px) restarts the hold timer for shape recognition.
@@ -898,7 +919,66 @@ class CanvasState(
         // Exponential smoothing: move only part of the way from the last point toward the pen.
         val smoothed = if (previous == null || activeStabilization <= 0.0) worldPoint
         else previous + (worldPoint - previous) * (1.0 - activeStabilization)
-        addStrokePoint(stroke, snappedToActiveGuide(smoothed), effectivePressure, tilt, orientation)
+        decidePerspectiveDirection(stroke, smoothed)
+        addStrokePoint(stroke, guided(smoothed), effectivePressure, tilt, orientation)
+    }
+
+    /** Active perspective guide; see [PerspectiveMode]. */
+    var perspectiveMode by mutableStateOf(PerspectiveMode.OFF)
+        private set
+
+    /** The guide's vanishing points in world space, [PerspectiveMode.pointCount] of them while it's on. */
+    val vanishingPoints = mutableStateListOf<WorldPoint>()
+
+    /**
+     * Turns the perspective guide on, off or to another mode. Vanishing points are placed fresh
+     * around the view: one at its centre, or two on a horizon through the centre, 40% of the
+     * view's width to each side - then dragged by their handles to fit the drawing.
+     */
+    fun setPerspective(mode: PerspectiveMode) {
+        if (mode.pointCount != perspectiveMode.pointCount) {
+            vanishingPoints.clear()
+            val halfSpread = (viewportSize.width.takeIf { it > 0f } ?: DEFAULT_VIEW_WIDTH_SCREEN) * 0.4 / scale.coerceAtLeast(1e-300)
+            when (mode.pointCount) {
+                1 -> vanishingPoints.add(panWorld)
+                2 -> {
+                    vanishingPoints.add(WorldPoint(panWorld.x - halfSpread, panWorld.y))
+                    vanishingPoints.add(WorldPoint(panWorld.x + halfSpread, panWorld.y))
+                }
+            }
+        }
+        perspectiveMode = mode
+    }
+
+    // Index into vanishingPoints being dragged by its handle, or null while drawing normally.
+    private var draggingVanishingPoint: Int? = null
+
+    // The perspective direction the current stroke was straightened onto, once decided.
+    private var perspectiveDirection: WorldPoint? = null
+
+    /**
+     * Assisted perspective drawing: once a stroke has moved [PERSPECTIVE_DECIDE_SCREEN] px from
+     * where it started, the perspective direction closest to that movement is chosen for the
+     * rest of the stroke, and the points drawn so far are straightened onto it too. Off while
+     * the ruler is active (the ruler wins: it's the more specific guide).
+     */
+    private fun decidePerspectiveDirection(stroke: Stroke, point: WorldPoint) {
+        if (perspectiveMode == PerspectiveMode.OFF || rulerActive || perspectiveDirection != null) return
+        val start = stroke.points.first()
+        if (hypot(point.x - start.x, point.y - start.y) * scale < PERSPECTIVE_DECIDE_SCREEN) return
+        val direction = closestDirection(perspectiveDirections(perspectiveMode, vanishingPoints, start), start, point) ?: return
+        perspectiveDirection = direction
+        val straightened = stroke.points.map { projectOntoLine(start, direction, it) }
+        stroke.setPoints(straightened)
+        for ((copy, transform) in symmetryCopies) copy.setPoints(straightened.map(transform))
+    }
+
+    /** [point] on the current stroke's perspective line when one was chosen, else on the ruler (if active). */
+    private fun guided(point: WorldPoint): WorldPoint {
+        val direction = perspectiveDirection
+        val stroke = currentStroke
+        if (direction != null && stroke != null) return projectOntoLine(stroke.points.first(), direction, point)
+        return snappedToActiveGuide(point)
     }
 
     /**
@@ -965,6 +1045,10 @@ class CanvasState(
     }
 
     fun endStroke() {
+        if (draggingVanishingPoint != null) {
+            draggingVanishingPoint = null
+            return
+        }
         val stroke = currentStroke
         // Touch and hold without moving = eyedropper (the Procreate gesture): the stroke never
         // left the jitter radius around where it started, so it was a press, not a mark.
@@ -982,7 +1066,7 @@ class CanvasState(
         val raw = lastRawPoint
         if (stroke != null && raw != null && activeStabilization > 0.0) {
             // Smoothing trails behind the pen; close the gap so the stroke ends at the lift point.
-            addStrokePoint(stroke, snappedToActiveGuide(raw), stroke.pressures.last(), stroke.tilts.last(), stroke.orientations.last())
+            addStrokePoint(stroke, guided(raw), stroke.pressures.last(), stroke.tilts.last(), stroke.orientations.last())
         }
         if (stroke != null && System.currentTimeMillis() - lastStrokeMoveMillis >= SHAPE_HOLD_MILLIS) {
             recognizeShape(stroke.points)?.let { clean ->
