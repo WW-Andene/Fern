@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import android.os.Build
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Canvas
@@ -42,7 +43,7 @@ private const val MAX_TILES = 160
  * edited in place (a stroke being drawn, a selection being moved) and no animation playback,
  * since those change every frame and must be drawn live in their correct stacking order.
  */
-class SceneTileCache {
+class SceneTileCache(private val useGpu: Boolean = true) {
     private data class Key(val octave: Int, val x: Long, val y: Long)
 
     // Access-ordered: the least recently drawn tile is evicted first.
@@ -51,6 +52,14 @@ class SceneTileCache {
     }
     private var version: SceneVersion? = null
     private var camera: CanvasState? = null
+
+    // GPU tile rasterization (GpuTileRenderer) where available; dropped for the session after a failure.
+    private var gpu: GpuTileRenderer? = null
+    private var gpuFailed = !useGpu || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+
+    /** Tiles the GPU path rendered, for tests and benchmarks. */
+    var gpuTilesRendered = 0
+        private set
 
     /** Tiles rendered so far (cache misses), for tests and benchmarks. */
     var tilesRendered = 0
@@ -128,12 +137,30 @@ class SceneTileCache {
         camera.jumpTo(c, Math.scalb(1.0, octave))
         val half = tileWorld / 2
         tilesRendered++
-        val image = ImageBitmap(TILE_PX, TILE_PX)
-        CanvasDrawScope().draw(density, LayoutDirection.Ltr, Canvas(image), Size(TILE_PX.toFloat(), TILE_PX.toFloat())) {
+        val drawTile: DrawScope.() -> Unit = {
             drawRect(color = camera.backgroundColor)
             drawScene(camera, Offset(TILE_PX / 2f, TILE_PX / 2f), WorldPoint(c.x - half, c.y - half), WorldPoint(c.x + half, c.y + half), textMeasurer, imageFor)
         }
+        if (!gpuFailed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val renderer = gpu ?: runCatching { GpuTileRenderer(TILE_PX) }.getOrNull()?.also { gpu = it }
+            val image = renderer?.render(density, drawTile)
+            if (image != null) {
+                gpuTilesRendered++
+                return image
+            }
+            gpuFailed = true
+            gpu?.release()
+            gpu = null
+        }
+        val image = ImageBitmap(TILE_PX, TILE_PX)
+        CanvasDrawScope().draw(density, LayoutDirection.Ltr, Canvas(image), Size(TILE_PX.toFloat(), TILE_PX.toFloat()), drawTile)
         return image
+    }
+
+    /** Frees the GPU renderer; the cache keeps working (on the CPU) if drawn again. */
+    fun release() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) gpu?.release()
+        gpu = null
     }
 }
 

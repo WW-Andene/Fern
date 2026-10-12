@@ -106,6 +106,7 @@ fun DrawingCanvas(
     var predictedScreen by remember { mutableStateOf<Offset?>(null) }
     val textMeasurer = rememberTextMeasurer()
     val tileCache = remember { SceneTileCache() }
+    androidx.compose.runtime.DisposableEffect(tileCache) { onDispose { tileCache.release() } }
     val context = LocalContext.current
     // Decoded lazily and cached by file name: re-decoding from disk every frame would be
     // wasteful, and images never change once placed (a new image is a new ImageItem/file).
