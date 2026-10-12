@@ -149,7 +149,7 @@ All deferred: they need a server or cloud platform.
 ## Phase 10 — Raster painting
 
 - [x] 89. Raster layers with tiled pixel storage, up to 16-bit — 256 px tiles made only where there is paint, 8 or 16 bits per channel (16-bit shown through half-float bitmaps); the pen paints and the eraser erases on them with pressure; tile-level undo; saved tile by tile, in .fern bundles too; raster layers on one grid merge
-- [ ] 90. Pixel brush engine: wet mixing, smudge, blur, ABR/Procreate brush import
+- [x] 90. Pixel brush engine: wet mixing (the brush picks up and carries colour), smudge, blur, tip-shaped dabs; brush tips imported from Photoshop .abr (sampled brushes) and Procreate .brush (shape); Procreate grain and brush dynamics not read
 - [ ] 91. Raster selections, masks, clipping masks, alpha lock
 - [ ] 92. Adjustments: curves, levels, hue/saturation, liquify, warp
 - [ ] 93. Full Photoshop blend modes and adjustment layers

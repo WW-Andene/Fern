@@ -90,15 +90,13 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
      * (non-premultiplied RGBA, 0..1 each) at [opacity]. [hardness] 1 is a hard edge; lower values
      * fade from (hardness x radius) out to the rim. [erase] removes paint instead (destination-out).
      */
-    fun dab(center: WorldPoint, radius: Double, color: FloatArray, opacity: Float, hardness: Float = 0.8f, erase: Boolean = false) {
+    fun dab(center: WorldPoint, radius: Double, color: FloatArray, opacity: Float, hardness: Float = 0.8f, erase: Boolean = false, tip: TipMask? = null) {
         val cx = (center.x - originX) / pixelWorld
         val cy = (center.y - originY) / pixelWorld
         val r = (radius / pixelWorld).coerceAtLeast(0.5)
         forEachPixelIn(cx - r, cy - r, cx + r, cy + r) { tile, index, px, py ->
-            val d = hypot(px + 0.5 - cx, py + 0.5 - cy) / r
-            if (d >= 1.0) return@forEachPixelIn
-            val inner = hardness.toDouble().coerceIn(0.0, 0.999)
-            val falloff = if (d <= inner) 1.0 else 1.0 - (d - inner) / (1.0 - inner)
+            val falloff = coverage(px, py, cx, cy, r, hardness, tip)
+            if (falloff <= 0.0) return@forEachPixelIn
             val a = (opacity * falloff).coerceIn(0.0, 1.0)
             if (erase) {
                 for (c in 0 until 4) tile.data[index + c] = (u16(tile.data[index + c]) * (1 - a)).toInt().toShort()
@@ -110,6 +108,85 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
                 }
                 tile.data[index + 3] = (srcA * 65535.0 + u16(tile.data[index + 3]) * (1 - srcA)).toInt().coerceIn(0, 65535).toShort()
             }
+        }
+    }
+
+    /** How much of a dab centred on ([cx], [cy]) with radius [r] (pixels) covers pixel ([px], [py]). */
+    private fun coverage(px: Int, py: Int, cx: Double, cy: Double, r: Double, hardness: Float, tip: TipMask?): Double =
+        if (tip != null) tip.coverageAt((px + 0.5 - cx) / r, (py + 0.5 - cy) / r)
+        else dabFalloff(px + 0.5, py + 0.5, cx, cy, r, hardness.toDouble())
+
+    /**
+     * The average colour (non-premultiplied RGBA, 0..1) under a dab at [center] - what a wet
+     * brush picks up. Transparent where there's no paint.
+     */
+    fun sampleUnder(center: WorldPoint, radius: Double): FloatArray {
+        val cx = (center.x - originX) / pixelWorld
+        val cy = (center.y - originY) / pixelWorld
+        val r = (radius / pixelWorld).coerceAtLeast(0.5)
+        val sum = DoubleArray(4)
+        var weight = 0.0
+        val step = maxOf(1, (r / 8).toInt()) // a sparse grid is enough for an average
+        var py = floor(cy - r).toInt()
+        while (py <= ceil(cy + r)) {
+            var px = floor(cx - r).toInt()
+            while (px <= ceil(cx + r)) {
+                if (hypot(px + 0.5 - cx, py + 0.5 - cy) <= r) {
+                    val p = pixel(px, py)
+                    for (c in 0 until 4) sum[c] = sum[c] + p[c]
+                    weight++
+                }
+                px += step
+            }
+            py += step
+        }
+        if (weight == 0.0 || sum[3] == 0.0) return FloatArray(4)
+        // Premultiplied sums: divide the colour by the coverage to unpremultiply.
+        return floatArrayOf((sum[0] / sum[3]).toFloat(), (sum[1] / sum[3]).toFloat(), (sum[2] / sum[3]).toFloat(), (sum[3] / weight).toFloat())
+    }
+
+    /**
+     * Smudge: the pixels under a dab at [to] become a mix of themselves and the pixels one step
+     * back along the stroke (at [from]), by [strength] times the brush's coverage, dragging
+     * paint along. Reads a copy of the source first, so the dab never smears its own output.
+     */
+    fun smudge(from: WorldPoint, to: WorldPoint, radius: Double, strength: Float, tip: TipMask? = null) {
+        val cx = (to.x - originX) / pixelWorld
+        val cy = (to.y - originY) / pixelWorld
+        val dx = (to.x - from.x) / pixelWorld
+        val dy = (to.y - from.y) / pixelWorld
+        val r = (radius / pixelWorld).coerceAtLeast(0.5)
+        val source = HashMap<Long, FloatArray>()
+        for (py in floor(cy - r).toInt()..ceil(cy + r).toInt()) for (px in floor(cx - r).toInt()..ceil(cx + r).toInt()) {
+            source[RasterSurface.tileKey(px, py)] = pixel(Math.round(px - dx).toInt(), Math.round(py - dy).toInt())
+        }
+        forEachPixelIn(cx - r, cy - r, cx + r, cy + r) { tile, index, px, py ->
+            val a = strength * coverage(px, py, cx, cy, r, 0.5f, tip)
+            if (a <= 0.0) return@forEachPixelIn
+            val s = source[RasterSurface.tileKey(px, py)] ?: return@forEachPixelIn
+            for (c in 0 until 4) tile.data[index + c] = (u16(tile.data[index + c]) * (1 - a) + s[c] * 65535.0 * a).toInt().coerceIn(0, 65535).toShort()
+        }
+    }
+
+    /** Blur: pixels under a dab move toward the average of their 3 x 3 neighbourhood, by [strength] times the coverage. */
+    fun blur(center: WorldPoint, radius: Double, strength: Float, tip: TipMask? = null) {
+        val cx = (center.x - originX) / pixelWorld
+        val cy = (center.y - originY) / pixelWorld
+        val r = (radius / pixelWorld).coerceAtLeast(0.5)
+        val averaged = HashMap<Long, FloatArray>()
+        for (py in floor(cy - r).toInt()..ceil(cy + r).toInt()) for (px in floor(cx - r).toInt()..ceil(cx + r).toInt()) {
+            val sum = FloatArray(4)
+            for (oy in -1..1) for (ox in -1..1) {
+                val p = pixel(px + ox, py + oy)
+                for (c in 0 until 4) sum[c] += p[c] / 9f
+            }
+            averaged[RasterSurface.tileKey(px, py)] = sum
+        }
+        forEachPixelIn(cx - r, cy - r, cx + r, cy + r) { tile, index, px, py ->
+            val a = strength * coverage(px, py, cx, cy, r, 0.5f, tip)
+            if (a <= 0.0) return@forEachPixelIn
+            val s = averaged[RasterSurface.tileKey(px, py)] ?: return@forEachPixelIn
+            for (c in 0 until 4) tile.data[index + c] = (u16(tile.data[index + c]) * (1 - a) + s[c] * 65535.0 * a).toInt().coerceIn(0, 65535).toShort()
         }
     }
 

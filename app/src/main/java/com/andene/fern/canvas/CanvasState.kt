@@ -1439,9 +1439,19 @@ class CanvasState(
     private val activeRaster: RasterSurface?
         get() = layers.firstOrNull { it.id == activeLayerId }?.takeIf { it.raster }?.let { rasters[it.id] }
 
+    /** True when the active layer holds pixels, so the pen and eraser work on them. */
+    val activeLayerIsRaster: Boolean get() = activeRaster != null
+
+    /** How the pen acts on a raster layer: paint, wet mixing, smudge or blur, and its tip (roadmap item 90). */
+    var rasterBrush by mutableStateOf(RasterBrush())
+
+    // The colour a wet brush carries, picked up from the canvas as it goes; null when not painting wet.
+    private var wetColor: FloatArray? = null
+
     // The raster brush stroke in progress: its last point, and how far along the segment the
     // next dab falls (dabs are evenly spaced across points).
     private var rasterLast: WorldPoint? = null
+    private var rasterLastDab: WorldPoint? = null
     private var rasterCarry = 0.0
     private var rasterErasing = false
 
@@ -1462,7 +1472,26 @@ class CanvasState(
         val spacing = (radius * RASTER_DAB_SPACING).coerceAtLeast(surface.pixelWorld * 0.5)
         val from = rasterLast ?: to
         val dabs = dabsAlong(from, to, spacing, rasterCarry)
-        for (p in dabs) surface.dab(p, radius, color, opacity, hardness, erase = rasterErasing)
+        val brush = rasterBrush
+        var previous = rasterLastDab ?: from
+        for (p in dabs) {
+            when {
+                rasterErasing -> surface.dab(p, radius, color, opacity, hardness, erase = true, tip = brush.tip)
+                brush.mode == RasterBrushMode.SMUDGE -> surface.smudge(previous, p, radius, brush.strength, brush.tip)
+                brush.mode == RasterBrushMode.BLUR -> surface.blur(p, radius, brush.strength, brush.tip)
+                brush.mode == RasterBrushMode.WET -> {
+                    // Pick up some of what's underneath, then lay the mixture down.
+                    val carried = wetColor ?: color.copyOf().also { wetColor = it }
+                    val under = surface.sampleUnder(p, radius)
+                    val pickup = brush.wetness * under[3]
+                    for (c in 0 until 3) carried[c] = carried[c] * (1 - pickup) + under[c] * pickup
+                    surface.dab(p, radius, carried, opacity, hardness, tip = brush.tip)
+                }
+                else -> surface.dab(p, radius, color, opacity, hardness, tip = brush.tip)
+            }
+            previous = p
+        }
+        if (dabs.isNotEmpty()) rasterLastDab = dabs.last()
         // Distance past [to] where the next dab falls, so spacing stays even across segments.
         rasterCarry += spacing * dabs.size - hypot(to.x - from.x, to.y - from.y)
         rasterLast = to
@@ -1472,6 +1501,8 @@ class CanvasState(
     private fun beginRasterStroke(surface: RasterSurface, at: WorldPoint, pressure: Float, erasing: Boolean) {
         rasterErasing = erasing
         rasterLast = null
+        rasterLastDab = null
+        wetColor = null
         rasterCarry = 0.0
         rasterDabs(surface, at, pressure)
     }

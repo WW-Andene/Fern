@@ -94,6 +94,14 @@
     <string name="layers_new">Nouveau calque</string>
     <string name="layers_new_raster">Matriciel</string>
     <string name="layers_new_raster_16">Matriciel 16 bits</string>
+    <string name="raster_brush_title">Pinceau matriciel</string>
+    <string name="raster_brush_paint">Peindre</string>
+    <string name="raster_brush_wet">Peinture humide (mélange)</string>
+    <string name="raster_brush_smudge">Estomper</string>
+    <string name="raster_brush_blur">Flouter</string>
+    <string name="raster_brush_round">Pointe ronde</string>
+    <string name="raster_brush_import">Importer une pointe (.abr, .brush)…</string>
+    <string name="raster_brush_bad_file">Aucune pointe lisible dans ce fichier</string>
     <string name="color_title">Choisir une couleur</string>
     <string name="color_hue">Teinte</string>
     <string name="color_saturation">Saturation</string>

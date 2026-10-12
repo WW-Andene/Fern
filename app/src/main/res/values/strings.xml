@@ -94,6 +94,14 @@
     <string name="layers_new">New layer</string>
     <string name="layers_new_raster">Raster</string>
     <string name="layers_new_raster_16">Raster 16-bit</string>
+    <string name="raster_brush_title">Raster brush</string>
+    <string name="raster_brush_paint">Paint</string>
+    <string name="raster_brush_wet">Wet paint (mixes)</string>
+    <string name="raster_brush_smudge">Smudge</string>
+    <string name="raster_brush_blur">Blur</string>
+    <string name="raster_brush_round">Round tip</string>
+    <string name="raster_brush_import">Import tip (.abr, .brush)…</string>
+    <string name="raster_brush_bad_file">No brush tip could be read from that file</string>
     <string name="color_title">Choose color</string>
     <string name="color_hue">Hue</string>
     <string name="color_saturation">Saturation</string>

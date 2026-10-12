@@ -436,6 +436,7 @@ fun Toolbar(
                         Icon(Icons.Filled.Tune, contentDescription = stringResource(R.string.brush_settings))
                     }
                 }
+                if (state.activeLayerIsRaster) RasterBrushControls(state)
 
                 IconButton(onClick = {
                     state.activeTool = if (state.activeTool == Tool.ERASER) Tool.PEN else Tool.ERASER
