@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
@@ -612,6 +613,7 @@ private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, bas
             end = screenPoints[1],
             strokeWidth = style.widthScreen,
             cap = style.cap,
+            pathEffect = if (stroke.dashed) dashEffect(style.widthScreen) else null,
             blendMode = blendMode,
         )
         else -> {
@@ -626,12 +628,21 @@ private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, bas
             drawPath(
                 path = path,
                 color = style.color,
-                style = DrawStyle(width = style.widthScreen, cap = style.cap, join = StrokeJoin.Round),
+                style = DrawStyle(
+                    width = style.widthScreen,
+                    cap = style.cap,
+                    join = StrokeJoin.Round,
+                    pathEffect = if (stroke.dashed) dashEffect(style.widthScreen) else null,
+                ),
                 blendMode = blendMode,
             )
         }
     }
 }
+
+/** Dash 3x the line width, gap 2x (plus the round caps), so dashes stay proportioned at any width or zoom. */
+private fun dashEffect(widthScreen: Float): PathEffect =
+    PathEffect.dashPathEffect(floatArrayOf(widthScreen * 3f, widthScreen * 2f + widthScreen))
 
 /** Maps this app's persisted [StrokeBlendMode] to the Compose [BlendMode] actually used for drawing. */
 private fun StrokeBlendMode.toComposeBlendMode(): BlendMode = when (this) {

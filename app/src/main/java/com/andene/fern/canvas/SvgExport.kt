@@ -52,7 +52,9 @@ fun exportDocumentSvg(source: CanvasState, imageBytesFor: (String) -> ByteArray?
             svg.append("""<path d="$d Z" fill="${hex(stroke.color)}" fill-opacity="$opacity"/>""")
         } else {
             svg.append("""<path d="$d" fill="none" stroke="${hex(stroke.color)}" stroke-opacity="$opacity" """)
-            svg.append("""stroke-width="${n(stroke.widthWorld)}" stroke-linecap="round" stroke-linejoin="round"/>""")
+            svg.append("""stroke-width="${n(stroke.widthWorld)}" stroke-linecap="round" stroke-linejoin="round"""")
+            if (stroke.dashed) svg.append(""" stroke-dasharray="${n(stroke.widthWorld * 3)} ${n(stroke.widthWorld * 3)}"""")
+            svg.append("/>")
         }
         svg.append('\n')
     }

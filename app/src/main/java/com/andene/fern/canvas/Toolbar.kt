@@ -53,6 +53,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.LineStyle
 import androidx.compose.material.icons.filled.LineWeight
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Opacity
@@ -312,6 +313,13 @@ fun Toolbar(
                         Icons.Filled.Opacity,
                         contentDescription = "Stroke opacity",
                         tint = if (showOpacitySlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                    )
+                }
+                IconButton(onClick = { state.activeDashed = !state.activeDashed }) {
+                    Icon(
+                        Icons.Filled.LineStyle,
+                        contentDescription = if (state.activeDashed) "Dashed lines: on" else "Dashed lines: off",
+                        tint = if (state.activeDashed) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
                 }
                 IconButton(onClick = { state.velocityDynamics = !state.velocityDynamics }) {

@@ -272,7 +272,7 @@ class CanvasState(
                 val pa = resamplePolyline(a.points, samples)
                 val pb = resamplePolyline(b.points, samples)
                 val color = androidx.compose.ui.graphics.lerp(a.color, b.color, t.toFloat())
-                val tween = Stroke(color, a.widthWorld + (b.widthWorld - a.widthWorld) * t, a.penType, blendMode = a.blendMode, layerId = a.layerId, animFrame = from + step)
+                val tween = Stroke(color, a.widthWorld + (b.widthWorld - a.widthWorld) * t, a.penType, blendMode = a.blendMode, layerId = a.layerId, animFrame = from + step, dashed = a.dashed)
                 for (i in 0 until samples) tween.addPoint(WorldPoint(pa[i].x + (pb[i].x - pa[i].x) * t, pa[i].y + (pb[i].y - pa[i].y) * t))
                 strokes.add(tween)
             }
@@ -547,6 +547,9 @@ class CanvasState(
         activeTool = Tool.PEN
     }
 
+    /** New strokes and shapes are drawn dashed. */
+    var activeDashed by mutableStateOf(false)
+
     /** Blend mode applied to new strokes - see [StrokeBlendMode]. */
     var activeBlendMode by mutableStateOf(StrokeBlendMode.NORMAL)
 
@@ -724,6 +727,7 @@ class CanvasState(
             blendMode = activeBlendMode,
             layerId = activeLayerId,
             animFrame = currentAnimFrame,
+            dashed = activeDashed,
         )
         stroke.addPoint(snappedToActiveGuide(worldPoint), pressure, tilt, orientation)
         rememberActiveColor()
@@ -732,7 +736,7 @@ class CanvasState(
         currentStroke = stroke
         strokes.add(stroke)
         symmetryCopies = symmetryTransforms(symmetryMode, symmetryCenter).map { transform ->
-            val copy = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode, layerId = stroke.layerId, animFrame = stroke.animFrame)
+            val copy = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode, layerId = stroke.layerId, animFrame = stroke.animFrame, dashed = stroke.dashed)
             copy.addPoint(transform(stroke.points.first()), pressure, tilt, orientation)
             strokes.add(copy)
             copy to transform
@@ -820,7 +824,7 @@ class CanvasState(
     private fun replaceWithShape(stroke: Stroke, cleanPoints: List<WorldPoint>) {
         val index = strokes.indexOf(stroke)
         if (index == -1) return
-        val shape = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode, layerId = stroke.layerId, animFrame = stroke.animFrame)
+        val shape = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode, layerId = stroke.layerId, animFrame = stroke.animFrame, dashed = stroke.dashed)
         for (point in cleanPoints) shape.addPoint(point)
         strokes[index] = shape
     }
@@ -958,6 +962,7 @@ class CanvasState(
             blendMode = activeBlendMode,
             layerId = activeLayerId,
             animFrame = currentAnimFrame,
+            dashed = activeDashed,
         )
         for (point in generateShapePoints(activeShapeKind, start, end)) stroke.addPoint(point)
         strokes.add(stroke)
@@ -1537,7 +1542,7 @@ class CanvasState(
         recordHistory()
         val nudge = WorldPoint(20.0 / scale.coerceAtLeast(1e-300), 20.0 / scale.coerceAtLeast(1e-300))
         val duplicates = selection.map { original ->
-            val copy = Stroke(original.color, original.widthWorld, original.penType, original.filled, original.blendMode, original.layerId, original.animFrame)
+            val copy = Stroke(original.color, original.widthWorld, original.penType, original.filled, original.blendMode, original.layerId, original.animFrame, original.dashed)
             for (point in original.points) copy.addPoint(point + nudge)
             copy
         }
