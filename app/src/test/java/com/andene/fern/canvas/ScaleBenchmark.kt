@@ -63,7 +63,8 @@ class ScaleBenchmark {
         // A full save: the journal only takes appends, so pass a list that isn't one.
         measure("full save") { CanvasStorage.compactStrokes(context, doc.id); CanvasStorage.save(context, doc.id, strokes.reversed(), withThumbnail = false); CanvasStorage.save(context, doc.id, strokes, withThumbnail = false) }
         var loaded: List<Stroke> = emptyList()
-        measure("load") { loaded = CanvasStorage.load(context, doc.id) }
+        // The previous copy is dropped first: at a million strokes two loaded copies (~0.7 GB each) plus the original overflow the heap.
+        measure("load") { loaded = emptyList(); loaded = CanvasStorage.load(context, doc.id) }
         val extra = scribbles(1, offset = 1e7)
         var current = loaded
         measure("autosave after one new stroke") { current = current + extra.single().deepCopy(); CanvasStorage.save(context, doc.id, current, withThumbnail = false) }

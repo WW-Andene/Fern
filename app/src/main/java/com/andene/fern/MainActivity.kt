@@ -42,6 +42,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.DisposableEffect
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -109,10 +113,18 @@ import com.andene.fern.canvas.VersionsDialog
 import com.andene.fern.canvas.WelcomeDialog
 import com.andene.fern.canvas.WorldPoint
 import com.andene.fern.canvas.exportAnimatedGif
+import com.andene.fern.canvas.exportAnimationVideo
+import com.andene.fern.canvas.Mp4Encoder
+import com.andene.fern.canvas.exportReplayMp4
 import com.andene.fern.canvas.exportAnimatedPng
 import com.andene.fern.canvas.exportLottie
 import com.andene.fern.canvas.exportDocumentEps
 import com.andene.fern.canvas.exportReplayGif
+import com.andene.fern.canvas.StrokeChunkFile
+import com.andene.fern.canvas.SpineImport
+import com.andene.fern.canvas.maskIdOf
+import com.andene.fern.canvas.exportSpine
+import com.andene.fern.canvas.exportDragonBones
 import com.andene.fern.canvas.exportDocumentBundle
 import com.andene.fern.canvas.exportDocumentPdf
 import com.andene.fern.canvas.exportDocumentPng
@@ -168,9 +180,22 @@ private fun decodeDownsampled(context: android.content.Context, uri: Uri, maxEdg
 }
 
 class MainActivity : ComponentActivity() {
+    private val powerMonitor by lazy { PowerMonitor(applicationContext) }
+
+    override fun onStart() {
+        super.onStart()
+        powerMonitor.start()
+    }
+
+    override fun onStop() {
+        powerMonitor.stop()
+        super.onStop()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         CrashReporter.install(this)
+        CrashReporter.recordUnseenExits(this)
         enableEdgeToEdge()
         setContent {
             // Follows the system light/dark setting for the app's own UI (toolbar, dialogs). The
@@ -182,6 +207,8 @@ class MainActivity : ComponentActivity() {
                     val lifecycleOwner = LocalLifecycleOwner.current
                     val coroutineScope = rememberCoroutineScope()
                     var autosaveJob by remember { mutableStateOf<Job?>(null) }
+                    // Raster changes ask for a save here; the writer below batches them.
+                    val rasterSaveRequests = remember { kotlinx.coroutines.flow.MutableStateFlow(0) }
 
                     var currentDocumentId by remember { mutableStateOf("") }
                     var documents by remember { mutableStateOf(emptyList<DocumentMeta>()) }
@@ -226,7 +253,7 @@ class MainActivity : ComponentActivity() {
                                 autosaveJob?.cancel()
                                 val documentId = currentDocumentId
                                 autosaveJob = coroutineScope.launch {
-                                    delay(500)
+                                    delay(PowerMonitor.autosaveDelayMillis(powerMonitor.constrained))
                                     withContext(Dispatchers.IO) { CanvasStorage.save(context, documentId, snapshot, withThumbnail = false) }
                                 }
                             },
@@ -244,6 +271,8 @@ class MainActivity : ComponentActivity() {
                             onAnimationSettingsChanged = { settings -> CanvasStorage.saveAnimationSettings(context, currentDocumentId, settings) },
                             onFramesChanged = { frames -> CanvasStorage.saveFrames(context, currentDocumentId, frames) },
                             onLayersChanged = { layers -> CanvasStorage.saveLayers(context, currentDocumentId, layers) },
+                            // Raster pixels are saved by the debounced writer below (it needs this state).
+                            onRasterChanged = { rasterSaveRequests.value++ },
                             onRebased = { offset ->
                                 if (pins.isNotEmpty()) {
                                     pins = pins.map { it.copy(x = it.x - offset.x, y = it.y - offset.y) }
@@ -252,6 +281,24 @@ class MainActivity : ComponentActivity() {
                             },
                         )
                     }
+
+                    // Raster pixels: changed tiles are copied here on the main thread, then written off it.
+                    fun saveRasters(documentId: String) {
+                        val dirty = canvasState.takeDirtyRasterTiles()
+                        val deleted = canvasState.takeDeletedRasterLayers()
+                        if (dirty.isEmpty() && deleted.isEmpty()) return
+                        coroutineScope.launch(Dispatchers.IO) {
+                            for (id in deleted) CanvasStorage.deleteRasterLayer(context, documentId, id)
+                            for ((id, change) in dirty) CanvasStorage.saveRasterTiles(context, documentId, id, change.first, change.second)
+                        }
+                    }
+                    LaunchedEffect(Unit) {
+                        rasterSaveRequests.collectLatest {
+                            delay(PowerMonitor.autosaveDelayMillis(powerMonitor.constrained))
+                            saveRasters(currentDocumentId)
+                        }
+                    }
+
 
                     val textMeasurer = rememberTextMeasurer()
                     val density = LocalDensity.current
@@ -344,6 +391,21 @@ class MainActivity : ComponentActivity() {
                     ) { uri ->
                         if (uri != null) writeExport(uri) { exportReplayGif(canvasState, textMeasurer, density, imageForExport) }
                     }
+                    val replayMp4ExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("video/mp4"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportReplayMp4(canvasState, textMeasurer, density, imageForExport, context.cacheDir) }
+                    }
+                    val mp4ExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("video/mp4"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportAnimationVideo(canvasState, textMeasurer, density, imageForExport, context.cacheDir) }
+                    }
+                    val webmExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("video/webm"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportAnimationVideo(canvasState, textMeasurer, density, imageForExport, context.cacheDir, Mp4Encoder.Format.WEBM) }
+                    }
                     val transparentPngExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("image/png"),
                     ) { uri ->
@@ -363,6 +425,34 @@ class MainActivity : ComponentActivity() {
                         if (uri != null) writeExport(uri) { exportDocumentPdf(canvasState, textMeasurer, imageForExport) }
                     }
 
+                    val spineExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/zip"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportSpine(canvasState, textMeasurer, density, imageForExport) }
+                    }
+                    val dragonBonesExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/zip"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportDragonBones(canvasState, textMeasurer, density, imageForExport) }
+                    }
+                    val spineImportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocument(),
+                    ) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val poses = withContext(Dispatchers.IO) {
+                                runCatching {
+                                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
+                                    SpineImport.read(bytes, canvasState.animFps)
+                                }.getOrNull()
+                            }
+                            if (poses.isNullOrEmpty()) {
+                                Toast.makeText(context, context.getString(R.string.toast_bad_spine), Toast.LENGTH_SHORT).show()
+                            } else {
+                                canvasState.importSkeleton(poses)
+                            }
+                        }
+                    }
                     val pdfImportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.OpenDocument(),
                     ) { uri ->
@@ -550,10 +640,29 @@ class MainActivity : ComponentActivity() {
                      * an ON_STOP save while it was half loaded wrote the half-loaded canvas over it.
                      */
                     suspend fun loadDocument(documentId: String) {
+                        // The saved view comes back first, so the part of a big document on screen
+                        // can be read and shown before the rest (roadmap item 53).
+                        val view = withContext(Dispatchers.IO) { CanvasStorage.loadView(context, documentId) }
+                        if (view != null) canvasState.jumpTo(view.first, view.second)
+                        val viewport = canvasState.viewportSize
+                        val first = view?.takeIf { viewport.width > 0f }?.let { (center, scale) ->
+                            val halfWidth = viewport.width / 2.0 / scale
+                            val halfHeight = viewport.height / 2.0 / scale
+                            StrokeChunkFile.Area(center.x - halfWidth, center.y - halfHeight, center.x + halfWidth, center.y + halfHeight)
+                        }
+                        // Main-thread flag: a preview posted late must not replace the full document.
+                        var previewWanted = true
                         val loaded = withContext(Dispatchers.IO) {
                             LoadedDocument(
-                                strokes = CanvasStorage.load(context, documentId),
+                                strokes = CanvasStorage.load(context, documentId, first) { visible ->
+                                    // Shown under the loading cover, which still blocks input until everything is in.
+                                    coroutineScope.launch(Dispatchers.Main) { if (previewWanted && loadingDocument) canvasState.loadStrokes(visible) }
+                                },
                                 layers = CanvasStorage.loadLayers(context, documentId),
+                                rasters = CanvasStorage.loadLayers(context, documentId).let { layers ->
+                                    // Raster layers' pixels and every layer mask (roadmap items 89, 91).
+                                    CanvasStorage.loadRasters(context, documentId, layers.filter { it.raster }.map { it.id } + layers.filter { it.masked }.map { maskIdOf(it.id) })
+                                },
                                 frames = CanvasStorage.loadFrames(context, documentId),
                                 history = CanvasStorage.loadHistory(context, documentId),
                                 texts = CanvasStorage.loadTextItems(context, documentId),
@@ -565,8 +674,10 @@ class MainActivity : ComponentActivity() {
                                 pins = CanvasStorage.listPins(context, documentId),
                             )
                         }
+                        previewWanted = false
                         canvasState.loadStrokes(loaded.strokes)
                         canvasState.loadLayers(loaded.layers)
+                        canvasState.loadRasters(loaded.rasters)
                         canvasState.loadFrames(loaded.frames)
                         canvasState.loadHistory(loaded.history.first, loaded.history.second)
                         canvasState.loadTextItems(loaded.texts)
@@ -589,11 +700,14 @@ class MainActivity : ComponentActivity() {
                         loadingDocument = true
                         try {
                             val leaving = currentDocumentId
+                            saveRasters(leaving)
+                            val leavingView = canvasState.panWorld to canvasState.scale
                             val strokes = canvasState.strokes.toList()
                             val texts = canvasState.textItems.toList()
                             val images = canvasState.imageItems.toList()
                             val (undo, redo) = canvasState.historySnapshot()
                             withContext(Dispatchers.IO) {
+                                CanvasStorage.saveView(context, leaving, leavingView.first, leavingView.second)
                                 CanvasStorage.save(context, leaving, strokes)
                                 CanvasStorage.saveTextItems(context, leaving, texts)
                                 CanvasStorage.saveImageItems(context, leaving, images)
@@ -629,7 +743,11 @@ class MainActivity : ComponentActivity() {
                     DisposableEffect(lifecycleOwner) {
                         val observer = LifecycleEventObserver { _, event ->
                             if (event == Lifecycle.Event.ON_STOP && currentDocumentId.isNotEmpty()) {
-                                CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList())
+                                // No thumbnail: rendering every stroke on the main thread here took seconds on
+                                // huge documents; the library refreshes it when it's next opened.
+                                CanvasStorage.saveView(context, currentDocumentId, canvasState.panWorld, canvasState.scale)
+                                saveRasters(currentDocumentId)
+                                CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList(), withThumbnail = false)
                                 CanvasStorage.saveTextItems(context, currentDocumentId, canvasState.textItems.toList())
                                 CanvasStorage.saveImageItems(context, currentDocumentId, canvasState.imageItems.toList())
                                 canvasState.historySnapshot().let { (undo, redo) -> CanvasStorage.saveHistory(context, currentDocumentId, undo, redo) }
@@ -658,10 +776,36 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // Flipbook playback: advances one frame per tick while playing.
-                    LaunchedEffect(canvasState.playing, canvasState.animFps) {
+                    LaunchedEffect(canvasState.playing, canvasState.animFps, powerMonitor.constrained) {
                         while (canvasState.playing) {
-                            delay(1000L / canvasState.animFps)
+                            delay(1000L / PowerMonitor.playbackFps(canvasState.animFps, powerMonitor.constrained))
                             canvasState.advanceAnimFrame()
+                        }
+                    }
+                    // The soundtrack plays along from the frame playback starts on, and starts over
+                    // whenever the animation loops back to its first frame (roadmap item 88).
+                    val soundtrackName = canvasState.soundtrack
+                    var soundtrackRestart by remember { mutableIntStateOf(0) }
+                    DisposableEffect(canvasState.playing, soundtrackName, soundtrackRestart) {
+                        val player = if (canvasState.playing && soundtrackName != null) {
+                            runCatching {
+                                android.media.MediaPlayer().apply {
+                                    setDataSource(CanvasStorage.soundtrackFile(context, soundtrackName).path)
+                                    prepare()
+                                    seekTo(canvasState.frameStartMillis(canvasState.currentAnimFrame).toInt())
+                                    start()
+                                }
+                            }.getOrNull()
+                        } else {
+                            null
+                        }
+                        onDispose { player?.release() }
+                    }
+                    LaunchedEffect(canvasState.playing, soundtrackName) {
+                        if (!canvasState.playing || soundtrackName == null) return@LaunchedEffect
+                        // drop(1): the frame playback started on is already where the player began.
+                        snapshotFlow { canvasState.currentAnimFrame }.drop(1).collect { frame ->
+                            if (frame == 0) soundtrackRestart++
                         }
                     }
 
@@ -690,6 +834,8 @@ class MainActivity : ComponentActivity() {
                                     event.key == Key.E -> canvasState.activeTool = Tool.ERASER
                                     event.key == Key.V -> canvasState.activeTool = Tool.SELECT
                                     event.key == Key.Zero -> canvasState.zoomToFit()
+                                    // Stylus barrel and tail buttons arrive as key events (API 34+ USI pens).
+                                    event.nativeKeyEvent.keyCode in STYLUS_BUTTON_KEYCODES -> canvasState.toggleEraser()
                                     else -> return@onPreviewKeyEvent false
                                 }
                                 true
@@ -791,6 +937,9 @@ class MainActivity : ComponentActivity() {
                                 onExportApng = { apngExportLauncher.launch("${currentDocumentName()}.png") },
                                 onExportLottie = { lottieExportLauncher.launch("${currentDocumentName()}.json") },
                                 onExportReplayGif = { replayGifExportLauncher.launch(context.getString(R.string.name_timelapse, currentDocumentName()) + ".gif") },
+                                onExportReplayMp4 = { replayMp4ExportLauncher.launch(context.getString(R.string.name_timelapse, currentDocumentName()) + ".mp4") },
+                                onExportMp4 = { mp4ExportLauncher.launch("${currentDocumentName()}.mp4") },
+                                onExportWebm = { webmExportLauncher.launch("${currentDocumentName()}.webm") },
                                 onExportSpriteSheet = { spriteSheetExportLauncher.launch(context.getString(R.string.name_sprites, currentDocumentName()) + ".png") },
                                 onExportBundle = { bundleExportLauncher.launch("${currentDocumentName()}.fern") },
                                 onShare = {
@@ -819,6 +968,9 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onImportPdf = { pdfImportLauncher.launch(arrayOf("application/pdf")) },
+                                onImportSpine = { spineImportLauncher.launch(arrayOf("application/json", "application/zip", "application/octet-stream")) },
+                                onExportSpine = { spineExportLauncher.launch("${currentDocumentName()} (Spine).zip") },
+                                onExportDragonBones = { dragonBonesExportLauncher.launch("${currentDocumentName()} (DragonBones).zip") },
                                 onInsertImage = {
                                     imagePickerLauncher.launch(
                                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -1108,3 +1260,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+/**
+ * KEYCODE_STYLUS_BUTTON_PRIMARY, _SECONDARY, _TERTIARY and _TAIL (API 34). Literal values so the
+ * mapping compiles against older platforms; older devices simply never send them.
+ */
+private val STYLUS_BUTTON_KEYCODES = setOf(308, 309, 310, 311)

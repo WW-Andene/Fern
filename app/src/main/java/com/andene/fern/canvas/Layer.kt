@@ -24,4 +24,30 @@ data class Layer(
      * boundaries in reference layers only, so colours can go on their own layer under line art.
      */
     val reference: Boolean = false,
+    /**
+     * The skin this layer belongs to (roadmap item 86), or null when it's always part of the
+     * drawing. A skin is an alternative look for the same rig - a costume, a character variant -
+     * drawn on its own layers over the same bones; choosing a skin shows its layers and hides
+     * every other skin's ([CanvasState.applySkin]).
+     */
+    val skin: String? = null,
+    /**
+     * A raster layer (roadmap item 89) holds pixels ([RasterSurface], kept by
+     * [CanvasState.rasters]) instead of strokes; painting and erasing on it change pixels.
+     */
+    val raster: Boolean = false,
+    /** A raster layer's bits per channel: 8, or 16 for smooth gradients and repeated editing. */
+    val depth: Int = 8,
+    /**
+     * Has a layer mask (roadmap item 91): a grayscale raster ([CanvasState.rasters] under
+     * [maskIdOf]) whose paint hides the layer where it covers, raster or vector alike.
+     */
+    val masked: Boolean = false,
+    /** A clipping mask: drawn only where the nearest unclipped layer below has paint. */
+    val clipped: Boolean = false,
+    /** Alpha lock: painting on this raster layer changes colour only where there's already paint. */
+    val alphaLocked: Boolean = false,
 )
+
+/** Where layer [layerId]'s mask lives among [CanvasState.rasters] and on disk. */
+fun maskIdOf(layerId: String): String = "$layerId-mask"

@@ -12,6 +12,7 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import java.io.ByteArrayOutputStream
+import java.io.File
 
 /** Longest edge of an exported image in px; 4096 keeps detail for print-size use and stays well inside bitmap memory limits. */
 const val EXPORT_MAX_EDGE_PX = 4096
@@ -63,6 +64,7 @@ fun frameForExport(source: CanvasState, maxEdgePx: Int, region: Frame? = null): 
     val camera = CanvasState()
     camera.loadStrokes(source.strokes.map { it.deepCopy() })
     camera.loadLayers(source.layers.toList())
+    camera.loadRasters(source.rasters.mapValues { it.value.view() })
     camera.loadFrames(source.frames.toList())
     camera.loadTextItems(source.textItems.toList())
     camera.loadConnectors(source.connectors.toList())
@@ -193,6 +195,70 @@ fun exportReplayGif(
     // The hold repeats the finished frame's pixels (the same array), costing no extra memory.
     val pixels = growing + List(REPLAY_GIF_HOLD_FRAMES) { growing.last() }
     return encodeGif(pixels, frame.widthPx, frame.heightPx, REPLAY_GIF_DELAY_CENTIS)
+}
+
+/**
+ * The time-lapse replay as an MP4 video (H.264, [Mp4Encoder]): the same frames and timing as
+ * [exportReplayGif], in full colour. Null for an empty document.
+ */
+fun exportReplayMp4(
+    source: CanvasState,
+    textMeasurer: TextMeasurer,
+    density: Density,
+    imageFor: (String) -> ImageBitmap?,
+    workDir: File,
+): ByteArray? {
+    val frame = frameForExport(source, SPRITE_FRAME_EDGE_PX) ?: return null
+    frame.camera.goToAnimFrame(source.currentAnimFrame)
+    val total = frame.camera.strokes.size
+    val frames = (1..REPLAY_GIF_FRAMES).map { step ->
+        {
+            frame.camera.replayCount = (total.toLong() * step / REPLAY_GIF_FRAMES).toInt()
+            framePixels(frame, density, textMeasurer, imageFor)
+        }
+    }
+    val stepMicros = REPLAY_GIF_DELAY_CENTIS * 10_000L
+    val durations = List(frames.size) { i -> if (i == frames.lastIndex) stepMicros * (1 + REPLAY_GIF_HOLD_FRAMES) else stepMicros }
+    return encodeToBytes(frames, durations, frame, workDir)
+}
+
+/** Every animation frame as a video ([container]: MP4 or WebM) at the playback speed, holds included; null for an empty document. */
+fun exportAnimationVideo(
+    source: CanvasState,
+    textMeasurer: TextMeasurer,
+    density: Density,
+    imageFor: (String) -> ImageBitmap?,
+    workDir: File,
+    container: Mp4Encoder.Format = Mp4Encoder.Format.MP4,
+): ByteArray? {
+    val frame = frameForExport(source, SPRITE_FRAME_EDGE_PX) ?: return null
+    val frames = (0 until source.animFrameCount).map { i ->
+        {
+            frame.camera.goToAnimFrame(i)
+            framePixels(frame, density, textMeasurer, imageFor)
+        }
+    }
+    val frameMicros = 1_000_000L / source.animFps
+    return encodeToBytes(frames, List(frames.size) { frameMicros * source.holdOf(it) }, frame, workDir, container)
+}
+
+/** One rendered export frame's pixels, composited onto white (video has no transparency). */
+private fun framePixels(frame: ExportFrame, density: Density, textMeasurer: TextMeasurer, imageFor: (String) -> ImageBitmap?): IntArray {
+    val image = ImageBitmap(frame.widthPx, frame.heightPx)
+    val canvas = Canvas(image)
+    canvas.drawRect(0f, 0f, frame.widthPx.toFloat(), frame.heightPx.toFloat(), androidx.compose.ui.graphics.Paint().apply { color = androidx.compose.ui.graphics.Color.White })
+    frame.drawOn(canvas, density, textMeasurer, imageFor)
+    return IntArray(frame.widthPx * frame.heightPx).also { image.readPixels(it) }
+}
+
+private fun encodeToBytes(frames: List<() -> IntArray>, durations: List<Long>, frame: ExportFrame, workDir: File, container: Mp4Encoder.Format = Mp4Encoder.Format.MP4): ByteArray {
+    val file = File.createTempFile("export", ".video", workDir)
+    try {
+        Mp4Encoder.encode(frames, durations, frame.widthPx, frame.heightPx, file, container = container)
+        return file.readBytes()
+    } finally {
+        file.delete()
+    }
 }
 
 /**

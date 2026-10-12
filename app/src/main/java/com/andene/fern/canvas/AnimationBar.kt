@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.material.icons.filled.TableRows
+import androidx.compose.material.icons.filled.Merge
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Row
@@ -47,6 +48,16 @@ private val FPS_CHOICES = listOf(6, 8, 12, 24)
 fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
     var showXSheet by remember { mutableStateOf(false) }
     if (showXSheet) XSheetDialog(state, onDismiss = { showXSheet = false })
+    var editingCurve by remember { mutableStateOf(false) }
+    var blendingPose by remember { mutableStateOf(false) }
+    if (blendingPose) BlendPoseDialog(state, onDismiss = { blendingPose = false })
+    if (editingCurve) {
+        EasingCurveDialog(
+            initial = state.motionCurve,
+            onApply = { state.motionCurve = it; editingCurve = false },
+            onDismiss = { editingCurve = false },
+        )
+    }
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
@@ -92,12 +103,20 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
                     contentDescription = if (state.pingPong) stringResource(R.string.anim_pingpong) else stringResource(R.string.anim_loop),
                 )
             }
+            if (state.currentBones.isNotEmpty() && state.animFrameCount > 1) {
+                IconButton(onClick = { blendingPose = true }) {
+                    Icon(Icons.Filled.Merge, contentDescription = stringResource(R.string.blend_pose_title))
+                }
+            }
             IconButton(onClick = { showXSheet = true }) {
                 Icon(Icons.Filled.TableRows, contentDescription = stringResource(R.string.xsheet_title))
             }
             // Timing of the generated in-betweens and motion paths; tap to cycle.
             TextButton(onClick = { state.motionEasing = Easing.entries[(state.motionEasing.ordinal + 1) % Easing.entries.size] }) {
                 Text(stringResource(state.motionEasing.label))
+            }
+            if (state.motionEasing == Easing.CUSTOM) {
+                TextButton(onClick = { editingCurve = true }) { Text(stringResource(R.string.easing_edit_curve)) }
             }
             TextButton(onClick = {
                 state.animFps = FPS_CHOICES[(FPS_CHOICES.indexOf(state.animFps) + 1) % FPS_CHOICES.size]

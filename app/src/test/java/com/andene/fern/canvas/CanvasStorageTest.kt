@@ -125,6 +125,20 @@ class CanvasStorageTest {
     }
 
     @Test
+    fun historyOfAHugeDocumentKeepsOnlyTheNewestStepsWithinBudget() {
+        val doc = CanvasStorage.createDocument(context, "Huge history")
+        val a = listOf(line(0.0))
+        // Too big to persist; it must not even be built (reading an element fails).
+        val huge = object : AbstractList<Stroke>() {
+            override val size = 300_000
+            override fun get(index: Int): Stroke = throw AssertionError("an over-budget step was materialized")
+        }
+        CanvasStorage.saveHistory(context, doc.id, undo = listOf(huge, a), redo = emptyList())
+        val (undo, _) = CanvasStorage.loadHistory(context, doc.id)
+        assertEquals(listOf(1), undo.map { it.size })
+    }
+
+    @Test
     fun bundleRoundTripsStrokes() {
         val doc = CanvasStorage.createDocument(context, "Bundle")
         val stroke = Stroke(Color.Green, 2.0).apply { addPoint(WorldPoint(7.0, 8.0)); addPoint(WorldPoint(9.0, 10.0)) }

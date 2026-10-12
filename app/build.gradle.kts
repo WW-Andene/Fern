@@ -13,6 +13,10 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
+        // On-device benchmarks (DeviceScaleBenchmark). Debug builds are debuggable, which slows
+        // them; the numbers still compare runs on one device, so that error is suppressed.
+        testInstrumentationRunner = "androidx.benchmark.junit4.AndroidBenchmarkRunner"
+        testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] = "DEBUGGABLE,EMULATOR,LOW-BATTERY,UNLOCKED"
     }
 
     buildTypes {
@@ -73,6 +77,8 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.1")
     // Predicts where the pen is heading so ink can be drawn slightly ahead, hiding input latency.
     implementation("androidx.input:input-motionprediction:1.0.0")
+    // Front-buffered rendering for low-latency ink (FrontBufferedInk).
+    implementation("androidx.graphics:graphics-core:1.0.2")
 
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
@@ -88,4 +94,6 @@ dependencies {
     testImplementation("androidx.compose.ui:ui-test-junit4")
     // Hosts composables under test in an empty activity; must be on the debug runtime classpath.
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+    androidTestImplementation("androidx.benchmark:benchmark-junit4:1.2.4")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
 }

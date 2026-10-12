@@ -84,6 +84,8 @@ import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Gradient
 import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.Deselect
+import androidx.compose.material.icons.filled.Air
 import androidx.compose.material.icons.filled.GroupWork
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.HighlightAlt
@@ -128,6 +130,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -184,7 +187,13 @@ fun Toolbar(
     onExportApng: () -> Unit = {},
     onExportLottie: () -> Unit = {},
     onExportReplayGif: () -> Unit = {},
+    onExportReplayMp4: () -> Unit = {},
+    onExportMp4: () -> Unit = {},
+    onExportWebm: () -> Unit = {},
     onImportPdf: () -> Unit = {},
+    onImportSpine: () -> Unit = {},
+    onExportSpine: () -> Unit = {},
+    onExportDragonBones: () -> Unit = {},
     onOpenFrames: () -> Unit = {},
     onImportPalette: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
@@ -428,6 +437,7 @@ fun Toolbar(
                         Icon(Icons.Filled.Tune, contentDescription = stringResource(R.string.brush_settings))
                     }
                 }
+                if (state.activeLayerIsRaster) RasterBrushControls(state)
 
                 IconButton(onClick = {
                     state.activeTool = if (state.activeTool == Tool.ERASER) Tool.PEN else Tool.ERASER
@@ -670,6 +680,51 @@ fun Toolbar(
                                 tint = if (state.inverseKinematics) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                             )
                         }
+                        val selectedBone = state.currentBones.firstOrNull { it.id == state.selectedBoneId }
+                        val selectedParent = selectedBone?.parentId?.let { id -> state.currentBones.firstOrNull { it.id == id } }
+                        if (selectedBone != null && selectedParent != null) {
+                            var editingLimits by remember { mutableStateOf(false) }
+                            IconButton(onClick = { editingLimits = true }) {
+                                Icon(
+                                    Icons.Filled.Straighten,
+                                    contentDescription = stringResource(R.string.joint_limits_title),
+                                    tint = if (selectedBone.minTurn != null) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                )
+                            }
+                            if (editingLimits) {
+                                JointLimitsDialog(
+                                    bone = selectedBone,
+                                    current = Math.toDegrees(relativeAngle(selectedBone, selectedParent)),
+                                    onApply = { min, max -> state.setJointLimits(selectedBone.id, min, max); editingLimits = false },
+                                    onDismiss = { editingLimits = false },
+                                )
+                            }
+                            IconButton(onClick = { state.setBoneDynamic(selectedBone.id, !selectedBone.dynamic) }) {
+                                Icon(
+                                    Icons.Filled.Air,
+                                    contentDescription = if (selectedBone.dynamic) stringResource(R.string.tb_bone_dynamic_off) else stringResource(R.string.tb_bone_dynamic_on),
+                                    tint = if (selectedBone.dynamic) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                )
+                            }
+                        }
+                        if (state.animFrameCount > 1 && state.bones.any { it.dynamic }) {
+                            IconButton(onClick = { state.simulateDynamics() }) {
+                                Icon(Icons.Filled.Waves, contentDescription = stringResource(R.string.tb_simulate_dynamics))
+                            }
+                        }
+                        IconButton(onClick = { state.paintingWeights = !state.paintingWeights }) {
+                            Icon(
+                                Icons.Filled.FormatPaint,
+                                contentDescription = if (state.paintingWeights) stringResource(R.string.tb_weights_stop) else stringResource(R.string.tb_weights),
+                                tint = if (state.paintingWeights) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                            )
+                        }
+                        if (state.paintingWeights) {
+                            // Cycles the painted weight in quarters: how much ink follows the selected bone.
+                            TextButton(onClick = { state.weightPaintValue = ((state.weightPaintValue * 4 + 1) % 5) / 4 }) {
+                                Text(stringResource(R.string.tb_weight_value, (state.weightPaintValue * 100).toInt()))
+                            }
+                        }
                         IconButton(onClick = { state.insertMannequin() }) {
                             Icon(Icons.Filled.EmojiPeople, contentDescription = stringResource(R.string.tb_mannequin))
                         }
@@ -766,6 +821,21 @@ fun Toolbar(
                         IconButton(onClick = { state.tidyDiagram() }, enabled = state.connectors.isNotEmpty()) {
                             Icon(Icons.Filled.Schema, contentDescription = stringResource(R.string.tb_tidy))
                         }
+                    }
+                }
+                if (state.activeTool == Tool.SELECT && state.rasterSelection != null) {
+                    // Raster selection actions (roadmap item 91).
+                    IconButton(onClick = { state.deleteRasterSelectionPixels() }) {
+                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.raster_sel_clear))
+                    }
+                    IconButton(onClick = { state.fillRasterSelection() }) {
+                        Icon(Icons.Filled.FormatColorFill, contentDescription = stringResource(R.string.raster_sel_fill))
+                    }
+                    IconButton(onClick = { state.copyRasterSelectionToNewLayer() }) {
+                        Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.raster_sel_copy_layer))
+                    }
+                    IconButton(onClick = { state.clearRasterSelection() }) {
+                        Icon(Icons.Filled.Deselect, contentDescription = stringResource(R.string.raster_sel_deselect))
                     }
                 }
                 if (state.activeTool == Tool.SELECT) {
@@ -879,6 +949,13 @@ fun Toolbar(
                             tint = if (state.nodeEditing) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
+                    IconButton(onClick = { state.toggleMeshWarp() }) {
+                        Icon(
+                            Icons.Filled.GridOn,
+                            contentDescription = if (state.meshWarping) stringResource(R.string.tb_mesh_stop) else stringResource(R.string.tb_mesh),
+                            tint = if (state.meshWarping) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
                     val grouped = state.selectionHasGroup
                     IconButton(
                         onClick = { if (grouped) state.ungroupSelection() else state.groupSelection() },
@@ -925,6 +1002,7 @@ fun Toolbar(
                         val moreItems = listOf(
                             Triple(R.string.menu_insert_image, Icons.Filled.Image, onInsertImage),
                             Triple(R.string.menu_import_pdf, Icons.Filled.PictureAsPdf, onImportPdf),
+                            Triple(R.string.menu_import_spine, Icons.Filled.AccessibilityNew, onImportSpine),
                             Triple(R.string.search_title, Icons.Filled.Search) { showSearchDialog = true },
                             Triple(R.string.pins_title, Icons.Filled.PushPin, onOpenPins),
                             Triple(R.string.frames_title, Icons.Filled.CropFree, onOpenFrames),
@@ -1018,6 +1096,13 @@ fun Toolbar(
                                 onExportReplayGif()
                             },
                         )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.tb_export_replay_mp4)) },
+                            onClick = {
+                                showExportMenu = false
+                                onExportReplayMp4()
+                            },
+                        )
                         if (state.animFrameCount > 1) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.tb_export_gif)) },
@@ -1033,6 +1118,36 @@ fun Toolbar(
                                     onExportApng()
                                 },
                             )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.tb_export_mp4)) },
+                                onClick = {
+                                    showExportMenu = false
+                                    onExportMp4()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.tb_export_webm)) },
+                                onClick = {
+                                    showExportMenu = false
+                                    onExportWebm()
+                                },
+                            )
+                            if (state.bones.isNotEmpty()) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.tb_export_spine)) },
+                                    onClick = {
+                                        showExportMenu = false
+                                        onExportSpine()
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.tb_export_dragonbones)) },
+                                    onClick = {
+                                        showExportMenu = false
+                                        onExportDragonBones()
+                                    },
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.tb_export_lottie)) },
                                 onClick = {

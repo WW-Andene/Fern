@@ -15,6 +15,60 @@ enum class StampTip(@StringRes val label: Int) {
     SOFT(R.string.tip_soft),
     SQUARE(R.string.tip_square),
     STAR(R.string.tip_star),
+    /** A greyscale picture chosen by the user ([StampBrush.mask]); a circle until one is chosen. */
+    IMAGE(R.string.tip_image),
+}
+
+/** Side length of an image tip's coverage grid: enough detail for a dab, small enough to store per stroke. */
+const val TIP_MASK_SIZE = 64
+
+/**
+ * An image brush tip: [size] x [size] ink coverage values, row-major (0 = none, 255 = full).
+ * Stored on the brush, so each stroke keeps the picture it was drawn with.
+ */
+class TipMask(val size: Int, val alpha: ByteArray) {
+    init {
+        require(size > 0 && alpha.size == size * size) { "Tip mask must be size x size" }
+    }
+
+    override fun equals(other: Any?): Boolean = other is TipMask && other.size == size && other.alpha.contentEquals(alpha)
+
+    override fun hashCode(): Int = 31 * size + alpha.contentHashCode()
+}
+
+/**
+ * Turns a picture ([pixels] ARGB, [width] x [height]) into a tip: fitted into a square without
+ * stretching, box-averaged down to [size]. A picture with transparency uses its alpha as the
+ * ink; an opaque one uses its darkness, so a black-on-white scan of a mark becomes that mark.
+ */
+fun tipMaskFromArgb(pixels: IntArray, width: Int, height: Int, size: Int = TIP_MASK_SIZE): TipMask {
+    require(width > 0 && height > 0 && pixels.size >= width * height)
+    val hasAlpha = pixels.any { (it ushr 24) != 0xFF }
+    val side = maxOf(width, height).toDouble()
+    // The picture's offset inside the square it's centred in.
+    val offsetX = (side - width) / 2.0
+    val offsetY = (side - height) / 2.0
+    val out = ByteArray(size * size)
+    for (ty in 0 until size) for (tx in 0 until size) {
+        val x0 = tx * side / size - offsetX
+        val x1 = (tx + 1) * side / size - offsetX
+        val y0 = ty * side / size - offsetY
+        val y1 = (ty + 1) * side / size - offsetY
+        var sum = 0.0
+        var count = 0
+        for (y in kotlin.math.floor(y0).toInt() until kotlin.math.ceil(y1).toInt()) for (x in kotlin.math.floor(x0).toInt() until kotlin.math.ceil(x1).toInt()) {
+            count++
+            if (x !in 0 until width || y !in 0 until height) continue // padding: no ink
+            val c = pixels[y * width + x]
+            val a = (c ushr 24) / 255.0
+            sum += if (hasAlpha) a else {
+                val luminance = (0.2126 * ((c shr 16) and 0xFF) + 0.7152 * ((c shr 8) and 0xFF) + 0.0722 * (c and 0xFF)) / 255.0
+                1.0 - luminance
+            }
+        }
+        out[ty * size + tx] = if (count == 0) 0 else (sum / count * 255.0 + 0.5).toInt().coerceIn(0, 255).toByte()
+    }
+    return TipMask(size, out)
 }
 
 /**
@@ -36,6 +90,8 @@ data class StampBrush(
     val angleJitter: Float = 0f,
     /** Rotate each stamp to the direction of travel, so oriented tips follow the stroke. */
     val followDirection: Boolean = false,
+    /** The picture of a [StampTip.IMAGE] tip; null for the drawn tips. */
+    val mask: TipMask? = null,
 ) {
     companion object {
         const val MIN_SPACING = 0.05f

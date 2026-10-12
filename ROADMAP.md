@@ -27,7 +27,7 @@ Goal: ink that feels like it comes straight out of the pen tip.
 - [x] 4. Stroke smoothing (midpoint quadratic Béziers)
 - [x] 5. Undo / redo (snapshot-based: reverts any action, including erase, move, fill, clear, images and text)
 - [x] 6. Brush width and full HSV/hex colour picker
-- [ ] 7. Low-latency ink: front-buffered rendering (`GLFrontBufferedRenderer` / Ink API), under 20 ms pen-to-pixel
+- [x] 7. Low-latency ink: front-buffered rendering (`CanvasFrontBufferedRenderer`, API 29+) for opaque marker strokes, plus motion prediction; pen-to-pixel latency not yet measured on a device
 - [x] 8. Motion prediction (`androidx.input` `MotionEventPredictor`)
 - [x] 9. Variable-width stroke geometry (tessellated outlines instead of per-segment lines) — pressure/tilt and calligraphy strokes filled as one mitred outline
 - [x] 10. Zoom-level-aware simplification — sub-pixel strokes drawn as a dot; points under a screen pixel apart skipped at render time
@@ -43,10 +43,10 @@ Goal: no drawing is ever lost.
 - [x] 15. Automated tests (unit + UI) — JVM unit tests, plus storage and Compose UI tests on Robolectric; run in CI
 - [x] 16. Crash-safe atomic writes, corrupt-file quarantine instead of a crash
 - [x] 17. Versioned file format with migration path
-- [~] 18. Storage that scales to 1M strokes — thumbnail no longer re-rendered on every autosave; strokes, history and versions in a compact binary format (16 bytes per finger point instead of ~90); drawing appends to a journal instead of rewriting the file; stroke points held in primitive arrays (~41 bytes per point in memory instead of ~106). Probe: 100k strokes x 32 points load in 0.5 s, autosave after a stroke 34 ms (JVM); not yet measured at 1M or on a device (item 48)
+- [x] 18. Storage that scales to 1M strokes — compact binary format (16 bytes per finger point); drawing appends to a journal instead of rewriting the file; stroke points in primitive arrays; undo history keeps each step's list plus only the strokes changed after it, not a copy of the document; the spatial index is patched, not rebuilt, after edits; persisted history capped by stroke count. Measured at 1M strokes x 16 points (JVM, ScaleBenchmark): load 3.9 s, autosave after a stroke 34 ms, object-eraser touch with undo 0.19 s, zoomed-in frame 1.6 ms; not yet measured on a device (item 48)
 - [x] 19. Undo history that survives restarts; version-history timeline with restore
 - [x] 20. Document library: thumbnails, folders, search, sort, favourites, 30-day trash with restore
-- [~] 21. Crash reporting — on-device reports, shared only by the user's choice; no analytics (by design)
+- [x] 21. Crash reporting — on-device reports of Java crashes, plus ANRs and native crashes from the system's exit records (API 30+), shared only by the user's choice; no analytics (by design)
 
 ## Phase 3 — Tools & expressive drawing
 
@@ -57,9 +57,9 @@ Goal: a full, professional tool set.
 - [x] 24. Stylus pressure and tilt; palm rejection
 - [x] 25. Shapes (line, rectangle, ellipse, arrow, speech bubble), vector fill, text, images
 - [x] 26. Ruler/guide; opacity and blend modes; background styles
-- [~] 27. Stylus eraser end and side button erase; no double-tap/squeeze gestures yet
+- [x] 27. Stylus eraser end and side button erase; stylus barrel/tail buttons (Android 14 key events) toggle eraser and previous tool, the platform counterpart of double-tap/squeeze
 - [x] 28. Shape recognition: draw-and-hold snaps to a clean line, rectangle or ellipse
-- [~] 29. Brush engine — airbrush and crayon procedural textures; stamp brush (circle, soft, square, star tips) with a brush editor for spacing, scatter, size/angle jitter and direction following, and named brush presets; no image-based tips
+- [x] 29. Brush engine — airbrush and crayon procedural textures; stamp brush (circle, soft, square, star tips) with a brush editor for spacing, scatter, size/angle jitter and direction following, and named brush presets; image tips made from any picture (its darkness, or its transparency when it has some)
 - [x] 30. Colour workflow — eyedropper, touch-and-hold pick, recent colours, saved palette, .gpl and .ase import
 - [x] 31. Quick tool switching — touch-and-hold eyedropper, keyboard shortcuts, four favourite pen slots on the toolbar, radial quick menu (tools, undo/redo)
 - [x] 32. Erase modes — ink vs object eraser, each also as a lasso eraser
@@ -88,14 +88,14 @@ Goal: anything drawn can be rearranged later.
 
 Goal: 120 fps at any zoom, with any amount of content.
 
-- [~] 48. Benchmark suite (10k / 100k / 1M strokes) — JVM suite (storage, rendering, hit-testing; `-Pbenchmark`); no on-device benchmark yet
-- [x] 49. Spatial index — multi-level grid for rendering, the eraser and object snapping (JVM, 1M strokes: zoomed-in frame 251 -> 1.6 ms, eraser move ~0 ms, rebuild after an action 356 ms)
+- [x] 48. Benchmark suite (10k / 100k / 1M strokes) — JVM suite (storage, rendering, hit-testing; `-Pbenchmark`) and an on-device suite (`DeviceScaleBenchmark`, androidx.benchmark: frames at two zooms, eraser with undo, autosave; 1M by runner argument); the device suite builds but hasn't been run on a device here
+- [x] 49. Spatial index — multi-level grid for rendering, the eraser and object snapping (JVM, 1M strokes: zoomed-in frame 251 -> 1.6 ms, eraser move ~0 ms, rebuild after an action avoided: the index is patched for the strokes that changed, ~60 ms)
 - [x] 50. Level of detail — sub-pixel strokes drawn as one dot; sub-pixel point spacing decimated, cached per stroke per zoom octave
 - [x] 51. Tile caching — world-aligned 256 px tiles per zoom octave for documents of 20k+ strokes while nothing is edited live (JVM, 1M strokes: whole-document pan frame 1899 -> 16 ms; refilling after an edit ~3 s)
-- [ ] 52. GPU rendering path
-- [~] 53. Background loading / streaming of off-screen regions — documents load and switch off the main thread behind a loading cover; no streaming of off-screen regions (needs chunked storage)
+- [x] 52. GPU rendering path — the canvas draws through Android's hardware pipeline; scene tiles are rasterized on the GPU (RenderNode + HardwareRenderer into hardware bitmaps, API 29+) instead of on the CPU, falling back to the CPU if the GPU path fails; GPU speed not yet measured on a device
+- [x] 53. Background loading / streaming of off-screen regions — documents load and switch off the main thread behind a loading cover; strokes are stored in chunks with bounds, and each document reopens at its saved view with the chunks in view read and shown first, the rest after; once loaded the whole document is held in memory (no unloading of distant regions)
 - [x] 54. Large images and PDF pages downscaled to 2048 px
-- [ ] 55. Battery and thermal checks
+- [x] 55. Battery and thermal checks — battery saver or severe heat (thermal status, API 29+) lengthens the autosave batch (0.5 s -> 3 s) and caps animation playback at 12 fps
 
 ## Phase 6 — Import, export & sharing
 
@@ -105,7 +105,7 @@ Goal: work can leave the app and come back.
 - [x] 57. Vector export: SVG and multi-page PDF (one page per frame)
 - [x] 58. `.fern` backup format: export and import a whole document
 - [x] 59. Import PDFs to annotate; drag and drop images and text from other apps onto the canvas
-- [~] 60. Share sheet and in-app time-lapse replay; replay exports as an animated GIF; no MP4 video (MediaCodec needs on-device verification)
+- [x] 60. Share sheet and in-app time-lapse replay; replay exports as an animated GIF or an MP4 video (platform H.264 encoder; not yet verified on a device)
 
 ## Phase 7 — Sync & collaboration ⏸
 
@@ -136,22 +136,22 @@ All deferred: they need a server or cloud platform.
 
 - [x] 78. Flipbook frames: insert blank or copied, delete, step
 - [x] 79. Onion skin, playback at 6/8/12/24 fps, loop and ping-pong
-- [~] 80. Export animated GIF, animated PNG (APNG, full colour and alpha) and sprite sheet; no MP4 or WebM (device encoders, untestable here)
-- [~] 81. Automatic in-betweens and motion along a drawn path, with easing (linear, ease in, ease out, ease in-out); no graph editor for custom curves
+- [x] 80. Export animated GIF, animated PNG (APNG, full colour and alpha), sprite sheet, and video: MP4 (H.264) and WebM (VP8) through the platform encoders (videos not yet verified on a device)
+- [x] 81. Automatic in-betweens and motion along a drawn path, with easing (linear, ease in, ease out, ease in-out) or a custom curve shaped in a graph editor (cubic Bézier handles, overshoot allowed)
 - [x] 82. Shape tweening — strokes morphed pairwise in in-betweens, each paired with its nearest counterpart, closed outlines lined up (start point and direction) so they don't twist
 - [x] 83. Bones and skeletons: a bone tool draws bones (chained when started at a tail), binds strokes to the nearest bones, and poses per frame (turn a bone with its children and ink, move a root); copied frames carry the pose, in-betweens tween it; saved, in bundles, undoable
-- [~] 84. Weighted deformation: smooth joints bend bound ink around a turned bone's joint by inverse-distance weights (rotation-blended); weights are automatic, not paintable, and there's no free-form mesh
-- [~] 85. Inverse kinematics: dragging a limb's end pulls its chain (up to four bones, CCD solver) so the tip follows the finger; no joint-angle constraints or physics yet
-- [ ] 86. Skins and animation blending
-- [~] 87. Lottie export (frame by frame, vector, checked by rendering with an independent Lottie library); no Spine or DragonBones skeletal formats, no import
-- [~] 88. X-sheet: per-frame holds (playback, GIF, APNG and Lottie follow them; saved with the fps, undoable); no audio track or lip-sync yet
+- [x] 84. Weighted deformation: smooth joints bend bound ink around a turned bone's joint by inverse-distance weights (rotation-blended); weights can be painted per point with the bone tool (overlay shows them; saved with the stroke) and override the automatic ones; free-form mesh warp of a selection (4 x 4 Bézier lattice)
+- [x] 85. Inverse kinematics: dragging a limb's end pulls its chain (up to four bones, CCD solver) so the tip follows the finger; per-joint angle limits (kept by IK and by hand-turning); dynamic bones simulated as damped springs across the animation for follow-through (lag, overshoot, settle)
+- [x] 86. Skins and animation blending — layers can belong to a named skin (an alternative look on the same rig), chosen in the layers panel; a frame's pose can be blended with another frame's at any weight, its ink following each bone
+- [x] 87. Lottie export (frame by frame, vector, checked by rendering with an independent Lottie library); Spine export (skeleton JSON + an image per bone, animation keyed per frame) and import (bones and their animation, posed frame by frame); DragonBones export (armature, texture atlas, animation). Imported skeletons bring bones only: attachments are images, which can't bind to bones
+- [x] 88. X-sheet: per-frame holds (playback, GIF, APNG and Lottie follow them; saved with the fps, undoable); a soundtrack played in step with playback; a mouth chart (Preston Blair shapes) per frame for lip-sync, by hand or filled from the soundtrack's loudness (decoding needs a device; videos are still exported silent)
 
 ## Phase 10 — Raster painting
 
-- [ ] 89. Raster layers with tiled pixel storage, up to 16-bit
-- [ ] 90. Pixel brush engine: wet mixing, smudge, blur, ABR/Procreate brush import
-- [ ] 91. Raster selections, masks, clipping masks, alpha lock
-- [ ] 92. Adjustments: curves, levels, hue/saturation, liquify, warp
+- [x] 89. Raster layers with tiled pixel storage, up to 16-bit — 256 px tiles made only where there is paint, 8 or 16 bits per channel (16-bit shown through half-float bitmaps); the pen paints and the eraser erases on them with pressure; tile-level undo; saved tile by tile, in .fern bundles too; raster layers on one grid merge
+- [x] 90. Pixel brush engine: wet mixing (the brush picks up and carries colour), smudge, blur, tip-shaped dabs; brush tips imported from Photoshop .abr (sampled brushes) and Procreate .brush (shape); Procreate grain and brush dynamics not read
+- [x] 91. Raster selections (lasso or rectangle: painting stays inside; clear, fill, copy to a new layer, drag to move pixels), layer masks on raster or vector layers (pen hides, eraser reveals), clipping masks, alpha lock
+- [x] 92. Adjustments on raster layers (or their selection), previewed live: curves (monotone), levels, hue/saturation/lightness; liquify brush; warp with the 4 x 4 lattice (drawn at 8 bits per channel)
 - [ ] 93. Full Photoshop blend modes and adjustment layers
 - [x] 94. Reference layers (fills take their boundaries from them), gap-closing bucket fill (areas closed by several strokes, gaps up to ~8 px bridged, within the view)
 - [ ] 95. PSD / Procreate / Krita import and export

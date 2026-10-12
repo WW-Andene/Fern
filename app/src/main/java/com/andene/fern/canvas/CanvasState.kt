@@ -81,6 +81,8 @@ class CanvasState(
     /** World-space content stored outside this class (pins) must shift by -offset too; see [rebaseIfNeeded]. */
     private val onRebased: (offset: WorldPoint) -> Unit = {},
     private val onLayersChanged: (List<Layer>) -> Unit = {},
+    /** Raster pixels changed; [takeDirtyRasterTiles] has what to save. */
+    private val onRasterChanged: () -> Unit = {},
     private val onFramesChanged: (List<Frame>) -> Unit = {},
     private val onSavedColorsChanged: (List<Color>) -> Unit = {},
     private val onBrushChanged: (StampBrush) -> Unit = {},
@@ -126,6 +128,15 @@ class CanvasState(
         private const val PANEL_BORDER_SCREEN = 3.0
         // Bone tool reach and the shortest bone an add drag makes, in screen px (§7 scale).
         private const val BONE_HIT_SCREEN = 24.0
+        // Raster brush dabs this fraction of their radius apart: close enough to read as a line.
+        private const val RASTER_DAB_SPACING = 0.25
+        // Spring of a dynamic bone, per second: stiff enough to keep up within a few frames,
+        // damped to settle after about one overshoot.
+        private const val DYNAMICS_STIFFNESS = 120.0
+        private const val DYNAMICS_DAMPING = 8.0
+        private const val DYNAMICS_SUBSTEPS = 8
+        // Weight-painting brush radius in screen pixels (on the §7 scale).
+        private const val WEIGHT_BRUSH_SCREEN = 24.0
         private const val BONE_MIN_SCREEN = 16.0
         // Smart guides: snap distance (screen px) and how many nearby objects offer guide lines.
         private const val GUIDE_SNAP_SCREEN = 8.0
@@ -243,6 +254,21 @@ class CanvasState(
             activeToolState = value
         }
     var activePenType by mutableStateOf(PenType.MARKER)
+
+    private var toolBeforeEraserToggle = Tool.PEN
+
+    /**
+     * Swaps to the eraser and back to the previous tool - the action of a stylus button press
+     * (Android's counterpart of Apple Pencil's double-tap/squeeze, roadmap item 27).
+     */
+    fun toggleEraser() {
+        if (activeTool == Tool.ERASER) {
+            activeTool = toolBeforeEraserToggle
+        } else {
+            toolBeforeEraserToggle = activeTool
+            activeTool = Tool.ERASER
+        }
+    }
 
     /** Brush settings new [PenType.STAMP] strokes are drawn with; edited in the brush editor. */
     var activeBrush by mutableStateOf(StampBrush())
@@ -370,20 +396,61 @@ class CanvasState(
         onAnimationSettingsChanged(animationSettings())
     }
 
-    fun animationSettings() = AnimationSettings(animFps, frameHolds.toMap())
+    /**
+     * The X-sheet's mouth chart (roadmap item 88): the mouth shape each frame shows for lip-sync,
+     * filled by hand or from the soundtrack ([LipSync]). Frames without one aren't listed.
+     */
+    val frameMouths = mutableStateMapOf<Int, MouthShape>()
+
+    /** Sets (or with null clears) frame [frame]'s mouth shape. */
+    fun setMouth(frame: Int, mouth: MouthShape?) {
+        if (mouth == null) frameMouths.remove(frame) else frameMouths[frame] = mouth
+        onAnimationSettingsChanged(animationSettings())
+    }
+
+    /** Replaces the whole mouth chart, e.g. with one worked out from the soundtrack. */
+    fun setMouths(mouths: Map<Int, MouthShape>) {
+        frameMouths.clear()
+        frameMouths.putAll(mouths)
+        onAnimationSettingsChanged(animationSettings())
+    }
+
+    /**
+     * The animation's soundtrack: an audio file in app storage (see [CanvasStorage.importSoundtrack])
+     * played in step with playback from the frame it starts on; null when there's none.
+     */
+    var soundtrack by mutableStateOf<String?>(null)
+        private set
+
+    fun setSoundtrackFile(fileName: String?) {
+        soundtrack = fileName
+        onAnimationSettingsChanged(animationSettings())
+    }
+
+    /** When frame [frame] starts, in milliseconds from the first frame, following the X-sheet holds. */
+    fun frameStartMillis(frame: Int): Long = (0 until frame).sumOf { holdOf(it).toLong() } * 1000L / animFps
+
+    fun animationSettings() = AnimationSettings(animFps, frameHolds.toMap(), frameMouths.toMap(), soundtrack)
 
     /** Applies settings read from storage, without reporting them back. */
     fun loadAnimationSettings(settings: AnimationSettings) {
         animFpsState = settings.fps
         frameHolds.clear()
         frameHolds.putAll(settings.holds.filterValues { it > 1 })
+        frameMouths.clear()
+        frameMouths.putAll(settings.mouths)
+        soundtrack = settings.soundtrack
     }
 
     private fun shiftHolds(from: Int, by: Int) {
-        if (frameHolds.isEmpty()) return
+        if (frameHolds.isEmpty() && frameMouths.isEmpty()) return
         val moved = frameHolds.entries.associate { (frame, hold) -> (if (frame >= from) frame + by else frame) to hold }
         frameHolds.clear()
         frameHolds.putAll(moved)
+        // The mouth chart moves with its frames too.
+        val mouths = frameMouths.entries.associate { (frame, mouth) -> (if (frame >= from) frame + by else frame) to mouth }
+        frameMouths.clear()
+        frameMouths.putAll(mouths)
         onAnimationSettingsChanged(animationSettings())
     }
 
@@ -403,6 +470,12 @@ class CanvasState(
 
     /** Timing of generated in-betweens and motion-path steps. */
     var motionEasing by mutableStateOf(Easing.LINEAR)
+
+    /** The curve [Easing.CUSTOM] follows, shaped in the curve editor. */
+    var motionCurve by mutableStateOf(CubicEasing.DEFAULT)
+
+    /** Progress at time [t] (0..1) under the chosen easing. */
+    fun easedProgress(t: Double): Double = if (motionEasing == Easing.CUSTOM) motionCurve.at(t) else motionEasing.at(t)
 
     private var playingBackwards = false
 
@@ -473,13 +546,13 @@ class CanvasState(
         shiftBoneFrames(from = to, by = count)
         shiftHolds(from = to, by = count)
         if (poseFrom.isNotEmpty() && poseTo.isNotEmpty()) {
-            for (step in 1..count) bones.addAll(interpolatePose(poseFrom, poseTo, motionEasing.at(step.toDouble() / (count + 1)), from + step))
+            for (step in 1..count) bones.addAll(interpolatePose(poseFrom, poseTo, easedProgress(step.toDouble() / (count + 1)), from + step))
         }
         if (bones.isNotEmpty()) onBonesChanged(bones.toList())
         // Matched once per pair, shared by every in-between.
         val matched = pairs.map { (a, b) -> tweenSamples(a, b, maxOf(a.points.size, b.points.size, 2)) }
         for (step in 1..count) {
-            val t = motionEasing.at(step.toDouble() / (count + 1))
+            val t = easedProgress(step.toDouble() / (count + 1))
             for ((index, pair) in pairs.withIndex()) {
                 val (a, b) = pair
                 val (pa, pb) = matched[index]
@@ -513,7 +586,7 @@ class CanvasState(
         val start = route.first()
         strokes.remove(path)
         for (step in 1 until steps) {
-            val position = motionEasing.at(step.toDouble() / (steps - 1)) * (route.size - 1)
+            val position = easedProgress(step.toDouble() / (steps - 1)) * (route.size - 1)
             val i = position.toInt().coerceAtMost(route.size - 2)
             val f = position - i
             val at = WorldPoint(route[i].x + (route[i + 1].x - route[i].x) * f, route[i].y + (route[i + 1].y - route[i].y) * f)
@@ -546,7 +619,8 @@ class CanvasState(
             shiftBoneFrames(from = removed + 1, by = -1)
             onBonesChanged(bones.toList())
         }
-        if (frameHolds.remove(removed) != null) onAnimationSettingsChanged(animationSettings())
+        val hadHold = frameHolds.remove(removed) != null
+        if (frameMouths.remove(removed) != null || hadHold) onAnimationSettingsChanged(animationSettings())
         shiftHolds(from = removed + 1, by = -1)
         animFrameCount--
         currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
@@ -801,7 +875,18 @@ class CanvasState(
     /** The bones of the frame on screen. */
     val currentBones: List<Bone> get() = bones.filter { it.animFrame == currentAnimFrame }
 
-    private enum class BoneGestureKind { ADD, ROTATE, MOVE, REACH, NONE }
+    /**
+     * Weight painting (roadmap item 84): with the bone tool, dragging over ink bound to the
+     * selected bone sets how much each point under the brush follows that bone rather than its
+     * parent ([Stroke.jointWeights]) to [weightPaintValue], overriding the automatic weights the
+     * next time a joint is turned. Each drag is one undo step.
+     */
+    var paintingWeights by mutableStateOf(false)
+
+    /** The weight painting applies, 0 (follow the parent) to 1 (follow the bone itself). */
+    var weightPaintValue by mutableDoubleStateOf(1.0)
+
+    private enum class BoneGestureKind { ADD, ROTATE, MOVE, REACH, PAINT, NONE }
 
     private data class BoneGesture(val kind: BoneGestureKind, val boneId: String?, val last: WorldPoint, val parentId: String? = null, val head: WorldPoint = last)
 
@@ -883,6 +968,22 @@ class CanvasState(
         bones.clear()
         bones.addAll(loaded)
         selectedBoneId = null
+        // A frame holding only a pose (no ink yet, e.g. an imported animation) still counts.
+        animFrameCount = maxOf(animFrameCount, (loaded.maxOfOrNull { it.animFrame } ?: 0) + 1)
+    }
+
+    /**
+     * Adds a skeleton posed frame by frame (from [SpineImport]): [poses] holds frame 0's bones,
+     * then frame 1's, and so on, each bone keeping its id across frames. Frames are added as
+     * needed. One undo step.
+     */
+    fun importSkeleton(poses: List<List<Bone>>) {
+        if (poses.isEmpty() || poses.all { it.isEmpty() }) return
+        recordHistory()
+        poses.forEachIndexed { frame, pose -> bones.addAll(pose.map { it.copy(animFrame = frame) }) }
+        animFrameCount = maxOf(animFrameCount, poses.size)
+        onBonesChanged(bones.toList())
+        strokesChanged()
     }
 
     private fun shiftBoneFrames(from: Int, by: Int) {
@@ -898,6 +999,14 @@ class CanvasState(
     fun beginBone(world: WorldPoint) {
         val reach = BONE_HIT_SCREEN / scale.coerceAtLeast(1e-300)
         val frameBones = currentBones
+        if (paintingWeights) {
+            if (selectedBoneId == null) selectedBoneId = boneAt(frameBones, world, reach)?.id
+            if (selectedBoneId == null) return
+            recordHistory()
+            boneGesture = BoneGesture(BoneGestureKind.PAINT, selectedBoneId, world)
+            paintWeightsAt(world)
+            return
+        }
         val hit = boneAt(frameBones, world, reach)
         selectedBoneId = hit?.id
         if (!posingBones) {
@@ -920,6 +1029,24 @@ class CanvasState(
         boneTurn = if (gesture.kind == BoneGestureKind.ROTATE) startTurn(frameBones.first { it.id == gesture.boneId }, world) else null
     }
 
+    /** Sets [weightPaintValue] on the points of the selected bone's ink within the brush of [world]. */
+    private fun paintWeightsAt(world: WorldPoint) {
+        val boneId = selectedBoneId ?: return
+        val radius = WEIGHT_BRUSH_SCREEN / scale.coerceAtLeast(1e-300)
+        val value = weightPaintValue.toFloat().coerceIn(0f, 1f)
+        for (stroke in strokesNear(world.x - radius, world.y - radius, world.x + radius, world.y + radius)) {
+            if (stroke.boneId != boneId || stroke.animFrame != currentAnimFrame) continue
+            val points = stroke.points
+            var weights: FloatArray? = null
+            for (i in points.indices) {
+                if (hypot(points[i].x - world.x, points[i].y - world.y) > radius) continue
+                if (weights == null) weights = stroke.jointWeights?.copyOf() ?: FloatArray(points.size) { Float.NaN }
+                weights[i] = value
+            }
+            if (weights != null) stroke.setJointWeights(weights)
+        }
+    }
+
     private fun startTurn(bone: Bone, pointer: WorldPoint): BoneTurn {
         val frame = currentAnimFrame
         val frameBones = bones.filter { it.animFrame == frame }
@@ -935,10 +1062,18 @@ class CanvasState(
                 val points = stroke.points.toList()
                 // Only ink on the turned bone itself or its parent blends; deeper bones move rigidly.
                 val weights = if (parent != null && (stroke.boneId == bone.id || stroke.boneId == parent.id)) {
+                    // A painted weight is the share of the stroke's own bone: for ink on the
+                    // turned bone that's how far it follows; for ink on the parent, the rest.
+                    val painted = stroke.jointWeights?.takeIf { it.size == points.size }
                     DoubleArray(points.size) { i ->
-                        val toBone = distanceToBone(bone, points[i])
-                        val toParent = distanceToBone(parent, points[i])
-                        if (toBone + toParent == 0.0) 0.5 else toParent / (toBone + toParent)
+                        val w = painted?.get(i)
+                        if (w != null && !w.isNaN()) {
+                            (if (stroke.boneId == bone.id) w.toDouble() else 1.0 - w).coerceIn(0.0, 1.0)
+                        } else {
+                            val toBone = distanceToBone(bone, points[i])
+                            val toParent = distanceToBone(parent, points[i])
+                            if (toBone + toParent == 0.0) 0.5 else toParent / (toBone + toParent)
+                        }
                     }
                 } else null
                 Triple(stroke, points, weights)
@@ -955,8 +1090,14 @@ class CanvasState(
             }
             BoneGestureKind.ROTATE -> {
                 val turn = boneTurn ?: return
-                val angle = atan2(world.y - turn.center.y, world.x - turn.center.x) - turn.startAngle
                 val start = turn.startBones.associateBy { it.id }
+                // Joint limits hold for a hand-turned bone as for inverse kinematics.
+                val turned = gesture.boneId?.let { start[it] }
+                val angle = limitedTurn(
+                    turned ?: return,
+                    turned.parentId?.let { start[it] },
+                    normalizeAngle(atan2(world.y - turn.center.y, world.x - turn.center.x) - turn.startAngle),
+                )
                 for (i in bones.indices) {
                     val b = bones[i]
                     if (b.animFrame == currentAnimFrame && b.id in turn.moved) {
@@ -974,6 +1115,7 @@ class CanvasState(
                 geometryEpoch++
                 boneGesture = gesture.copy(last = world)
             }
+            BoneGestureKind.PAINT -> paintWeightsAt(world)
             BoneGestureKind.REACH -> {
                 reachToward(gesture.boneId ?: return, world)
                 boneGesture = gesture.copy(last = world)
@@ -1007,6 +1149,7 @@ class CanvasState(
                 onBonesChanged(bones.toList())
                 strokesChanged()
             }
+            BoneGestureKind.PAINT -> strokesChanged()
             BoneGestureKind.NONE -> {}
         }
     }
@@ -1020,7 +1163,8 @@ class CanvasState(
             for (id in chain) {
                 val joint = bone(id) ?: return
                 val tip = bone(endId)?.tail ?: return
-                val turn = atan2(target.y - joint.head.y, target.x - joint.head.x) - atan2(tip.y - joint.head.y, tip.x - joint.head.x)
+                val wanted = normalizeAngle(atan2(target.y - joint.head.y, target.x - joint.head.x) - atan2(tip.y - joint.head.y, tip.x - joint.head.x))
+                val turn = limitedTurn(joint, joint.parentId?.let { bone(it) }, wanted)
                 if (turn != 0.0) transformRig(id) { rotateAbout(it, joint.head, turn) }
             }
             val tip = bone(endId)?.tail ?: return
@@ -1030,8 +1174,7 @@ class CanvasState(
 
     // Applies [transform] to bone [rootId], the bones hanging from it, and every stroke bound to
     // one of them, on the current frame.
-    private fun transformRig(rootId: String, transform: (WorldPoint) -> WorldPoint) {
-        val frame = currentAnimFrame
+    private fun transformRig(rootId: String, frame: Int = currentAnimFrame, transform: (WorldPoint) -> WorldPoint) {
         val moved = boneSubtree(bones.filter { it.animFrame == frame }, rootId)
         for (i in bones.indices) {
             val b = bones[i]
@@ -1041,6 +1184,97 @@ class CanvasState(
             if (stroke.animFrame == frame && stroke.boneId in moved) stroke.setPoints(stroke.points.map(transform))
         }
         geometryEpoch++
+    }
+
+    /**
+     * Animation blending (roadmap item 86): mixes the current frame's pose with frame
+     * [otherFrame]'s - [weight] 0 keeps this pose, 1 takes the other - as in-betweens do
+     * ([interpolatePose]: joints turn, chains stay attached). Each bone's ink moves rigidly with
+     * its bone from the old pose to the blended one. Bones present in only one of the two poses
+     * stay as they are. One undo step.
+     */
+    fun blendPoseWith(otherFrame: Int, weight: Double) {
+        val frame = currentAnimFrame
+        val mine = bones.filter { it.animFrame == frame }
+        val other = bones.filter { it.animFrame == otherFrame }
+        if (otherFrame == frame || mine.isEmpty() || other.isEmpty()) return
+        val blended = interpolatePose(mine, other, weight.coerceIn(0.0, 1.0), frame).associateBy { it.id }
+        if (blended.isEmpty()) return
+        recordHistory()
+        val before = mine.associateBy { it.id }
+        for (stroke in strokes) {
+            if (stroke.animFrame != frame) continue
+            val old = before[stroke.boneId] ?: continue
+            val new = blended[old.id] ?: continue
+            val turn = new.angle - old.angle
+            val shift = new.head - old.head
+            stroke.setPoints(stroke.points.map { rotateAbout(it, old.head, turn) + shift })
+        }
+        for (i in bones.indices) {
+            val b = bones[i]
+            if (b.animFrame == frame) blended[b.id]?.let { bones[i] = it }
+        }
+        geometryEpoch++
+        onBonesChanged(bones.toList())
+        strokesChanged()
+    }
+
+    /**
+     * Sets bone [boneId]'s joint limits on every frame (relative angles in radians; null and null
+     * for a free joint). Undoable.
+     */
+    fun setJointLimits(boneId: String, min: Double?, max: Double?) {
+        recordHistory()
+        for (i in bones.indices) if (bones[i].id == boneId) bones[i] = bones[i].copy(minTurn = min, maxTurn = max)
+        onBonesChanged(bones.toList())
+    }
+
+    /** Marks bone [boneId] dynamic or not, on every frame. Undoable. */
+    fun setBoneDynamic(boneId: String, dynamic: Boolean) {
+        recordHistory()
+        for (i in bones.indices) if (bones[i].id == boneId) bones[i] = bones[i].copy(dynamic = dynamic)
+        onBonesChanged(bones.toList())
+    }
+
+    /**
+     * Secondary motion (roadmap item 85): every dynamic bone follows its parent through the
+     * animation like a damped spring instead of rigidly - it trails a moving parent, overshoots
+     * when the parent stops, and settles - the way a tail, hair or a loose sleeve moves. Each
+     * frame's keyed pose is the spring's rest position; the simulated angle is written into the
+     * frame, turning the bone with its children and bound ink. Frames are visited in order at the
+     * playback speed, in [DYNAMICS_SUBSTEPS] steps each. One undo step.
+     */
+    fun simulateDynamics() {
+        val frames = (0 until animFrameCount).filter { f -> bones.any { it.animFrame == f } }
+        val dynamicIds = bones.filter { it.dynamic && it.parentId != null }.map { it.id }.distinct()
+        if (frames.size < 2 || dynamicIds.isEmpty()) return
+        recordHistory()
+        val dt = 1.0 / animFps / DYNAMICS_SUBSTEPS
+        // Parents first, so a dynamic chain uses its already-simulated parent.
+        val order = dynamicIds.sortedBy { id -> generateSequence(bones.firstOrNull { it.id == id }) { b -> b.parentId?.let { p -> bones.firstOrNull { it.id == p } } }.count() }
+        for (id in order) {
+            var angle = Double.NaN
+            var velocity = 0.0
+            for (frame in frames) {
+                fun bone(boneId: String) = bones.firstOrNull { it.animFrame == frame && it.id == boneId }
+                val b = bone(id) ?: continue
+                val parent = b.parentId?.let { bone(it) } ?: continue
+                val rest = parent.angle + relativeAngle(b, parent)
+                if (angle.isNaN()) {
+                    angle = rest
+                } else {
+                    repeat(DYNAMICS_SUBSTEPS) {
+                        val pull = normalizeAngle(rest - angle)
+                        velocity += (DYNAMICS_STIFFNESS * pull - DYNAMICS_DAMPING * velocity) * dt
+                        angle += velocity * dt
+                    }
+                }
+                val turn = normalizeAngle(angle - b.angle)
+                if (turn != 0.0) transformRig(id, frame) { rotateAbout(it, b.head, turn) }
+            }
+        }
+        onBonesChanged(bones.toList())
+        strokesChanged()
     }
 
     /**
@@ -1135,6 +1369,373 @@ class CanvasState(
         onLayersChanged(layers.toList())
     }
 
+    /**
+     * Raster layers' pixels by layer id (roadmap item 89). Not snapshot state: [rasterRevision]
+     * is bumped whenever any of them changes, which is what views observe.
+     */
+    val rasters = HashMap<String, RasterSurface>()
+
+    var rasterRevision by mutableIntStateOf(0)
+        private set
+
+    // The history entry whose log changes are recorded into now (see openLog).
+    private var openEntry: HistoryEntry? = null
+
+    // Tiles changed since the last save, by layer, for incremental raster saving.
+    private val dirtyRasterTiles = HashMap<String, MutableSet<Long>>()
+
+    /** Adds a raster layer of [depth] bits above the others, its pixels the size of a screen pixel at the current zoom. */
+    fun addRasterLayer(depth: Int) {
+        val layer = Layer(UUID.randomUUID().toString(), "Raster ${layers.size + 1}", raster = true, depth = depth)
+        attachRaster(layer.id, RasterSurface(depth, 1.0 / scale.coerceAtLeast(1e-300)))
+        layers.add(layer)
+        activeLayerId = layer.id
+        onLayersChanged(layers.toList())
+        markRasterDirty(layer.id, emptySet())
+    }
+
+    /** Replaces the raster layers' pixels (from [CanvasStorage.loadRasters]); call after [loadLayers]. */
+    fun loadRasters(loaded: Map<String, RasterSurface>) {
+        rasters.clear()
+        dirtyRasterTiles.clear()
+        for ((id, surface) in loaded) attachRaster(id, surface)
+        // A raster layer saved before its first tile has no file yet; it starts empty.
+        for (layer in layers) if (layer.raster && layer.id !in rasters) attachRaster(layer.id, RasterSurface(layer.depth, 1.0 / scale.coerceAtLeast(1e-300)))
+        for (layer in layers) if (layer.masked && maskIdOf(layer.id) !in rasters) attachRaster(maskIdOf(layer.id), RasterSurface(8, 1.0 / scale.coerceAtLeast(1e-300)))
+        rasterSelection = null
+        editingMask = false
+        rasterRevision++
+    }
+
+    private fun attachRaster(layerId: String, surface: RasterSurface) {
+        surface.beforeTileChange = { key -> recordRasterTile(layerId, surface, key) }
+        surface.afterTileChange = { key -> dirtyRasterTiles.getOrPut(layerId) { HashSet() }.add(key) }
+        rasters[layerId] = surface
+    }
+
+    /** Saves [key]'s tile as it is now into the open history entry, once per entry. */
+    private fun recordRasterTile(layerId: String, surface: RasterSurface, key: Long) {
+        val entry = openEntry ?: return
+        val ref = layerId to key
+        if (ref !in entry.rasterLog) entry.rasterLog[ref] = surface.tileAt(key)?.copy()
+    }
+
+    private fun markRasterDirty(layerId: String, keys: Set<Long>) {
+        dirtyRasterTiles.getOrPut(layerId) { HashSet() }.addAll(keys)
+        rasterRevision++
+        onRasterChanged()
+    }
+
+    /**
+     * The raster tiles changed since the last call, by layer, as copies safe to write from
+     * another thread (null for a tile that's gone), with each layer's surface for its settings.
+     */
+    fun takeDirtyRasterTiles(): Map<String, Pair<RasterSurface, Map<Long, RasterTile?>>> {
+        val result = dirtyRasterTiles.mapNotNull { (layerId, keys) ->
+            val surface = rasters[layerId] ?: return@mapNotNull null
+            layerId to (surface to keys.associateWith { key -> surface.tileAt(key)?.takeUnless { it.isEmpty() }?.copy() })
+        }.toMap()
+        dirtyRasterTiles.clear()
+        return result
+    }
+
+    private val activeRaster: RasterSurface?
+        get() {
+            val layer = layers.firstOrNull { it.id == activeLayerId } ?: return null
+            if (editingMask && layer.masked) return rasters[maskIdOf(layer.id)]
+            return if (layer.raster) rasters[layer.id] else null
+        }
+
+    /**
+     * While on, the pen and eraser paint the active layer's mask (roadmap item 91) instead of the
+     * layer: the pen hides, the eraser reveals.
+     */
+    var editingMask by mutableStateOf(false)
+
+    /** Gives layer [layerId] a mask, hiding nothing until painted, and starts editing it. */
+    fun addLayerMask(layerId: String) {
+        val layer = layers.firstOrNull { it.id == layerId } ?: return
+        if (layer.masked) return
+        attachRaster(maskIdOf(layerId), RasterSurface(8, 1.0 / scale.coerceAtLeast(1e-300)))
+        updateLayer(layerId) { it.copy(masked = true) }
+        activeLayerId = layerId
+        editingMask = true
+        markRasterDirty(maskIdOf(layerId), emptySet())
+    }
+
+    fun removeLayerMask(layerId: String) {
+        updateLayer(layerId) { it.copy(masked = false) }
+        dropRaster(maskIdOf(layerId))
+        editingMask = false
+    }
+
+    /**
+     * The raster selection (roadmap item 91): a closed outline in world space limiting raster
+     * painting and the selection actions; null when nothing is selected. Made with the select
+     * tool's lasso or marquee while the active layer is a raster layer.
+     */
+    var rasterSelection by mutableStateOf<List<WorldPoint>?>(null)
+        private set
+
+    fun clearRasterSelection() {
+        rasterSelection = null
+    }
+
+    /** Whether pixel ([px], [py])'s centre is inside the raster selection on [surface]. */
+    private fun inRasterSelection(surface: RasterSurface, px: Int, py: Int): Boolean {
+        val outline = rasterSelection ?: return true
+        return polygonContains(outline, surface.worldOf(px + 0.5, py + 0.5))
+    }
+
+    private fun selectionPixelBox(surface: RasterSurface): IntArray? {
+        val outline = rasterSelection ?: return null
+        fun px(x: Double) = (x - surface.originX) / surface.pixelWorld
+        fun py(y: Double) = (y - surface.originY) / surface.pixelWorld
+        return intArrayOf(
+            kotlin.math.floor(px(outline.minOf { it.x })).toInt(), kotlin.math.floor(py(outline.minOf { it.y })).toInt(),
+            kotlin.math.ceil(px(outline.maxOf { it.x })).toInt(), kotlin.math.ceil(py(outline.maxOf { it.y })).toInt(),
+        )
+    }
+
+    /** Clears the selected pixels on the active raster layer. Undoable. */
+    fun deleteRasterSelectionPixels() = editSelectedPixels { tile, index -> for (c in 0 until 4) tile.data[index + c] = 0 }
+
+    /** Fills the selection with the active colour (at the active opacity) on the active raster layer. Undoable. */
+    fun fillRasterSelection() {
+        val color = floatArrayOf(activeColor.red, activeColor.green, activeColor.blue, activeColor.alpha * activeOpacity.toFloat())
+        editSelectedPixels { tile, index ->
+            val a = color[3]
+            for (c in 0 until 3) tile.data[index + c] = (color[c] * a * 65535 + RasterSurface.u16(tile.data[index + c]) * (1 - a)).toInt().coerceIn(0, 65535).toShort()
+            tile.data[index + 3] = (a * 65535 + RasterSurface.u16(tile.data[index + 3]) * (1 - a)).toInt().coerceIn(0, 65535).toShort()
+        }
+    }
+
+    private fun editSelectedPixels(edit: (RasterTile, Int) -> Unit) {
+        val surface = activeRaster ?: return
+        val box = selectionPixelBox(surface) ?: return
+        recordHistory()
+        surface.clip = { x, y -> inRasterSelection(surface, x, y) }
+        surface.forEachPixelIn(box[0].toDouble(), box[1].toDouble(), box[2].toDouble(), box[3].toDouble()) { tile, index, _, _ -> edit(tile, index) }
+        surface.clip = null
+        markRasterDirty(activeLayerId, emptySet())
+    }
+
+    /** Copies the selected pixels of the active raster layer onto a new raster layer above it. */
+    fun copyRasterSelectionToNewLayer() {
+        val source = activeRaster ?: return
+        val box = selectionPixelBox(source) ?: return
+        val sourceLayer = layers.firstOrNull { it.id == activeLayerId } ?: return
+        val copy = RasterSurface(source.depth, source.pixelWorld, source.originX, source.originY)
+        val layer = Layer(UUID.randomUUID().toString(), "${sourceLayer.name} (copy)", raster = true, depth = source.depth)
+        attachRaster(layer.id, copy)
+        copy.clip = { x, y -> inRasterSelection(copy, x, y) }
+        copy.forEachPixelIn(box[0].toDouble(), box[1].toDouble(), box[2].toDouble(), box[3].toDouble()) { tile, index, px, py ->
+            val p = source.pixel(px, py)
+            for (c in 0 until 4) tile.data[index + c] = (p[c] * 65535).toInt().toShort()
+        }
+        copy.clip = null
+        copy.tiles.entries.removeAll { it.value.isEmpty() }
+        layers.add(layers.indexOfFirst { it.id == sourceLayer.id } + 1, layer)
+        activeLayerId = layer.id
+        onLayersChanged(layers.toList())
+        markRasterDirty(layer.id, copy.tiles.keys.toSet())
+    }
+
+    // An adjustment being previewed: the history depth before it, and its open entry, whose
+    // raster log holds each tile as it was before the adjustment.
+    private var adjustStartDepth = -1
+    private var adjustingEntry: HistoryEntry? = null
+
+    /** Starts previewing adjustments on the active raster layer (within the raster selection, if any). */
+    fun beginAdjusting(): Boolean {
+        if (activeRaster == null) return false
+        adjustStartDepth = undoStack.size
+        recordHistory()
+        adjustingEntry = openEntry
+        return true
+    }
+
+    /** Shows [adjustment] applied to the layer as it was when adjusting began. */
+    fun previewAdjustment(adjustment: Adjustment) {
+        val surface = activeRaster ?: return
+        val entry = adjustingEntry ?: return
+        for ((ref, tile) in entry.rasterLog) if (rasters[ref.first] === surface) surface.setTile(ref.second, tile?.copy())
+        surface.clip = if (rasterSelection != null) { x, y -> inRasterSelection(surface, x, y) } else null
+        surface.adjust(adjustment)
+        surface.clip = null
+        rasterRevision++
+    }
+
+    /** Keeps the previewed adjustment as one undo step. */
+    fun commitAdjustment() {
+        adjustingEntry = null
+        markRasterDirty(activeLayerId, emptySet())
+    }
+
+    /** Drops the previewed adjustment, leaving the layer as it was. */
+    fun cancelAdjustment() {
+        if (adjustingEntry == null) return
+        adjustingEntry = null
+        discardActionsSince(adjustStartDepth)
+    }
+
+    // Moving selected pixels: what was lifted (premultiplied, by pixel), and each tile as it was
+    // after the lift, so every move step repaints from the same start.
+    private var floatingPixels: Map<Pair<Int, Int>, FloatArray>? = null
+    private var floatingBase = HashMap<Long, RasterTile?>()
+    private var floatingOutline: List<WorldPoint> = emptyList()
+    private var floatingStart = WorldPoint.Zero
+
+    private fun beginMovingSelectedPixels(at: WorldPoint): Boolean {
+        val surface = activeRaster ?: return false
+        val outline = rasterSelection ?: return false
+        if (!polygonContains(outline, at)) return false
+        val box = selectionPixelBox(surface) ?: return false
+        recordHistory()
+        val lifted = HashMap<Pair<Int, Int>, FloatArray>()
+        surface.clip = { x, y -> inRasterSelection(surface, x, y) }
+        surface.forEachPixelIn(box[0].toDouble(), box[1].toDouble(), box[2].toDouble(), box[3].toDouble()) { tile, index, px, py ->
+            val p = FloatArray(4) { RasterSurface.u16(tile.data[index + it]) / 65535f }
+            if (p[3] > 0f) lifted[px to py] = p
+            for (c in 0 until 4) tile.data[index + c] = 0
+        }
+        surface.clip = null
+        floatingPixels = lifted
+        floatingBase = HashMap()
+        floatingOutline = outline
+        floatingStart = at
+        return true
+    }
+
+    private fun moveSelectedPixels(to: WorldPoint) {
+        val surface = activeRaster ?: return
+        val lifted = floatingPixels ?: return
+        // Whole pixels only, so moved paint stays sharp.
+        val dx = Math.round((to.x - floatingStart.x) / surface.pixelWorld).toInt()
+        val dy = Math.round((to.y - floatingStart.y) / surface.pixelWorld).toInt()
+        for ((key, tile) in floatingBase) surface.setTile(key, tile?.copy())
+        val before = surface.beforeTileChange
+        surface.beforeTileChange = { key ->
+            before(key)
+            if (key !in floatingBase) floatingBase[key] = surface.tileAt(key)?.copy()
+        }
+        for ((pixel, p) in lifted) {
+            val (px, py) = pixel
+            surface.forEachPixelIn((px + dx).toDouble(), (py + dy).toDouble(), (px + dx).toDouble(), (py + dy).toDouble()) { tile, index, x, y ->
+                if (x != px + dx || y != py + dy) return@forEachPixelIn
+                val a = p[3]
+                for (c in 0 until 4) tile.data[index + c] = (p[c] * 65535 + RasterSurface.u16(tile.data[index + c]) * (1 - a)).toInt().coerceIn(0, 65535).toShort()
+            }
+        }
+        surface.beforeTileChange = before
+        rasterSelection = floatingOutline.map { WorldPoint(it.x + dx * surface.pixelWorld, it.y + dy * surface.pixelWorld) }
+        rasterRevision++
+    }
+
+    private fun endMovingSelectedPixels() {
+        floatingPixels = null
+        floatingBase = HashMap()
+        markRasterDirty(activeLayerId, emptySet())
+    }
+
+    /** True when the active layer holds pixels, so the pen and eraser work on them. */
+    val activeLayerIsRaster: Boolean get() = activeRaster != null
+
+    /** How the pen acts on a raster layer: paint, wet mixing, smudge or blur, and its tip (roadmap item 90). */
+    var rasterBrush by mutableStateOf(RasterBrush())
+
+    // The colour a wet brush carries, picked up from the canvas as it goes; null when not painting wet.
+    private var wetColor: FloatArray? = null
+
+    // The raster brush stroke in progress: its last point, and how far along the segment the
+    // next dab falls (dabs are evenly spaced across points).
+    private var rasterLast: WorldPoint? = null
+    private var rasterLastDab: WorldPoint? = null
+    private var rasterCarry = 0.0
+    private var rasterErasing = false
+
+    /** Radius, opacity and hardness of the raster brush for the current pen at [pressure]. */
+    private fun rasterBrush(pressure: Float): Triple<Double, Float, Float> {
+        val radius = activeWidthWorld / scale.coerceAtLeast(1e-300) / 2 * pressure.coerceIn(0.1f, 1f)
+        return when (activePenType) {
+            PenType.AIRBRUSH -> Triple(radius * 3, 0.08f, 0f)
+            PenType.PENCIL -> Triple(radius * 0.6, 0.85f, 1f)
+            PenType.HIGHLIGHTER -> Triple(radius * 2, 0.35f, 1f)
+            else -> Triple(radius, 1f, 0.8f)
+        }
+    }
+
+    private fun rasterDabs(surface: RasterSurface, to: WorldPoint, pressure: Float) {
+        val (radius, opacity, hardness) = if (rasterErasing) Triple(eraserRadiusWorld, 1f, 0.9f) else rasterBrush(pressure)
+        // A mask is painted in coverage alone: the pen hides fully, whatever the colour.
+        val color = if (editingMask) floatArrayOf(0f, 0f, 0f, 1f) else activeColor.let { floatArrayOf(it.red, it.green, it.blue, it.alpha * activeOpacity.toFloat()) }
+        val spacing = (radius * RASTER_DAB_SPACING).coerceAtLeast(surface.pixelWorld * 0.5)
+        val from = rasterLast ?: to
+        val dabs = dabsAlong(from, to, spacing, rasterCarry)
+        val brush = if (editingMask) RasterBrush(tip = rasterBrush.tip) else rasterBrush
+        var previous = rasterLastDab ?: from
+        for (p in dabs) {
+            when {
+                rasterErasing -> surface.dab(p, radius, color, opacity, hardness, erase = true, tip = brush.tip)
+                brush.mode == RasterBrushMode.SMUDGE -> surface.smudge(previous, p, radius, brush.strength, brush.tip)
+                brush.mode == RasterBrushMode.BLUR -> surface.blur(p, radius, brush.strength, brush.tip)
+                brush.mode == RasterBrushMode.LIQUIFY -> surface.liquify(previous, p, radius, brush.strength, brush.tip)
+                brush.mode == RasterBrushMode.WET -> {
+                    // Pick up some of what's underneath, then lay the mixture down.
+                    val carried = wetColor ?: color.copyOf().also { wetColor = it }
+                    val under = surface.sampleUnder(p, radius)
+                    val pickup = brush.wetness * under[3]
+                    for (c in 0 until 3) carried[c] = carried[c] * (1 - pickup) + under[c] * pickup
+                    surface.dab(p, radius, carried, opacity, hardness, tip = brush.tip)
+                }
+                else -> surface.dab(p, radius, color, opacity, hardness, tip = brush.tip)
+            }
+            previous = p
+        }
+        if (dabs.isNotEmpty()) rasterLastDab = dabs.last()
+        // Distance past [to] where the next dab falls, so spacing stays even across segments.
+        rasterCarry += spacing * dabs.size - hypot(to.x - from.x, to.y - from.y)
+        rasterLast = to
+        rasterRevision++
+    }
+
+    private fun beginRasterStroke(surface: RasterSurface, at: WorldPoint, pressure: Float, erasing: Boolean) {
+        rasterErasing = erasing
+        // The selection limits painting; alpha lock keeps coverage (not on a mask, which is all coverage).
+        surface.clip = if (rasterSelection != null) { x, y -> inRasterSelection(surface, x, y) } else null
+        surface.alphaLock = !editingMask && layers.firstOrNull { it.id == activeLayerId }?.alphaLocked == true
+        rasterLast = null
+        rasterLastDab = null
+        wetColor = null
+        rasterCarry = 0.0
+        rasterDabs(surface, at, pressure)
+    }
+
+    private fun endRasterStroke() {
+        activeRaster?.let { it.clip = null; it.alphaLock = false }
+        rasterLast = null
+        markRasterDirty(activeLayerId, emptySet())
+    }
+
+    /** The document's skins (roadmap item 86), in layer order. */
+    val skins: List<String> get() = layers.mapNotNull { it.skin }.distinct()
+
+    /** The skin on show: the one whose layers are visible while every other skin's are hidden; null if none or mixed. */
+    val activeSkin: String?
+        get() = skins.singleOrNull { name -> layers.all { it.skin == null || it.visible == (it.skin == name) } }
+
+    /** Shows skin [name]'s layers and hides every other skin's; layers outside skins are left alone. */
+    fun applySkin(name: String) {
+        var changed = false
+        for (i in layers.indices) {
+            val layer = layers[i]
+            if (layer.skin == null || layer.visible == (layer.skin == name)) continue
+            layers[i] = layer.copy(visible = layer.skin == name)
+            changed = true
+        }
+        if (changed) onLayersChanged(layers.toList())
+    }
+
     /** Moves a layer one step up (towards the top) or down in the stack. */
     fun moveLayer(id: String, up: Boolean) {
         val index = layers.indexOfFirst { it.id == id }
@@ -1151,16 +1752,68 @@ class CanvasState(
         clearSelectionState()
         strokes.removeWhere { it.layerId == id }
         layers.removeWhere { it.id == id }
+        dropRaster(id)
+        dropRaster(maskIdOf(id))
         if (activeLayerId == id) activeLayerId = layers.last().id
         strokesChanged()
         onLayersChanged(layers.toList())
     }
 
+    /**
+     * Merges raster layer [upper] onto raster layer [lower] (source-over, at the upper layer's
+     * opacity), when both share one pixel grid; a vector layer and a raster layer don't merge
+     * (that would need the strokes rasterized). Undoable for the pixels.
+     */
+    private fun mergeRasterDown(upper: Layer, lower: Layer) {
+        val top = rasters[upper.id] ?: return
+        val bottom = rasters[lower.id] ?: return
+        if (!upper.raster || !lower.raster || top.pixelWorld != bottom.pixelWorld) return
+        val dx = (top.originX - bottom.originX) / top.pixelWorld
+        val dy = (top.originY - bottom.originY) / top.pixelWorld
+        if (dx != Math.rint(dx) || dy != Math.rint(dy)) return
+        recordHistory()
+        for ((key, tile) in top.tiles.toList()) {
+            val left = RasterSurface.tileX(key) * RASTER_TILE + dx
+            val topEdge = RasterSurface.tileY(key) * RASTER_TILE + dy
+            bottom.forEachPixelIn(left, topEdge, left + RASTER_TILE - 1, topEdge + RASTER_TILE - 1) { target, index, px, py ->
+                val sx = px - left.toInt()
+                val sy = py - topEdge.toInt()
+                if (sx !in 0 until RASTER_TILE || sy !in 0 until RASTER_TILE) return@forEachPixelIn
+                val source = (sy * RASTER_TILE + sx) * 4
+                val a = RasterSurface.u16(tile.data[source + 3]) / 65535.0 * upper.opacity
+                if (a == 0.0) return@forEachPixelIn
+                for (c in 0 until 4) {
+                    val src = RasterSurface.u16(tile.data[source + c]) * upper.opacity
+                    target.data[index + c] = (src + RasterSurface.u16(target.data[index + c]) * (1 - a)).toInt().coerceIn(0, 65535).toShort()
+                }
+            }
+        }
+        layers.removeWhere { it.id == upper.id }
+        dropRaster(upper.id)
+        if (activeLayerId == upper.id) activeLayerId = lower.id
+        onLayersChanged(layers.toList())
+    }
+
+    // Raster layers deleted since the last save, whose stored pixels go too.
+    private val deletedRasterLayers = HashSet<String>()
+
+    private fun dropRaster(layerId: String) {
+        if (rasters.remove(layerId) == null) return
+        dirtyRasterTiles.remove(layerId)
+        deletedRasterLayers.add(layerId)
+        markRasterDirty(activeLayerId, emptySet())
+    }
+
+    /** Raster layers deleted since the last call, whose stored pixels should be removed. */
+    fun takeDeletedRasterLayers(): Set<String> = deletedRasterLayers.toSet().also { deletedRasterLayers.clear() }
+
     /** Removes layers with no strokes in any animation frame, keeping at least one layer. */
     fun deleteEmptyLayers() {
-        val used = strokes.map { it.layerId }.toSet()
+        // A raster layer with paint isn't empty, though it has no strokes.
+        val used = strokes.map { it.layerId }.toSet() + rasters.filterValues { it.tiles.isNotEmpty() }.keys
         val keep = layers.filter { it.id in used }.ifEmpty { listOf(layers.first()) }
         if (keep.size == layers.size) return
+        for (layer in layers) if (layer !in keep) dropRaster(layer.id)
         layers.retainAll(keep.toSet())
         if (layers.none { it.id == activeLayerId }) activeLayerId = layers.last().id
         onLayersChanged(layers.toList())
@@ -1174,6 +1827,7 @@ class CanvasState(
         clearSelectionState()
         strokes.removeWhere { it.layerId in hidden }
         layers.removeWhere { it.id in hidden }
+        hidden.forEach(::dropRaster)
         if (activeLayerId in hidden) activeLayerId = layers.last().id
         strokesChanged()
         onLayersChanged(layers.toList())
@@ -1184,6 +1838,11 @@ class CanvasState(
         val index = layers.indexOfFirst { it.id == id }
         if (index <= 0) return
         val below = layers[index - 1]
+        val layer = layers[index]
+        if (layer.raster || below.raster) {
+            mergeRasterDown(layer, below)
+            return
+        }
         recordHistory()
         clearSelectionState()
         for (i in strokes.indices) {
@@ -1460,31 +2119,84 @@ class CanvasState(
     // immutable values, so the list itself is the copy. Null means "not recorded" (history
     // reloaded from disk, which stores strokes only) and leaves the current ones as they are.
     //
-    // An entry holds each stroke by reference plus its immutable geometry ([Stroke.State],
-    // captured copy-on-write in O(1) and shared between entries while a stroke is untouched),
-    // not a deep copy: a deep copy per action cost O(document) time and up to 64 x the
-    // document in memory, which froze a 100k-stroke document for over a minute per erase
-    // (ScaleBenchmark). [shift] accumulates floating-origin rebases since capture, applied
-    // when the entry is restored instead of rewriting every snapshot on each rebase.
+    // An entry holds the stroke list as it was (the snapshot list's immutable instance, O(1))
+    // plus a [Stroke.MutationLog] of the geometry strokes had before their first in-place change
+    // after the entry was made. Restoring an entry puts the list back and replays its log. This
+    // costs O(strokes changed) per action; capturing every stroke's geometry per entry cost
+    // ~0.3 s an action at a million strokes (ScaleBenchmark, roadmap item 18).
+    //
+    // Every entry opens a new log and makes it the active one ([openLog]), so the logs of the
+    // surviving entries, ordered by [seq], cover the whole time since the oldest; a stroke's
+    // geometry at an entry is its earliest record in that entry's or any later entry's log, or its
+    // current geometry if none has one.
     private class HistoryEntry(
-        val strokes: Array<Stroke>,
-        val states: Array<Stroke.State>,
+        val strokes: List<Stroke>,
         var images: List<ImageItem>?,
         var texts: List<TextItem>? = null,
-        var shift: WorldPoint = WorldPoint.Zero,
         val connectors: List<Connector>? = null,
         var bones: List<Bone>? = null,
         val holds: Map<Int, Int>? = null,
     ) {
-        /** Independent strokes holding this entry's geometry (shift applied), e.g. for saving. */
-        fun materialize(): List<Stroke> = strokes.indices.map { i ->
-            strokes[i].withState(states[i]).also { if (shift != WorldPoint.Zero) it.shiftBy(shift) }
-        }
+        val log = Stroke.MutationLog()
+
+        // Raster tiles as they were before their first change after this entry (null: the
+        // tile didn't exist), by layer and tile key; the raster counterpart of [log].
+        val rasterLog = HashMap<Pair<String, Long>, RasterTile?>()
+        val seq = nextSeq++
 
         companion object {
+            private var nextSeq = 0L
+
             fun of(strokes: List<Stroke>, images: List<ImageItem>?, texts: List<TextItem>? = null, connectors: List<Connector>? = null, bones: List<Bone>? = null, holds: Map<Int, Int>? = null) =
-                HistoryEntry(strokes.toTypedArray(), Array(strokes.size) { strokes[it].captureState() }, images, texts, connectors = connectors, bones = bones, holds = holds)
+                HistoryEntry(strokes.toList(), images, texts, connectors = connectors, bones = bones, holds = holds)
         }
+    }
+
+    /**
+     * Moves strokes that undo or redo would bring back but that aren't on the canvas now (erased
+     * or cleared ones), so they come back in the rebased world space too. Found per entry as
+     * the run between its common prefix and suffix with the live list, so a typical history
+     * costs a reference scan, not a set of every stroke.
+     */
+    private fun shiftStrokesOnlyInHistory(offset: WorldPoint) {
+        val live = strokes.toList()
+        var liveSet: MutableSet<Stroke>? = null
+        val shifted = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Stroke, Boolean>())
+        for (entry in undoStack + redoStack) {
+            val list = entry.strokes
+            if (list === live) continue
+            val shorter = minOf(list.size, live.size)
+            var prefix = 0
+            while (prefix < shorter && list[prefix] === live[prefix]) prefix++
+            var suffix = 0
+            while (suffix < shorter - prefix && list[list.size - 1 - suffix] === live[live.size - 1 - suffix]) suffix++
+            if (prefix + suffix == list.size) continue
+            // A stroke in the entry's run that is live is in the live list's run too (a stroke
+            // appears once per list), so only that run needs checking.
+            val liveRun = if (live.size - prefix - suffix <= MAX_INDEX_PATCH) {
+                java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Stroke, Boolean>()).also { set -> for (j in prefix until live.size - suffix) set.add(live[j]) }
+            } else {
+                liveSet ?: java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Stroke, Boolean>()).also { set -> set.addAll(live); liveSet = set }
+            }
+            for (j in prefix until list.size - suffix) {
+                val stroke = list[j]
+                if (stroke !in liveRun && shifted.add(stroke)) stroke.shiftBy(offset)
+            }
+        }
+    }
+
+    /** Makes [entry]'s log the one in-place stroke changes are recorded in from now on. */
+    private fun openLog(entry: HistoryEntry?) {
+        openEntry = entry
+        Stroke.activeLog = entry?.log
+    }
+
+    /** Independent strokes holding [entry]'s geometry, e.g. for saving history. */
+    private fun materialize(entry: HistoryEntry): List<Stroke> = Stroke.withoutLogging {
+        val earliest = java.util.IdentityHashMap<Stroke, Stroke>()
+        // Latest log first, so each stroke ends with its earliest record at or after [entry].
+        for (later in (undoStack + redoStack).filter { it.seq >= entry.seq }.sortedByDescending { it.seq }) later.log.earliestInto(earliest)
+        entry.strokes.map { earliest[it] ?: it.deepCopy() }
     }
 
     /**
@@ -1497,36 +2209,103 @@ class CanvasState(
         onChanged(strokes.toList())
     }
 
-    // Bumped by strokesChanged() and by rebases; the spatial index is rebuilt when it moves on.
+    // Bumped by strokesChanged() and whenever strokes move in place; part of [sceneVersion].
     private var geometryEpoch = 0
     private var spatialIndex: StrokeSpatialIndex? = null
     private var indexedStrokes: List<Stroke>? = null
-    private var indexedEpoch = -1
+    // The list and epoch [patchPrefix]/[patchSuffix]/[patchDirty] were worked out for.
+    private var validatedList: List<Stroke>? = null
+    private var validatedEpoch = -1
+    // Common prefix/suffix of the current list with the indexed one, and the positions (in the
+    // current list, ascending) of strokes the index can't vouch for: new, or edited in place.
+    private var patchPrefix = 0
+    private var patchSuffix = 0
+    private var patchDirty = IntArray(0)
+
+    /**
+     * The spatial index, reused across edits where possible. Rebuilding costs ~0.35 s at a
+     * million strokes (roadmap item 18), so after a change only the strokes that differ from
+     * what was indexed - by identity or by [Stroke.plainRevision] - are found (an O(n) scan of
+     * plain fields) and tested directly; the index is rebuilt once more than [MAX_INDEX_PATCH]
+     * of them have piled up.
+     */
+    private fun validIndexFor(list: List<Stroke>): StrokeSpatialIndex {
+        val index = spatialIndex
+        val base = indexedStrokes
+        if (index == null || base == null) return rebuildIndex(list)
+        if (list === validatedList && geometryEpoch == validatedEpoch) return index
+        val shorter = minOf(base.size, list.size)
+        var prefix = 0
+        while (prefix < shorter && base[prefix] === list[prefix]) prefix++
+        var suffix = 0
+        while (suffix < shorter - prefix && base[base.size - 1 - suffix] === list[list.size - 1 - suffix]) suffix++
+        if (list.size - prefix - suffix > MAX_INDEX_PATCH) return rebuildIndex(list)
+        val dirty = IntArrayList()
+        for (i in 0 until prefix) {
+            if (list[i].plainRevision != index.revisionAt(i)) dirty.add(i)
+            if (dirty.size > MAX_INDEX_PATCH) return rebuildIndex(list)
+        }
+        for (j in prefix until list.size - suffix) dirty.add(j)
+        for (k in 0 until suffix) {
+            if (list[list.size - suffix + k].plainRevision != index.revisionAt(base.size - suffix + k)) dirty.add(list.size - suffix + k)
+            if (dirty.size > MAX_INDEX_PATCH) return rebuildIndex(list)
+        }
+        validatedList = list
+        validatedEpoch = geometryEpoch
+        patchPrefix = prefix
+        patchSuffix = suffix
+        patchDirty = dirty.toSortedArray()
+        return index
+    }
+
+    private fun rebuildIndex(list: List<Stroke>): StrokeSpatialIndex = StrokeSpatialIndex(list).also {
+        spatialIndex = it
+        indexedStrokes = list
+        validatedList = list
+        validatedEpoch = geometryEpoch
+        patchPrefix = list.size
+        patchSuffix = 0
+        patchDirty = IntArray(0)
+    }
 
     /**
      * Strokes that may intersect the world rectangle, in drawing order - what rendering needs,
      * in time proportional to what's nearby instead of the whole document (roadmap item 49).
-     * The index is rebuilt when the list or the geometry epoch changed; strokes being edited
+     * The index is reused across edits (see [validIndexFor]); strokes being edited
      * right now (the stroke being drawn, its symmetry copies, the selection) can change shape
      * before their action completes, so they're always included. Candidates only: callers
      * still test [Stroke.intersects].
      */
     fun strokesNear(left: Double, top: Double, right: Double, bottom: Double): List<Stroke> {
-        val list = strokes.toList() // the list's immutable snapshot: same instance until it changes
-        var index = spatialIndex
-        if (index == null || indexedStrokes !== list || indexedEpoch != geometryEpoch) {
-            index = StrokeSpatialIndex(list)
-            spatialIndex = index
-            indexedStrokes = list
-            indexedEpoch = geometryEpoch
+        val list = strokes.toList()
+        return positionsNear(list, left, top, right, bottom).map { list[it] }
+    }
+
+    /** [strokesNear] as ascending positions in [list], which must be the current `strokes.toList()`. */
+    private fun positionsNear(list: List<Stroke>, left: Double, top: Double, right: Double, bottom: Double): IntArray {
+        val index = validIndexFor(list)
+        val found = if (patchDirty.isEmpty() && indexedStrokes === list) index.query(left, top, right, bottom) else {
+            val baseSize = indexedStrokes!!.size
+            val shift = list.size - baseSize
+            val positions = IntArrayList()
+            for (i in index.query(left, top, right, bottom)) {
+                val at = when {
+                    i < patchPrefix -> i
+                    i >= baseSize - patchSuffix -> i + shift
+                    else -> continue // in the replaced run, gone from the list
+                }
+                if (java.util.Arrays.binarySearch(patchDirty, at) < 0) positions.add(at)
+            }
+            // Changed strokes aren't where the index thinks: tested directly.
+            for (j in patchDirty) if (list[j].intersects(left, top, right, bottom)) positions.add(j)
+            positions.toSortedArray()
         }
-        val found = index.query(left, top, right, bottom)
         val live = buildList {
             currentStroke?.let(::add)
             symmetryCopies.forEach { add(it.first) }
             addAll(selection)
         }
-        if (live.isEmpty()) return found.map { list[it] }
+        if (live.isEmpty()) return found
         val positions = java.util.TreeSet<Int>()
         found.forEach(positions::add)
         // Searched from the end: the stroke being drawn and fresh pastes/duplicates are last.
@@ -1535,12 +2314,12 @@ class CanvasState(
             while (at >= 0 && list[at] !== stroke) at--
             if (at >= 0) positions.add(at)
         }
-        return positions.map { list[it] }
+        return positions.toIntArray()
     }
 
     /** What the rendered scene depends on, for [SceneTileCache]; comparing two is O(1). */
     fun sceneVersion() = SceneVersion(
-        listOf(strokes.toList(), geometryEpoch, layers.toList(), textItems.toList(), imageItems.toList(), connectors.toList(), backgroundColor, backgroundStyle, currentAnimFrame),
+        listOf(strokes.toList(), geometryEpoch, rasterRevision, layers.toList(), textItems.toList(), imageItems.toList(), connectors.toList(), backgroundColor, backgroundStyle, currentAnimFrame),
     )
 
     /** Arrows between text labels and sticky notes; see [Connector]. */
@@ -1648,13 +2427,15 @@ class CanvasState(
     private val undoStack = ArrayDeque<HistoryEntry>()
     private val redoStack = ArrayDeque<HistoryEntry>()
 
-    private fun currentEntry() = HistoryEntry.of(strokes, imageItems.toList(), textItems.toList(), connectors.toList(), bones.toList(), frameHolds.toMap())
+    private fun currentEntry() = HistoryEntry.of(strokes.toList(), imageItems.toList(), textItems.toList(), connectors.toList(), bones.toList(), frameHolds.toMap())
 
     /** Called at the start of every stroke-changing action; also invalidates redo, standard editor semantics. */
     private fun recordHistory() {
-        undoStack.addLast(currentEntry())
+        val entry = currentEntry()
+        undoStack.addLast(entry)
         while (undoStack.size > MAX_UNDO_STEPS) undoStack.removeFirst()
         redoStack.clear()
+        openLog(entry)
     }
 
     /** Undo and redo stroke snapshots, oldest first, for [CanvasStorage.saveHistory]. */
@@ -1664,7 +2445,15 @@ class CanvasState(
         // it reflects the stacks as they are when each step is read.
         fun lazySteps(entries: ArrayDeque<HistoryEntry>) = object : AbstractList<List<Stroke>>() {
             override val size get() = entries.size
-            override fun get(index: Int) = entries[index].materialize()
+            // Each step reports its size without building strokes; they're built on first read.
+            override fun get(index: Int): List<Stroke> {
+                val entry = entries[index]
+                return object : AbstractList<Stroke>() {
+                    private val built by lazy { materialize(entry) }
+                    override val size get() = entry.strokes.size
+                    override fun get(index: Int) = built[index]
+                }
+            }
         }
         return lazySteps(undoStack) to lazySteps(redoStack)
     }
@@ -1675,11 +2464,24 @@ class CanvasState(
         undoStack.addAll(undo.takeLast(MAX_UNDO_STEPS).map { HistoryEntry.of(it, null) })
         redoStack.clear()
         redoStack.addAll(redo.map { HistoryEntry.of(it, null) })
+        // Changes from here on belong after the newest step.
+        openLog(listOf(undoStack.lastOrNull(), redoStack.lastOrNull()).filterNotNull().maxByOrNull { it.seq })
     }
 
     private fun restore(snapshot: List<Stroke>) = restore(HistoryEntry.of(snapshot, null))
 
     private fun restore(entry: HistoryEntry) {
+        // Raster tiles back as they were; restoring logs the current ones into the open entry,
+        // so redo can put them back.
+        if (entry.rasterLog.isNotEmpty()) {
+            for ((ref, tile) in entry.rasterLog) {
+                val surface = rasters[ref.first] ?: continue
+                recordRasterTile(ref.first, surface, ref.second)
+                surface.setTile(ref.second, tile?.copy())
+            }
+            rasterRevision++
+            onRasterChanged()
+        }
         val texts = entry.texts
         if (texts != null && texts != textItems.toList()) {
             textItems.clear()
@@ -1711,16 +2513,15 @@ class CanvasState(
             selectedBoneId = selectedBoneId?.takeIf { id -> bones.any { it.id == id } }
             onBonesChanged(bones.toList())
         }
-        // The entry's own stroke objects come back with its geometry: O(1) each unless a rebase
-        // happened since (then each is shifted, copying its arrays once).
-        for (i in entry.strokes.indices) {
-            entry.strokes[i].restoreState(entry.states[i])
-            if (entry.shift != WorldPoint.Zero) entry.strokes[i].shiftBy(entry.shift)
+        // Strokes changed in place since the entry get their geometry back; the list itself is
+        // only rewritten when it differs (a SnapshotStateList rewrite is ~15 ms per million).
+        entry.log.restore()
+        if (strokes.toList() !== entry.strokes) {
+            strokes.clear()
+            strokes.addAll(entry.strokes)
         }
-        strokes.clear()
-        strokes.addAll(entry.strokes)
         // Undoing a frame insert/delete changes how many frames have strokes; keep the count in step.
-        animFrameCount = (strokes.maxOfOrNull { it.animFrame } ?: 0) + 1
+        animFrameCount = maxOf(strokes.maxOfOrNull { it.animFrame } ?: 0, bones.maxOfOrNull { it.animFrame } ?: 0) + 1
         currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
     }
 
@@ -1755,6 +2556,10 @@ class CanvasState(
         strokeMovedAway = false
         recordHistory()
         clearSelectionState() // avoid a stale selection referencing strokes another tool is about to change
+        activeRaster?.let { surface ->
+            beginRasterStroke(surface, worldPoint, pressure, erasing = false)
+            return
+        }
         // Indexed palette (roadmap item 104): pixel art stays within the saved colours.
         val inkColor = if (activePenType == PenType.PIXEL && indexedPalette) nearestPaletteColor(activeColor) else activeColor
         val stroke = Stroke(
@@ -1805,6 +2610,10 @@ class CanvasState(
     }
 
     fun extendStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
+        if (rasterLast != null) {
+            activeRaster?.let { rasterDabs(it, worldPoint, pressure) }
+            return
+        }
         draggingVanishingPoint?.let { index ->
             vanishingPoints[index] = worldPoint
             return
@@ -1959,6 +2768,10 @@ class CanvasState(
             draggingVanishingPoint = null
             return
         }
+        if (rasterLast != null) {
+            endRasterStroke()
+            return
+        }
         val stroke = currentStroke
         // Touch and hold without moving = eyedropper (the Procreate gesture): the stroke never
         // left the jitter radius around where it started, so it was a press, not a mark.
@@ -2002,10 +2815,19 @@ class CanvasState(
         eraseStartDepth = undoStack.size
         recordHistory()
         clearSelectionState() // avoid a stale selection referencing strokes this erase is about to split/remove
+        val surface = activeRaster
+        if (surface != null && activeLayerEditable) {
+            beginRasterStroke(surface, worldPoint, 1f, erasing = true)
+            return
+        }
         if (lassoErase) lassoPath.add(worldPoint) else eraseAt(worldPoint)
     }
 
     fun continueErase(worldPoint: WorldPoint) {
+        if (rasterLast != null) {
+            activeRaster?.let { rasterDabs(it, worldPoint, 1f) }
+            return
+        }
         if (lassoErase) {
             if (lassoPath.isNotEmpty()) lassoPath.add(worldPoint)
         } else {
@@ -2015,6 +2837,10 @@ class CanvasState(
 
     fun endErase() {
         isErasing = false
+        if (rasterLast != null) {
+            endRasterStroke()
+            return
+        }
         if (lassoErase) {
             val lasso = lassoPath.toList()
             lassoPath.clear()
@@ -2087,25 +2913,27 @@ class CanvasState(
             }
             // Only strokes near the eraser are tested (spatial index); the list is rewritten only
             // when something was actually hit.
-            val hit = strokesNear(point.x - radius, point.y - radius, point.x + radius, point.y + radius).filterTo(
-                java.util.Collections.newSetFromMap(java.util.IdentityHashMap()),
-            ) { stroke ->
-                isEditable(stroke) && stroke.intersects(point.x - radius, point.y - radius, point.x + radius, point.y + radius) && (
+            val list = strokes.toList()
+            // Removed by position, last first so earlier positions stay valid: a filter over the
+            // whole list cost ~0.13 s per touch at a million strokes.
+            for (at in positionsNear(list, point.x - radius, point.y - radius, point.x + radius, point.y + radius).reversed()) {
+                val stroke = list[at]
+                val hit = isEditable(stroke) && stroke.intersects(point.x - radius, point.y - radius, point.x + radius, point.y + radius) && (
                     if (stroke.filled) polygonContains(stroke.points, point)
                     else distanceToPolyline(stroke.points, point) <= radius + stroke.widthWorld / 2
                 )
+                if (hit) strokes.removeAt(at)
             }
-            if (hit.isNotEmpty()) strokes.removeWhere { it in hit }
             return
         }
-        for (stroke in strokesNear(point.x - radius, point.y - radius, point.x + radius, point.y + radius)) {
+        val list = strokes.toList()
+        for (at in positionsNear(list, point.x - radius, point.y - radius, point.x + radius, point.y + radius).reversed()) {
+            val stroke = list[at]
             if (!isEditable(stroke)) continue
             if (!stroke.intersects(point.x - radius, point.y - radius, point.x + radius, point.y + radius)) continue
             val pieces = stroke.eraseNear(point, radius) ?: continue
-            val index = strokes.indexOf(stroke)
-            if (index == -1) continue
-            strokes.removeAt(index)
-            strokes.addAll(index, pieces)
+            strokes.removeAt(at)
+            strokes.addAll(at, pieces)
         }
     }
 
@@ -2528,7 +3356,146 @@ class CanvasState(
     private var nodeDragOriginal: List<WorldPoint> = emptyList()
     private var nodeDragStart = WorldPoint.Zero
 
+    /**
+     * Mesh warp (roadmap items 84, 122): a [MESH_SIZE] x [MESH_SIZE] lattice over the selection;
+     * dragging a lattice point bends the selected ink smoothly ([meshWarp]). Each drag is one
+     * undo step. Ends when the selection is cleared or changed, or toggled off.
+     */
+    var meshWarping by mutableStateOf(false)
+        private set
+
+    /** The lattice's control points while [meshWarping], row by row; empty otherwise. */
+    val meshNodes = mutableStateListOf<WorldPoint>()
+
+    private var meshMin = WorldPoint.Zero
+    private var meshMax = WorldPoint.Zero
+    // Each selected stroke's points when the lattice was laid, which every warp is computed from.
+    private var meshOriginals: List<Pair<Stroke, List<WorldPoint>>> = emptyList()
+    private var meshDragIndex: Int? = null
+
+    // Raster warp (roadmap item 92): the picture being bent, lifted on the first drag (pixels,
+    // non-premultiplied ARGB, and their box), and each tile as it was after the lift, so every
+    // step repaints from the same start.
+    private var warpSurface: RasterSurface? = null
+    private var warpSource: IntArray? = null
+    private var warpBox = IntArray(4)
+    private var warpBase = HashMap<Long, RasterTile?>()
+
+    fun toggleMeshWarp() {
+        if (!meshWarping && activeLayerIsRaster) {
+            startRasterWarp()
+            return
+        }
+        if (meshWarping || selection.isEmpty()) {
+            endMeshWarp()
+            return
+        }
+        val (min, max) = selectionBounds() ?: return
+        // A flat selection (a horizontal line) still gets a box to bend.
+        val pad = maxOf(max.x - min.x, max.y - min.y) * 0.05 + 1.0 / scale.coerceAtLeast(1e-300)
+        meshMin = WorldPoint(min.x - pad, min.y - pad)
+        meshMax = WorldPoint(max.x + pad, max.y + pad)
+        meshNodes.clear()
+        meshNodes.addAll(meshGrid(meshMin, meshMax))
+        meshOriginals = selection.map { it to it.points.toList() }
+        meshWarping = true
+    }
+
+    /** Lays the lattice over the raster selection, or over all the active raster layer's paint. */
+    private fun startRasterWarp() {
+        val surface = activeRaster ?: return
+        val box = selectionPixelBox(surface) ?: paintedPixelBox(surface) ?: return
+        meshMin = surface.worldOf(box[0].toDouble(), box[1].toDouble())
+        meshMax = surface.worldOf(box[2] + 1.0, box[3] + 1.0)
+        meshNodes.clear()
+        meshNodes.addAll(meshGrid(meshMin, meshMax))
+        meshOriginals = emptyList()
+        warpSurface = surface
+        warpSource = null
+        warpBox = box
+        warpBase = HashMap()
+        meshWarping = true
+    }
+
+    private fun paintedPixelBox(surface: RasterSurface): IntArray? {
+        if (surface.tiles.isEmpty()) return null
+        val xs = surface.tiles.keys.map { RasterSurface.tileX(it) }
+        val ys = surface.tiles.keys.map { RasterSurface.tileY(it) }
+        return intArrayOf(xs.min() * RASTER_TILE, ys.min() * RASTER_TILE, (xs.max() + 1) * RASTER_TILE - 1, (ys.max() + 1) * RASTER_TILE - 1)
+    }
+
+    /** Redraws the lifted picture bent by the lattice as it is now. */
+    private fun applyRasterWarp() {
+        val surface = warpSurface ?: return
+        val box = warpBox
+        val width = box[2] - box[0] + 1
+        val height = box[3] - box[1] + 1
+        val before = surface.beforeTileChange
+        surface.beforeTileChange = { key ->
+            before(key)
+            if (key !in warpBase) warpBase[key] = surface.tileAt(key)?.copy()
+        }
+        // Back to the lifted state (logging each tile for undo first).
+        for ((key, tile) in warpBase) {
+            before(key)
+            surface.setTile(key, tile?.copy())
+        }
+        val source = warpSource ?: IntArray(width * height).also { pixels ->
+            // Lift: copy the picture (inside the selection, if any) and clear it from the layer.
+            surface.clip = if (rasterSelection != null) { x, y -> inRasterSelection(surface, x, y) } else null
+            surface.forEachPixelIn(box[0].toDouble(), box[1].toDouble(), box[2].toDouble(), box[3].toDouble()) { tile, index, px, py ->
+                val a = RasterSurface.u16(tile.data[index + 3])
+                if (a > 0) {
+                    fun channel(c: Int) = (RasterSurface.u16(tile.data[index + c]).toLong() * 255 / a).toInt().coerceIn(0, 255)
+                    pixels[(py - box[1]) * width + (px - box[0])] = ((a * 255 / 65535) shl 24) or (channel(0) shl 16) or (channel(1) shl 8) or channel(2)
+                }
+                for (c in 0 until 4) tile.data[index + c] = 0
+            }
+            surface.clip = null
+            warpSource = pixels
+        }
+        val warped = warpPixels(surface, source, width, height, box[0], box[1], meshMin, meshMax, meshNodes.toList())
+        if (warped != null) {
+            surface.forEachPixelIn(warped.left.toDouble(), warped.top.toDouble(), (warped.left + warped.width - 1).toDouble(), (warped.top + warped.height - 1).toDouble()) { tile, index, px, py ->
+                val x = px - warped.left
+                val y = py - warped.top
+                if (x !in 0 until warped.width || y !in 0 until warped.height) return@forEachPixelIn
+                val argb = warped.pixels[y * warped.width + x]
+                val a = (argb ushr 24) / 255.0
+                if (a == 0.0) return@forEachPixelIn
+                val src = doubleArrayOf(((argb shr 16) and 0xFF) / 255.0 * a, ((argb shr 8) and 0xFF) / 255.0 * a, (argb and 0xFF) / 255.0 * a, a)
+                for (c in 0 until 4) tile.data[index + c] = (src[c] * 65535 + RasterSurface.u16(tile.data[index + c]) * (1 - a)).toInt().coerceIn(0, 65535).toShort()
+            }
+        }
+        surface.beforeTileChange = before
+        rasterRevision++
+    }
+
+    private fun endMeshWarp() {
+        if (warpSurface != null) markRasterDirty(activeLayerId, emptySet())
+        warpSurface = null
+        warpSource = null
+        warpBase = HashMap()
+        meshWarping = false
+        meshNodes.clear()
+        meshOriginals = emptyList()
+        meshDragIndex = null
+    }
+
     fun beginSelectGesture(worldPoint: WorldPoint) {
+        // On a raster layer, a drag inside the raster selection moves its pixels.
+        if (activeLayerIsRaster && beginMovingSelectedPixels(worldPoint)) return
+        // The lattice belongs to the selection it was laid over; a changed selection ends it.
+        if (meshWarping && warpSurface == null && (meshOriginals.size != selection.size || meshOriginals.any { (stroke, _) -> selection.none { it === stroke } })) endMeshWarp()
+        if (meshWarping) {
+            val hit = meshNodes.indices.minByOrNull { k -> hypot(meshNodes[k].x - worldPoint.x, meshNodes[k].y - worldPoint.y) }
+                ?.takeIf { k -> hypot(meshNodes[k].x - worldPoint.x, meshNodes[k].y - worldPoint.y) * scale <= NODE_HANDLE_SCREEN }
+            if (hit != null) {
+                recordHistory()
+                meshDragIndex = hit
+                return
+            }
+        }
         nodeEditStroke?.let { stroke ->
             val nodes = editNodeIndices(stroke.points.size)
             val hit = nodes.indices.minByOrNull { k ->
@@ -2578,6 +3545,22 @@ class CanvasState(
     }
 
     fun continueSelectGesture(worldPoint: WorldPoint) {
+        if (floatingPixels != null) {
+            moveSelectedPixels(worldPoint)
+            return
+        }
+        meshDragIndex?.let { k ->
+            meshNodes[k] = worldPoint
+            if (warpSurface != null) {
+                applyRasterWarp()
+                return
+            }
+            val nodes = meshNodes.toList()
+            for ((stroke, original) in meshOriginals) {
+                if (stroke.points.size == original.size) stroke.setPoints(original.map { meshWarp(it, meshMin, meshMax, nodes) })
+            }
+            return
+        }
         val dragged = nodeDragIndex
         val editing = nodeEditStroke
         if (dragged != null && editing != null) {
@@ -2614,6 +3597,29 @@ class CanvasState(
     }
 
     fun endSelectGesture() {
+        if (floatingPixels != null) {
+            endMovingSelectedPixels()
+            return
+        }
+        // On a raster layer the lasso and marquee select pixels, not strokes.
+        if (activeLayerIsRaster) {
+            val lasso = lassoPath.toList()
+            lassoPath.clear()
+            val rect = marqueeRect
+            marqueeRect = null
+            rasterSelection = when {
+                lasso.size >= 3 -> lasso
+                rect != null && hypot(rect.second.x - rect.first.x, rect.second.y - rect.first.y) * scale > TAP_SLOP_SCREEN ->
+                    listOf(rect.first, WorldPoint(rect.second.x, rect.first.y), rect.second, WorldPoint(rect.first.x, rect.second.y))
+                else -> null // a tap deselects
+            }
+            return
+        }
+        if (meshDragIndex != null) {
+            meshDragIndex = null
+            strokesChanged()
+            return
+        }
         if (nodeDragIndex != null) {
             nodeDragIndex = null
             nodeDragOriginal = emptyList()
@@ -3166,6 +4172,7 @@ class CanvasState(
     private fun clearSelectionState() {
         selection.clear()
         nodeEditing = false
+        endMeshWarp()
         selectedImageId = null
         selectedTextId = null
         gestureSnapshot = emptyMap()
@@ -3187,19 +4194,23 @@ class CanvasState(
      */
     fun discardActionsSince(depth: Int) {
         if (undoStack.size <= depth) return
-        var snapshot: HistoryEntry? = null
-        while (undoStack.size > depth) snapshot = undoStack.removeLast()
         clearSelectionState()
         currentStroke = null
         symmetryCopies = emptyList()
-        snapshot?.let { restore(it) }
+        // Newest first: each entry's log takes strokes back to that entry, the oldest one last.
+        Stroke.withoutLogging {
+            openEntry = null
+            while (undoStack.size > depth) restore(undoStack.removeLast())
+        }
+        openLog(listOf(undoStack.lastOrNull(), redoStack.lastOrNull()).filterNotNull().maxByOrNull { it.seq })
         strokesChanged()
     }
 
     fun undo() {
         val previous = undoStack.removeLastOrNull() ?: return
         clearSelectionState()
-        redoStack.addLast(currentEntry())
+        // The redo step's log records what restoring changes, so redo can put it back.
+        redoStack.addLast(currentEntry().also(::openLog))
         restore(previous)
         strokesChanged()
     }
@@ -3207,7 +4218,7 @@ class CanvasState(
     fun redo() {
         val next = redoStack.removeLastOrNull() ?: return
         clearSelectionState()
-        undoStack.addLast(currentEntry())
+        undoStack.addLast(currentEntry().also(::openLog))
         restore(next)
         strokesChanged()
     }
@@ -3230,6 +4241,7 @@ class CanvasState(
         strokes.clear()
         undoStack.clear()
         redoStack.clear()
+        openLog(null)
         clearSelectionState()
         strokes.addAll(loaded)
     }
@@ -3375,14 +4387,19 @@ class CanvasState(
             kotlin.math.round(panWorld.x / spacing) * spacing,
             kotlin.math.round(panWorld.y / spacing) * spacing,
         )
-        for (stroke in strokes) {
-            stroke.shiftBy(offset)
+        endMeshWarp() // its box and starting points are in the old coordinates
+        for (surface in rasters.values) surface.shiftOrigin(offset)
+        if (rasters.isNotEmpty()) markRasterDirty(activeLayerId, emptySet()) // origins are saved with the tiles
+        // Not logged: the logs and entries are moved below instead.
+        Stroke.withoutLogging {
+            for (stroke in strokes) stroke.shiftBy(offset)
+            shiftStrokesOnlyInHistory(offset)
         }
         // History snapshots are in the same world space, so they must move with it, or an
         // undo after a rebase would restore strokes at their pre-rebase coordinates.
         geometryEpoch++ // every stroke moved
         for (entry in undoStack + redoStack) {
-            entry.shift += offset
+            entry.log.shiftAll(offset)
             entry.images = entry.images?.map { it.copy(position = it.position - offset) }
             entry.texts = entry.texts?.map { it.copy(position = it.position - offset) }
             entry.bones = entry.bones?.map { it.shiftedBy(offset) }
@@ -3420,4 +4437,27 @@ class CanvasState(
 }
 
 /** A document's animation timing (saved per document): playback speed and the X-sheet's holds. */
-data class AnimationSettings(val fps: Int = 12, val holds: Map<Int, Int> = emptyMap())
+data class AnimationSettings(
+    val fps: Int = 12,
+    val holds: Map<Int, Int> = emptyMap(),
+    val mouths: Map<Int, MouthShape> = emptyMap(),
+    val soundtrack: String? = null,
+)
+
+// Changed strokes tested directly before [CanvasState.strokesNear] rebuilds its index instead.
+private const val MAX_INDEX_PATCH = 4096
+
+/** A growable int list, so collecting candidate positions doesn't box each one. */
+private class IntArrayList {
+    private var data = IntArray(16)
+    var size = 0
+        private set
+
+    fun add(value: Int) {
+        if (size == data.size) data = data.copyOf(size * 2)
+        data[size++] = value
+    }
+
+    fun toSortedArray(): IntArray = data.copyOf(size).also { it.sort() }
+}
+

@@ -18,6 +18,10 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Opacity
+import androidx.compose.material.icons.filled.SubdirectoryArrowRight
+import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.Gradient
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
@@ -27,6 +31,8 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -60,6 +66,20 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                     .heightIn(max = 384.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
+                val skins = state.skins
+                if (skins.isNotEmpty()) {
+                    Text(stringResource(R.string.layers_skins), style = MaterialTheme.typography.labelLarge)
+                    Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                        for (skin in skins) {
+                            FilterChip(
+                                selected = state.activeSkin == skin,
+                                onClick = { state.applySkin(skin) },
+                                label = { Text(skin) },
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
+                        }
+                    }
+                }
                 for (layer in state.layers.reversed()) {
                     val active = layer.id == state.activeLayerId
                     Row(
@@ -130,10 +150,55 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                         }
                     }
                     if (active) {
+                        // Masks, clipping and alpha lock (roadmap item 91).
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { if (layer.masked) state.removeLayerMask(layer.id) else state.addLayerMask(layer.id) }) {
+                                Icon(
+                                    Icons.Filled.Gradient,
+                                    contentDescription = stringResource(if (layer.masked) R.string.layers_mask_remove else R.string.layers_mask_add),
+                                    tint = if (layer.masked) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                )
+                            }
+                            if (layer.masked) {
+                                IconButton(onClick = { state.editingMask = !state.editingMask }) {
+                                    Icon(
+                                        Icons.Filled.Brush,
+                                        contentDescription = stringResource(if (state.editingMask) R.string.layers_mask_edit_stop else R.string.layers_mask_edit),
+                                        tint = if (state.editingMask) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                    )
+                                }
+                            }
+                            IconButton(onClick = { state.updateLayer(layer.id) { it.copy(clipped = !it.clipped) } }, enabled = layer != state.layers.first()) {
+                                Icon(
+                                    Icons.Filled.SubdirectoryArrowRight,
+                                    contentDescription = stringResource(if (layer.clipped) R.string.layers_clip_off else R.string.layers_clip_on),
+                                    tint = if (layer.clipped) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                )
+                            }
+                            if (layer.raster) {
+                                IconButton(onClick = { state.updateLayer(layer.id) { it.copy(alphaLocked = !it.alphaLocked) } }) {
+                                    Icon(
+                                        Icons.Filled.Opacity,
+                                        contentDescription = stringResource(if (layer.alphaLocked) R.string.layers_alpha_unlock else R.string.layers_alpha_lock),
+                                        tint = if (layer.alphaLocked) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (active) {
                         Slider(
                             value = layer.opacity,
                             onValueChange = { value -> state.updateLayer(layer.id) { it.copy(opacity = value) } },
                             valueRange = 0f..1f,
+                        )
+                        // Blank for a layer that's always shown; a name puts it in that skin.
+                        OutlinedTextField(
+                            value = layer.skin.orEmpty(),
+                            onValueChange = { name -> state.updateLayer(layer.id) { it.copy(skin = name.trim().ifEmpty { null }) } },
+                            label = { Text(stringResource(R.string.layers_skin)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }
@@ -144,6 +209,9 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                 TextButton(onClick = { state.deleteEmptyLayers() }) { Text(stringResource(R.string.layers_remove_empty)) }
                 TextButton(onClick = { state.deleteHiddenLayers() }) { Text(stringResource(R.string.layers_delete_hidden)) }
                 TextButton(onClick = { state.addLayer() }) { Text(stringResource(R.string.layers_new)) }
+                // Raster layers hold pixels; 16 bits per channel for smooth gradients.
+                TextButton(onClick = { state.addRasterLayer(8) }) { Text(stringResource(R.string.layers_new_raster)) }
+                TextButton(onClick = { state.addRasterLayer(16) }) { Text(stringResource(R.string.layers_new_raster_16)) }
             }
         },
         dismissButton = {

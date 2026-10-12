@@ -3,6 +3,9 @@ package com.andene.fern.canvas
 import com.andene.fern.R
 import android.graphics.BitmapFactory
 import android.view.MotionEvent
+import android.view.SurfaceView
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -20,7 +23,9 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
@@ -103,13 +108,26 @@ fun DrawingCanvas(
     var predictedScreen by remember { mutableStateOf<Offset?>(null) }
     val textMeasurer = rememberTextMeasurer()
     val tileCache = remember { SceneTileCache() }
+    androidx.compose.runtime.DisposableEffect(tileCache) { onDispose { tileCache.release() } }
     val context = LocalContext.current
     // Decoded lazily and cached by file name: re-decoding from disk every frame would be
     // wasteful, and images never change once placed (a new image is a new ImageItem/file).
     val imageBitmapCache = remember { mutableMapOf<String, ImageBitmap>() }
+    // Low-latency ink (see FrontBufferedInk): a transparent front-buffered surface above the
+    // canvas. Placed first in the Box so the canvas, not the surface, receives touches; the
+    // surface is still composited on top because it's ordered above the window.
+    var frontInk by remember { mutableStateOf<FrontBufferedInk?>(null) }
 
+    Box(modifier) {
+    if (FrontBufferedInk.isSupported) {
+        AndroidView(
+            factory = { ctx -> SurfaceView(ctx).also { FrontBufferedInk.prepare(it); frontInk = FrontBufferedInk(it) } },
+            modifier = Modifier.matchParentSize(),
+            onRelease = { frontInk?.release(); frontInk = null },
+        )
+    }
     Canvas(
-        modifier = modifier
+        modifier = Modifier.matchParentSize()
             // Screen readers otherwise announce nothing for the drawing surface.
             .semantics {
                 contentDescription = context.resources.getQuantityString(R.plurals.canvas_description, state.strokes.size, state.strokes.size)
@@ -123,6 +141,7 @@ fun DrawingCanvas(
                     stylusSample.eraserEnd = event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER
                     stylusSample.buttonPressed = isStylus && (event.buttonState and MotionEvent.BUTTON_STYLUS_PRIMARY) != 0
                     predictor.record(event)
+                    frontInk?.onTouchEvent(event, state.strokeInProgress?.takeIf { state.activeStabilization <= 0.0 }, state.scale)
                     predictedScreen = when (event.actionMasked) {
                         MotionEvent.ACTION_MOVE -> predictor.predict()?.let { predicted ->
                             Offset(predicted.x, predicted.y).also { predicted.recycle() }
@@ -487,6 +506,18 @@ fun DrawingCanvas(
                 )
             }
 
+            // Raster selection outline: dashed, so it reads over any paint.
+            state.rasterSelection?.let { outline ->
+                val path = Path()
+                outline.forEachIndexed { i, p ->
+                    val s = state.worldToScreen(p, screenCenter)
+                    if (i == 0) path.moveTo(s.x, s.y) else path.lineTo(s.x, s.y)
+                }
+                path.close()
+                drawPath(path, Color.White, style = DrawStyle(width = 2f))
+                drawPath(path, Color.Black, style = DrawStyle(width = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))))
+            }
+
             if (state.lassoPath.size >= 2) {
                 val lasso = Path()
                 state.lassoPath.forEachIndexed { index, point ->
@@ -505,6 +536,36 @@ fun DrawingCanvas(
                     val p = state.worldToScreen(stroke.points[index], screenCenter)
                     drawRect(Color.White, topLeft = p - Offset(6f, 6f), size = Size(12f, 12f))
                     drawRect(HANDLE_COLOR, topLeft = p - Offset(6f, 6f), size = Size(12f, 12f), style = DrawStyle(width = 2f))
+                }
+            }
+
+            // Weight painting: each point of the selected bone's ink as a dot, red where it fully
+            // follows the bone, blue where it follows the parent, grey where it's automatic.
+            if (state.paintingWeights && state.activeTool == Tool.BONE) {
+                val boneId = state.selectedBoneId
+                for (stroke in state.strokes) {
+                    if (boneId == null || stroke.boneId != boneId || stroke.animFrame != state.currentAnimFrame) continue
+                    stroke.revision // redraw as weights are painted
+                    val weights = stroke.jointWeights
+                    for (i in stroke.points.indices) {
+                        val w = weights?.getOrNull(i)
+                        val color = if (w == null || w.isNaN()) WEIGHT_AUTO_COLOR else lerp(WEIGHT_PARENT_COLOR, WEIGHT_BONE_COLOR, w)
+                        drawCircle(color, radius = 4f, center = state.worldToScreen(stroke.points[i], screenCenter))
+                    }
+                }
+            }
+
+            // Mesh warp lattice: grid lines between control points and a handle on each.
+            if (state.meshWarping && state.meshNodes.size == MESH_SIZE * MESH_SIZE) {
+                val nodes = state.meshNodes.map { state.worldToScreen(it, screenCenter) }
+                for (j in 0 until MESH_SIZE) for (i in 0 until MESH_SIZE) {
+                    val p = nodes[j * MESH_SIZE + i]
+                    if (i + 1 < MESH_SIZE) drawLine(HANDLE_COLOR, p, nodes[j * MESH_SIZE + i + 1], strokeWidth = 1f)
+                    if (j + 1 < MESH_SIZE) drawLine(HANDLE_COLOR, p, nodes[(j + 1) * MESH_SIZE + i], strokeWidth = 1f)
+                }
+                for (p in nodes) {
+                    drawCircle(Color.White, radius = 8f, center = p)
+                    drawCircle(HANDLE_COLOR, radius = 8f, center = p, style = DrawStyle(width = 2f))
                 }
             }
 
@@ -616,6 +677,7 @@ fun DrawingCanvas(
             }
         }
     }
+    }
 
     state.pendingTextEdit?.let { pending ->
         TextEditDialog(
@@ -625,6 +687,29 @@ fun DrawingCanvas(
             linkChoices = linkChoices,
             onFollowLink = onFollowLink,
         )
+    }
+}
+
+/**
+ * A raster layer's painted tiles within the view, each scaled from its pixels to the screen.
+ * Magnified pixels stay crisp (nearest neighbour) once a pixel covers two screen pixels, so
+ * pixel work reads clearly; below that they're filtered.
+ */
+private fun DrawScope.drawRaster(surface: RasterSurface, state: CanvasState, screenCenter: Offset, topLeftWorld: WorldPoint, bottomRightWorld: WorldPoint, blendMode: BlendMode = BlendMode.SrcOver) {
+    val tileWorld = RASTER_TILE * surface.pixelWorld
+    val quality = if (surface.pixelWorld * state.scale >= 2.0) FilterQuality.None else FilterQuality.Low
+    for ((key, tile) in surface.tiles) {
+        val left = surface.originX + RasterSurface.tileX(key) * tileWorld
+        val top = surface.originY + RasterSurface.tileY(key) * tileWorld
+        if (left > bottomRightWorld.x || top > bottomRightWorld.y || left + tileWorld < topLeftWorld.x || top + tileWorld < topLeftWorld.y) continue
+        val a = state.worldToScreen(WorldPoint(left, top), screenCenter)
+        val b = state.worldToScreen(WorldPoint(left + tileWorld, top + tileWorld), screenCenter)
+        val x = a.x.roundToInt()
+        val y = a.y.roundToInt()
+        val width = b.x.roundToInt() - x
+        val height = b.y.roundToInt() - y
+        if (width <= 0 || height <= 0) continue
+        drawImage(surface.bitmapOf(tile).asImageBitmap(), dstOffset = IntOffset(x, y), dstSize = IntSize(width, height), filterQuality = quality, blendMode = blendMode)
     }
 }
 
@@ -911,13 +996,34 @@ private const val AIRBRUSH_DOTS_PER_SAMPLE = 6
 private fun DrawScope.drawStampStroke(stroke: Stroke, screenPoints: List<Offset>, source: IntArray, baseWidthScreen: Float, blendMode: BlendMode) {
     val brush = stroke.brush ?: StampBrush()
     val stamps = stampPlacements(screenPoints, baseWidthScreen, brush) { i -> widthFactorAt(stroke, source[i]) }
-    for (stamp in stamps) drawStamp(brush.tip, stamp, stroke.color, blendMode)
+    for (stamp in stamps) drawStamp(brush.tip, stamp, stroke.color, blendMode, brush.mask)
+}
+
+// One tintable bitmap per image tip, shared by every stamp and frame; weak so unused tips go.
+private val tipBitmaps = java.util.WeakHashMap<TipMask, ImageBitmap>()
+
+private fun tipBitmap(mask: TipMask): ImageBitmap = tipBitmaps.getOrPut(mask) {
+    val colors = IntArray(mask.size * mask.size) { ((mask.alpha[it].toInt() and 0xFF) shl 24) or 0xFFFFFF }
+    android.graphics.Bitmap.createBitmap(colors, mask.size, mask.size, android.graphics.Bitmap.Config.ARGB_8888).asImageBitmap()
 }
 
 /** Draws one stamp of [tip]; shared with the brush editor's preview. */
-fun DrawScope.drawStamp(tip: StampTip, stamp: Stamp, color: Color, blendMode: BlendMode = BlendMode.SrcOver) {
+fun DrawScope.drawStamp(tip: StampTip, stamp: Stamp, color: Color, blendMode: BlendMode = BlendMode.SrcOver, mask: TipMask? = null) {
     val radius = (stamp.size / 2f).coerceAtLeast(0.5f)
     when (tip) {
+        // The picture's coverage tinted with the stroke colour (SrcIn keeps its alpha, takes the colour).
+        StampTip.IMAGE -> if (mask == null) drawCircle(color, radius = radius, center = stamp.center, blendMode = blendMode) else {
+            val side = (radius * 2f).toInt().coerceAtLeast(1)
+            rotate(Math.toDegrees(stamp.angle.toDouble()).toFloat(), pivot = stamp.center) {
+                drawImage(
+                    tipBitmap(mask),
+                    dstOffset = IntOffset((stamp.center.x - side / 2f).toInt(), (stamp.center.y - side / 2f).toInt()),
+                    dstSize = IntSize(side, side),
+                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(color, BlendMode.SrcIn),
+                    blendMode = blendMode,
+                )
+            }
+        }
         StampTip.CIRCLE -> drawCircle(color, radius = radius, center = stamp.center, blendMode = blendMode)
         // Soft: a radial falloff from full colour at the centre to transparent at the rim.
         StampTip.SOFT -> drawCircle(
@@ -1272,13 +1378,14 @@ internal fun DrawScope.drawScene(
         drawContext.canvas.restore()
     }
 
-    for ((index, layer) in state.layers.withIndex()) {
-        if (!layer.visible) continue
-        val layerStrokes = strokesByLayer[index] ?: continue
-        // Layer opacity applies to the layer as a whole: drawn offscreen, then composited once,
-        // so overlapping strokes on one layer don't show through each other.
-        val translucent = layer.opacity < 1f
-        if (translucent) drawContext.canvas.saveLayer(layerBounds, Paint().apply { alpha = layer.opacity })
+    state.rasterRevision // repaint as raster pixels change
+    // One layer's own content: its pixels, or its strokes in list order.
+    fun drawLayerContent(index: Int, layer: Layer) {
+        if (layer.raster) {
+            state.rasters[layer.id]?.let { drawRaster(it, state, screenCenter, topLeftWorld, bottomRightWorld) }
+            return
+        }
+        val layerStrokes = strokesByLayer[index] ?: return
         for (stroke in layerStrokes) {
                 // Reading revision here (and only here) is what subscribes this draw phase to
                 // the stroke's mutations, so a redraw is triggered as each new point is added
@@ -1331,7 +1438,45 @@ internal fun DrawScope.drawScene(
                 if (stroke.penType == PenType.PIXEL) drawPixelStroke(stroke, state, screenCenter)
                 else drawStroke(stroke, screenPoints, source, widthScreen, stroke.blendMode.toComposeBlendMode())
         }
-        if (translucent) drawContext.canvas.restore()
+    }
+
+    // A layer as a whole: opacity applies to the layer once (drawn offscreen, then composited, so
+    // overlapping strokes on one layer don't show through each other), and its mask (roadmap item
+    // 91) hides what it covers.
+    fun drawLayer(index: Int, layer: Layer) {
+        val mask = if (layer.masked) state.rasters[maskIdOf(layer.id)] else null
+        val offscreen = layer.opacity < 1f || mask != null
+        if (offscreen) drawContext.canvas.saveLayer(layerBounds, Paint().apply { alpha = layer.opacity })
+        drawLayerContent(index, layer)
+        if (mask != null) drawRaster(mask, state, screenCenter, topLeftWorld, bottomRightWorld, BlendMode.DstOut)
+        if (offscreen) drawContext.canvas.restore()
+    }
+
+    // Bottom to top. A layer followed by clipped layers (clipping masks, roadmap item 91) is drawn
+    // with them in one group, each clipped layer only where the group already has paint.
+    val layerList = state.layers.toList()
+    var at = 0
+    while (at < layerList.size) {
+        val base = layerList[at]
+        var next = at + 1
+        while (next < layerList.size && layerList[next].clipped) next++
+        if (base.visible) {
+            if (next == at + 1) {
+                drawLayer(at, base)
+            } else {
+                drawContext.canvas.saveLayer(layerBounds, Paint())
+                drawLayer(at, base)
+                for (k in at + 1 until next) {
+                    if (!layerList[k].visible) continue
+                    drawContext.canvas.saveLayer(layerBounds, Paint().apply { blendMode = BlendMode.SrcAtop })
+                    drawLayer(k, layerList[k])
+                    drawContext.canvas.restore()
+                }
+                drawContext.canvas.restore()
+            }
+        }
+        // A hidden base hides the layers clipped to it, which have nothing to show through.
+        at = next
     }
 
     // Labels are measured first: connectors run to the boxes actually drawn (measured text plus a
@@ -1428,3 +1573,9 @@ private fun DrawScope.drawTextOnPath(layout: TextLayoutResult, path: List<Offset
         }
     }
 }
+
+// Weight-painting overlay colours: automatic, following the parent (0), following the bone (1).
+private val WEIGHT_AUTO_COLOR = Color(0xFF9E9E9E)
+private val WEIGHT_PARENT_COLOR = Color(0xFF1E88E5)
+private val WEIGHT_BONE_COLOR = Color(0xFFE53935)
+

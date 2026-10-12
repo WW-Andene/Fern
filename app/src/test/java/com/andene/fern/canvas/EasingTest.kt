@@ -43,4 +43,33 @@ class EasingTest {
         val xs = (1 until 12).map { f -> state.strokes.single { it.animFrame == f }.points.first().x }
         for ((i, x) in xs.withIndex()) assertEquals(10.0 * (i + 1), x, 1e-6)
     }
+
+    @Test
+    fun aCubicCurveMatchesKnownPoints() {
+        val linear = CubicEasing(0.25, 0.25, 0.75, 0.75)
+        assertEquals(0.3, linear.at(0.3), 1e-9)
+        // Symmetric ease-in-out: halfway in time is halfway in progress, slower near the keys.
+        assertEquals(0.5, CubicEasing.DEFAULT.at(0.5), 1e-9)
+        assertTrue(CubicEasing.DEFAULT.at(0.1) < 0.1)
+        // A handle above 1 overshoots before settling.
+        val overshoot = CubicEasing(0.3, 1.6, 0.6, 1.2)
+        assertTrue((1..99).any { overshoot.at(it / 100.0) > 1.0 })
+        assertEquals(1.0, overshoot.at(1.0), 1e-12)
+    }
+
+    @Test
+    fun theCustomEasingFollowsTheStatesCurve() {
+        val state = CanvasState()
+        state.motionEasing = Easing.CUSTOM
+        state.motionCurve = CubicEasing(0.0, 0.0, 0.0, 1.0) // fast out
+        assertTrue(state.easedProgress(0.2) > 0.5)
+    }
+
+    @Test
+    fun graphMappingRoundTrips() {
+        val p = unitToGraph(0.3, 1.1, 192f, 192f)
+        val (x, y) = graphToUnit(p, 192f, 192f)
+        assertEquals(0.3, x, 1e-5)
+        assertEquals(1.1, y, 1e-5)
+    }
 }

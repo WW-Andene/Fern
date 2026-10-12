@@ -51,4 +51,44 @@ class XSheetTest {
         assertEquals(6, lottie.getInt("op")) // 1 + 1 + 4 ticks
         assertEquals(2, lottie.getJSONArray("layers").getJSONObject(2).getInt("ip"))
     }
+
+    @Test
+    fun mouthChartMovesWithFramesAndIsSavedWithTheSoundtrack() {
+        val state = threeFrames()
+        state.setMouth(1, MouthShape.O)
+        state.goToAnimFrame(0)
+        state.insertAnimFrame(copyCurrent = false)
+        assertEquals(mapOf(2 to MouthShape.O), state.frameMouths.toMap())
+        state.goToAnimFrame(2)
+        state.deleteAnimFrame()
+        assertEquals(emptyMap<Int, MouthShape>(), state.frameMouths.toMap())
+
+        val doc = CanvasStorage.createDocument(context, "Talk")
+        val name = CanvasStorage.importSoundtrack(context, ByteArray(16).inputStream(), "wav", replacing = null)!!
+        val settings = AnimationSettings(12, emptyMap(), mapOf(0 to MouthShape.MBP, 3 to MouthShape.AI), name)
+        CanvasStorage.saveAnimationSettings(context, doc.id, settings)
+        assertEquals(settings, CanvasStorage.loadAnimationSettings(context, doc.id))
+        CanvasStorage.deleteDocument(context, doc.id)
+        assertEquals(false, CanvasStorage.soundtrackFile(context, name).exists())
+    }
+
+    @Test
+    fun framesStartWhereTheXSheetSays() {
+        val state = threeFrames()
+        state.loadAnimationSettings(AnimationSettings(10, mapOf(0 to 3)))
+        assertEquals(listOf(0L, 300L, 400L, 500L), (0..3).map { state.frameStartMillis(it) })
+        assertEquals(1, LipSync.frameAt(listOf(0L, 300L, 400L, 500L), 350))
+        assertEquals(0, LipSync.frameAt(listOf(0L, 300L, 400L, 500L), 0))
+    }
+
+    @Test
+    fun loudnessPicksWiderMouthsAndSilenceRests() {
+        val mouths = LipSync.mouthsFor(floatArrayOf(0f, 0.05f, 0.2f, 0.4f, 0.6f, 1f))
+        assertEquals(MouthShape.REST, mouths[0])
+        assertEquals(MouthShape.REST, mouths[1]) // under a tenth of the loudest
+        assertEquals(MouthShape.MBP, mouths[2])
+        assertEquals(MouthShape.E, mouths[3])
+        assertEquals(MouthShape.AI, mouths[4])
+        assertEquals(MouthShape.O, mouths[5])
+    }
 }
