@@ -94,6 +94,12 @@ Requires the Android SDK (compileSdk 34) and JDK 17.
 ./gradlew assembleDebug
 ```
 
+Run the tests (plain JVM; storage and Compose UI tests use Robolectric, no device needed):
+
+```
+./gradlew testDebugUnitTest
+```
+
 The debug APK lands in `app/build/outputs/apk/debug/`. Open the project in
 Android Studio for the full IDE experience (emulator, layout inspector,
 etc.) — it will pick up `local.properties` automatically; that file is

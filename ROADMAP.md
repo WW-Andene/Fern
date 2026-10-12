@@ -40,7 +40,7 @@ Goal: no drawing is ever lost.
 - [x] 12. Persist strokes locally across restarts
 - [x] 13. Debounced autosave after every action
 - [x] 14. Multiple documents: create, rename, duplicate, delete, switch
-- [ ] 15. Automated tests (unit + UI)
+- [x] 15. Automated tests (unit + UI) — JVM unit tests, plus storage and Compose UI tests on Robolectric; run in CI
 - [x] 16. Crash-safe atomic writes, corrupt-file quarantine instead of a crash
 - [x] 17. Versioned file format with migration path
 - [~] 18. Storage that scales to 1M strokes — thumbnail no longer re-rendered on every autosave; still one JSON file per document
