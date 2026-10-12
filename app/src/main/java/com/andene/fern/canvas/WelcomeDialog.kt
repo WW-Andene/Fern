@@ -26,6 +26,7 @@ private val tips = listOf(
     "One finger draws; two fingers pan, pinch to zoom and twist to rotate. The sheet never ends.",
     "Tap with two fingers to undo, three to redo.",
     "Hold the pen still at the end of a stroke to snap it into a clean line, box or circle.",
+    "Touch and hold without moving to pick up the colour underneath.",
     "Flip your stylus or hold its button to erase.",
     "Scroll the toolbar sideways for layers, symmetry, frames, export and more.",
 )
