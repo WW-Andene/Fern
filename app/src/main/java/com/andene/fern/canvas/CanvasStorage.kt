@@ -42,6 +42,7 @@ data class PinMeta(
 
 /** Where a document's placed images live and how their metadata is named. */
 private const val IMAGES_DIR_NAME = "images"
+private const val VIDEOS_DIR_NAME = "videos"
 
 /**
  * Persists canvas documents to local app storage: an index file listing every document's
@@ -503,6 +504,7 @@ object CanvasStorage {
                     position = WorldPoint(entry.getDouble("x"), entry.getDouble("y")),
                     widthWorld = entry.getDouble("width"),
                     heightWorld = entry.getDouble("height"),
+                    videoFileName = entry.optString("video").takeIf { it.isNotEmpty() },
                 )
             )
         }
@@ -549,6 +551,7 @@ object CanvasStorage {
                     put("y", item.position.y)
                     put("width", item.widthWorld)
                     put("height", item.heightWorld)
+                    item.videoFileName?.let { put("video", it) }
                 }
             )
         }
@@ -925,6 +928,11 @@ object CanvasStorage {
     }
 
     fun imageFile(context: Context, fileName: String): File = File(imagesDir(context), fileName)
+
+    /** Directory holding embedded videos (roadmap item 107), shared and immutable like [imagesDir]. */
+    fun videosDir(context: Context): File = File(context.filesDir, VIDEOS_DIR_NAME).also { if (!it.exists()) it.mkdirs() }
+
+    fun videoFile(context: Context, fileName: String): File = File(videosDir(context), fileName)
 
     /**
      * One-time upgrade from the pre-multi-document single `canvas.json` file: wraps its

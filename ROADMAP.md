@@ -172,7 +172,7 @@ All deferred: they need a server or cloud platform.
 - [x] 104. Pixel art — grid-aligned pixel pen; indexed palette (pixels snap to saved colours; reduce a selection to them; palette swaps via 100); sprites are animation frames exported as sprite sheets (80)
 - [x] 105. Comics — comic pages in six sizes (2:3, manga B5, A4, US comic, square, webtoon strip) and seven panel layouts (1 to 9 panels, 4-koma), each with a page frame; a panel cutter that divides crossed panels with a gutter; speech, thought (cloud with trail) and shout (burst) balloons; speed and focus lines (tapered, over the selection or the view); screentones
 - [x] 106. Notes — sticky notes, connectors between them (68), mind-map and planner templates (72)
-- [~] 107. Whiteboard — links in text labels open in the browser or another document; PDF pages imported onto the canvas to annotate; no embedded video (needs a device to verify a live video surface)
+- [x] 107. Whiteboard — links in text labels open in the browser or another document; PDF pages imported onto the canvas to annotate; embedded videos (copied in, shown by their first frame with a play badge, played over the canvas with play/pause, seek and mute; saved in .fern bundles). Playback isn't verified on a device here, and videos play in a player over the canvas rather than live on it
 - [~] 108. Posable mannequin in 2D (a rigged figure posed with the bone tool); no 3D painting
 - [ ] 109. AR placement and tracing ⏸ (ARCore is a Google Play Services platform)
 - [ ] 110. Generative AI ⏸

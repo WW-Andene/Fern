@@ -429,6 +429,21 @@ fun DrawingCanvas(
                 )
             }
 
+            // Embedded videos (roadmap item 107): a play badge on their first frame.
+            for (video in state.imageItems) {
+                if (video.videoFileName == null) continue
+                val centre = state.worldToScreen(WorldPoint(video.position.x + video.widthWorld / 2, video.position.y + video.heightWorld / 2), screenCenter)
+                drawCircle(VIDEO_BADGE_COLOR, radius = VIDEO_BADGE_RADIUS_PX, center = centre)
+                val r = VIDEO_BADGE_RADIUS_PX / 2
+                val triangle = Path().apply {
+                    moveTo(centre.x - r * 0.6f, centre.y - r)
+                    lineTo(centre.x + r, centre.y)
+                    lineTo(centre.x - r * 0.6f, centre.y + r)
+                    close()
+                }
+                drawPath(triangle, Color.White)
+            }
+
             state.imageItems.firstOrNull { it.id == state.selectedImageId }?.let { image ->
                 val topLeft = state.worldToScreen(image.position, screenCenter)
                 val bottomRight = state.worldToScreen(
@@ -1408,6 +1423,9 @@ private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
 private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
+// The play badge on an embedded video (roadmap item 107).
+private val VIDEO_BADGE_COLOR = Color(0x99000000)
+private const val VIDEO_BADGE_RADIUS_PX = 24f
 // The measure tool's line and readout (roadmap item 143).
 private val MEASURE_COLOR = Color(0xFF00897B)
 // A frame's layout grid bands (roadmap item 142): the frame colour, faint, so overlaps read darker.

@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.VideoFile
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.ViewQuilt
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Cloud
@@ -234,6 +236,8 @@ fun Toolbar(
     onDragSelectionOut: () -> Unit = {},
     /** Trace the selected image into vector shapes (roadmap item 101). */
     onTraceImage: () -> Unit = {},
+    /** Embeds a video (roadmap item 107). */
+    onInsertVideo: () -> Unit = {},
 ) {
     val dragOutLabel = stringResource(R.string.tb_drag_out)
     var showExportMenu by remember { mutableStateOf(false) }
@@ -251,6 +255,8 @@ fun Toolbar(
     if (showStatsDialog) StatsDialog(state, onDismiss = { showStatsDialog = false })
     var showSignatureDialog by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
+    var playingVideo by remember { mutableStateOf<ImageItem?>(null) }
+    playingVideo?.let { VideoPlayerDialog(it, onDismiss = { playingVideo = null }) }
     var showComicDialog by remember { mutableStateOf(false) }
     if (showComicDialog) ComicDialog(state, onDismiss = { showComicDialog = false })
     if (showQrDialog) QrCodeDialog(state, onDismiss = { showQrDialog = false })
@@ -946,6 +952,13 @@ fun Toolbar(
                 }
                 if (state.activeTool == Tool.SELECT) {
                     if (state.selectedImageId != null) {
+                        // An embedded video (roadmap item 107) plays from here.
+                        val video = state.imageItems.firstOrNull { it.id == state.selectedImageId && it.videoFileName != null }
+                        if (video != null) {
+                            IconButton(onClick = { playingVideo = video }) {
+                                Icon(Icons.Filled.PlayCircle, contentDescription = stringResource(R.string.video_play))
+                            }
+                        }
                         IconButton(onClick = onTraceImage) {
                             Icon(Icons.Filled.AutoFixHigh, contentDescription = stringResource(R.string.tb_trace_image))
                         }
@@ -1179,6 +1192,7 @@ fun Toolbar(
                     DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
                         val moreItems = listOf(
                             Triple(R.string.menu_insert_image, Icons.Filled.Image, onInsertImage),
+                            Triple(R.string.menu_insert_video, Icons.Filled.VideoFile, onInsertVideo),
                             Triple(R.string.menu_import_pdf, Icons.Filled.PictureAsPdf, onImportPdf),
                             Triple(R.string.menu_import_spine, Icons.Filled.AccessibilityNew, onImportSpine),
                             Triple(R.string.menu_import_layered, Icons.Filled.Layers, onImportLayered),

@@ -625,6 +625,12 @@
     <string name="comic_speed_length">Ligne la plus courte : %1$d %%</string>
     <string name="comic_speed_angle">Angle : %1$d°</string>
     <string name="comic_add_lines">Ajouter les lignes</string>
+    <string name="menu_insert_video">Insérer une vidéo</string>
+    <string name="video_play">Lire la vidéo</string>
+    <string name="video_mute">Couper le son</string>
+    <string name="video_unmute">Rétablir le son</string>
+    <string name="video_missing">Le fichier de cette vidéo est introuvable.</string>
+    <string name="toast_bad_video">Impossible de lire cette vidéo</string>
     <string name="tb_line_style">Style de trait</string>
     <string name="cap_round">Extrémités rondes</string>
     <string name="cap_square">Extrémités carrées</string>

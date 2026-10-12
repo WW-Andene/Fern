@@ -134,6 +134,7 @@ import com.andene.fern.canvas.exportDocumentExr
 import com.andene.fern.canvas.exportSlicesZip
 import com.andene.fern.canvas.exportDocumentEps
 import com.andene.fern.canvas.exportDocumentAi
+import com.andene.fern.canvas.embedVideo
 import com.andene.fern.canvas.readPdfVectors
 import com.andene.fern.canvas.exportReplayGif
 import com.andene.fern.canvas.StrokeChunkFile
@@ -655,6 +656,26 @@ class MainActivity : ComponentActivity() {
                         canvasState.addImage(fileName, position, widthWorld, heightWorld)
                     }
 
+                    // Embedded video (roadmap item 107): copied in, shown by its first frame.
+                    val videoPickerLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocument(),
+                    ) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val video = withContext(Dispatchers.IO) { embedVideo(context, uri, MAX_IMAGE_EDGE_PX) }
+                            if (video == null) {
+                                Toast.makeText(context, context.getString(R.string.toast_bad_video), Toast.LENGTH_SHORT).show()
+                                return@launch
+                            }
+                            // Placed like a picked image: 300 screen px wide, centred on the view.
+                            val scale = canvasState.scale.coerceAtLeast(1e-300)
+                            val widthWorld = 300.0 / scale
+                            val heightWorld = widthWorld * video.heightPx / video.widthPx
+                            val at = canvasState.panWorld
+                            canvasState.addImage(video.posterFileName, WorldPoint(at.x - widthWorld / 2, at.y - heightWorld / 2), widthWorld, heightWorld, videoFileName = video.videoFileName)
+                        }
+                    }
+
                     val imagePickerLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.PickVisualMedia(),
                     ) { uri ->
@@ -1072,6 +1093,7 @@ class MainActivity : ComponentActivity() {
                                 onOpenSettings = { showSettings = true },
                                 onCopySelection = { copySelectionToClipboard() },
                                 onDragSelectionOut = { dragSelectionOut() },
+                                onInsertVideo = { videoPickerLauncher.launch(arrayOf("video/*")) },
                                 onTraceImage = { traceSelectedImage() },
                                 onPaste = { pasteFromClipboard() },
                                 onOpenAudioNotes = {

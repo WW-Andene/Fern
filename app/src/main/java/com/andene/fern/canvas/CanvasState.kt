@@ -3880,9 +3880,9 @@ class CanvasState(
      * `MainActivity`'s photo-picker flow) at [position], sized to [widthWorld] x [heightWorld].
      */
     /** Places an image; undoable. Pass [recordUndo] = false for all but the first of a batch (e.g. PDF pages) so the batch undoes in one step. */
-    fun addImage(fileName: String, position: WorldPoint, widthWorld: Double, heightWorld: Double, recordUndo: Boolean = true) {
+    fun addImage(fileName: String, position: WorldPoint, widthWorld: Double, heightWorld: Double, recordUndo: Boolean = true, videoFileName: String? = null) {
         if (recordUndo) recordHistory()
-        imageItems.add(ImageItem(UUID.randomUUID().toString(), fileName, position, widthWorld, heightWorld))
+        imageItems.add(ImageItem(UUID.randomUUID().toString(), fileName, position, widthWorld, heightWorld, videoFileName))
         onImageChanged(imageItems.toList())
     }
 

@@ -9,6 +9,10 @@ package com.andene.fern.canvas
  * [fileName] names the decoded copy under the app's private `images/` directory (shared
  * across all documents, keyed by this id - see [CanvasStorage]). Duplicating a document
  * copies the metadata entry, not the file, since the file is immutable once written.
+ *
+ * An embedded video (roadmap item 107) is an image item whose picture is the video's first
+ * frame, with [videoFileName] naming the video under the app's private `videos/` directory
+ * (shared and immutable the same way); it plays from the selection bar.
  */
 data class ImageItem(
     val id: String,
@@ -16,4 +20,5 @@ data class ImageItem(
     val position: WorldPoint,
     val widthWorld: Double,
     val heightWorld: Double,
+    val videoFileName: String? = null,
 )
