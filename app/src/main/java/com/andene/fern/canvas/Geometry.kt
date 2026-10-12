@@ -98,30 +98,3 @@ fun resamplePolyline(points: List<WorldPoint>, count: Int): List<WorldPoint> {
         WorldPoint(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
     }
 }
-
-/**
- * Indices of the points of [points] to keep so consecutive kept points are at least
- * [minSpacing] apart: a point closer than that to the last kept one is skipped. The first and
- * last points are always kept, so endpoints never move. Each decision depends only on earlier
- * points, so appending points to a stroke never changes which earlier ones are kept (no flicker
- * while drawing). Used for zoom-aware level of detail, with the spacing set to one screen pixel.
- */
-fun decimatePolyline(points: List<WorldPoint>, minSpacing: Double): IntArray {
-    if (points.size <= 2 || !(minSpacing > 0.0)) return IntArray(points.size) { it }
-    val minSpacingSq = minSpacing * minSpacing
-    val kept = IntArray(points.size)
-    var count = 0
-    kept[count++] = 0
-    var last = points[0]
-    for (i in 1 until points.size - 1) {
-        val p = points[i]
-        val dx = p.x - last.x
-        val dy = p.y - last.y
-        if (dx * dx + dy * dy >= minSpacingSq) {
-            kept[count++] = i
-            last = p
-        }
-    }
-    kept[count++] = points.size - 1
-    return kept.copyOf(count)
-}

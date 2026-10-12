@@ -85,4 +85,44 @@ class StrokeTest {
     fun readingPastTheEndFails() {
         line(0.0).pressureAt(1)
     }
+
+    private fun polyline(points: List<WorldPoint>) = Stroke(Color.Black, 1.0).apply { points.forEach { addPoint(it) } }
+
+    @Test
+    fun decimationDropsSubSpacingPointsKeepsEnds() {
+        val dense = polyline((0..100).map { WorldPoint(it * 0.1, 0.0) }) // 0.1 apart over 10 units
+        val kept = dense.decimatedIndices(1.0)
+        assertEquals(0, kept.first())
+        assertEquals(100, kept.last())
+        assertEquals(11, kept.size)
+        for (i in 1 until kept.size - 1) assertTrue(dense.points[kept[i]].x - dense.points[kept[i - 1]].x >= 1.0 - 1e-9)
+    }
+
+    @Test
+    fun decimationIsStableAsPointsAreAppended() {
+        val points = (0..50).map { WorldPoint(it * 0.37, (it % 3) * 0.2) }
+        val stroke = polyline(points.take(30))
+        val shorter = stroke.decimatedIndices(1.0)
+        points.drop(30).forEach { stroke.addPoint(it) }
+        val longer = stroke.decimatedIndices(1.0)
+        assertEquals(shorter.dropLast(1), longer.take(shorter.size - 1))
+    }
+
+    @Test
+    fun decimationKeepsEverythingWhenSpacingIsZeroOrTiny() {
+        val stroke = polyline(listOf(WorldPoint(0.0, 0.0), WorldPoint(1.0, 0.0), WorldPoint(2.0, 0.0)))
+        assertEquals(listOf(0, 1, 2), stroke.decimatedIndices(0.0).toList())
+        assertEquals(listOf(0, 1, 2), stroke.decimatedIndices(0.5).toList())
+    }
+
+    @Test
+    fun decimationIsCachedPerZoomOctaveUntilTheStrokeChanges() {
+        val stroke = polyline((0..100).map { WorldPoint(it * 0.1, 0.0) })
+        val first = stroke.decimatedIndices(1.0)
+        assertTrue(first === stroke.decimatedIndices(1.9)) // same octave: reused
+        assertTrue(first !== stroke.decimatedIndices(2.0)) // next octave: recomputed
+        val again = stroke.decimatedIndices(1.0)
+        stroke.addPoint(WorldPoint(20.0, 0.0))
+        assertTrue(again !== stroke.decimatedIndices(1.0)) // the stroke changed
+    }
 }

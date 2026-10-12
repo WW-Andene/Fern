@@ -1102,7 +1102,7 @@ internal fun DrawScope.drawScene(
             if (stroke.animFrame != onionFrame || stroke.points.isEmpty()) continue
             if (state.layers.firstOrNull { it.id == stroke.layerId }?.visible == false) continue
             if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
-            val source = decimatePolyline(stroke.points, MIN_POINT_SPACING_SCREEN / state.scale)
+            val source = stroke.decimatedIndices(MIN_POINT_SPACING_SCREEN / state.scale)
             val screenPoints = source.map { state.worldToScreen(stroke.points[it], screenCenter) }
             val widthScreen = (stroke.widthWorld * state.scale).toFloat().coerceIn(1f, 1_000_000f)
             drawStroke(stroke, screenPoints, source, widthScreen, BlendMode.SrcOver)
@@ -1138,7 +1138,7 @@ internal fun DrawScope.drawScene(
                 // Points closer together than a pixel on screen add path-building cost but no
                 // visible detail, so only those at least MIN_POINT_SPACING_SCREEN apart are drawn;
                 // [source] maps each drawn point back to its index for pressure/tilt lookups.
-                val source = decimatePolyline(points, MIN_POINT_SPACING_SCREEN / state.scale)
+                val source = stroke.decimatedIndices(MIN_POINT_SPACING_SCREEN / state.scale)
                 val screenPoints = source.map { state.worldToScreen(points[it], screenCenter) }
                 if (stroke.filled) {
                     val path = Path()

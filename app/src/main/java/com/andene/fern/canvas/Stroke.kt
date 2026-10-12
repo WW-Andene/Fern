@@ -216,6 +216,55 @@ class Stroke(
         revision++
     }
 
+    private class Lod(val revision: Int, val spacing: Double, val indices: IntArray)
+
+    // Last decimation result. Swapped whole (never mutated), and volatile: an export may draw this
+    // stroke from another thread, and must never see indices computed for a different revision.
+    @Volatile
+    private var lod: Lod? = null
+
+    /**
+     * Indices of the points to draw so consecutive drawn points are at least about [minSpacing]
+     * apart (zoom-aware level of detail): a point closer than that to the last kept one is
+     * skipped; both ends are always kept. Each decision depends only on earlier points, so
+     * appending points never changes which earlier ones are kept (no flicker while drawing).
+     *
+     * Cached per stroke. [minSpacing] is rounded down to a power of two, so the result is reused
+     * across a whole octave of zoom (keeping at most twice the points strictly needed, still
+     * under a pixel apart) and recomputed only when the stroke changes or the zoom crosses an
+     * octave - not on every frame.
+     */
+    fun decimatedIndices(minSpacing: Double): IntArray {
+        val spacing = if (minSpacing > 0.0 && minSpacing.isFinite()) Math.scalb(1.0, Math.getExponent(minSpacing)) else 0.0
+        val cached = lod
+        if (cached != null && cached.revision == revision && cached.spacing == spacing) return cached.indices
+        val indices = decimate(spacing)
+        lod = Lod(revision, spacing, indices)
+        return indices
+    }
+
+    private fun decimate(spacing: Double): IntArray {
+        val n = size
+        if (n <= 2 || spacing <= 0.0) return IntArray(n) { it }
+        val spacingSq = spacing * spacing
+        val kept = IntArray(n)
+        var count = 0
+        kept[count++] = 0
+        var lastX = xs[0]
+        var lastY = ys[0]
+        for (i in 1 until n - 1) {
+            val dx = xs[i] - lastX
+            val dy = ys[i] - lastY
+            if (dx * dx + dy * dy >= spacingSq) {
+                kept[count++] = i
+                lastX = xs[i]
+                lastY = ys[i]
+            }
+        }
+        kept[count++] = n - 1
+        return kept.copyOf(count)
+    }
+
     /** True if this stroke's bounding box (padded by its width) intersects the given world-space rect. */
     fun intersects(left: Double, top: Double, right: Double, bottom: Double): Boolean {
         if (points.isEmpty()) return false

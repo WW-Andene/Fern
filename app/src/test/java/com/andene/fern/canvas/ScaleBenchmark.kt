@@ -87,6 +87,7 @@ class ScaleBenchmark {
         val middle = WorldPoint(side / 2, side / 2)
         measure("spatial index build") { StrokeSpatialIndex(state.strokes.toList()) }
         measure("render: whole document in view") { frame(middle, VIEW_PX / side) }
+        measure("render: mid zoom (about 1000 strokes in view)") { frame(middle, VIEW_PX / (32.0 * CELL)) }
         measure("render: zoomed in (about 16 strokes in view)") { frame(middle, VIEW_PX / (4.0 * CELL)) }
     }
 
