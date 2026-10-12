@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernHaptics
+
 import com.andene.fern.FernColors
 
 import com.andene.fern.FernType
@@ -134,7 +136,10 @@ fun DrawingCanvas(
         while (true) {
             delay(SHAPE_HOLD_POLL_MILLIS)
             // The front buffer still shows the freehand ink; wipe it so the clean shape shows.
-            if (state.holdTick()) frontInk?.clear()
+            if (state.holdTick()) {
+                frontInk?.clear()
+                FernHaptics.tick(view) // the held stroke just snapped to its shape (design roadmap D7)
+            }
         }
     }
 

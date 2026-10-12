@@ -91,6 +91,7 @@ import com.andene.fern.canvas.AudioNotes
 import com.andene.fern.canvas.AudioNotesDialog
 import com.andene.fern.canvas.AudioSeekOverlay
 import com.andene.fern.canvas.AudioBar
+import com.andene.fern.canvas.CanvasHaptics
 import com.andene.fern.canvas.BackgroundStyle
 import com.andene.fern.canvas.CanvasState
 import com.andene.fern.canvas.CanvasStorage
@@ -231,6 +232,7 @@ class MainActivity : ComponentActivity() {
             // canvas paper keeps each document's chosen background colour either way.
             var highContrast by remember { mutableStateOf(AppSettings.highContrast(this)) }
             var colorBlindSafe by remember { mutableStateOf(AppSettings.colorBlindSafe(this)) }
+            remember { FernHaptics.enabled = AppSettings.haptics(this) }
             FernTheme(highContrast = highContrast, colorBlindSafe = colorBlindSafe) {
                 Surface(color = Color(0xFFF7F5F0)) {
                     val context = LocalContext.current
@@ -1239,6 +1241,7 @@ class MainActivity : ComponentActivity() {
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(FernScale.s12),
                             )
+                            CanvasHaptics(canvasState)
                             // Messages (design roadmap D6), opposite the toolbar and out from under the drawing hand.
                             FernMessageHost(
                                 Modifier
@@ -1445,6 +1448,11 @@ class MainActivity : ComponentActivity() {
                             onColorBlindSafeChange = { value ->
                                 colorBlindSafe = value
                                 AppSettings.setColorBlindSafe(context, value)
+                            },
+                            haptics = FernHaptics.enabled,
+                            onHapticsChange = { value ->
+                                FernHaptics.enabled = value
+                                AppSettings.setHaptics(context, value)
                             },
                             snapToObjects = canvasState.snapToObjects,
                             onSnapToObjectsChange = { value ->

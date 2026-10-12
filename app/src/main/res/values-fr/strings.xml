@@ -13,6 +13,7 @@
     <string name="settings_toolbar_bottom">Barre d\'outils en bas</string>
     <string name="settings_high_contrast">Contraste élevé</string>
     <string name="settings_color_blind_safe">Repères du canevas adaptés au daltonisme</string>
+    <string name="settings_haptics">Retours haptiques</string>
     <string name="settings_snap_objects">Aimanter les formes aux objets</string>
     <string name="settings_show_guide">Afficher le guide des gestes</string>
     <string name="action_done">Terminé</string>

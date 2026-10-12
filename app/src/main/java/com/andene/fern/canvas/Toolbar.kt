@@ -1,5 +1,9 @@
 package com.andene.fern.canvas
 
+import androidx.compose.ui.platform.LocalView
+
+import com.andene.fern.FernHaptics
+
 import com.andene.fern.FernMessages
 import com.andene.fern.FernScale
 
@@ -346,6 +350,7 @@ fun Toolbar(
             onDismiss = { showSignatureDialog = false },
         )
     }
+    val view = LocalView.current
     // Destructive actions say what they did and offer the way back (design roadmap D6).
     val deletedMessage = stringResource(R.string.msg_deleted)
     val clearedMessage = stringResource(R.string.msg_cleared)
@@ -482,7 +487,10 @@ fun Toolbar(
                                                 state.activeColor = color
                                                 state.activeTool = Tool.PEN
                                             },
-                                            onLongPress = { savedColorMenu = color },
+                                            onLongPress = {
+                                                FernHaptics.press(view)
+                                                savedColorMenu = color
+                                            },
                                         )
                                     },
                                 shape = RoundedCornerShape(FernScale.s6), // §7.3: 0.24 × 24 = 5.8, nearest scale value 6
@@ -1741,6 +1749,7 @@ fun Toolbar(
  */
 @Composable
 private fun ToolSlotButton(state: CanvasState, index: Int) {
+    val view = LocalView.current
     val preset = state.toolSlots[index]
     var showMenu by remember { mutableStateOf(false) }
     val description = if (preset == null) stringResource(R.string.tb_slot_empty, index + 1)
@@ -1755,7 +1764,10 @@ private fun ToolSlotButton(state: CanvasState, index: Int) {
                 .pointerInput(preset) {
                     detectTapGestures(
                         onTap = { if (preset == null) state.saveToolSlot(index) else state.applyToolSlot(index) },
-                        onLongPress = { showMenu = true },
+                        onLongPress = {
+                            FernHaptics.press(view)
+                            showMenu = true
+                        },
                     )
                 },
             contentAlignment = Alignment.Center,

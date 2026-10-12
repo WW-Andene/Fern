@@ -164,8 +164,9 @@ Goal: a design system everything else is built from, accessible by default.
 - [x] D6. **Snackbars replace toasts.** Messages can be acted on ("Layer deleted — Undo"),
   TalkBack announces them, and they're placed away from the drawing hand.
   Done: `FernMessages` and `FernMessageHost`; all 22 toasts replaced. Messages sit opposite the toolbar, on the free hand's side. Deleting a selection (button or key) and clearing the canvas offer Undo.
-- [ ] D7. **Haptics vocabulary.** Light ticks on snaps, guide hits, the zoom at 100 %, tool
+- [x] D7. **Haptics vocabulary.** Light ticks on snaps, guide hits, the zoom at 100 %, tool
   switches and long-press menus. Each one can be switched off.
+  Done: `FernHaptics` (tick and press) with a Settings switch; ticks on tool switches, zoom passing 100 %, smart-guide snaps and a held stroke snapping to its shape; a press on long-press menus (saved colours, tool slots).
 
 ## Phase D2 — The new shell: canvas first, nothing more than one level deep
 

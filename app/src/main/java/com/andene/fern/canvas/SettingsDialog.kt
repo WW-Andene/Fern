@@ -33,6 +33,7 @@ private const val KEY_SNAP_TO_OBJECTS = "snap_to_objects"
 private const val KEY_BRUSH_PRESETS = "brush_presets"
 private const val KEY_HIGH_CONTRAST = "high_contrast"
 private const val KEY_COLOR_BLIND_SAFE = "color_blind_safe"
+private const val KEY_HAPTICS = "haptics"
 private const val KEY_HIDDEN_TOOLBAR_GROUPS = "hidden_toolbar_groups"
 private const val KEY_QUICK_MENU = "quick_menu_actions"
 
@@ -57,6 +58,14 @@ object AppSettings {
 
     fun setHighContrast(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_HIGH_CONTRAST, value).apply()
+    }
+
+    /** Haptic feedback (design roadmap D7), on unless switched off. */
+    fun haptics(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean(KEY_HAPTICS, true)
+
+    fun setHaptics(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_HAPTICS, value).apply()
     }
 
     /** Colour-blind-safe marks on the canvas (design roadmap D2). */
@@ -208,6 +217,8 @@ fun SettingsDialog(
     onHighContrastChange: (Boolean) -> Unit,
     colorBlindSafe: Boolean,
     onColorBlindSafeChange: (Boolean) -> Unit,
+    haptics: Boolean,
+    onHapticsChange: (Boolean) -> Unit,
     snapToObjects: Boolean,
     onSnapToObjectsChange: (Boolean) -> Unit,
     onShowGuide: () -> Unit,
@@ -247,6 +258,13 @@ fun SettingsDialog(
                 ) {
                     Text(stringResource(R.string.settings_color_blind_safe), modifier = Modifier.weight(1f))
                     Switch(checked = colorBlindSafe, onCheckedChange = onColorBlindSafeChange)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(stringResource(R.string.settings_haptics), modifier = Modifier.weight(1f))
+                    Switch(checked = haptics, onCheckedChange = onHapticsChange)
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8),
