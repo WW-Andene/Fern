@@ -84,7 +84,7 @@ could do.
 - `canvas/Toolbar.kt` and `*Dialog.kt` — UI.
 - `CrashReporter.kt`, `MainActivity.kt` — app wiring.
 
-The full feature roadmap lives outside the repository.
+The full feature roadmap, with the status of every item, is in [ROADMAP.md](ROADMAP.md).
 
 ## Building
 
