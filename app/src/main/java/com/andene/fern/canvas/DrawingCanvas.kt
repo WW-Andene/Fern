@@ -1090,6 +1090,9 @@ internal fun DrawScope.drawScene(
                     path.close()
                     if (stroke.screentone) {
                         drawScreentone(path, stroke.color, screenPoints)
+                    } else if (stroke.gradient != null) {
+                        val (start, end) = gradientEndpoints(screenPoints, stroke.gradient.angleDegrees)
+                        drawPath(path = path, brush = Brush.linearGradient(listOf(stroke.color, stroke.gradient.endColor), start = start, end = end))
                     } else if (stroke.fadeFill) {
                         // Gradient spans the fill's own height on screen, so it zooms with the shape.
                         val top = screenPoints.minOf { it.y }

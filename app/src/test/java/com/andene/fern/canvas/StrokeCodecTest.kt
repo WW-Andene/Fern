@@ -77,4 +77,12 @@ class StrokeCodecTest {
         assertEquals(brush, decoded[0].brush)
         assertEquals(null, decoded[1].brush)
     }
+
+    @Test
+    fun fillGradientRoundTrips() {
+        val fill = Stroke(Color.Red, 0.0, filled = true, gradient = FillGradient(Color(0x8000FF00.toInt()), 225)).apply {
+            addPoint(WorldPoint(0.0, 0.0)); addPoint(WorldPoint(1.0, 0.0)); addPoint(WorldPoint(0.0, 1.0))
+        }
+        assertEquals(fill.gradient, decode(encode(listOf(fill))).single().gradient)
+    }
 }

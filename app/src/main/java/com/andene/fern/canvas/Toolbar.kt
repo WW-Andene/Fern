@@ -162,6 +162,7 @@ fun Toolbar(
     var showBackgroundStyleMenu by remember { mutableStateOf(false) }
     var showBackgroundColorPicker by remember { mutableStateOf(false) }
     var showBrushEditor by remember { mutableStateOf(false) }
+    var showGradientDialog by remember { mutableStateOf(false) }
 
     Surface(
         modifier = modifier,
@@ -444,11 +445,16 @@ fun Toolbar(
                             tint = if (state.activeScreentone) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
-                    IconButton(onClick = { state.activeFadeFill = !state.activeFadeFill }) {
+                    val gradientOn = state.activeFadeFill || state.activeGradient != null
+                    IconButton(onClick = { showGradientDialog = true }) {
                         Icon(
                             Icons.Filled.Gradient,
-                            contentDescription = if (state.activeFadeFill) "Fade fill: on" else "Fade fill: off",
-                            tint = if (state.activeFadeFill) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                            contentDescription = when {
+                                state.activeGradient != null -> "Gradient fill: two colours"
+                                state.activeFadeFill -> "Gradient fill: fade out"
+                                else -> "Gradient fill: off"
+                            },
+                            tint = if (gradientOn) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
                 }
@@ -752,6 +758,24 @@ fun Toolbar(
                 showColorPicker = false
                 onImportPalette()
             },
+        )
+    }
+
+    if (showGradientDialog) {
+        GradientFillDialog(
+            startColor = state.activeColor,
+            initialMode = when {
+                state.activeGradient != null -> GradientMode.TWO_COLOURS
+                state.activeFadeFill -> GradientMode.FADE
+                else -> GradientMode.NONE
+            },
+            initialGradient = state.activeGradient,
+            onApply = { mode, gradient ->
+                state.activeFadeFill = mode == GradientMode.FADE
+                state.activeGradient = gradient
+                showGradientDialog = false
+            },
+            onDismiss = { showGradientDialog = false },
         )
     }
 

@@ -67,6 +67,8 @@ class Stroke(
     val screentone: Boolean = false,
     /** The brush a [PenType.STAMP] stroke was drawn with; null for every other pen. */
     val brush: StampBrush? = null,
+    /** For a fill: a two-colour gradient from [color] instead of a solid colour. */
+    val gradient: FillGradient? = null,
 ) {
     /** Mutable so a SELECT-tool scale gesture can resize the stroke proportionally with its geometry. */
     var widthWorld: Double = widthWorld
@@ -210,7 +212,7 @@ class Stroke(
     fun onAnimFrame(frame: Int): Stroke = restyled(color, layerId, frame)
 
     private fun restyled(newColor: Color, newLayerId: String, newFrame: Int = animFrame): Stroke {
-        val copy = Stroke(newColor, widthWorld, penType, filled, blendMode, newLayerId, newFrame, dashed, fadeFill, screentone, brush)
+        val copy = Stroke(newColor, widthWorld, penType, filled, blendMode, newLayerId, newFrame, dashed, fadeFill, screentone, brush, gradient)
         for (i in 0 until size) copy.addPoint(WorldPoint(xs[i], ys[i]), pressureData[i], tiltData[i], orientationData[i])
         return copy
     }
@@ -273,7 +275,7 @@ class Stroke(
         }
         if (!anyRemoved) return null
         return runs.filter { it.size >= 2 }.map { run ->
-            val piece = Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush)
+            val piece = Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush, gradient)
             for (index in run) piece.addPoint(WorldPoint(xs[index], ys[index]), pressureData[index], tiltData[index], orientationData[index])
             piece
         }

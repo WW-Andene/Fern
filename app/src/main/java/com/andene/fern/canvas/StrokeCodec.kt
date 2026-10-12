@@ -22,6 +22,7 @@ import java.io.IOException
  *   int layer-id name  int animation frame  byte flags
  *   [if FLAG_BRUSH: short tip name  float spacing  float scatter  float size jitter
  *                   float angle jitter  byte follow-direction]          (version 2+)
+ *   [if FLAG_GRADIENT: int end colour (ARGB)  short angle in degrees]  (version 3+)
  *   int point count
  *   per point: double x, double y [, float pressure, float tilt, float orientation]
  * ```
@@ -37,8 +38,9 @@ object StrokeCodec {
     /**
      * Bump when the layout changes, and keep reading every older version.
      * 1: first binary format. 2: optional stamp-brush settings per stroke ([FLAG_BRUSH]).
+     * 3: optional two-colour fill gradient ([FLAG_GRADIENT]).
      */
-    const val VERSION = 2
+    const val VERSION = 3
 
     private const val FLAG_FILLED = 1
     private const val FLAG_DASHED = 2
@@ -46,6 +48,7 @@ object StrokeCodec {
     private const val FLAG_TONE = 8
     private const val FLAG_STYLUS = 16
     private const val FLAG_BRUSH = 32
+    private const val FLAG_GRADIENT = 64
 
     fun write(out: DataOutputStream, strokes: List<Stroke>) {
         val names = LinkedHashMap<String, Int>()
@@ -72,6 +75,8 @@ object StrokeCodec {
             if (stylus) flags = flags or FLAG_STYLUS
             val brush = stroke.brush
             if (brush != null) flags = flags or FLAG_BRUSH
+            val gradient = stroke.gradient
+            if (gradient != null) flags = flags or FLAG_GRADIENT
             out.writeInt(stroke.color.toArgb())
             out.writeDouble(stroke.widthWorld)
             out.writeShort(nameIndex(stroke.penType.name))
@@ -86,6 +91,10 @@ object StrokeCodec {
                 out.writeFloat(brush.sizeJitter)
                 out.writeFloat(brush.angleJitter)
                 out.writeBoolean(brush.followDirection)
+            }
+            if (gradient != null) {
+                out.writeInt(gradient.endColor.toArgb())
+                out.writeShort(gradient.angleDegrees)
             }
             val points = stroke.points
             out.writeInt(points.size)
@@ -135,6 +144,11 @@ object StrokeCodec {
             } else {
                 null
             }
+            val gradient = if ((flags and FLAG_GRADIENT) != 0) {
+                FillGradient(Color(input.readInt()), input.readShort().toInt())
+            } else {
+                null
+            }
             val stroke = Stroke(
                 color, width, penType,
                 filled = (flags and FLAG_FILLED) != 0,
@@ -145,6 +159,7 @@ object StrokeCodec {
                 fadeFill = (flags and FLAG_FADE) != 0,
                 screentone = (flags and FLAG_TONE) != 0,
                 brush = brush,
+                gradient = gradient,
             )
             val stylus = (flags and FLAG_STYLUS) != 0
             repeat(input.readInt().also { checkCount(it) }) {

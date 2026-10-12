@@ -1,6 +1,7 @@
 package com.andene.fern.canvas
 
 import android.util.Base64
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import java.util.Locale
 
@@ -42,13 +43,24 @@ fun exportDocumentSvg(source: CanvasState, imageBytesFor: (String) -> ByteArray?
     val ordered = camera.strokes.withIndex()
         .sortedWith(compareBy({ layerIndex[it.value.layerId] ?: 0 }, { it.index }))
         .map { it.value }
+    var gradientCount = 0
     for (stroke in ordered) {
         if (stroke.points.isEmpty()) continue
         val layer = camera.layers.getOrNull(layerIndex[stroke.layerId] ?: 0)
         if (layer != null && !layer.visible) continue
         val d = stroke.points.mapIndexed { i, p -> (if (i == 0) "M" else "L") + "${n(p.x)} ${n(p.y)}" }.joinToString(" ")
         val opacity = n(stroke.color.alpha.toDouble() * (layer?.opacity ?: 1f))
-        if (stroke.filled) {
+        val gradient = stroke.gradient
+        if (stroke.filled && gradient != null) {
+            // Same endpoints as the canvas, in world space, so the gradient's angle isn't
+            // distorted by the fill's aspect ratio the way objectBoundingBox units would be.
+            val (start, end) = gradientEndpoints(stroke.points.map { Offset(it.x.toFloat(), it.y.toFloat()) }, gradient.angleDegrees)
+            val id = "g${gradientCount++}"
+            svg.append("""<defs><linearGradient id="$id" gradientUnits="userSpaceOnUse" x1="${n(start.x.toDouble())}" y1="${n(start.y.toDouble())}" x2="${n(end.x.toDouble())}" y2="${n(end.y.toDouble())}">""")
+            svg.append("""<stop offset="0" stop-color="${hex(stroke.color)}" stop-opacity="$opacity"/>""")
+            svg.append("""<stop offset="1" stop-color="${hex(gradient.endColor)}" stop-opacity="${n(gradient.endColor.alpha.toDouble() * (layer?.opacity ?: 1f))}"/>""")
+            svg.append("""</linearGradient></defs><path d="$d Z" fill="url(#$id)"/>""")
+        } else if (stroke.filled) {
             svg.append("""<path d="$d Z" fill="${hex(stroke.color)}" fill-opacity="$opacity"/>""")
         } else {
             svg.append("""<path d="$d" fill="none" stroke="${hex(stroke.color)}" stroke-opacity="$opacity" """)

@@ -643,6 +643,9 @@ class CanvasState(
     /** Fills fade from the colour to transparent (top to bottom) instead of being solid. */
     var activeFadeFill by mutableStateOf(false)
 
+    /** Two-colour gradient for new fills (from the active colour), or null for none; exclusive with [activeFadeFill]. */
+    var activeGradient: FillGradient? by mutableStateOf(null)
+
     /** New strokes and shapes are drawn dashed. */
     var activeDashed by mutableStateOf(false)
 
@@ -1186,7 +1189,10 @@ class CanvasState(
         }
         if (bestIndex == -1) return
         val boundary = strokes[bestIndex]
-        val fillStroke = Stroke(activeColor, 0.0, PenType.MARKER, filled = true, layerId = activeLayerId, animFrame = currentAnimFrame, fadeFill = activeFadeFill, screentone = activeScreentone)
+        val fillStroke = Stroke(
+            activeColor, 0.0, PenType.MARKER, filled = true, layerId = activeLayerId, animFrame = currentAnimFrame,
+            fadeFill = activeFadeFill, screentone = activeScreentone, gradient = activeGradient,
+        )
         for (point in boundary.points) fillStroke.addPoint(point)
         strokes.add(bestIndex, fillStroke)
         onChanged(strokes.toList())
