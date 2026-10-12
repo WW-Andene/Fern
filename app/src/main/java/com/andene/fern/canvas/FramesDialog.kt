@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,7 +49,7 @@ fun FramesDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Frames") },
+        title = { Text(stringResource(R.string.frames_title)) },
         text = {
             Column {
                 Column(
@@ -56,7 +58,7 @@ fun FramesDialog(
                         .verticalScroll(rememberScrollState()),
                 ) {
                     if (frames.isEmpty()) {
-                        Text("No frames yet. A frame marks out an area of the canvas to jump to and export as a page.")
+                        Text(stringResource(R.string.frames_empty))
                     }
                     for (frame in frames) {
                         Row(
@@ -71,10 +73,10 @@ fun FramesDialog(
                                     .padding(vertical = 12.dp),
                             )
                             IconButton(onClick = { onExport(frame) }) {
-                                Icon(Icons.Filled.IosShare, contentDescription = "Export frame as PNG")
+                                Icon(Icons.Filled.IosShare, contentDescription = stringResource(R.string.frames_export))
                             }
                             IconButton(onClick = { onDelete(frame) }) {
-                                Icon(Icons.Filled.Delete, contentDescription = "Delete frame")
+                                Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.frames_delete))
                             }
                         }
                     }
@@ -86,7 +88,7 @@ fun FramesDialog(
                     OutlinedTextField(
                         value = newFrameName,
                         onValueChange = { newFrameName = it },
-                        label = { Text("New frame from current view") },
+                        label = { Text(stringResource(R.string.frames_new_name)) },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )
@@ -96,19 +98,19 @@ fun FramesDialog(
                             newFrameName = ""
                         }
                     }) {
-                        Icon(Icons.Filled.Add, contentDescription = "Add frame")
+                        Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.frames_add))
                     }
                 }
             }
         },
         confirmButton = {
             Row {
-                TextButton(onClick = onAddComicPage) { Text("Comic page") }
-                TextButton(onClick = onPresent, enabled = frames.isNotEmpty()) { Text("Present") }
+                TextButton(onClick = onAddComicPage) { Text(stringResource(R.string.frames_comic)) }
+                TextButton(onClick = onPresent, enabled = frames.isNotEmpty()) { Text(stringResource(R.string.frames_present)) }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         },
     )
 }

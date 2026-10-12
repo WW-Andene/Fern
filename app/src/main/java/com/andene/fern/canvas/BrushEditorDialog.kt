@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,7 +47,7 @@ import kotlin.math.sin
  * (or dismissing) leaves the brush as it was; Reset returns to the default brush.
  *
  * Presets: tapping a saved preset loads it into the editor (still applied only by Apply); the
- * loaded preset then shows a close icon that deletes it, and "Save as preset" stores the brush being edited under a name -
+ * loaded preset then shows a close icon that deletes it, and stringResource(R.string.brush_save_preset) stores the brush being edited under a name -
  * saving under an existing name replaces that preset.
  */
 @Composable
@@ -63,12 +65,12 @@ fun BrushEditorDialog(
     var presetName by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Stamp brush") },
+        title = { Text(stringResource(R.string.brush_title)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 BrushPreview(brush, color)
                 if (presets.isNotEmpty()) {
-                    Text("Presets", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+                    Text(stringResource(R.string.brush_presets), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
                     Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                         for (preset in presets) {
                             val loaded = preset.brush == brush
@@ -83,7 +85,7 @@ fun BrushEditorDialog(
                                     {
                                         Icon(
                                             Icons.Filled.Close,
-                                            contentDescription = "Delete preset ${preset.name}",
+                                            contentDescription = stringResource(R.string.brush_delete_preset, preset.name),
                                             modifier = Modifier.size(16.dp).clickable { onDeletePreset(preset.name) },
                                         )
                                     }
@@ -105,27 +107,27 @@ fun BrushEditorDialog(
                         )
                     }
                 }
-                BrushSlider("Spacing", brush.spacing, StampBrush.MIN_SPACING..StampBrush.MAX_SPACING) { brush = brush.copy(spacing = it) }
-                BrushSlider("Scatter", brush.scatter, 0f..StampBrush.MAX_SCATTER) { brush = brush.copy(scatter = it) }
-                BrushSlider("Size jitter", brush.sizeJitter, 0f..1f) { brush = brush.copy(sizeJitter = it) }
-                BrushSlider("Angle jitter", brush.angleJitter, 0f..1f) { brush = brush.copy(angleJitter = it) }
+                BrushSlider(stringResource(R.string.brush_spacing), brush.spacing, StampBrush.MIN_SPACING..StampBrush.MAX_SPACING) { brush = brush.copy(spacing = it) }
+                BrushSlider(stringResource(R.string.brush_scatter), brush.scatter, 0f..StampBrush.MAX_SCATTER) { brush = brush.copy(scatter = it) }
+                BrushSlider(stringResource(R.string.brush_size_jitter), brush.sizeJitter, 0f..1f) { brush = brush.copy(sizeJitter = it) }
+                BrushSlider(stringResource(R.string.brush_angle_jitter), brush.angleJitter, 0f..1f) { brush = brush.copy(angleJitter = it) }
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Follow stroke direction", modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.brush_follow), modifier = Modifier.weight(1f))
                     Switch(checked = brush.followDirection, onCheckedChange = { brush = brush.copy(followDirection = it) })
                 }
                 Row {
-                    TextButton(onClick = { brush = StampBrush() }) { Text("Reset to default") }
-                    TextButton(onClick = { namingPreset = true }) { Text("Save as preset") }
+                    TextButton(onClick = { brush = StampBrush() }) { Text(stringResource(R.string.brush_reset)) }
+                    TextButton(onClick = { namingPreset = true }) { Text(stringResource(R.string.brush_save_preset)) }
                 }
                 if (namingPreset) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(
                             value = presetName,
                             onValueChange = { presetName = it },
-                            label = { Text("Preset name") },
+                            label = { Text(stringResource(R.string.brush_preset_name)) },
                             singleLine = true,
                             modifier = Modifier.weight(1f),
                         )
@@ -136,13 +138,13 @@ fun BrushEditorDialog(
                                 namingPreset = false
                             },
                             enabled = presetName.isNotBlank(),
-                        ) { Text("Save") }
+                        ) { Text(stringResource(R.string.action_save)) }
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onApply(brush) }) { Text("Apply") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton(onClick = { onApply(brush) }) { Text(stringResource(R.string.action_apply)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 

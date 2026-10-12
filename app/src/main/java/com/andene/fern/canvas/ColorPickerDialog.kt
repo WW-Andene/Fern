@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,9 +43,9 @@ fun ColorPickerDialog(
     initialColor: Color,
     onDismiss: () -> Unit,
     onColorSelected: (Color) -> Unit,
-    /** When set, a "Save to palette" button stores the current colour without closing. */
+    /** When set, a stringResource(R.string.color_save_palette) button stores the current colour without closing. */
     onSaveColor: ((Color) -> Unit)? = null,
-    /** When set, an "Import palette" button imports a .gpl or .ase palette file into the saved colours. */
+    /** When set, an stringResource(R.string.color_import_palette) button imports a .gpl or .ase palette file into the saved colours. */
     onImportPalette: (() -> Unit)? = null,
 ) {
     var hue by remember { mutableFloatStateOf(0f) }
@@ -64,7 +66,7 @@ fun ColorPickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Choose color") },
+        title = { Text(stringResource(R.string.color_title)) },
         text = {
             // Scrolls: with the harmony rows the picker is taller than a landscape phone screen.
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -74,7 +76,7 @@ fun ColorPickerDialog(
                     color = currentColor(),
                 ) {}
 
-                Text("Hue", modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(R.string.color_hue), modifier = Modifier.padding(top = 8.dp))
                 Slider(
                     value = hue,
                     onValueChange = {
@@ -84,7 +86,7 @@ fun ColorPickerDialog(
                     valueRange = 0f..360f,
                 )
 
-                Text("Saturation")
+                Text(stringResource(R.string.color_saturation))
                 Slider(
                     value = saturation,
                     onValueChange = {
@@ -94,7 +96,7 @@ fun ColorPickerDialog(
                     valueRange = 0f..1f,
                 )
 
-                Text("Brightness")
+                Text(stringResource(R.string.color_brightness))
                 Slider(
                     value = value,
                     onValueChange = {
@@ -106,7 +108,7 @@ fun ColorPickerDialog(
 
                 // Colour harmonies: hues related to the current one by the classic colour-wheel
                 // rules. Tapping a swatch makes it the current colour.
-                Text("Harmonies", modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(R.string.color_harmonies), modifier = Modifier.padding(top = 8.dp))
                 for ((label, offsets) in HARMONIES) {
                     Row(
                         modifier = Modifier.padding(vertical = 4.dp),
@@ -143,7 +145,7 @@ fun ColorPickerDialog(
                                 value = hsv[2]
                             }
                         },
-                        label = { Text("Hex") },
+                        label = { Text(stringResource(R.string.color_hex)) },
                         singleLine = true,
                     )
                 }
@@ -151,19 +153,19 @@ fun ColorPickerDialog(
         },
         confirmButton = {
             TextButton(onClick = { onColorSelected(currentColor()) }) {
-                Text("Select")
+                Text(stringResource(R.string.action_select))
             }
         },
         dismissButton = {
             Row {
                 if (onImportPalette != null) {
-                    TextButton(onClick = onImportPalette) { Text("Import palette") }
+                    TextButton(onClick = onImportPalette) { Text(stringResource(R.string.color_import_palette)) }
                 }
                 if (onSaveColor != null) {
-                    TextButton(onClick = { onSaveColor(currentColor()) }) { Text("Save to palette") }
+                    TextButton(onClick = { onSaveColor(currentColor()) }) { Text(stringResource(R.string.color_save_palette)) }
                 }
                 TextButton(onClick = onDismiss) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
         },

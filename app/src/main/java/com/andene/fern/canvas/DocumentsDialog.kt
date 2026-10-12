@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -102,14 +104,14 @@ fun DocumentsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (showingTrash) "Trash" else "Documents") },
+        title = { Text(if (showingTrash) stringResource(R.string.documents_trash) else stringResource(R.string.documents_title)) },
         text = {
             Column {
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
                     singleLine = true,
-                    placeholder = { Text("Search") },
+                    placeholder = { Text(stringResource(R.string.documents_search)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(
@@ -127,7 +129,7 @@ fun DocumentsDialog(
                     FilterChip(
                         selected = showingTrash,
                         onClick = { showingTrash = !showingTrash },
-                        label = { Text("Trash") },
+                        label = { Text(stringResource(R.string.documents_trash)) },
                     )
                 }
                 if (!showingTrash && folders.isNotEmpty()) {
@@ -139,7 +141,7 @@ fun DocumentsDialog(
                         FilterChip(
                             selected = openFolder == null,
                             onClick = { openFolder = null },
-                            label = { Text("All") },
+                            label = { Text(stringResource(R.string.documents_all)) },
                             modifier = Modifier.padding(end = 8.dp),
                         )
                         for (folder in folders) {
@@ -160,7 +162,7 @@ fun DocumentsDialog(
                 ) {
                     if (visible.isEmpty()) {
                         Text(
-                            text = if (showingTrash) "Trash is empty" else "No documents found",
+                            text = if (showingTrash) stringResource(R.string.documents_trash_empty) else stringResource(R.string.documents_none),
                             modifier = Modifier.padding(vertical = 8.dp),
                         )
                     }
@@ -174,10 +176,10 @@ fun DocumentsDialog(
                             if (showingTrash) {
                                 Text(text = doc.name, modifier = Modifier.weight(1f))
                                 IconButton(onClick = { onRestore(doc) }) {
-                                    Icon(Icons.Filled.Restore, contentDescription = "Restore")
+                                    Icon(Icons.Filled.Restore, contentDescription = stringResource(R.string.documents_restore))
                                 }
                                 IconButton(onClick = { onDeleteForever(doc) }) {
-                                    Icon(Icons.Filled.DeleteForever, contentDescription = "Delete forever")
+                                    Icon(Icons.Filled.DeleteForever, contentDescription = stringResource(R.string.documents_delete_forever))
                                 }
                             } else if (movingId == doc.id) {
                                 // Empty name moves the document back to the top level.
@@ -185,14 +187,14 @@ fun DocumentsDialog(
                                     value = moveText,
                                     onValueChange = { moveText = it },
                                     singleLine = true,
-                                    placeholder = { Text("Folder name") },
+                                    placeholder = { Text(stringResource(R.string.documents_folder_name)) },
                                     modifier = Modifier.weight(1f),
                                 )
                                 IconButton(onClick = {
                                     onMoveToFolder(doc, moveText.ifBlank { null })
                                     movingId = null
                                 }) {
-                                    Icon(Icons.Filled.Check, contentDescription = "Confirm move")
+                                    Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.documents_confirm_move))
                                 }
                             } else if (renamingId == doc.id) {
                                 OutlinedTextField(
@@ -205,13 +207,13 @@ fun DocumentsDialog(
                                     onRename(doc, renameText)
                                     renamingId = null
                                 }) {
-                                    Icon(Icons.Filled.Check, contentDescription = "Confirm rename")
+                                    Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.action_confirm_rename))
                                 }
                             } else {
                                 IconButton(onClick = { onToggleFavorite(doc) }) {
                                     Icon(
                                         if (doc.favorite) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                        contentDescription = if (doc.favorite) "Remove from favourites" else "Add to favourites",
+                                        contentDescription = if (doc.favorite) stringResource(R.string.documents_unfavourite) else stringResource(R.string.documents_favourite),
                                     )
                                 }
                                 DocumentThumbnailImage(doc, loadThumbnail)
@@ -227,19 +229,19 @@ fun DocumentsDialog(
                                     renamingId = doc.id
                                     renameText = doc.name
                                 }) {
-                                    Icon(Icons.Filled.Edit, contentDescription = "Rename")
+                                    Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.action_rename))
                                 }
                                 IconButton(onClick = {
                                     movingId = doc.id
                                     moveText = doc.folder ?: openFolder.orEmpty()
                                 }) {
-                                    Icon(Icons.Filled.DriveFileMove, contentDescription = "Move to folder")
+                                    Icon(Icons.Filled.DriveFileMove, contentDescription = stringResource(R.string.documents_move_folder))
                                 }
                                 IconButton(onClick = { onDuplicate(doc) }) {
-                                    Icon(Icons.Filled.ContentCopy, contentDescription = "Duplicate")
+                                    Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.action_duplicate))
                                 }
                                 IconButton(onClick = { onTrash(doc) }, enabled = activeCount > 1) {
-                                    Icon(Icons.Filled.Delete, contentDescription = "Move to trash")
+                                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.documents_move_trash))
                                 }
                             }
                         }
@@ -249,9 +251,9 @@ fun DocumentsDialog(
         },
         confirmButton = {
             Row {
-                TextButton(onClick = onImport) { Text("Import .fern") }
+                TextButton(onClick = onImport) { Text(stringResource(R.string.documents_import)) }
                 Box {
-                    TextButton(onClick = { showTemplates = true }) { Text("New document") }
+                    TextButton(onClick = { showTemplates = true }) { Text(stringResource(R.string.documents_new)) }
                     DropdownMenu(expanded = showTemplates, onDismissRequest = { showTemplates = false }) {
                         for (template in DocumentTemplate.entries) {
                             DropdownMenuItem(
@@ -267,7 +269,7 @@ fun DocumentsDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         },
     )
 }

@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -48,7 +50,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Layers") },
+        title = { Text(stringResource(R.string.layers_title)) },
         text = {
             Column(
                 modifier = Modifier
@@ -64,13 +66,13 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                         IconButton(onClick = { state.updateLayer(layer.id) { it.copy(visible = !it.visible) } }) {
                             Icon(
                                 if (layer.visible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                contentDescription = if (layer.visible) "Hide layer" else "Show layer",
+                                contentDescription = if (layer.visible) stringResource(R.string.layers_hide) else stringResource(R.string.layers_show),
                             )
                         }
                         IconButton(onClick = { state.updateLayer(layer.id) { it.copy(locked = !it.locked) } }) {
                             Icon(
                                 if (layer.locked) Icons.Filled.Lock else Icons.Filled.LockOpen,
-                                contentDescription = if (layer.locked) "Unlock layer" else "Lock layer",
+                                contentDescription = if (layer.locked) stringResource(R.string.layers_unlock) else stringResource(R.string.layers_lock),
                             )
                         }
                         if (renamingId == layer.id) {
@@ -84,7 +86,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                                 if (renameText.isNotBlank()) state.updateLayer(layer.id) { it.copy(name = renameText.trim()) }
                                 renamingId = null
                             }) {
-                                Icon(Icons.Filled.Check, contentDescription = "Confirm rename")
+                                Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.action_confirm_rename))
                             }
                         } else {
                             Text(
@@ -99,22 +101,22 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                                 renamingId = layer.id
                                 renameText = layer.name
                             }) {
-                                Icon(Icons.Filled.Edit, contentDescription = "Rename layer")
+                                Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.layers_rename))
                             }
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { state.moveLayer(layer.id, up = true) }, enabled = layer != state.layers.last()) {
-                            Icon(Icons.Filled.ArrowUpward, contentDescription = "Move layer up")
+                            Icon(Icons.Filled.ArrowUpward, contentDescription = stringResource(R.string.layers_up))
                         }
                         IconButton(onClick = { state.moveLayer(layer.id, up = false) }, enabled = layer != state.layers.first()) {
-                            Icon(Icons.Filled.ArrowDownward, contentDescription = "Move layer down")
+                            Icon(Icons.Filled.ArrowDownward, contentDescription = stringResource(R.string.layers_down))
                         }
                         IconButton(onClick = { state.mergeLayerDown(layer.id) }, enabled = layer != state.layers.first()) {
-                            Icon(Icons.Filled.MergeType, contentDescription = "Merge into layer below")
+                            Icon(Icons.Filled.MergeType, contentDescription = stringResource(R.string.layers_merge))
                         }
                         IconButton(onClick = { state.deleteLayer(layer.id) }, enabled = state.layers.size > 1) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Delete layer and its strokes")
+                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.layers_delete))
                         }
                     }
                     if (active) {
@@ -129,13 +131,13 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
         },
         confirmButton = {
             Row {
-                TextButton(onClick = { state.deleteEmptyLayers() }) { Text("Remove empty") }
-                TextButton(onClick = { state.deleteHiddenLayers() }) { Text("Delete hidden") }
-                TextButton(onClick = { state.addLayer() }) { Text("New layer") }
+                TextButton(onClick = { state.deleteEmptyLayers() }) { Text(stringResource(R.string.layers_remove_empty)) }
+                TextButton(onClick = { state.deleteHiddenLayers() }) { Text(stringResource(R.string.layers_delete_hidden)) }
+                TextButton(onClick = { state.addLayer() }) { Text(stringResource(R.string.layers_new)) }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         },
     )
 }

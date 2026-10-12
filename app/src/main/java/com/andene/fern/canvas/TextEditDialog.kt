@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.horizontalScroll
@@ -72,13 +74,13 @@ fun TextEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (pending.initialText.isEmpty()) "Add text" else "Edit text") },
+        title = { Text(if (pending.initialText.isEmpty()) stringResource(R.string.text_add) else stringResource(R.string.text_edit)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
-                    label = { Text("Text") },
+                    label = { Text(stringResource(R.string.text_label)) },
                     textStyle = LocalTextStyle.current.copy(
                         fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
                         fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
@@ -90,19 +92,19 @@ fun TextEditDialog(
                     FilterChip(
                         selected = bold,
                         onClick = { bold = !bold },
-                        label = { Text("Bold", fontWeight = FontWeight.Bold) },
+                        label = { Text(stringResource(R.string.text_bold), fontWeight = FontWeight.Bold) },
                         modifier = Modifier.padding(end = 8.dp),
                     )
                     FilterChip(
                         selected = italic,
                         onClick = { italic = !italic },
-                        label = { Text("Italic", fontStyle = FontStyle.Italic) },
+                        label = { Text(stringResource(R.string.text_italic), fontStyle = FontStyle.Italic) },
                         modifier = Modifier.padding(end = 8.dp),
                     )
                     FilterChip(
                         selected = sticky,
                         onClick = { sticky = !sticky },
-                        label = { Text("Sticky note") },
+                        label = { Text(stringResource(R.string.text_sticky)) },
                     )
                 }
                 Row(modifier = Modifier.padding(top = 8.dp)) {
@@ -137,13 +139,13 @@ fun TextEditDialog(
                 }
                 // Link to a pin (a place on this canvas) or to another document.
                 Row(modifier = Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    FilterChip(selected = link == null, onClick = { link = null }, label = { Text("No link") }, modifier = Modifier.padding(end = 8.dp))
+                    FilterChip(selected = link == null, onClick = { link = null }, label = { Text(stringResource(R.string.text_no_link)) }, modifier = Modifier.padding(end = 8.dp))
                     Box {
                         FilterChip(
                             selected = link is LinkTarget.Pin,
                             onClick = { linkMenu = LinkMenu.PINS },
                             enabled = linkChoices.pins.isNotEmpty(),
-                            label = { Text("Pin") },
+                            label = { Text(stringResource(R.string.text_link_pin)) },
                             modifier = Modifier.padding(end = 8.dp),
                         )
                         DropdownMenu(expanded = linkMenu == LinkMenu.PINS, onDismissRequest = { linkMenu = null }) {
@@ -160,7 +162,7 @@ fun TextEditDialog(
                             selected = link is LinkTarget.Document,
                             onClick = { linkMenu = LinkMenu.DOCUMENTS },
                             enabled = linkChoices.documents.isNotEmpty(),
-                            label = { Text("Document") },
+                            label = { Text(stringResource(R.string.text_link_document)) },
                         )
                         DropdownMenu(expanded = linkMenu == LinkMenu.DOCUMENTS, onDismissRequest = { linkMenu = null }) {
                             for (document in linkChoices.documents) {
@@ -178,7 +180,7 @@ fun TextEditDialog(
                         is LinkTarget.Document -> linkChoices.documents.firstOrNull { it.id == target.documentId }?.name
                     }
                     Text(
-                        if (name != null) "Links to: $name" else "Links to something that no longer exists",
+                        if (name != null) stringResource(R.string.text_links_to, name) else stringResource(R.string.text_link_missing),
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(top = 4.dp),
                     )
@@ -190,14 +192,14 @@ fun TextEditDialog(
                         FilterChip(
                             selected = keepBox,
                             onClick = { keepBox = !keepBox },
-                            label = { Text("Wrap in text box") },
+                            label = { Text(stringResource(R.string.text_wrap)) },
                         )
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(result()) }) { Text("Done") }
+            TextButton(onClick = { onConfirm(result()) }) { Text(stringResource(R.string.action_done)) }
         },
         dismissButton = {
             Row {
@@ -205,15 +207,15 @@ fun TextEditDialog(
                 val webLink = remember(text) { firstWebLink(text) }
                 val uriHandler = LocalUriHandler.current
                 if (webLink != null) {
-                    TextButton(onClick = { runCatching { uriHandler.openUri(webLink) } }) { Text("Open link") }
+                    TextButton(onClick = { runCatching { uriHandler.openUri(webLink) } }) { Text(stringResource(R.string.text_open_link)) }
                 }
                 link?.let { target ->
                     TextButton(onClick = {
                         onConfirm(result())
                         onFollowLink(target)
-                    }) { Text("Follow link") }
+                    }) { Text(stringResource(R.string.text_follow_link)) }
                 }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
             }
         },
     )

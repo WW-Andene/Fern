@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -55,7 +57,7 @@ fun GradientFillDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Gradient fill") },
+        title = { Text(stringResource(R.string.gradient_title)) },
         text = {
             Column {
                 Row {
@@ -70,7 +72,7 @@ fun GradientFillDialog(
                 }
                 if (mode == GradientMode.TWO_COLOURS) {
                     Row(modifier = Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("End colour", modifier = Modifier.padding(end = 8.dp))
+                        Text(stringResource(R.string.gradient_end), modifier = Modifier.padding(end = 8.dp))
                         Box(
                             modifier = Modifier
                                 .size(32.dp)
@@ -119,9 +121,9 @@ fun GradientFillDialog(
         confirmButton = {
             TextButton(onClick = {
                 onApply(mode, if (mode == GradientMode.TWO_COLOURS) FillGradient(endColor, angle) else null)
-            }) { Text("Apply") }
+            }) { Text(stringResource(R.string.action_apply)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 
     if (pickingEndColor) {
