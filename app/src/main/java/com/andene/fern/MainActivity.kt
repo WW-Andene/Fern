@@ -62,6 +62,7 @@ import com.andene.fern.canvas.BackgroundStyle
 import com.andene.fern.canvas.CanvasState
 import com.andene.fern.canvas.CanvasStorage
 import com.andene.fern.canvas.DocumentMeta
+import com.andene.fern.canvas.DocumentTemplate
 import com.andene.fern.canvas.DocumentsDialog
 import com.andene.fern.canvas.DrawingCanvas
 import com.andene.fern.canvas.Frame
@@ -577,13 +578,22 @@ class MainActivity : ComponentActivity() {
                                 CanvasStorage.deleteDocument(context, doc.id)
                                 coroutineScope.launch { refreshDocuments() }
                             },
-                            onCreateNew = {
+                            onCreateNew = { template ->
                                 coroutineScope.launch {
                                     val created = withContext(Dispatchers.IO) {
-                                        CanvasStorage.createDocument(context, "Untitled")
+                                        CanvasStorage.createDocument(context, if (template == DocumentTemplate.BLANK) "Untitled" else template.label)
                                     }
                                     refreshDocuments()
                                     switchToDocument(created.id)
+                                    canvasState.resetView()
+                                    if (template.paper != BackgroundStyle.PLAIN) {
+                                        canvasState.setBackground(canvasState.backgroundColor, template.paper)
+                                    }
+                                    when (template) {
+                                        DocumentTemplate.COMIC -> canvasState.insertComicPage()
+                                        DocumentTemplate.STORYBOARD -> canvasState.insertStoryboard()
+                                        else -> {}
+                                    }
                                     showDocumentsDialog = false
                                 }
                             },

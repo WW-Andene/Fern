@@ -334,6 +334,35 @@ class CanvasState(
         onChanged(strokes.toList())
     }
 
+    /**
+     * Storyboard template: six 16:9 shot panels in two columns centred in the view, as
+     * rectangle strokes, with a "Storyboard" frame around them. Undoable for the panels.
+     */
+    fun insertStoryboard() {
+        if (!activeLayerEditable || viewportSize.width <= 0f) return
+        recordHistory()
+        val s = scale.coerceAtLeast(1e-300)
+        val sheetHeight = viewportSize.height * 0.8 / s
+        val gap = sheetHeight * 0.04
+        val panelHeight = (sheetHeight - 4 * gap) / 3.0
+        val panelWidth = panelHeight * 16.0 / 9.0
+        val sheetWidth = 2 * panelWidth + 3 * gap
+        val left = panWorld.x - sheetWidth / 2.0
+        val top = panWorld.y - sheetHeight / 2.0
+        for (row in 0 until 3) for (column in 0 until 2) {
+            val panelLeft = left + gap + column * (panelWidth + gap)
+            val panelTop = top + gap + row * (panelHeight + gap)
+            val border = Stroke(Color.Black, PANEL_BORDER_SCREEN / s, PenType.MARKER, layerId = activeLayerId, animFrame = currentAnimFrame)
+            for (point in generateShapePoints(ShapeKind.RECTANGLE, WorldPoint(panelLeft, panelTop), WorldPoint(panelLeft + panelWidth, panelTop + panelHeight))) {
+                border.addPoint(point)
+            }
+            strokes.add(border)
+        }
+        frames.add(Frame(UUID.randomUUID().toString(), "Storyboard", WorldPoint(left, top), WorldPoint(left + sheetWidth, top + sheetHeight)))
+        onFramesChanged(frames.toList())
+        onChanged(strokes.toList())
+    }
+
     fun deleteFrame(id: String) {
         frames.removeAll { it.id == id }
         onFramesChanged(frames.toList())

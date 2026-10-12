@@ -19,3 +19,13 @@ enum class BackgroundStyle { PLAIN, GRID, DOT, RULED }
  * [CanvasState]'s origin rebase and grid snapping, which must stay aligned with the pattern.
  */
 const val BACKGROUND_PATTERN_SPACING_WORLD = 40.0
+
+/** Starting points offered when creating a document: a paper style, optionally with a page layout. */
+enum class DocumentTemplate(val label: String, val paper: BackgroundStyle) {
+    BLANK("Blank", BackgroundStyle.PLAIN),
+    GRID("Graph paper", BackgroundStyle.GRID),
+    DOT("Dot grid", BackgroundStyle.DOT),
+    RULED("Lined notes", BackgroundStyle.RULED),
+    COMIC("Comic page", BackgroundStyle.PLAIN),
+    STORYBOARD("Storyboard", BackgroundStyle.PLAIN),
+}
