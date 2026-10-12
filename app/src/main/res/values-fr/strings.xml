@@ -328,4 +328,8 @@
     <string name="paper_dark">Papier sombre</string>
     <string name="tb_drag_out">Faire glisser la sélection vers une autre fenêtre</string>
     <string name="tb_export_apng">PNG animé (APNG)</string>
+    <string name="easing_linear">Linéaire</string>
+    <string name="easing_in">Accélération</string>
+    <string name="easing_out">Décélération</string>
+    <string name="easing_in_out">Accél.-décél.</string>
 </resources>

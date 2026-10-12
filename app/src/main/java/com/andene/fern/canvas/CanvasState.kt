@@ -116,6 +116,7 @@ class CanvasState(
 
         // One second of motion at the default 12 fps.
         private const val MOTION_PATH_STEPS = 12
+        private const val MOTION_PATH_SAMPLES = 256
 
         // Comic panel borders, in screen px at the zoom they're inserted at; on the §7 scale.
         private const val PANEL_BORDER_SCREEN = 3.0
@@ -322,6 +323,9 @@ class CanvasState(
     /** Playback bounces back and forth (1-2-3-2-1...) instead of looping (1-2-3-1-2-3...). */
     var pingPong by mutableStateOf(false)
 
+    /** Timing of generated in-betweens and motion-path steps. */
+    var motionEasing by mutableStateOf(Easing.LINEAR)
+
     private var playingBackwards = false
 
     /** Next frame for playback: wraps to the first when looping, reverses at either end in ping-pong. */
@@ -361,7 +365,8 @@ class CanvasState(
      * Automatic in-betweens: inserts [count] frames between the current frame and the next,
      * morphing each stroke of the current frame into the stroke at the same position (drawing
      * order) in the next frame. Both strokes are resampled to the same number of points by arc
-     * length and interpolated linearly, along with width and colour. Strokes without a partner
+     * length and interpolated, along with width and colour, at the progress [motionEasing] gives
+     * each in-between. Strokes without a partner
      * (the frames have different stroke counts) are left out of the in-betweens. Undoable.
      */
     fun generateInBetweens(count: Int) {
@@ -379,7 +384,7 @@ class CanvasState(
             if (strokes[i].animFrame >= to) strokes[i] = strokes[i].onAnimFrame(strokes[i].animFrame + count)
         }
         for (step in 1..count) {
-            val t = step.toDouble() / (count + 1)
+            val t = motionEasing.at(step.toDouble() / (count + 1))
             for ((a, b) in pairs) {
                 val samples = maxOf(a.points.size, b.points.size, 2)
                 val pa = resamplePolyline(a.points, samples)
@@ -398,7 +403,8 @@ class CanvasState(
      * Motion path: with two or more strokes selected, the most recently drawn one is a path
      * and the rest move along it. Creates [steps] frames from the current one onward (adding
      * frames as needed); in each, a copy of the moving strokes is offset by how far along the
-     * path that frame is, evenly by arc length. The path itself is a guide and is removed.
+     * path that frame is, by arc length at the progress [motionEasing] gives it (evenly when
+     * linear). The path itself is a guide and is removed.
      * Moving strokes already on later frames are left as they are. One undo step.
      */
     fun animateAlongPath(steps: Int = MOTION_PATH_STEPS) {
@@ -407,11 +413,16 @@ class CanvasState(
         val movers = selection.filter { it !== path }
         if (path.points.size < 2) return
         recordHistory()
-        val route = resamplePolyline(path.points, steps)
+        // Densely resampled, so an eased fraction of the length lands between samples smoothly.
+        val route = resamplePolyline(path.points, MOTION_PATH_SAMPLES)
         val start = route.first()
         strokes.remove(path)
         for (step in 1 until steps) {
-            val offset = route[step] - start
+            val position = motionEasing.at(step.toDouble() / (steps - 1)) * (route.size - 1)
+            val i = position.toInt().coerceAtMost(route.size - 2)
+            val f = position - i
+            val at = WorldPoint(route[i].x + (route[i + 1].x - route[i].x) * f, route[i].y + (route[i + 1].y - route[i].y) * f)
+            val offset = at - start
             val frame = currentAnimFrame + step
             for (mover in movers) {
                 val copy = mover.onAnimFrame(frame)

@@ -137,7 +137,7 @@ All deferred: they need a server or cloud platform.
 - [x] 78. Flipbook frames: insert blank or copied, delete, step
 - [x] 79. Onion skin, playback at 6/8/12/24 fps, loop and ping-pong
 - [~] 80. Export animated GIF, animated PNG (APNG, full colour and alpha) and sprite sheet; no MP4 or WebM (device encoders, untestable here)
-- [~] 81. Automatic in-betweens and motion along a drawn path; no keyframe easing or graph editor
+- [~] 81. Automatic in-betweens and motion along a drawn path, with easing (linear, ease in, ease out, ease in-out); no graph editor for custom curves
 - [~] 82. Shape tweening — strokes morphed pairwise in in-betweens
 - [ ] 83. Bones and skeletons
 - [ ] 84. Mesh deformation with weights

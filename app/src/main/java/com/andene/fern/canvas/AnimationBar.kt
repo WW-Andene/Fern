@@ -85,6 +85,10 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
                     contentDescription = if (state.pingPong) stringResource(R.string.anim_pingpong) else stringResource(R.string.anim_loop),
                 )
             }
+            // Timing of the generated in-betweens and motion paths; tap to cycle.
+            TextButton(onClick = { state.motionEasing = Easing.entries[(state.motionEasing.ordinal + 1) % Easing.entries.size] }) {
+                Text(stringResource(state.motionEasing.label))
+            }
             TextButton(onClick = {
                 state.animFps = FPS_CHOICES[(FPS_CHOICES.indexOf(state.animFps) + 1) % FPS_CHOICES.size]
             }) {
