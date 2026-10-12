@@ -259,6 +259,7 @@ object CanvasStorage {
                     // Labels saved before text styling are plain.
                     bold = entry.optBoolean("bold", false),
                     italic = entry.optBoolean("italic", false),
+                    sticky = entry.optBoolean("sticky", false),
                 )
             )
         }
@@ -278,6 +279,7 @@ object CanvasStorage {
                     put("color", item.color.toArgb())
                     put("bold", item.bold)
                     put("italic", item.italic)
+                    put("sticky", item.sticky)
                 }
             )
         }

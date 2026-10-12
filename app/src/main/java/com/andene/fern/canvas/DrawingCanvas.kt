@@ -476,7 +476,8 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
             initialText = pending.initialText,
             initialBold = pending.initialBold,
             initialItalic = pending.initialItalic,
-            onConfirm = { text, bold, italic -> state.confirmTextEdit(text, bold, italic) },
+            initialSticky = pending.initialSticky,
+            onConfirm = { text, bold, italic, sticky -> state.confirmTextEdit(text, bold, italic, sticky) },
             onDismiss = { state.cancelTextEdit() },
         )
     }
@@ -818,6 +819,9 @@ private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
 private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
+// Classic sticky-note yellow.
+private val STICKY_NOTE_COLOR = Color(0xFFFFF59D)
+
 // Faint enough to read as "the previous drawing" without competing with the current one.
 private const val ONION_SKIN_ALPHA = 0.25f
 
@@ -961,6 +965,15 @@ internal fun DrawScope.drawScene(
                 fontWeight = if (item.bold) FontWeight.Bold else FontWeight.Normal,
                 fontStyle = if (item.italic) FontStyle.Italic else FontStyle.Normal,
             ))
+        if (item.sticky) {
+            // The note extends half a line around the text, like paper around handwriting.
+            val pad = layout.size.height / 2f
+            drawRect(
+                color = STICKY_NOTE_COLOR,
+                topLeft = screenPos - Offset(pad, pad),
+                size = Size(layout.size.width + 2 * pad, layout.size.height + 2 * pad),
+            )
+        }
         drawText(textLayoutResult = layout, topLeft = screenPos)
     }
 }

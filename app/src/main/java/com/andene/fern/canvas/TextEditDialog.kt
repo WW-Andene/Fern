@@ -30,12 +30,14 @@ fun TextEditDialog(
     initialText: String,
     initialBold: Boolean,
     initialItalic: Boolean,
-    onConfirm: (text: String, bold: Boolean, italic: Boolean) -> Unit,
+    initialSticky: Boolean,
+    onConfirm: (text: String, bold: Boolean, italic: Boolean, sticky: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var text by remember { mutableStateOf(initialText) }
     var bold by remember { mutableStateOf(initialBold) }
     var italic by remember { mutableStateOf(initialItalic) }
+    var sticky by remember { mutableStateOf(initialSticky) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -62,12 +64,18 @@ fun TextEditDialog(
                         selected = italic,
                         onClick = { italic = !italic },
                         label = { Text("Italic", fontStyle = FontStyle.Italic) },
+                        modifier = Modifier.padding(end = 8.dp),
+                    )
+                    FilterChip(
+                        selected = sticky,
+                        onClick = { sticky = !sticky },
+                        label = { Text("Sticky note") },
                     )
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(text, bold, italic) }) { Text("Done") }
+            TextButton(onClick = { onConfirm(text, bold, italic, sticky) }) { Text("Done") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }

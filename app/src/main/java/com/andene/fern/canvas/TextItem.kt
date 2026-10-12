@@ -20,4 +20,6 @@ data class TextItem(
     val color: Color,
     val bold: Boolean = false,
     val italic: Boolean = false,
+    /** True for a sticky note: drawn on a yellow note behind the text. */
+    val sticky: Boolean = false,
 )

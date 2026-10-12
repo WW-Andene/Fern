@@ -530,6 +530,7 @@ class CanvasState(
         val initialText: String,
         val initialBold: Boolean = false,
         val initialItalic: Boolean = false,
+        val initialSticky: Boolean = false,
     )
 
     var pendingTextEdit: PendingTextEdit? by mutableStateOf(null)
@@ -973,7 +974,7 @@ class CanvasState(
     fun beginTextEdit(worldPoint: WorldPoint) {
         val existing = findTextItemAt(worldPoint)
         pendingTextEdit = if (existing != null) {
-            PendingTextEdit(existing.id, existing.position, existing.text, existing.bold, existing.italic)
+            PendingTextEdit(existing.id, existing.position, existing.text, existing.bold, existing.italic, existing.sticky)
         } else {
             PendingTextEdit(null, worldPoint, "")
         }
@@ -984,7 +985,7 @@ class CanvasState(
      * if this was a fresh placement), otherwise creates a new label or updates the edited
      * one's text in place.
      */
-    fun confirmTextEdit(text: String, bold: Boolean = false, italic: Boolean = false) {
+    fun confirmTextEdit(text: String, bold: Boolean = false, italic: Boolean = false, sticky: Boolean = false) {
         val pending = pendingTextEdit ?: return
         pendingTextEdit = null
         recordHistory()
@@ -996,7 +997,7 @@ class CanvasState(
         }
         val existingIndex = pending.id?.let { id -> textItems.indexOfFirst { it.id == id } } ?: -1
         if (existingIndex != -1) {
-            textItems[existingIndex] = textItems[existingIndex].copy(text = text, bold = bold, italic = italic)
+            textItems[existingIndex] = textItems[existingIndex].copy(text = text, bold = bold, italic = italic, sticky = sticky)
         } else {
             textItems.add(
                 TextItem(
@@ -1007,6 +1008,7 @@ class CanvasState(
                     color = activeColor,
                     bold = bold,
                     italic = italic,
+                    sticky = sticky,
                 )
             )
         }
