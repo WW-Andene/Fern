@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.RemoveCircleOutline
@@ -242,6 +243,8 @@ fun Toolbar(
     var showStatsDialog by remember { mutableStateOf(false) }
     if (showStatsDialog) StatsDialog(state, onDismiss = { showStatsDialog = false })
     var showSignatureDialog by remember { mutableStateOf(false) }
+    var showQrDialog by remember { mutableStateOf(false) }
+    if (showQrDialog) QrCodeDialog(state, onDismiss = { showQrDialog = false })
     if (showSignatureDialog) {
         val context = LocalContext.current
         SignatureDialog(
@@ -342,6 +345,8 @@ fun Toolbar(
     var showDrawingScaleDialog by remember { mutableStateOf(false) }
     if (showDrawingScaleDialog) DrawingScaleDialog(state, onDismiss = { showDrawingScaleDialog = false })
     var showPlaceOnPlaneMenu by remember { mutableStateOf(false) }
+    var showConstraintsDialog by remember { mutableStateOf(false) }
+    if (showConstraintsDialog) ConstraintsDialog(state, onDismiss = { showConstraintsDialog = false })
     if (showContourDialog) ContourDialog(state, onDismiss = { showContourDialog = false })
     var showMoreMenu by remember { mutableStateOf(false) }
     var showBlendModeMenu by remember { mutableStateOf(false) }
@@ -989,6 +994,10 @@ fun Toolbar(
                             }
                         }
                     }
+                    // Constraints (roadmap item 144): how the selection follows a resized frame.
+                    IconButton(onClick = { showConstraintsDialog = true }, enabled = state.selection.isNotEmpty()) {
+                        Icon(Icons.Filled.PushPin, contentDescription = stringResource(R.string.constraints_title))
+                    }
                     // Isometric panel (roadmap item 142): lay the selection onto a cube face.
                     Box {
                         IconButton(onClick = { showPlaceOnPlaneMenu = true }, enabled = state.selection.isNotEmpty()) {
@@ -1166,6 +1175,7 @@ fun Toolbar(
                             Triple(R.string.stats_title, Icons.Filled.QueryStats) { showStatsDialog = true },
                             Triple(R.string.symbols_title, Icons.Filled.Category) { openSymbols() },
                             Triple(R.string.signature_title, Icons.Filled.Draw) { showSignatureDialog = true },
+                            Triple(R.string.qr_title, Icons.Filled.QrCode2) { showQrDialog = true },
                             Triple(R.string.script_title, Icons.Filled.Code) { showScriptDialog = true },
                             Triple(R.string.settings_title, Icons.Filled.Settings, onOpenSettings),
                         )

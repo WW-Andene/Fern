@@ -151,10 +151,15 @@ private const val MITRE_LIMIT = 4f
 /** The shape builder's two drag modes and the knife (roadmap item 141); see [CanvasState.toggleShapeEdit]. */
 enum class ShapeEditMode { BUILD_ADD, BUILD_REMOVE, KNIFE }
 
-/** A new stroke styled like this one, through [points] (no pressure, tilt or bone weights). */
-fun Stroke.withPoints(points: List<WorldPoint>): Stroke =
-    Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush, gradient, groupId, boneId, lineStyle)
-        .apply { for (point in points) addPoint(point) }
+/** A new stroke styled like this one (frame constraints too), through [points] (no pressure, tilt or bone weights). */
+fun Stroke.withPoints(points: List<WorldPoint>): Stroke {
+    val source = this
+    return Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush, gradient, groupId, boneId, lineStyle)
+        .apply {
+            for (point in points) addPoint(point)
+            source.constraints?.let { setConstraints(it) }
+        }
+}
 
 /**
  * A point inside the polygon [loop]: its centroid when that's inside (a convex region), else

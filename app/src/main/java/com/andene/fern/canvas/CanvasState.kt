@@ -225,6 +225,8 @@ class CanvasState(
         private const val FILL_CLOSE_TOLERANCE_SCREEN = 24.0
         // Gaps in line art up to about twice this (screen px) are closed by the fill.
         private const val FILL_GAP_SCREEN = 4.0
+        // How wide (screen px) a placed QR code is, quiet zone included (roadmap item 144).
+        private const val QR_SIZE_SCREEN = 256.0
         // Width (screen px) of the cut a knife stroke takes out of a closed shape (roadmap item 141).
         private const val KNIFE_GAP_SCREEN = 2.0
 
@@ -1449,6 +1451,59 @@ class CanvasState(
     fun deleteFrame(id: String) {
         frames.removeWhere { it.id == id }
         onFramesChanged(frames.toList())
+    }
+
+    /**
+     * Resizes frame [id] to [width] x [height] world units, its top-left corner staying put
+     * (roadmap item 144). The strokes on it - visible ones whose bounds' centre lies in the old
+     * frame - follow their [Stroke.constraints] (unconstrained ones stay pinned top-left, so they
+     * don't move); a group's members follow within the whole group's bounds. Their change is one undo step; the frame's size, like every frame edit, isn't
+     * part of the undo history, so resizing back is how to restore it.
+     */
+    fun resizeFrame(id: String, width: Double, height: Double) {
+        val index = frames.indexOfFirst { it.id == id }
+        if (index == -1 || width <= 0 || height <= 0 || !width.isFinite() || !height.isFinite()) return
+        val old = frames[index]
+        val resized = old.copy(max = WorldPoint(old.min.x + width, old.min.y + height))
+        val inside = strokes.filter { stroke ->
+            val cx = (stroke.minX + stroke.maxX) / 2
+            val cy = (stroke.minY + stroke.maxY) / 2
+            stroke.points.isNotEmpty() && isVisible(stroke) && cx in old.min.x..old.max.x && cy in old.min.y..old.max.y &&
+                stroke.constraints.let { it != null && it != LayoutConstraints() }
+        }
+        if (inside.isNotEmpty()) {
+            recordHistory()
+            // A group follows as one object: its members stretch or scale within the group's bounds.
+            val groupBounds = inside.filter { it.groupId != null }.groupBy { it.groupId }.mapValues { (_, members) ->
+                listOf(members.minOf { it.minX }, members.minOf { it.minY }, members.maxOf { it.maxX }, members.maxOf { it.maxY })
+            }
+            for (stroke in inside) {
+                val pins = stroke.constraints ?: continue
+                val (minX, minY, maxX, maxY) = groupBounds[stroke.groupId] ?: listOf(stroke.minX, stroke.minY, stroke.maxX, stroke.maxY)
+                stroke.setPoints(stroke.points.map { p ->
+                    WorldPoint(
+                        constrainedCoordinate(p.x, minX, maxX, old.min.x, old.max.x, resized.min.x, resized.max.x, pins.horizontal),
+                        constrainedCoordinate(p.y, minY, maxY, old.min.y, old.max.y, resized.min.y, resized.max.y, pins.vertical),
+                    )
+                })
+            }
+            strokesChanged()
+        }
+        frames[index] = resized
+        onFramesChanged(frames.toList())
+    }
+
+    /** The selected strokes' shared constraints (roadmap item 144): the default when they differ or have none. */
+    val selectionConstraints: LayoutConstraints
+        get() = selection.map { it.constraints ?: LayoutConstraints() }.distinct().singleOrNull() ?: LayoutConstraints()
+
+    /** Gives every selected stroke [constraints] (roadmap item 144). One undo step. */
+    fun setSelectionConstraints(constraints: LayoutConstraints) {
+        if (selection.isEmpty()) return
+        recordHistory()
+        val stored = constraints.takeIf { it != LayoutConstraints() }
+        for (stroke in selection) stroke.setConstraints(stored)
+        strokesChanged()
     }
 
     /** Lays [grid] over frame [id] (roadmap item 142), or removes its grid when null. Saved with the frames. */
@@ -4715,6 +4770,30 @@ class CanvasState(
     fun placeSignature(signature: List<Stroke>) {
         val viewWidth = if (viewportSize.width > 0f) viewportSize.width.toDouble() else SIGNATURE_FALLBACK_VIEW_PX
         pasteStrokes(placedSignature(signature, viewWidth / 3 / scale.coerceAtLeast(1e-300)))
+    }
+
+    /**
+     * Places a QR code (roadmap item 144) at the centre of the view as one selected group:
+     * [qr]'s dark modules as filled outlines in the active colour, over a white square that
+     * includes the quiet zone when [lightBackground] (so it reads on any paper). The code is
+     * [QR_SIZE_SCREEN] screen pixels across at the current zoom. One undo step.
+     */
+    fun insertQrCode(qr: QrOutlines, lightBackground: Boolean) {
+        if (qr.outlines.isEmpty() || !activeLayerEditable) return
+        val side = qr.size + 2 * QR_QUIET_ZONE_MODULES
+        val module = QR_SIZE_SCREEN / side / scale.coerceAtLeast(1e-300)
+        val group = UUID.randomUUID().toString()
+        fun place(points: List<WorldPoint>, color: Color) = Stroke(color, 0.0, filled = true, groupId = group).apply {
+            for (p in points) addPoint(WorldPoint((p.x + QR_QUIET_ZONE_MODULES) * module, (p.y + QR_QUIET_ZONE_MODULES) * module))
+        }
+        val backing = if (lightBackground) {
+            val q = -QR_QUIET_ZONE_MODULES.toDouble()
+            val far = (qr.size + QR_QUIET_ZONE_MODULES).toDouble()
+            listOf(place(listOf(WorldPoint(q, q), WorldPoint(far, q), WorldPoint(far, far), WorldPoint(q, far), WorldPoint(q, q)), Color.White))
+        } else {
+            emptyList()
+        }
+        pasteStrokes(backing + qr.outlines.map { place(it, activeColor) })
     }
 
     /** Placed symbols that stay linked to the library (roadmap item 100); see [SymbolInstance]. */

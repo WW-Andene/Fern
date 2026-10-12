@@ -122,6 +122,7 @@ class Stroke(
         internal val revision: Int,
         internal val jointWeights: FloatArray? = null,
         internal val drawnAt: Long = 0L,
+        internal val constraints: LayoutConstraints? = null,
     )
 
     /** This stroke's current geometry as an immutable [State]; O(1). */
@@ -129,7 +130,7 @@ class Stroke(
         // Plain revision: undo snapshots capture every stroke, and a million snapshot-state reads per action add up.
         cachedState?.let { if (it.revision == plainRevision) return it }
         dataShared = true
-        return State(xs, ys, pressureData, tiltData, orientationData, size, widthWorld, minX, minY, maxX, maxY, plainRevision, jointWeights, drawnAt).also { cachedState = it }
+        return State(xs, ys, pressureData, tiltData, orientationData, size, widthWorld, minX, minY, maxX, maxY, plainRevision, jointWeights, drawnAt, constraints).also { cachedState = it }
     }
 
     /** Sets this stroke's geometry back to [state] (an undo); O(1), the arrays stay shared until written. */
@@ -151,6 +152,7 @@ class Stroke(
         maxY = state.maxY
         jointWeights = state.jointWeights
         drawnAt = state.drawnAt
+        constraints = state.constraints
         dataShared = true
         revision++
     }
@@ -445,6 +447,20 @@ class Stroke(
     var drawnAt: Long = 0L
         private set
 
+    /**
+     * How this stroke follows its frame when the frame is resized (roadmap item 144); null
+     * behaves as pinned to the top-left. Carried with the geometry ([State]), so copies and undo
+     * keep it.
+     */
+    var constraints: LayoutConstraints? = null
+        private set
+
+    fun setConstraints(value: LayoutConstraints?) {
+        logBeforeChange()
+        constraints = value
+        revision++
+    }
+
     fun setDrawnAt(millis: Long) {
         drawnAt = millis
         cachedState = null // a cached capture predates it
@@ -515,6 +531,7 @@ class Stroke(
         return runs.filter { it.size >= 2 }.map { run ->
             val piece = Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush, gradient, groupId, boneId, lineStyle)
             for (index in run) piece.addPoint(WorldPoint(xs[index], ys[index]), pressureData[index], tiltData[index], orientationData[index])
+            constraints?.let { piece.setConstraints(it) }
             piece
         }
     }

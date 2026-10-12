@@ -83,6 +83,8 @@ dependencies {
     implementation("androidx.input:input-motionprediction:1.0.0")
     // Front-buffered rendering for low-latency ink (FrontBufferedInk).
     implementation("androidx.graphics:graphics-core:1.0.2")
+    // QR code encoding for the QR code tool (roadmap item 144); the core library only, no platform services.
+    implementation("com.google.zxing:core:3.5.3")
 
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)

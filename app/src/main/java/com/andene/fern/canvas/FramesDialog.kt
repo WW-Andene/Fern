@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.ViewColumn
+import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.AlertDialog
@@ -36,7 +37,8 @@ import androidx.compose.ui.unit.dp
 /**
  * The document's frames (artboards). Tap a name to fit it on screen; export one as a PNG, or
  * all of them as slices at 1x, @2x and @3x;
- * set a layout grid of columns and rows on one (roadmap item 142);
+ * set a layout grid of columns and rows on one (roadmap item 142); resize one, its objects
+ * following their constraints (roadmap item 144);
  * the field at the bottom adds a frame covering the current view. With frames present, PDF
  * export produces one page per frame, and Present steps through them full screen like slides.
  */
@@ -50,6 +52,10 @@ fun FramesDialog(
     onDelete: (Frame) -> Unit,
     /** Sets or removes (null) a frame's layout grid (roadmap item 142). */
     onSetLayoutGrid: (Frame, LayoutGrid?) -> Unit,
+    /** Resizes a frame to a width and height in world units (roadmap item 144). */
+    onResize: (Frame, Double, Double) -> Unit,
+    /** The document's drawing scale, for the resize fields' unit (roadmap item 143). */
+    drawingScale: DrawingScale? = null,
     onCreate: (name: String) -> Unit,
     onPresent: () -> Unit,
     onAddComicPage: () -> Unit,
@@ -58,6 +64,13 @@ fun FramesDialog(
     var newFrameName by remember { mutableStateOf("") }
     var sliceScales by remember { mutableStateOf(setOf(1, 2, 3)) }
     var gridFrame by remember { mutableStateOf<Frame?>(null) }
+    var resizeFrame by remember { mutableStateOf<Frame?>(null) }
+    resizeFrame?.let { frame ->
+        FrameResizeDialog(frame, drawingScale, onApply = { w, h ->
+            onResize(frame, w, h)
+            resizeFrame = null
+        }, onDismiss = { resizeFrame = null })
+    }
     gridFrame?.let { frame ->
         LayoutGridDialog(frame, onApply = { grid ->
             onSetLayoutGrid(frame, grid)
@@ -90,6 +103,9 @@ fun FramesDialog(
                                     .clickable { onJump(frame) }
                                     .padding(vertical = 12.dp),
                             )
+                            IconButton(onClick = { resizeFrame = frame }) {
+                                Icon(Icons.Filled.AspectRatio, contentDescription = stringResource(R.string.frame_resize))
+                            }
                             IconButton(onClick = { gridFrame = frame }) {
                                 Icon(
                                     Icons.Filled.ViewColumn,

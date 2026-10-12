@@ -1406,6 +1406,8 @@ class MainActivity : ComponentActivity() {
                             },
                             onDelete = { frame -> canvasState.deleteFrame(frame.id) },
                             onSetLayoutGrid = { frame, grid -> canvasState.setFrameLayoutGrid(frame.id, grid) },
+                            onResize = { frame, width, height -> canvasState.resizeFrame(frame.id, width, height) },
+                            drawingScale = canvasState.drawingScale,
                             onCreate = { name -> canvasState.addFrameFromView(name) },
                             onAddComicPage = {
                                 canvasState.insertComicPage()
