@@ -372,4 +372,9 @@
     <string name="profile_taper_end">Effiler la fin</string>
     <string name="text_outlined">Contour</string>
     <string name="tb_text_on_path">Texte le long du trait sélectionné</string>
+    <string name="transform_title">Position, taille et rotation</string>
+    <string name="transform_width">Largeur</string>
+    <string name="transform_height">Hauteur</string>
+    <string name="transform_keep_proportions">Conserver les proportions</string>
+    <string name="transform_rotate">Rotation (°)</string>
 </resources>

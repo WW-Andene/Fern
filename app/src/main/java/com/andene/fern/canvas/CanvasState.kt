@@ -127,6 +127,9 @@ class CanvasState(
         // Bone tool reach and the shortest bone an add drag makes, in screen px (§7 scale).
         private const val BONE_HIT_SCREEN = 24.0
         private const val BONE_MIN_SCREEN = 16.0
+        // Smart guides: snap distance (screen px) and how many nearby objects offer guide lines.
+        private const val GUIDE_SNAP_SCREEN = 8.0
+        private const val MAX_GUIDE_OBJECTS = 2000
         // Bézier pen: reach of the first node to close a path, and curve sampling (screen px).
         private const val BEZIER_CLOSE_SCREEN = 24.0
         private const val BEZIER_SAMPLE_SCREEN = 4.0
@@ -1310,6 +1313,18 @@ class CanvasState(
     private var isMovingSelection = false
     private var lastDragPoint: WorldPoint? = null
 
+    // Smart guides (roadmap item 99) for a selection move: where the drag started, the selection's
+    // bounds then, how far it has been moved so far, and the other objects' edge and centre lines.
+    private var moveStart = WorldPoint.Zero
+    private var moveStartBounds: Pair<WorldPoint, WorldPoint>? = null
+    private var moveApplied = WorldPoint.Zero
+    private var guideTargetsX = DoubleArray(0)
+    private var guideTargetsY = DoubleArray(0)
+
+    /** Guide lines the moving selection is snapped to: x of vertical lines, y of horizontal ones. */
+    var smartGuides by mutableStateOf<Pair<Double?, Double?>>(null to null)
+        private set
+
     // Scale/rotate gesture state. Both apply their transform fresh each frame from a
     // snapshot of each selected stroke's points taken at gesture start (gestureSnapshot),
     // rather than accumulating incremental deltas - which would drift over a long drag.
@@ -2435,6 +2450,7 @@ class CanvasState(
             recordHistory()
             isMovingSelection = true
             lastDragPoint = worldPoint
+            startSmartGuides(worldPoint)
         } else {
             isMovingSelection = false
             selection.clear()
@@ -2466,9 +2482,10 @@ class CanvasState(
             return
         }
         if (isMovingSelection) {
-            val last = lastDragPoint ?: return
-            val delta = worldPoint - last
+            val wanted = snappedMove(worldPoint - moveStart)
+            val delta = wanted - moveApplied
             for (stroke in selection) stroke.shiftBy(WorldPoint(-delta.x, -delta.y))
+            moveApplied = wanted
             lastDragPoint = worldPoint
         } else if (lassoSelect) {
             if (lassoPath.isNotEmpty()) lassoPath.add(worldPoint)
@@ -2500,6 +2517,8 @@ class CanvasState(
         if (isMovingSelection) {
             isMovingSelection = false
             lastDragPoint = null
+            smartGuides = null to null
+            moveStartBounds = null
             strokesChanged()
             return
         }
@@ -2597,6 +2616,75 @@ class CanvasState(
      * Starts rotating the selection around its bounding box's center. No-op if nothing is
      * selected.
      */
+    private fun startSmartGuides(worldPoint: WorldPoint) {
+        moveStart = worldPoint
+        moveApplied = WorldPoint.Zero
+        moveStartBounds = selectionBounds()
+        if (!snapToObjects || viewportSize.width <= 0f) {
+            guideTargetsX = DoubleArray(0)
+            guideTargetsY = DoubleArray(0)
+            return
+        }
+        // Edges and centres of the other visible strokes in view.
+        val center = Offset(viewportSize.width / 2f, viewportSize.height / 2f)
+        val corners = listOf(Offset.Zero, Offset(viewportSize.width, viewportSize.height), Offset(viewportSize.width, 0f), Offset(0f, viewportSize.height))
+            .map { screenToWorld(it, center) }
+        val chosen = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Stroke, Boolean>()).apply { addAll(selection) }
+        val others = strokesNear(corners.minOf { it.x }, corners.minOf { it.y }, corners.maxOf { it.x }, corners.maxOf { it.y })
+            .filter { it !in chosen && isVisible(it) && it.points.isNotEmpty() }
+            .take(MAX_GUIDE_OBJECTS)
+        guideTargetsX = others.flatMap { listOf(it.minX, (it.minX + it.maxX) / 2, it.maxX) }.toDoubleArray()
+        guideTargetsY = others.flatMap { listOf(it.minY, (it.minY + it.maxY) / 2, it.maxY) }.toDoubleArray()
+    }
+
+    /**
+     * [delta] (the drag so far) nudged so the selection's left, centre or right lines up with
+     * another object's, and likewise top, middle or bottom, when within [GUIDE_SNAP_SCREEN] px;
+     * sets [smartGuides] to the lines it snapped to.
+     */
+    private fun snappedMove(delta: WorldPoint): WorldPoint {
+        val (min, max) = moveStartBounds ?: return delta
+        val reach = GUIDE_SNAP_SCREEN / scale.coerceAtLeast(1e-300)
+        fun snap(edges: DoubleArray, targets: DoubleArray): Pair<Double, Double?> {
+            var best = 0.0
+            var bestLine: Double? = null
+            var bestDistance = reach
+            for (edge in edges) for (target in targets) {
+                val d = abs(target - edge)
+                if (d <= bestDistance) {
+                    bestDistance = d
+                    best = target - edge
+                    bestLine = target
+                }
+            }
+            return best to bestLine
+        }
+        val (dx, lineX) = snap(doubleArrayOf(min.x + delta.x, (min.x + max.x) / 2 + delta.x, max.x + delta.x), guideTargetsX)
+        val (dy, lineY) = snap(doubleArrayOf(min.y + delta.y, (min.y + max.y) / 2 + delta.y, max.y + delta.y), guideTargetsY)
+        smartGuides = lineX to lineY
+        return WorldPoint(delta.x + dx, delta.y + dy)
+    }
+
+    /**
+     * Numeric transform (roadmap item 99): resizes the selection's bounds to [width] x [height]
+     * (world units; widths of strokes scale by the mean of the two factors) with its top-left at
+     * ([left], [top]), then turns it by [rotationDegrees] about its new centre. One undo step.
+     */
+    fun transformSelection(left: Double, top: Double, width: Double, height: Double, rotationDegrees: Double) {
+        val (min, max) = selectionBounds() ?: return
+        if (!(width > 0 && height > 0)) return
+        recordHistory()
+        val sx = width / (max.x - min.x).coerceAtLeast(1e-9)
+        val sy = height / (max.y - min.y).coerceAtLeast(1e-9)
+        val center = WorldPoint(left + width / 2, top + height / 2)
+        val angle = Math.toRadians(rotationDegrees)
+        for (stroke in selection) {
+            stroke.setPoints(stroke.points.map { p -> rotateAbout(WorldPoint(left + (p.x - min.x) * sx, top + (p.y - min.y) * sy), center, angle) })
+            stroke.setWidth(stroke.widthWorld * (sx + sy) / 2)
+        }
+        strokesChanged()
+    }
+
     fun beginRotateSelection(worldPoint: WorldPoint) {
         val bounds = selectionBounds() ?: return
         recordHistory()

@@ -571,6 +571,24 @@ fun DrawingCanvas(
                 path.moveTo(screenPoints[0].x, screenPoints[0].y)
                 for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
                 drawPath(path = path, color = state.activeColor, style = DrawStyle(width = widthScreen, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                // Dimensions (roadmap item 99): the line's length, or the box's width x height,
+                // in world units, beside the finger.
+                val label = shapeDimensions(state.activeShapeKind, start, end)
+                val layout = textMeasurer.measure(label, TextStyle(color = Color.White, fontSize = 12.sp))
+                val at = state.worldToScreen(end, screenCenter) + Offset(16f, 16f)
+                drawRect(MARQUEE_BORDER_COLOR, topLeft = at - Offset(4f, 2f), size = Size(layout.size.width + 8f, layout.size.height + 4f))
+                drawText(layout, topLeft = at)
+            }
+
+            // Smart guides (roadmap item 99): the lines a moving selection is snapped to.
+            val (guideX, guideY) = state.smartGuides
+            guideX?.let { x ->
+                val sx = state.worldToScreen(WorldPoint(x, 0.0), screenCenter).x
+                drawLine(GUIDE_COLOR, Offset(sx, 0f), Offset(sx, size.height), strokeWidth = 1f)
+            }
+            guideY?.let { y ->
+                val sy = state.worldToScreen(WorldPoint(0.0, y), screenCenter).y
+                drawLine(GUIDE_COLOR, Offset(0f, sy), Offset(size.width, sy), strokeWidth = 1f)
             }
 
             if (state.activeTool == Tool.SELECT) {
@@ -1101,6 +1119,18 @@ private val BONE_COLOR = Color(0xCC5E35B1)
 private val SELECTED_BONE_COLOR = Color(0xFFFF6F00)
 private const val BONE_HALF_WIDTH_PX = 6f
 private const val BONE_JOINT_RADIUS_PX = 6f
+
+private val GUIDE_COLOR = Color(0xFFE91E63)
+
+/** The shape-tool readout: a line or arrow's length, otherwise the box's width x height, rounded to whole units. */
+internal fun shapeDimensions(kind: ShapeKind, start: WorldPoint, end: WorldPoint): String {
+    val dx = abs(end.x - start.x)
+    val dy = abs(end.y - start.y)
+    return when (kind) {
+        ShapeKind.LINE, ShapeKind.ARROW -> "%.0f".format(kotlin.math.hypot(dx, dy))
+        else -> "%.0f × %.0f".format(dx, dy)
+    }
+}
 
 private fun DrawScope.drawBone(head: Offset, tail: Offset, selected: Boolean) {
     val color = if (selected) SELECTED_BONE_COLOR else BONE_COLOR

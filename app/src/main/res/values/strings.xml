@@ -370,4 +370,9 @@
     <string name="profile_taper_end">Taper the end</string>
     <string name="text_outlined">Outline</string>
     <string name="tb_text_on_path">Text along the selected line</string>
+    <string name="transform_title">Position, size and rotation</string>
+    <string name="transform_width">Width</string>
+    <string name="transform_height">Height</string>
+    <string name="transform_keep_proportions">Keep proportions</string>
+    <string name="transform_rotate">Rotate by (°)</string>
 </resources>

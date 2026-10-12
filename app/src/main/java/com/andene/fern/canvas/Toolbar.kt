@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.Transform
 import androidx.compose.material.icons.filled.TextRotationAngleup
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.filled.JoinFull
@@ -195,6 +196,19 @@ fun Toolbar(
     var showSearchDialog by remember { mutableStateOf(false) }
     var showSymmetryMenu by remember { mutableStateOf(false) }
     var showAlignMenu by remember { mutableStateOf(false) }
+    var showTransformDialog by remember { mutableStateOf(false) }
+    if (showTransformDialog) {
+        val bounds = state.selectionBounds()
+        if (bounds == null) showTransformDialog = false
+        else TransformDialog(
+            bounds,
+            onApply = { left, top, width, height, rotation ->
+                state.transformSelection(left, top, width, height, rotation)
+                showTransformDialog = false
+            },
+            onDismiss = { showTransformDialog = false },
+        )
+    }
     var showLineStyleMenu by remember { mutableStateOf(false) }
     var showCombineMenu by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
@@ -707,6 +721,9 @@ fun Toolbar(
                                 )
                             }
                         }
+                    }
+                    IconButton(onClick = { showTransformDialog = true }, enabled = state.selection.isNotEmpty()) {
+                        Icon(Icons.Filled.Transform, contentDescription = stringResource(R.string.transform_title))
                     }
                     IconButton(onClick = { state.beginTextOnPath() }, enabled = state.selection.size == 1) {
                         Icon(Icons.Filled.TextRotationAngleup, contentDescription = stringResource(R.string.tb_text_on_path))
