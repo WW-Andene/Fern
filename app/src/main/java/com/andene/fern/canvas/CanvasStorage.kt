@@ -190,9 +190,14 @@ object CanvasStorage {
         return meta
     }
 
-    fun save(context: Context, documentId: String, strokes: List<Stroke>) {
+    /**
+     * Saves [strokes]. [withThumbnail] re-renders the library thumbnail too; autosave (after
+     * every action) passes false, since rendering every stroke again each time adds up on big
+     * documents - the thumbnail is refreshed when leaving the document or opening the library.
+     */
+    fun save(context: Context, documentId: String, strokes: List<Stroke>, withThumbnail: Boolean = true) {
         saveStrokesFile(context, documentId, strokes)
-        saveThumbnail(context, documentId, strokes)
+        if (withThumbnail) saveThumbnail(context, documentId, strokes)
         saveVersionIfDue(context, documentId, strokes)
         val index = readIndex(context)
         for (i in 0 until index.length()) {
@@ -462,7 +467,7 @@ object CanvasStorage {
         return if (file.exists()) BitmapFactory.decodeFile(file.path) else null
     }
 
-    private fun saveThumbnail(context: Context, documentId: String, strokes: List<Stroke>) {
+    fun saveThumbnail(context: Context, documentId: String, strokes: List<Stroke>) {
         val png = renderThumbnailPng(strokes)
         if (png == null) thumbnailFile(context, documentId).delete()
         else writeAtomically(thumbnailFile(context, documentId), png)

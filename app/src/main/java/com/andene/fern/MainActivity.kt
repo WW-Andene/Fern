@@ -180,7 +180,7 @@ class MainActivity : ComponentActivity() {
                                 val documentId = currentDocumentId
                                 autosaveJob = coroutineScope.launch {
                                     delay(500)
-                                    withContext(Dispatchers.IO) { CanvasStorage.save(context, documentId, snapshot) }
+                                    withContext(Dispatchers.IO) { CanvasStorage.save(context, documentId, snapshot, withThumbnail = false) }
                                 }
                             },
                             // Text edits are infrequent (one dialog confirm at a time), so
@@ -517,7 +517,16 @@ class MainActivity : ComponentActivity() {
                                     .align(Alignment.TopCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(top = 12.dp),
-                                onOpenDocuments = { showDocumentsDialog = true },
+                                onOpenDocuments = {
+                                    // Autosave skips thumbnails, so bring this document's up to date for the library.
+                                    val id = currentDocumentId
+                                    val snapshot = canvasState.strokes.toList()
+                                    coroutineScope.launch {
+                                        withContext(Dispatchers.IO) { CanvasStorage.saveThumbnail(context, id, snapshot) }
+                                        refreshDocuments()
+                                        showDocumentsDialog = true
+                                    }
+                                },
                                 onOpenPins = { showPinsDialog = true },
                                 onOpenFrames = { showFramesDialog = true },
                                 onOpenSettings = { showSettings = true },
