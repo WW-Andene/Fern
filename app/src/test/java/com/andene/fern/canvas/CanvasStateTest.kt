@@ -106,4 +106,23 @@ class CanvasStateTest {
         assertEquals(depth, state.historyDepth)
         assertEquals(1, state.strokes.size)
     }
+
+    @Test
+    fun duplicateKeepsEveryAttribute() {
+        val state = CanvasState()
+        val brush = StampBrush(StampTip.STAR, spacing = 1f)
+        val stamp = Stroke(androidx.compose.ui.graphics.Color.Red, 4.0, PenType.STAMP, brush = brush).apply {
+            addPoint(WorldPoint(0.0, 0.0), 0.5f, 0.25f, 1f); addPoint(WorldPoint(10.0, 0.0), 0.75f, 0f, 0f)
+        }
+        state.loadStrokes(listOf(stamp))
+        state.selectAllOnActiveLayer()
+        state.duplicateSelection()
+        val copy = state.strokes.last()
+        assertTrue(copy !== stamp)
+        assertEquals(brush, copy.brush)
+        assertEquals(stamp.pressures, copy.pressures)
+        assertEquals(stamp.tilts, copy.tilts)
+        assertEquals(20.0, copy.points.first().x - stamp.points.first().x, 1e-9) // nudged 20 px at scale 1
+        assertEquals(20.0, copy.points.first().y - stamp.points.first().y, 1e-9)
+    }
 }

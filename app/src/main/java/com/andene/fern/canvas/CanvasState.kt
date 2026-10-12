@@ -1955,11 +1955,9 @@ class CanvasState(
         if (selection.isEmpty()) return
         recordHistory()
         val nudge = WorldPoint(20.0 / scale.coerceAtLeast(1e-300), 20.0 / scale.coerceAtLeast(1e-300))
-        val duplicates = selection.map { original ->
-            val copy = Stroke(original.color, original.widthWorld, original.penType, original.filled, original.blendMode, original.layerId, original.animFrame, original.dashed, original.fadeFill, original.screentone)
-            for (point in original.points) copy.addPoint(point + nudge)
-            copy
-        }
+        // deepCopy keeps every attribute (stylus data, stamp brush, fill gradient...); shiftBy
+        // subtracts, so shifting by -nudge moves the copy down-right.
+        val duplicates = selection.map { original -> original.deepCopy().also { it.shiftBy(WorldPoint(-nudge.x, -nudge.y)) } }
         strokes.addAll(duplicates)
         selection.clear()
         selection.addAll(duplicates)
