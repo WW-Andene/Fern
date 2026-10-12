@@ -226,7 +226,9 @@ class Stroke(
     /**
      * Indices of the points to draw so consecutive drawn points are at least about [minSpacing]
      * apart (zoom-aware level of detail): a point closer than that to the last kept one is
-     * skipped; both ends are always kept. Each decision depends only on earlier points, so
+     * skipped; both ends are always kept. One exact repeat of a kept point is kept too: that's
+     * how shapes mark a sharp corner (see withSharpCorners in Shapes.kt), and dropping it would
+     * round the corner off. Each decision depends only on earlier points, so
      * appending points never changes which earlier ones are kept (no flicker while drawing).
      *
      * Cached per stroke. [minSpacing] is rounded down to a power of two, so the result is reused
@@ -252,10 +254,16 @@ class Stroke(
         kept[count++] = 0
         var lastX = xs[0]
         var lastY = ys[0]
+        var lastKept = 0
         for (i in 1 until n - 1) {
             val dx = xs[i] - lastX
             val dy = ys[i] - lastY
-            if (dx * dx + dy * dy >= spacingSq) {
+            val distanceSq = dx * dx + dy * dy
+            // A repeat right after a kept point that isn't itself a repeat: a corner marker. Only one,
+            // so a pen held still (many identical samples) still collapses to two points.
+            val cornerMarker = distanceSq == 0.0 && lastKept == i - 1 && (count < 2 || kept[count - 2] != i - 2 || xs[i - 2] != lastX || ys[i - 2] != lastY)
+            if (distanceSq >= spacingSq || cornerMarker) {
+                lastKept = i
                 kept[count++] = i
                 lastX = xs[i]
                 lastY = ys[i]

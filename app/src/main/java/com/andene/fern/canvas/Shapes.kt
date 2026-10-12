@@ -64,12 +64,14 @@ fun generateShapePoints(kind: ShapeKind, start: WorldPoint, end: WorldPoint): Li
     ShapeKind.RECTANGLE -> {
         val topLeft = WorldPoint(minOf(start.x, end.x), minOf(start.y, end.y))
         val bottomRight = WorldPoint(maxOf(start.x, end.x), maxOf(start.y, end.y))
-        listOf(
-            topLeft,
-            WorldPoint(bottomRight.x, topLeft.y),
-            bottomRight,
-            WorldPoint(topLeft.x, bottomRight.y),
-            topLeft,
+        withSharpCorners(
+            listOf(
+                topLeft,
+                WorldPoint(bottomRight.x, topLeft.y),
+                bottomRight,
+                WorldPoint(topLeft.x, bottomRight.y),
+                topLeft,
+            )
         )
     }
 
@@ -100,7 +102,7 @@ fun generateShapePoints(kind: ShapeKind, start: WorldPoint, end: WorldPoint): Li
             .filter { it <= tailStart || it >= tailEnd }
         val before = outline.filter { it <= tailStart }.map(::onEllipse)
         val after = outline.filter { it >= tailEnd }.map(::onEllipse)
-        before + onEllipse(tailStart) + tip + onEllipse(tailEnd) + after
+        before + withSharpCorners(listOf(before.last(), onEllipse(tailStart), tip, onEllipse(tailEnd), after.first())).drop(1).dropLast(1) + after
     }
 
     ShapeKind.ARROW -> {
@@ -116,9 +118,18 @@ fun generateShapePoints(kind: ShapeKind, start: WorldPoint, end: WorldPoint): Li
         // identical to a proper two-stroke arrowhead, but keeps this a single polyline).
         val leftWing = rotatedOffset(end, -ux, -uy, headAngle, headLength)
         val rightWing = rotatedOffset(end, -ux, -uy, -headAngle, headLength)
-        listOf(start, end, leftWing, end, rightWing)
+        withSharpCorners(listOf(start, end, leftWing, end, rightWing))
     }
 }
+
+/**
+ * [points] with every interior vertex doubled. Strokes are drawn as curves through the
+ * midpoints between points (see drawStroke), which rounds a lone vertex into a wide bend; a
+ * doubled vertex is the curve's end and the next one's start, so the outline meets it in a
+ * sharp corner and the edges between corners stay straight.
+ */
+private fun withSharpCorners(points: List<WorldPoint>): List<WorldPoint> =
+    points.flatMapIndexed { i, p -> if (i == 0 || i == points.lastIndex) listOf(p) else listOf(p, p) }
 
 private fun rotatedOffset(from: WorldPoint, ux: Double, uy: Double, angle: Double, length: Double): WorldPoint {
     val rx = ux * cos(angle) - uy * sin(angle)

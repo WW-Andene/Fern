@@ -30,7 +30,8 @@ class ShapesTest {
     @Test
     fun generateShapePoints_rectangleIsClosed() {
         val points = generateShapePoints(ShapeKind.RECTANGLE, WorldPoint(10.0, 10.0), WorldPoint(0.0, 0.0))
-        assertEquals(5, points.size)
+        // Four corners, each doubled to stay sharp, plus the closing point.
+        assertEquals(8, points.size)
         assertEquals(points.first(), points.last())
         assertEquals(WorldPoint(0.0, 0.0), points.first())
     }
