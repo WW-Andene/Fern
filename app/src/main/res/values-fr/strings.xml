@@ -314,4 +314,9 @@
     <string name="group_background">Fond du papier</string>
     <string name="settings_customize_toolbar">Personnaliser la barre d\'outils</string>
     <string name="toolbar_show_all">Tout afficher</string>
+    <string name="template_planner">Agenda de la semaine</string>
+    <string name="template_mind_map">Carte mentale</string>
+    <string name="planner_notes">Notes</string>
+    <string name="mind_map_central">Idée centrale</string>
+    <string name="mind_map_branch">Idée</string>
 </resources>

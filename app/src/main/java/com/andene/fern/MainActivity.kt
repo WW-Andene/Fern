@@ -2,6 +2,9 @@
 
 package com.andene.fern
 
+import java.time.format.TextStyle as JavaTextStyle
+import java.time.temporal.WeekFields
+import java.util.Locale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draganddrop.toAndroidDragEvent
@@ -856,6 +859,14 @@ class MainActivity : ComponentActivity() {
                                     when (template) {
                                         DocumentTemplate.COMIC -> canvasState.insertComicPage()
                                         DocumentTemplate.STORYBOARD -> canvasState.insertStoryboard()
+                                        DocumentTemplate.PLANNER -> {
+                                            // The locale's own week: its first day, its day names.
+                                            val locale = Locale.getDefault()
+                                            val first = WeekFields.of(locale).firstDayOfWeek
+                                            val days = (0L until 7L).map { first.plus(it).getDisplayName(JavaTextStyle.FULL, locale).replaceFirstChar { c -> c.titlecase(locale) } }
+                                            canvasState.insertWeeklyPlanner(context.getString(R.string.template_planner), days, context.getString(R.string.planner_notes))
+                                        }
+                                        DocumentTemplate.MIND_MAP -> canvasState.insertMindMap(context.getString(R.string.mind_map_central), context.getString(R.string.mind_map_branch))
                                         else -> {}
                                     }
                                     showDocumentsDialog = false

@@ -119,6 +119,14 @@ class CanvasState(
 
         // Comic panel borders, in screen px at the zoom they're inserted at; on the §7 scale.
         private const val PANEL_BORDER_SCREEN = 3.0
+        // Template text sizes and spacing in screen px at the zoom the template is inserted at (§7 scale).
+        private const val PLANNER_LABEL_SCREEN = 16.0
+        private const val MIND_MAP_CENTRAL_SCREEN = 24.0
+        private const val MIND_MAP_BRANCH_SCREEN = 16.0
+        private const val MIND_MAP_CENTRAL_WIDTH_SCREEN = 192.0
+        private const val MIND_MAP_BRANCH_WIDTH_SCREEN = 128.0
+        private const val MIND_MAP_SPREAD_X_SCREEN = 256.0
+        private const val MIND_MAP_SPREAD_Y_SCREEN = 192.0
 
         // Movement under this many screen px still counts as a tap; on the §7 scale.
         private const val TAP_SLOP_SCREEN = 8.0
@@ -517,6 +525,72 @@ class CanvasState(
         frames.add(Frame(UUID.randomUUID().toString(), "Storyboard", WorldPoint(left, top), WorldPoint(left + sheetWidth, top + sheetHeight)))
         onFramesChanged(frames.toList())
         strokesChanged()
+    }
+
+    /**
+     * Weekly planner template (roadmap item 72): a 2:3 page of eight boxes in two columns, one per
+     * day in [dayNames] order and the last for notes, each named by a bold label in its top-left
+     * corner, with a frame named [title] around the page. Undoable. The names are passed in so
+     * they come in the user's language and week order.
+     */
+    fun insertWeeklyPlanner(title: String, dayNames: List<String>, notesLabel: String) {
+        if (!activeLayerEditable || viewportSize.width <= 0f) return
+        recordHistory()
+        val s = scale.coerceAtLeast(1e-300)
+        val pageHeight = viewportSize.height * 0.8 / s
+        val pageWidth = pageHeight * 2.0 / 3.0
+        val left = panWorld.x - pageWidth / 2.0
+        val top = panWorld.y - pageHeight / 2.0
+        val margin = pageWidth * 0.06
+        val gutter = pageWidth * 0.03
+        val boxWidth = (pageWidth - 2 * margin - gutter) / 2.0
+        val boxHeight = (pageHeight - 2 * margin - 3 * gutter) / 4.0
+        val labelSize = PLANNER_LABEL_SCREEN / s
+        for ((index, name) in (dayNames + notesLabel).take(8).withIndex()) {
+            val boxLeft = left + margin + (index % 2) * (boxWidth + gutter)
+            val boxTop = top + margin + (index / 2) * (boxHeight + gutter)
+            val border = Stroke(Color.Black, PANEL_BORDER_SCREEN / s, PenType.MARKER, layerId = activeLayerId, animFrame = currentAnimFrame)
+            for (point in generateShapePoints(ShapeKind.RECTANGLE, WorldPoint(boxLeft, boxTop), WorldPoint(boxLeft + boxWidth, boxTop + boxHeight))) {
+                border.addPoint(point)
+            }
+            strokes.add(border)
+            textItems.add(TextItem(UUID.randomUUID().toString(), name, WorldPoint(boxLeft + labelSize / 2, boxTop + labelSize / 2), labelSize, Color.Black, bold = true))
+        }
+        frames.add(Frame(UUID.randomUUID().toString(), title, WorldPoint(left, top), WorldPoint(left + pageWidth, top + pageHeight)))
+        onFramesChanged(frames.toList())
+        onTextChanged(textItems.toList())
+        strokesChanged()
+    }
+
+    /**
+     * Mind-map template (roadmap item 72): a central sticky note ([centralLabel]) in the middle of
+     * the view, joined by connectors to four branch notes ([branchLabel]) above, right, below and
+     * left of it. They're ordinary notes and connectors: edit, move, add more or "Tidy diagram".
+     * Undoable.
+     */
+    fun insertMindMap(centralLabel: String, branchLabel: String) {
+        if (viewportSize.width <= 0f) return
+        recordHistory()
+        val s = scale.coerceAtLeast(1e-300)
+        fun note(text: String, center: WorldPoint, sizePx: Double, widthPx: Double): TextItem {
+            val width = widthPx / s
+            val size = sizePx / s
+            return TextItem(
+                UUID.randomUUID().toString(), text, WorldPoint(center.x - width / 2, center.y - size / 2), size, Color.Black,
+                bold = sizePx > MIND_MAP_BRANCH_SCREEN, sticky = true, alignment = TextAlignment.CENTER, boxWidthWorld = width,
+            )
+        }
+        val center = panWorld
+        val central = note(centralLabel, center, MIND_MAP_CENTRAL_SCREEN, MIND_MAP_CENTRAL_WIDTH_SCREEN)
+        val dx = MIND_MAP_SPREAD_X_SCREEN / s
+        val dy = MIND_MAP_SPREAD_Y_SCREEN / s
+        val branches = listOf(WorldPoint(center.x, center.y - dy), WorldPoint(center.x + dx, center.y), WorldPoint(center.x, center.y + dy), WorldPoint(center.x - dx, center.y))
+            .map { note(branchLabel, it, MIND_MAP_BRANCH_SCREEN, MIND_MAP_BRANCH_WIDTH_SCREEN) }
+        textItems.add(central)
+        textItems.addAll(branches)
+        for (branch in branches) connectors.add(Connector(UUID.randomUUID().toString(), central.id, branch.id))
+        onTextChanged(textItems.toList())
+        onConnectorsChanged(connectors.toList())
     }
 
     fun deleteFrame(id: String) {

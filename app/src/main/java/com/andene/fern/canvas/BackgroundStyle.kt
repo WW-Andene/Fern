@@ -31,4 +31,6 @@ enum class DocumentTemplate(@StringRes val label: Int, val paper: BackgroundStyl
     RULED(R.string.template_ruled, BackgroundStyle.RULED),
     COMIC(R.string.frames_comic, BackgroundStyle.PLAIN),
     STORYBOARD(R.string.template_storyboard, BackgroundStyle.PLAIN),
+    PLANNER(R.string.template_planner, BackgroundStyle.PLAIN),
+    MIND_MAP(R.string.template_mind_map, BackgroundStyle.PLAIN),
 }

@@ -314,4 +314,9 @@
     <string name="group_background">Paper background</string>
     <string name="settings_customize_toolbar">Customise toolbar</string>
     <string name="toolbar_show_all">Show all</string>
+    <string name="template_planner">Weekly planner</string>
+    <string name="template_mind_map">Mind map</string>
+    <string name="planner_notes">Notes</string>
+    <string name="mind_map_central">Central idea</string>
+    <string name="mind_map_branch">Idea</string>
 </resources>
