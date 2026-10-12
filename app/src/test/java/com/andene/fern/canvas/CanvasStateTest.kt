@@ -182,4 +182,19 @@ class CanvasStateTest {
         state.undo()
         assertEquals(0, state.strokes.size)
     }
+
+    @Test
+    fun aStrokeFromTheSecondViewIsSizedForThatViewsZoom() {
+        // Roadmap item 124: the pen is the same size on screen in whichever view it draws.
+        val state = CanvasState()
+        state.activeWidthWorld = 8.0
+        state.withInputScale(4.0) {
+            state.beginStroke(WorldPoint(0.0, 0.0))
+            state.extendStroke(WorldPoint(10.0, 0.0))
+            state.endStroke()
+        }
+        assertEquals(2.0, state.strokes.single().widthWorld, 1e-9)
+        drawLine(state, WorldPoint(0.0, 10.0), WorldPoint(10.0, 10.0))
+        assertEquals(8.0, state.strokes.last().widthWorld, 1e-9) // the main view's zoom (1) again
+    }
 }

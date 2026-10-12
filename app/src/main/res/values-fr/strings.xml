@@ -79,6 +79,9 @@
     <string name="brush_delete_preset">Supprimer le préréglage %1$s</string>
     <string name="layers_title">Calques</string>
     <string name="layers_skins">Skins</string>
+    <string name="second_view_title">Seconde vue</string>
+    <string name="second_view_fit">Afficher tout le dessin dans la seconde vue</string>
+    <string name="second_view_close">Fermer la seconde vue</string>
     <string name="layers_comps">Compositions de calques</string>
     <string name="layers_comp_save">Enregistrer</string>
     <string name="layers_comp_default_name">Composition %1$d</string>

@@ -34,7 +34,9 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.AlertDialog
@@ -103,6 +105,7 @@ import com.andene.fern.canvas.startSelectionDrag
 import com.andene.fern.canvas.QuickMenuButton
 import com.andene.fern.canvas.QuickMenuOverlay
 import com.andene.fern.canvas.PinMeta
+import com.andene.fern.canvas.SecondView
 import com.andene.fern.canvas.PinsDialog
 import com.andene.fern.canvas.PresentationControls
 import com.andene.fern.canvas.SettingsDialog
@@ -1024,6 +1027,18 @@ class MainActivity : ComponentActivity() {
                                         .align(if (toolbarAtBottom) Alignment.TopCenter else Alignment.BottomCenter)
                                         .padding(WindowInsets.systemBars.asPaddingValues())
                                         .padding(bottom = 16.dp),
+                                )
+                            }
+                            if (canvasState.secondViewOpen) {
+                                SecondView(
+                                    state = canvasState,
+                                    modifier = Modifier
+                                        // Opposite the drawing hand, above the minimap.
+                                        .align(if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft)
+                                        .padding(WindowInsets.systemBars.asPaddingValues())
+                                        .padding(top = 64.dp, start = 12.dp, end = 12.dp)
+                                        .fillMaxWidth(0.5f)
+                                        .fillMaxHeight(0.4f),
                                 )
                             }
                             Minimap(

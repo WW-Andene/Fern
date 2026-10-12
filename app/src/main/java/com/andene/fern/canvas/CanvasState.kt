@@ -1657,7 +1657,7 @@ class CanvasState(
 
     /** Radius, opacity and hardness of the raster brush for the current pen at [pressure]. */
     private fun rasterBrush(pressure: Float): Triple<Double, Float, Float> {
-        val radius = activeWidthWorld / scale.coerceAtLeast(1e-300) / 2 * pressure.coerceIn(0.1f, 1f)
+        val radius = activeWidthWorld / inputScale / 2 * pressure.coerceIn(0.1f, 1f)
         return when (activePenType) {
             PenType.AIRBRUSH -> Triple(radius * 3, 0.08f, 0f)
             PenType.PENCIL -> Triple(radius * 0.6, 0.85f, 1f)
@@ -2655,7 +2655,7 @@ class CanvasState(
         val inkColor = if (activePenType == PenType.PIXEL && indexedPalette) nearestPaletteColor(activeColor) else activeColor
         val stroke = Stroke(
             inkColor.copy(alpha = inkColor.alpha * activeOpacity.toFloat()),
-            activeWidthWorld / scale.coerceAtLeast(1e-300),
+            activeWidthWorld / inputScale,
             activePenType,
             blendMode = activeBlendMode,
             layerId = activeLayerId,
@@ -2938,7 +2938,37 @@ class CanvasState(
 
     /** World-space radius of the eraser at the current zoom level. */
     private val eraserRadiusWorld: Double
-        get() = ERASER_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
+        get() = ERASER_RADIUS_SCREEN / inputScale
+
+    // The zoom of the view the pen is drawing in: the main view's, or the second view's while
+    // it forwards a stroke (see [withInputScale]). Pen width and eraser size are on-screen
+    // sizes, so they follow the view drawn in.
+    private var inputScaleOverride: Double? = null
+    private val inputScale: Double get() = (inputScaleOverride ?: scale).coerceAtLeast(1e-300)
+
+    /** Runs [block] (a pen or eraser call from the second view) as if drawn at zoom [viewScale]. */
+    fun <T> withInputScale(viewScale: Double, block: () -> T): T {
+        inputScaleOverride = viewScale
+        try {
+            return block()
+        } finally {
+            inputScaleOverride = null
+        }
+    }
+
+    /**
+     * The second view (roadmap item 124): the document in a separate pane with its own pan and
+     * zoom - see [SecondView]. View state only; not saved.
+     */
+    var secondViewOpen by mutableStateOf(false)
+
+    /**
+     * Everything the floating origin has shifted the world by so far ([rebaseIfNeeded]). Views
+     * with their own camera, like the second view, subtract changes in it from their centre to
+     * stay on the same content.
+     */
+    var originShift by mutableStateOf(WorldPoint.Zero)
+        private set
 
     fun beginErase(worldPoint: WorldPoint) {
         isErasing = true
@@ -4688,6 +4718,7 @@ class CanvasState(
         symmetryCenter -= offset
         pendingTextEdit = pendingTextEdit?.let { it.copy(worldPoint = it.worldPoint - offset) }
         onRebased(offset)
+        originShift += offset
         panWorld -= offset
     }
 }
