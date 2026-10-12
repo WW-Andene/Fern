@@ -1,9 +1,11 @@
 package com.andene.fern.canvas
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
@@ -18,6 +20,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -94,6 +97,32 @@ fun ColorPickerDialog(
                     valueRange = 0f..1f,
                 )
 
+                // Colour harmonies: hues related to the current one by the classic colour-wheel
+                // rules. Tapping a swatch makes it the current colour.
+                Text("Harmonies", modifier = Modifier.padding(top = 8.dp))
+                for ((label, offsets) in HARMONIES) {
+                    Row(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(label, modifier = Modifier.width(128.dp))
+                        for (offset in offsets) {
+                            val swatchHue = (hue + offset) % 360f
+                            Surface(
+                                modifier = Modifier
+                                    .padding(end = 8.dp)
+                                    .size(24.dp)
+                                    .clickable {
+                                        hue = swatchHue
+                                        hexText = hexOf(hue, saturation, value)
+                                    },
+                                shape = CircleShape,
+                                color = Color(android.graphics.Color.HSVToColor(floatArrayOf(swatchHue, saturation, value))),
+                            ) {}
+                        }
+                    }
+                }
+
                 Row(modifier = Modifier.padding(top = 8.dp)) {
                     OutlinedTextField(
                         value = hexText,
@@ -125,6 +154,15 @@ fun ColorPickerDialog(
         },
     )
 }
+
+/** Hue offsets in degrees from the current colour, per harmony rule. */
+private val HARMONIES = listOf(
+    "Complementary" to listOf(180f),
+    "Analogous" to listOf(330f, 30f),
+    "Triadic" to listOf(120f, 240f),
+    "Split compl." to listOf(150f, 210f),
+    "Tetradic" to listOf(90f, 180f, 270f),
+)
 
 private fun hexOf(hue: Float, saturation: Float, value: Float): String {
     val argb = android.graphics.Color.HSVToColor(floatArrayOf(hue, saturation, value))
