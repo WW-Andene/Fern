@@ -347,4 +347,6 @@
     <string name="xsheet_hold">×%1$d</string>
     <string name="xsheet_shorter">Tenue plus courte, image %1$d</string>
     <string name="xsheet_longer">Tenue plus longue, image %1$d</string>
+    <string name="layers_reference_on">Calque de référence pour le remplissage : activé</string>
+    <string name="layers_reference_off">Calque de référence pour le remplissage : désactivé</string>
 </resources>

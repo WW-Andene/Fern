@@ -569,6 +569,7 @@ object CanvasStorage {
                 put("visible", layer.visible)
                 put("locked", layer.locked)
                 put("opacity", layer.opacity.toDouble())
+                put("reference", layer.reference)
             })
         }
         writeStored(layersFile(context, documentId), root)
@@ -585,6 +586,7 @@ object CanvasStorage {
                 visible = entry.optBoolean("visible", true),
                 locked = entry.optBoolean("locked", false),
                 opacity = entry.optDouble("opacity", 1.0).toFloat(),
+                reference = entry.optBoolean("reference", false),
             )
         }
     }

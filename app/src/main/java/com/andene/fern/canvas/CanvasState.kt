@@ -195,6 +195,8 @@ class CanvasState(
         // How close (in screen pixels) a stroke's start/end points must be to count as a
         // "closed" shape for the FILL tool - same scale-dependent conversion as the eraser.
         private const val FILL_CLOSE_TOLERANCE_SCREEN = 24.0
+        // Gaps in line art up to about twice this (screen px) are closed by the fill.
+        private const val FILL_GAP_SCREEN = 4.0
 
         // How close (in screen pixels) a touch must land on the ruler's endpoint to grab it
         // for resizing, rather than translating the whole guide - same scale-dependent
@@ -1966,25 +1968,29 @@ class CanvasState(
      * FILL tool: tapping inside a closed stroke fills its interior with [activeColor]. Since
      * this is a vector canvas (no pixel grid), "fill" means inserting a new filled-polygon
      * stroke using that boundary's exact points, positioned just beneath it in draw order so
-     * the boundary's own outline still shows on top - not a raster flood fill, which
-     * wouldn't make sense on an infinite canvas with no fixed resolution.
+     * the boundary's own outline still shows on top.
      *
-     * Only strokes whose first and last point are close together (a "closed enough" loop) are
-     * eligible; among all that actually contain [worldPoint], the smallest by area wins, so
+     * Strokes whose first and last point are close together (a "closed enough" loop) are tried
+     * first; among all that actually contain [worldPoint], the smallest by area wins, so
      * tapping inside a small shape drawn inside a larger one fills the small one, matching
-     * real fill-tool expectations. No-op if nothing qualifies.
+     * real fill-tool expectations. Failing that, the area enclosed by several strokes is
+     * found with [gapClosingFill] at screen resolution within the view, gaps up to about
+     * twice [FILL_GAP_SCREEN] px closed, and filled with its traced outline. No-op (and no undo
+     * step) if neither finds an enclosed area. With reference layers, only their strokes bound.
      */
     fun fillAt(worldPoint: WorldPoint) {
         if (!activeLayerEditable) return
-        recordHistory()
         rememberActiveColor()
         clearSelectionState()
+        // Boundaries come from reference layers when there are any (roadmap item 94).
+        val referenceLayers = layers.filter { it.reference }.mapTo(HashSet()) { it.id }
+        fun isWall(stroke: Stroke) = !stroke.filled && isVisible(stroke) && (referenceLayers.isEmpty() || stroke.layerId in referenceLayers)
         val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
         var bestIndex = -1
         var bestArea = Double.POSITIVE_INFINITY
         for (index in strokes.indices) {
             val stroke = strokes[index]
-            if (stroke.filled || !isVisible(stroke)) continue
+            if (!isWall(stroke)) continue
             val points = stroke.points
             if (!isClosedLoop(points, closeTolerance)) continue
             if (!polygonContains(points, worldPoint)) continue
@@ -1994,14 +2000,36 @@ class CanvasState(
                 bestIndex = index
             }
         }
-        if (bestIndex == -1) return
-        val boundary = strokes[bestIndex]
+        val outline: List<WorldPoint>
+        val insertAt: Int
+        if (bestIndex != -1) {
+            // Inside one closed stroke: fill exactly its outline.
+            outline = strokes[bestIndex].points
+            insertAt = bestIndex
+        } else {
+            // Otherwise an area closed by several strokes, small gaps included, within the view.
+            val s = scale.coerceAtLeast(1e-300)
+            val center = Offset(viewportSize.width / 2f, viewportSize.height / 2f)
+            val corners = listOf(Offset.Zero, Offset(viewportSize.width, 0f), Offset(0f, viewportSize.height), Offset(viewportSize.width, viewportSize.height))
+                .map { screenToWorld(it, center) }
+            val left = corners.minOf { it.x }
+            val top = corners.minOf { it.y }
+            val right = corners.maxOf { it.x }
+            val bottom = corners.maxOf { it.y }
+            val walls = strokesNear(left, top, right, bottom).filter(::isWall)
+            outline = gapClosingFill(walls, worldPoint, left, top, right, bottom, cell = 1 / s, gapWorld = FILL_GAP_SCREEN / s) ?: return
+            // Beneath the ink around it.
+            val wallSet = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Stroke, Boolean>()).apply { addAll(walls) }
+            insertAt = strokes.indexOfFirst { it in wallSet }.let { if (it == -1) strokes.size else it }
+        }
+        // Recorded only now, so a tap that fills nothing leaves no empty undo step.
+        recordHistory()
         val fillStroke = Stroke(
             activeColor, 0.0, PenType.MARKER, filled = true, layerId = activeLayerId, animFrame = currentAnimFrame,
             fadeFill = activeFadeFill, screentone = activeScreentone, gradient = activeGradient,
         )
-        for (point in boundary.points) fillStroke.addPoint(point)
-        strokes.add(bestIndex, fillStroke)
+        for (point in outline) fillStroke.addPoint(point)
+        strokes.add(insertAt, fillStroke)
         strokesChanged()
     }
 

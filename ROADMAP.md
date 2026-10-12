@@ -153,7 +153,7 @@ All deferred: they need a server or cloud platform.
 - [ ] 91. Raster selections, masks, clipping masks, alpha lock
 - [ ] 92. Adjustments: curves, levels, hue/saturation, liquify, warp
 - [ ] 93. Full Photoshop blend modes and adjustment layers
-- [ ] 94. Reference layers, gap-closing bucket fill
+- [x] 94. Reference layers (fills take their boundaries from them), gap-closing bucket fill (areas closed by several strokes, gaps up to ~8 px bridged, within the view)
 - [ ] 95. PSD / Procreate / Krita import and export
 
 ## Phase 11 — Professional vector & design

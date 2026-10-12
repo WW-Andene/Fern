@@ -1,5 +1,8 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material.icons.filled.FormatColorFill
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
@@ -67,6 +70,13 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                             Icon(
                                 if (layer.visible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
                                 contentDescription = if (layer.visible) stringResource(R.string.layers_hide) else stringResource(R.string.layers_show),
+                            )
+                        }
+                        IconButton(onClick = { state.updateLayer(layer.id) { it.copy(reference = !it.reference) } }) {
+                            Icon(
+                                Icons.Filled.FormatColorFill,
+                                contentDescription = if (layer.reference) stringResource(R.string.layers_reference_on) else stringResource(R.string.layers_reference_off),
+                                tint = if (layer.reference) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                             )
                         }
                         IconButton(onClick = { state.updateLayer(layer.id) { it.copy(locked = !it.locked) } }) {
