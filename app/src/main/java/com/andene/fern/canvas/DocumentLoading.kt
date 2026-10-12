@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -33,12 +35,14 @@ class LoadedDocument(
  */
 @Composable
 fun DocumentLoadingOverlay() {
+    // Resolved here: the semantics block isn't a composable context.
+    val loadingLabel = stringResource(R.string.loading_document)
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.25f))
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
-            .semantics { contentDescription = "Loading document" },
+            .semantics { contentDescription = loadingLabel },
         contentAlignment = Alignment.Center,
     ) {
         CircularProgressIndicator()

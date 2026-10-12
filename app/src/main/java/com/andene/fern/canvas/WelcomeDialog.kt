@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -23,12 +25,12 @@ fun markWelcomeSeen(context: Context) {
 
 // The gestures aren't discoverable from the toolbar, so they're the part worth teaching.
 private val tips = listOf(
-    "One finger draws; two fingers pan, pinch to zoom and twist to rotate. The sheet never ends.",
-    "Tap with two fingers to undo, three to redo.",
-    "Hold the pen still at the end of a stroke to snap it into a clean line, box or circle.",
-    "Touch and hold without moving to pick up the colour underneath.",
-    "Flip your stylus or hold its button to erase.",
-    "Scroll the toolbar sideways for more tools; the ⋮ menu holds images, PDFs, frames, pins and settings.",
+    R.string.welcome_tip_navigate,
+    R.string.welcome_tip_undo,
+    R.string.welcome_tip_shapes,
+    R.string.welcome_tip_eyedropper,
+    R.string.welcome_tip_erase,
+    R.string.welcome_tip_toolbar,
 )
 
 /** First-launch guide to the gestures; dismissing it marks it seen so it doesn't return. */
@@ -36,16 +38,16 @@ private val tips = listOf(
 fun WelcomeDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Welcome to Fern") },
+        title = { Text(stringResource(R.string.welcome_title)) },
         text = {
             Column {
                 for (tip in tips) {
-                    Text("• $tip", modifier = Modifier.padding(vertical = 4.dp))
+                    Text("• " + stringResource(tip), modifier = Modifier.padding(vertical = 4.dp))
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Start drawing") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.welcome_start)) }
         },
     )
 }

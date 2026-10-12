@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="welcome_tip_navigate">Un doigt dessine ; deux doigts déplacent, pincez pour zoomer et tournez pour faire pivoter. La feuille ne finit jamais.</string>
+    <string name="welcome_tip_undo">Touchez avec deux doigts pour annuler, trois pour rétablir.</string>
+    <string name="welcome_tip_shapes">Gardez le stylet immobile à la fin d\'un trait pour le transformer en ligne, rectangle ou cercle nets.</string>
+    <string name="welcome_tip_eyedropper">Touchez longuement sans bouger pour prélever la couleur en dessous.</string>
+    <string name="welcome_tip_erase">Retournez le stylet ou maintenez son bouton pour gommer.</string>
+    <string name="welcome_tip_toolbar">Faites défiler la barre d\'outils pour plus d\'outils ; le menu ⋮ contient images, PDF, cadres, épingles et réglages.</string>
+    <string name="welcome_title">Bienvenue dans Fern</string>
+    <string name="welcome_start">Commencer à dessiner</string>
+    <string name="settings_title">Réglages</string>
+    <string name="settings_left_handed">Disposition pour gaucher</string>
+    <string name="settings_toolbar_bottom">Barre d\'outils en bas</string>
+    <string name="settings_high_contrast">Contraste élevé</string>
+    <string name="settings_snap_objects">Aimanter les formes aux objets</string>
+    <string name="settings_show_guide">Afficher le guide des gestes</string>
+    <string name="action_done">Terminé</string>
+    <string name="versions_title">Historique des versions</string>
+    <string name="versions_empty">Aucune version pour l\'instant. Une version est enregistrée toutes les 10 minutes pendant que vous dessinez.</string>
+    <string name="action_close">Fermer</string>
+    <string name="pins_title">Épingles</string>
+    <string name="pins_delete">Supprimer l\'épingle</string>
+    <string name="pins_new_name">Nom de la nouvelle épingle</string>
+    <string name="pins_add">Ajouter une épingle sur la vue actuelle</string>
+    <string name="search_title">Rechercher du texte</string>
+    <string name="search_placeholder">Trouver du texte sur le canevas</string>
+    <string name="search_no_matches">Aucun résultat</string>
+    <string name="presentation_previous">Cadre précédent</string>
+    <string name="presentation_next">Cadre suivant</string>
+    <string name="presentation_exit">Quitter la présentation</string>
+    <string name="presentation_position">%1$d / %2$d</string>
+    <string name="loading_document">Chargement du document</string>
+</resources>

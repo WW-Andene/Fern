@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -171,42 +173,42 @@ fun SettingsDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Settings") },
+        title = { Text(stringResource(R.string.settings_title)) },
         text = {
             Column {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Left-handed layout", modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.settings_left_handed), modifier = Modifier.weight(1f))
                     Switch(checked = leftHanded, onCheckedChange = onLeftHandedChange)
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Toolbar at the bottom", modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.settings_toolbar_bottom), modifier = Modifier.weight(1f))
                     Switch(checked = toolbarAtBottom, onCheckedChange = onToolbarAtBottomChange)
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("High contrast", modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.settings_high_contrast), modifier = Modifier.weight(1f))
                     Switch(checked = highContrast, onCheckedChange = onHighContrastChange)
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Snap shapes to objects", modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.settings_snap_objects), modifier = Modifier.weight(1f))
                     Switch(checked = snapToObjects, onCheckedChange = onSnapToObjectsChange)
                 }
-                TextButton(onClick = onShowGuide) { Text("Show the gesture guide") }
+                TextButton(onClick = onShowGuide) { Text(stringResource(R.string.settings_show_guide)) }
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Done") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) }
         },
     )
 }
