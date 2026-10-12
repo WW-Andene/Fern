@@ -24,7 +24,9 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStyle
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.input.pointer.positionChanged
@@ -87,6 +89,25 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                     stylusSample.buttonPressed = isStylus && (event.buttonState and MotionEvent.BUTTON_STYLUS_PRIMARY) != 0
                 }
                 false
+            }
+            // Mouse wheel / trackpad scroll: pans, or zooms around the pointer with Ctrl held (the
+            // convention of desktop canvas apps, and how trackpad pinch arrives on ChromeOS).
+            .pointerInput(state) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        if (event.type != PointerEventType.Scroll) continue
+                        val change = event.changes.firstOrNull() ?: continue
+                        val delta = change.scrollDelta
+                        val screenCenter = Offset(size.width / 2f, size.height / 2f)
+                        if (event.keyboardModifiers.isCtrlPressed) {
+                            state.zoomAround(state.unrotateScreen(change.position, screenCenter), screenCenter, Math.pow(WHEEL_ZOOM_STEP, -delta.y.toDouble()))
+                        } else {
+                            state.panByScreenDelta(-delta * WHEEL_PAN_PX)
+                        }
+                        change.consume()
+                    }
+                }
             }
             .pointerInput(state) {
                 awaitEachGesture {
@@ -630,6 +651,10 @@ private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
 private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
+// One wheel notch pans 64 px, or zooms by 10% with Ctrl held.
+private const val WHEEL_PAN_PX = 64f
+private const val WHEEL_ZOOM_STEP = 1.1
+
 // Two/three-finger tap to undo/redo, the convention of Procreate and most iPad/Android drawing apps.
 private const val MULTI_FINGER_TAP_MAX_MILLIS = 250L
 private const val MULTI_FINGER_TAP_SLOP_PX = 24f // on the §7 scale
