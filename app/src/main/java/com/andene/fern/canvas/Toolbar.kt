@@ -327,6 +327,8 @@ fun Toolbar(
         if (bounds == null) showTransformDialog = false
         else TransformDialog(
             bounds,
+            unitsPerWorld = state.drawingScale.factor,
+            unitSymbol = state.drawingScale.symbol,
             onApply = { left, top, width, height, rotation ->
                 state.transformSelection(left, top, width, height, rotation)
                 showTransformDialog = false
@@ -337,6 +339,8 @@ fun Toolbar(
     var showLineStyleMenu by remember { mutableStateOf(false) }
     var showCombineMenu by remember { mutableStateOf(false) }
     var showContourDialog by remember { mutableStateOf(false) }
+    var showDrawingScaleDialog by remember { mutableStateOf(false) }
+    if (showDrawingScaleDialog) DrawingScaleDialog(state, onDismiss = { showDrawingScaleDialog = false })
     var showPlaceOnPlaneMenu by remember { mutableStateOf(false) }
     if (showContourDialog) ContourDialog(state, onDismiss = { showContourDialog = false })
     var showMoreMenu by remember { mutableStateOf(false) }
@@ -563,6 +567,20 @@ fun Toolbar(
                                 },
                             )
                         }
+                    }
+                }
+                // Measure (roadmap item 143): drag for a distance and angle, tap a shape for its
+                // perimeter and area, tap a line for its length; the scale button sets real units.
+                IconButton(onClick = { state.activeTool = if (state.activeTool == Tool.MEASURE) Tool.PEN else Tool.MEASURE }) {
+                    Icon(
+                        Icons.Filled.SquareFoot,
+                        contentDescription = stringResource(R.string.tb_measure),
+                        tint = if (state.activeTool == Tool.MEASURE) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                    )
+                }
+                if (state.activeTool == Tool.MEASURE) {
+                    TextButton(onClick = { showDrawingScaleDialog = true }) {
+                        Text(stringResource(R.string.scale_button, state.drawingScale.symbol))
                     }
                 }
                 // Bézier pen (roadmap item 96): tap for corners, drag for curves, tap the first node to close.

@@ -566,6 +566,12 @@
     <string name="layout_grid_gutter">Gutter: %1$d</string>
     <string name="layout_grid_margin">Margin: %1$d</string>
     <string name="layout_grid_remove">Remove</string>
+    <string name="tb_measure">Measure: drag for a distance, tap a shape or line</string>
+    <string name="scale_button">Scale: %1$s</string>
+    <string name="scale_title">Drawing scale</string>
+    <string name="scale_one_unit">One canvas unit (a pixel at 100 % zoom) is:</string>
+    <string name="scale_measured_line">The measured line (%1$s canvas units) is really:</string>
+    <string name="scale_none">No scale</string>
     <string name="tb_line_style">Line style</string>
     <string name="cap_round">Round ends</string>
     <string name="cap_square">Square ends</string>

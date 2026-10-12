@@ -302,6 +302,7 @@ class MainActivity : ComponentActivity() {
                             onLayerCompsChanged = { comps -> CanvasStorage.saveLayerComps(context, currentDocumentId, comps) },
                             onStatsChanged = { stats -> CanvasStorage.saveStats(context, currentDocumentId, stats) },
                             onGuidesChanged = { guides -> CanvasStorage.saveGuides(context, currentDocumentId, guides) },
+                            onDrawingScaleChanged = { scale -> CanvasStorage.saveDrawingScale(context, currentDocumentId, scale) },
                             onSymbolInstancesChanged = { instances -> CanvasStorage.saveSymbolInstances(context, currentDocumentId, instances) },
                             onBonesChanged = { bones -> CanvasStorage.saveBones(context, currentDocumentId, bones) },
                             onAnimationSettingsChanged = { settings -> CanvasStorage.saveAnimationSettings(context, currentDocumentId, settings) },
@@ -765,6 +766,7 @@ class MainActivity : ComponentActivity() {
                                     CanvasStorage.loadRasters(context, documentId, layers.filter { it.raster }.map { it.id } + layers.filter { it.masked }.map { maskIdOf(it.id) })
                                 },
                                 frames = CanvasStorage.loadFrames(context, documentId),
+                                drawingScale = CanvasStorage.loadDrawingScale(context, documentId),
                                 history = CanvasStorage.loadHistory(context, documentId),
                                 texts = CanvasStorage.loadTextItems(context, documentId),
                                 connectors = CanvasStorage.loadConnectors(context, documentId),
@@ -787,6 +789,7 @@ class MainActivity : ComponentActivity() {
                         }
                         canvasState.loadStats(loaded.stats)
                         canvasState.loadGuides(loaded.guides)
+                        canvasState.loadDrawingScale(loaded.drawingScale)
                         canvasState.loadSymbolInstances(loaded.symbolInstances)
                         // Symbols redefined since this document was last open: catch its instances up.
                         if (loaded.symbolInstances.isNotEmpty()) {

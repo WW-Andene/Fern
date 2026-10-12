@@ -193,6 +193,7 @@ object CanvasStorage {
         guidesFile(context, id).delete()
         symbolInstancesFile(context, id).delete()
         framesFile(context, id).delete()
+        drawingScaleFile(context, id).delete()
         AudioNotes.deleteAll(context, id)
         versionsDir(context, id).deleteRecursively()
         // Deliberately not deleting files under images/: they're shared/immutable and may
@@ -215,6 +216,7 @@ object CanvasStorage {
         val guides = loadGuides(context, id)
         val symbolInstances = loadSymbolInstances(context, id)
         val frames = loadFrames(context, id)
+        val drawingScale = loadDrawingScale(context, id)
         val meta = createDocument(context, newName)
         save(context, meta.id, strokes)
         saveTextItems(context, meta.id, textItems)
@@ -232,6 +234,7 @@ object CanvasStorage {
         if (guides.isNotEmpty()) saveGuides(context, meta.id, guides)
         if (symbolInstances.isNotEmpty()) saveSymbolInstances(context, meta.id, symbolInstances)
         if (frames.isNotEmpty()) saveFrames(context, meta.id, frames)
+        if (drawingScale != null) saveDrawingScale(context, meta.id, drawingScale)
         return meta
     }
 
@@ -718,6 +721,23 @@ object CanvasStorage {
         }
     }
 
+    /** Saves the document's drawing scale (roadmap item 143); null removes it (world units). */
+    fun saveDrawingScale(context: Context, documentId: String, scale: DrawingScale?) {
+        val file = drawingScaleFile(context, documentId)
+        if (scale == null) {
+            file.delete()
+            return
+        }
+        writeStored(file, JSONObject().put("unit", scale.unit.name).put("unitsPerWorld", scale.unitsPerWorld))
+    }
+
+    fun loadDrawingScale(context: Context, documentId: String): DrawingScale? {
+        val root = readStored(drawingScaleFile(context, documentId)) { it as JSONObject } ?: return null
+        val unit = MeasureUnit.entries.firstOrNull { it.name == root.optString("unit") } ?: return null
+        val factor = root.optDouble("unitsPerWorld", Double.NaN)
+        return if (factor > 0 && factor.isFinite()) DrawingScale(unit, factor) else null
+    }
+
     /** Saves the document's ruler guides (roadmap item 99). */
     fun saveGuides(context: Context, documentId: String, guides: List<Guide>) {
         val root = JSONArray()
@@ -1040,6 +1060,7 @@ object CanvasStorage {
         "guides.json" to guidesFile(context, documentId),
         "symbols.json" to symbolInstancesFile(context, documentId),
         "frames.json" to framesFile(context, documentId),
+        "scale.json" to drawingScaleFile(context, documentId),
     )
 
     /** Adds an index entry for files already written under [id] (used by bundle import). */
@@ -1074,6 +1095,7 @@ object CanvasStorage {
     private fun versionsDir(context: Context, documentId: String) = File(context.filesDir, "versions_$documentId")
 
     private fun framesFile(context: Context, documentId: String) = File(context.filesDir, "frames_$documentId.json")
+    private fun drawingScaleFile(context: Context, documentId: String) = File(context.filesDir, "scale_$documentId.json")
 
     private fun layersFile(context: Context, documentId: String) = File(context.filesDir, "layers_$documentId.json")
 

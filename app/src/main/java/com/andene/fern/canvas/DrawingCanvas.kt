@@ -215,6 +215,7 @@ fun DrawingCanvas(
                             Tool.BONE -> state.endBone()
                             Tool.BEZIER -> {} // a node is placed on press; nothing to end
                             Tool.RULER -> state.endRulerGesture()
+                            Tool.MEASURE -> state.endMeasure()
                             Tool.SELECT -> when (selectionGestureKind) {
                                 SelectionGestureKind.SCALE -> state.endScaleSelection()
                                 SelectionGestureKind.ROTATE -> state.endRotateSelection()
@@ -277,6 +278,7 @@ fun DrawingCanvas(
                                     Tool.BONE -> state.beginBone(world)
                                     Tool.BEZIER -> state.beginBezierNode(world)
                                     Tool.RULER -> state.beginRulerGesture(world)
+                                    Tool.MEASURE -> state.beginMeasure(world)
                                     Tool.SELECT -> {
                                         // The shape builder and knife (roadmap item 141) take every drag, handles included.
                                         val handles = if (state.shapeEditMode == null) selectionHandles(state, screenCenter) else null
@@ -312,6 +314,7 @@ fun DrawingCanvas(
                                         Tool.BONE -> state.continueBone(world)
                                         Tool.BEZIER -> state.dragBezierHandle(world)
                                         Tool.RULER -> state.continueRulerGesture(world)
+                                        Tool.MEASURE -> state.continueMeasure(world)
                                         Tool.SELECT -> when (selectionGestureKind) {
                                             SelectionGestureKind.SCALE -> state.continueScaleSelection(world)
                                             SelectionGestureKind.ROTATE -> state.continueRotateSelection(world)
@@ -712,10 +715,40 @@ fun DrawingCanvas(
                 drawPath(path = path, color = state.activeColor, style = DrawStyle(width = widthScreen, cap = StrokeCap.Round, join = StrokeJoin.Round))
                 // Dimensions (roadmap item 99): the line's length, or the box's width x height,
                 // in world units, beside the finger.
-                val label = shapeDimensions(state.activeShapeKind, start, end)
+                val label = shapeDimensions(state.activeShapeKind, start, end, state.drawingScale)
                 val layout = textMeasurer.measure(label, TextStyle(color = Color.White, fontSize = 12.sp))
                 val at = state.worldToScreen(end, screenCenter) + Offset(16f, 16f)
                 drawRect(MARQUEE_BORDER_COLOR, topLeft = at - Offset(4f, 2f), size = Size(layout.size.width + 8f, layout.size.height + 4f))
+                drawText(layout, topLeft = at)
+            }
+
+            // Measurement (roadmap item 143): the measured line or outline, and its readout.
+            if (state.activeTool == Tool.MEASURE) state.measurement?.let { measured ->
+                val screen = measured.points.map { state.worldToScreen(it, screenCenter) }
+                val path = Path().apply {
+                    moveTo(screen[0].x, screen[0].y)
+                    for (i in 1 until screen.size) lineTo(screen[i].x, screen[i].y)
+                    if (measured.closed) close()
+                }
+                drawPath(path, Color.White, style = DrawStyle(width = 4f))
+                drawPath(path, MEASURE_COLOR, style = DrawStyle(width = 2f))
+                val scaleOf = state.drawingScale
+                val label: String
+                val at: Offset
+                if (measured.points.size == 2 && !measured.closed) {
+                    for (end in screen) drawCircle(MEASURE_COLOR, radius = 4f, center = end)
+                    val (a, b) = measured.points
+                    // Compass angle as on screen: 0° to the right, counter-clockwise positive (y is down).
+                    val degrees = Math.toDegrees(kotlin.math.atan2(a.y - b.y, b.x - a.x))
+                    label = "${scaleOf.formatLength(measured.length)} · ${formatMeasure(degrees)}°"
+                    at = (screen[0] + screen[1]) / 2f + Offset(8f, 8f)
+                } else {
+                    label = if (measured.closed) "${scaleOf.formatLength(measured.length)} · ${scaleOf.formatArea(measured.area)}"
+                    else scaleOf.formatLength(measured.length)
+                    at = screen.reduce { acc, p -> acc + p } / screen.size.toFloat()
+                }
+                val layout = textMeasurer.measure(label, TextStyle(color = Color.White, fontSize = 12.sp))
+                drawRect(MEASURE_COLOR, topLeft = at - Offset(4f, 2f), size = Size(layout.size.width + 8f, layout.size.height + 4f))
                 drawText(layout, topLeft = at)
             }
 
@@ -1371,6 +1404,8 @@ private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
 private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
+// The measure tool's line and readout (roadmap item 143).
+private val MEASURE_COLOR = Color(0xFF00897B)
 // A frame's layout grid bands (roadmap item 142): the frame colour, faint, so overlaps read darker.
 private val LAYOUT_GRID_COLOR = Color(0x1A7E57C2)
 // The shape builder's remove drag and the knife's cut line (roadmap item 141).
@@ -1389,10 +1424,18 @@ private const val BONE_JOINT_RADIUS_PX = 6f
 
 private val GUIDE_COLOR = Color(0xFFE91E63)
 
-/** The shape-tool readout: a line or arrow's length, otherwise the box's width x height, rounded to whole units. */
-internal fun shapeDimensions(kind: ShapeKind, start: WorldPoint, end: WorldPoint): String {
+/**
+ * The shape-tool readout: a line or arrow's length, otherwise the box's width x height. Whole
+ * world units without a drawing scale; with one (roadmap item 143), three significant digits
+ * and the unit.
+ */
+internal fun shapeDimensions(kind: ShapeKind, start: WorldPoint, end: WorldPoint, drawingScale: DrawingScale? = null): String {
     val dx = abs(end.x - start.x)
     val dy = abs(end.y - start.y)
+    if (drawingScale != null) return when (kind) {
+        ShapeKind.LINE, ShapeKind.ARROW -> drawingScale.formatLength(kotlin.math.hypot(dx, dy))
+        else -> "${formatMeasure(dx * drawingScale.unitsPerWorld)} × ${drawingScale.formatLength(dy)}"
+    }
     return when (kind) {
         ShapeKind.LINE, ShapeKind.ARROW -> "%.0f".format(kotlin.math.hypot(dx, dy))
         else -> "%.0f × %.0f".format(dx, dy)

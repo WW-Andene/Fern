@@ -568,6 +568,12 @@
     <string name="layout_grid_gutter">Gouttière : %1$d</string>
     <string name="layout_grid_margin">Marge : %1$d</string>
     <string name="layout_grid_remove">Supprimer</string>
+    <string name="tb_measure">Mesurer : glisser pour une distance, toucher une forme ou une ligne</string>
+    <string name="scale_button">Échelle : %1$s</string>
+    <string name="scale_title">Échelle du dessin</string>
+    <string name="scale_one_unit">Une unité du canevas (un pixel à 100 %) vaut :</string>
+    <string name="scale_measured_line">La ligne mesurée (%1$s unités du canevas) mesure en réalité :</string>
+    <string name="scale_none">Sans échelle</string>
     <string name="tb_line_style">Style de trait</string>
     <string name="cap_round">Extrémités rondes</string>
     <string name="cap_square">Extrémités carrées</string>

@@ -24,7 +24,8 @@ import com.andene.fern.R
 import java.util.Locale
 
 /**
- * Exact position, size and rotation for the selection (roadmap item 99), in world units: the
+ * Exact position, size and rotation for the selection (roadmap item 99), in world units or the
+ * drawing scale's unit (roadmap item 143, [unitsPerWorld] of them per world unit): the
  * selection's bounds as they are, editable, with width and height kept in proportion while the
  * lock is on. Apply calls [onApply] with the left, top, width, height and the turn in degrees;
  * a field that doesn't read as a number keeps its current value.
@@ -32,6 +33,9 @@ import java.util.Locale
 @Composable
 fun TransformDialog(
     bounds: Pair<WorldPoint, WorldPoint>,
+    unitsPerWorld: Double = 1.0,
+    /** The unit the fields are in, shown in their labels. */
+    unitSymbol: String = "px",
     onApply: (left: Double, top: Double, width: Double, height: Double, rotationDegrees: Double) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -41,10 +45,13 @@ fun TransformDialog(
     fun format(value: Double) = String.format(Locale.ROOT, "%.1f", value)
     // Accepts either decimal separator, whatever the keyboard offers.
     fun parse(text: String) = text.trim().replace(',', '.').toDoubleOrNull()
-    var x by remember { mutableStateOf(format(min.x)) }
-    var y by remember { mutableStateOf(format(min.y)) }
-    var w by remember { mutableStateOf(format(startWidth)) }
-    var h by remember { mutableStateOf(format(startHeight)) }
+    // Fields show and take the scale's unit; [onApply] gets world units.
+    val k = unitsPerWorld
+    fun parseWorld(text: String) = parse(text)?.let { it / k }
+    var x by remember { mutableStateOf(format(min.x * k)) }
+    var y by remember { mutableStateOf(format(min.y * k)) }
+    var w by remember { mutableStateOf(format(startWidth * k)) }
+    var h by remember { mutableStateOf(format(startHeight * k)) }
     var angle by remember { mutableStateOf("0") }
     var locked by remember { mutableStateOf(true) }
     val numeric = KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -55,8 +62,8 @@ fun TransformDialog(
         text = {
             Column {
                 Row {
-                    OutlinedTextField(x, { x = it }, label = { Text("X") }, singleLine = true, keyboardOptions = numeric, modifier = Modifier.width(128.dp).padding(end = 8.dp))
-                    OutlinedTextField(y, { y = it }, label = { Text("Y") }, singleLine = true, keyboardOptions = numeric, modifier = Modifier.width(128.dp))
+                    OutlinedTextField(x, { x = it }, label = { Text("X ($unitSymbol)") }, singleLine = true, keyboardOptions = numeric, modifier = Modifier.width(128.dp).padding(end = 8.dp))
+                    OutlinedTextField(y, { y = it }, label = { Text("Y ($unitSymbol)") }, singleLine = true, keyboardOptions = numeric, modifier = Modifier.width(128.dp))
                 }
                 Row {
                     OutlinedTextField(
@@ -65,7 +72,7 @@ fun TransformDialog(
                             w = text
                             if (locked && startWidth > 0) parse(text)?.let { h = format(it * startHeight / startWidth) }
                         },
-                        label = { Text(stringResource(R.string.transform_width)) }, singleLine = true, keyboardOptions = numeric,
+                        label = { Text("${stringResource(R.string.transform_width)} ($unitSymbol)") }, singleLine = true, keyboardOptions = numeric,
                         modifier = Modifier.width(128.dp).padding(end = 8.dp),
                     )
                     OutlinedTextField(
@@ -74,7 +81,7 @@ fun TransformDialog(
                             h = text
                             if (locked && startHeight > 0) parse(text)?.let { w = format(it * startWidth / startHeight) }
                         },
-                        label = { Text(stringResource(R.string.transform_height)) }, singleLine = true, keyboardOptions = numeric,
+                        label = { Text("${stringResource(R.string.transform_height)} ($unitSymbol)") }, singleLine = true, keyboardOptions = numeric,
                         modifier = Modifier.width(128.dp),
                     )
                 }
@@ -87,7 +94,7 @@ fun TransformDialog(
         },
         confirmButton = {
             TextButton(onClick = {
-                onApply(parse(x) ?: min.x, parse(y) ?: min.y, parse(w) ?: startWidth, parse(h) ?: startHeight, parse(angle) ?: 0.0)
+                onApply(parseWorld(x) ?: min.x, parseWorld(y) ?: min.y, parseWorld(w) ?: startWidth, parseWorld(h) ?: startHeight, parse(angle) ?: 0.0)
             }) { Text(stringResource(R.string.action_apply)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },

@@ -33,7 +33,7 @@ enum class StrokeAlignment(@StringRes val label: Int) {
     DISTRIBUTE_Y(R.string.align_distribute_y),
 }
 
-enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER, EYEDROPPER, CONNECT, BONE, BEZIER }
+enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER, EYEDROPPER, CONNECT, BONE, BEZIER, MEASURE }
 
 /**
  * Camera + document model for the infinite canvas.
@@ -94,6 +94,8 @@ class CanvasState(
     private val onLayerCompsChanged: (List<LayerComp>) -> Unit = {},
     private val onStatsChanged: (DocumentStats) -> Unit = {},
     private val onGuidesChanged: (List<Guide>) -> Unit = {},
+    /** The document's drawing scale changed (roadmap item 143). */
+    private val onDrawingScaleChanged: (DrawingScale?) -> Unit = {},
     private val onSymbolInstancesChanged: (List<SymbolInstance>) -> Unit = {},
     /** Playback speed and frame holds changed (see [AnimationSettings]). */
     private val onAnimationSettingsChanged: (AnimationSettings) -> Unit = {},
@@ -265,6 +267,7 @@ class CanvasState(
             // The shape builder and knife belong to the SELECT tool; the eraser is spared, since a
             // flipped stylus switches to it for one gesture and back.
             if (value != Tool.SELECT && value != Tool.ERASER) endShapeEdit()
+            if (value != Tool.MEASURE) measurement = null
             activeToolState = value
         }
     var activePenType by mutableStateOf(PenType.MARKER)
@@ -4413,6 +4416,61 @@ class CanvasState(
             .take(MAX_GUIDE_OBJECTS)
         guideTargetsX = (others.flatMap { listOf(it.minX, (it.minX + it.maxX) / 2, it.maxX) } + rulerX).toDoubleArray()
         guideTargetsY = (others.flatMap { listOf(it.minY, (it.minY + it.maxY) / 2, it.maxY) } + rulerY).toDoubleArray()
+    }
+
+    /** The document's real-world scale (roadmap item 143); null measures in world units. */
+    var drawingScale: DrawingScale? by mutableStateOf(null)
+        private set
+
+    fun changeDrawingScale(scale: DrawingScale?) {
+        drawingScale = scale
+        onDrawingScaleChanged(scale)
+    }
+
+    fun loadDrawingScale(scale: DrawingScale?) {
+        drawingScale = scale
+    }
+
+    /**
+     * What the MEASURE tool (roadmap item 143) is showing: a dragged line (two points, open), a
+     * tapped stroke's outline (closed when it's a closed shape: perimeter and area), or null.
+     * Not part of the document; it stays until the next measurement.
+     */
+    var measurement: Measurement? by mutableStateOf(null)
+        private set
+
+    /** Starts a measuring drag at [worldPoint], snapped to a nearby stroke end or corner when object snapping is on. */
+    fun beginMeasure(worldPoint: WorldPoint) {
+        val start = snappedToObject(worldPoint) ?: worldPoint
+        measurement = Measurement(listOf(start, start), closed = false)
+    }
+
+    fun continueMeasure(worldPoint: WorldPoint) {
+        val start = measurement?.points?.firstOrNull() ?: return
+        measurement = Measurement(listOf(start, snappedToObject(worldPoint) ?: worldPoint), closed = false)
+    }
+
+    /**
+     * Ends a measuring drag. A drag shorter than a tap measures what was tapped instead: the
+     * smallest visible closed shape around the point (perimeter and area), else the nearest
+     * visible line within reach (its length), else nothing.
+     */
+    fun endMeasure() {
+        snapIndicator = null
+        val line = measurement ?: return
+        val (a, b) = line.points
+        if (hypot(b.x - a.x, b.y - a.y) * scale > TAP_SLOP_SCREEN) return
+        val reach = OBJECT_SNAP_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
+        val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
+        val near = strokesNear(a.x - reach, a.y - reach, a.x + reach, a.y + reach).filter { isVisible(it) && it.points.size >= 2 }
+        val shape = strokes.filter { isVisible(it) && (it.filled || isClosedLoop(it.points, closeTolerance)) && polygonContains(it.points, a) }
+            .minByOrNull { polygonArea(it.points) }
+        measurement = when {
+            shape != null -> Measurement(shape.points, closed = true)
+            else -> near.minByOrNull { distanceToPolyline(it.points, a) }
+                ?.takeIf { distanceToPolyline(it.points, a) <= reach }
+                ?.let { Measurement(it.points, closed = false) }
+        }
     }
 
     /** Screen rulers along the canvas's top and left edges (roadmap item 99). A view setting. */

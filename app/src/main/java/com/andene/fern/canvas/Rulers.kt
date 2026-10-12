@@ -32,8 +32,8 @@ import com.andene.fern.R
 import kotlin.math.abs
 
 /**
- * Screen rulers (roadmap item 99) along the top and left edges of the canvas, in world units,
- * with ticks that rescale as the view zooms. As in Illustrator and Affinity: dragging out of
+ * Screen rulers (roadmap item 99) along the top and left edges of the canvas, in world units
+ * or the document's drawing scale unit (roadmap item 143), with ticks that rescale as the view zooms. As in Illustrator and Affinity: dragging out of
  * the top ruler pulls a horizontal guide, out of the left ruler a vertical one. Each guide has
  * a marker on the ruler along its length - drag the marker to move the guide, hold it to
  * remove the guide. Shown for an unrotated view (a turned view's axes don't run along the
@@ -67,11 +67,15 @@ fun Rulers(state: CanvasState, modifier: Modifier = Modifier, topInset: Dp = 0.d
                 val center = Offset(view.width / 2f, view.height / 2f)
                 val minWorld = state.screenToWorld(Offset.Zero, center)
                 val maxWorld = state.screenToWorld(Offset(view.width, view.height), center)
-                val step = rulerStep(state.scale)
-                val ticks = if (top) rulerTicks(minWorld.x, maxWorld.x, state.scale) else rulerTicks(minWorld.y, maxWorld.y, state.scale)
+                // Ticks in the drawing scale's unit (roadmap item 143): the same tick rules, on
+                // positions measured in that unit, then mapped back to world positions.
+                val k = state.drawingScale.factor
+                val step = rulerStep(state.scale / k)
+                val ticks = if (top) rulerTicks(minWorld.x * k, maxWorld.x * k, state.scale / k) else rulerTicks(minWorld.y * k, maxWorld.y * k, state.scale / k)
                 val thickness = if (top) size.height else size.width
                 for (tick in ticks) {
-                    val at = if (top) state.worldToScreen(WorldPoint(tick.position, 0.0), center).x else state.worldToScreen(WorldPoint(0.0, tick.position), center).y - origin.y
+                    val world = tick.position / k
+                    val at = if (top) state.worldToScreen(WorldPoint(world, 0.0), center).x else state.worldToScreen(WorldPoint(0.0, world), center).y - origin.y
                     val length = if (tick.major) thickness * 0.5f else thickness * 0.25f
                     if (top) drawLine(ink, Offset(at, thickness - length), Offset(at, thickness)) else drawLine(ink, Offset(thickness - length, at), Offset(thickness, at))
                     if (tick.major) {

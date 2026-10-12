@@ -1,0 +1,94 @@
+package com.andene.fern.canvas
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
+import com.andene.fern.R
+
+/**
+ * The document's drawing scale (roadmap item 143). Pick a unit and either say how long one
+ * canvas unit (a pixel at 100 % zoom) is in it, or - when a line has just been measured - how
+ * long that line really is, which calibrates the scale from it, as Concepts does. "No scale"
+ * goes back to measuring in canvas units. Saved with the document.
+ */
+@Composable
+fun DrawingScaleDialog(state: CanvasState, onDismiss: () -> Unit) {
+    val current = state.drawingScale
+    // A measured straight line offers calibration; its length in canvas units.
+    val measuredLine = state.measurement?.takeIf { it.points.size == 2 && !it.closed && it.length > 0 }?.length
+    var unit by remember { mutableStateOf(current?.unit ?: MeasureUnit.CENTIMETRE) }
+    var showUnits by remember { mutableStateOf(false) }
+    var value by remember {
+        mutableStateOf(
+            when {
+                measuredLine != null -> formatMeasure(measuredLine * current.factor)
+                current != null -> formatMeasure(current.unitsPerWorld)
+                else -> "1"
+            },
+        )
+    }
+    val parsed = value.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 && it.isFinite() }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.scale_title)) },
+        text = {
+            Column {
+                Text(
+                    if (measuredLine != null) stringResource(R.string.scale_measured_line, formatMeasure(measuredLine))
+                    else stringResource(R.string.scale_one_unit),
+                )
+                Row {
+                    OutlinedTextField(
+                        value,
+                        { value = it },
+                        singleLine = true,
+                        isError = parsed == null,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = androidx.compose.ui.Modifier.weight(1f),
+                    )
+                    Box {
+                        TextButton(onClick = { showUnits = true }) { Text(unit.symbol) }
+                        DropdownMenu(expanded = showUnits, onDismissRequest = { showUnits = false }) {
+                            for (option in MeasureUnit.entries) {
+                                DropdownMenuItem(text = { Text(option.symbol) }, onClick = {
+                                    unit = option
+                                    showUnits = false
+                                })
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row {
+                if (current != null) TextButton(onClick = {
+                    state.changeDrawingScale(null)
+                    onDismiss()
+                }) { Text(stringResource(R.string.scale_none)) }
+                TextButton(onClick = {
+                    val real = parsed ?: return@TextButton
+                    state.changeDrawingScale(
+                        if (measuredLine != null) DrawingScale.calibrated(measuredLine, real, unit) else DrawingScale(unit, real),
+                    )
+                    onDismiss()
+                }, enabled = parsed != null) { Text(stringResource(R.string.action_apply)) }
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
