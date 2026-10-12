@@ -93,7 +93,7 @@ Goal: 120 fps at any zoom, with any amount of content.
 - [x] 50. Level of detail — sub-pixel strokes drawn as one dot; sub-pixel point spacing decimated, cached per stroke per zoom octave
 - [x] 51. Tile caching — world-aligned 256 px tiles per zoom octave for documents of 20k+ strokes while nothing is edited live (JVM, 1M strokes: whole-document pan frame 1899 -> 16 ms; refilling after an edit ~3 s)
 - [ ] 52. GPU rendering path
-- [ ] 53. Background loading / streaming of off-screen regions
+- [~] 53. Background loading / streaming of off-screen regions — documents load and switch off the main thread behind a loading cover; no streaming of off-screen regions (needs chunked storage)
 - [x] 54. Large images and PDF pages downscaled to 2048 px
 - [ ] 55. Battery and thermal checks
 

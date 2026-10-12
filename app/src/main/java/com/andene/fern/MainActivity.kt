@@ -75,6 +75,8 @@ import com.andene.fern.canvas.DrawingCanvas
 import com.andene.fern.canvas.Frame
 import com.andene.fern.canvas.FramesDialog
 import com.andene.fern.canvas.ClipboardContent
+import com.andene.fern.canvas.DocumentLoadingOverlay
+import com.andene.fern.canvas.LoadedDocument
 import com.andene.fern.canvas.LinkChoices
 import com.andene.fern.canvas.LinkTarget
 import com.andene.fern.canvas.Minimap
@@ -109,6 +111,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 // Inserted images are stored at most this large on their longest edge: plenty for a canvas
@@ -162,6 +166,10 @@ class MainActivity : ComponentActivity() {
                     var showWelcome by remember { mutableStateOf(shouldShowWelcome(context)) }
                     var showSettings by remember { mutableStateOf(false) }
                     var showQuickMenu by remember { mutableStateOf(false) }
+                    // True while a document is being read: the canvas is covered so nothing can be
+                    // drawn onto (and then autosaved over) a document that isn't loaded yet.
+                    var loadingDocument by remember { mutableStateOf(true) }
+                    val switchMutex = remember { Mutex() }
                     var showAudioNotes by remember { mutableStateOf(false) }
                     val audioNotes = remember { AudioNotes(context) }
                     val micPermissionLauncher = rememberLauncherForActivityResult(
@@ -425,26 +433,61 @@ class MainActivity : ComponentActivity() {
                         documents = withContext(Dispatchers.IO) { CanvasStorage.listDocuments(context) }
                     }
 
-                    suspend fun refreshPins() {
-                        pins = withContext(Dispatchers.IO) { CanvasStorage.listPins(context, currentDocumentId) }
+                    /**
+                     * Reads a whole document off the main thread, then applies it in one go, and
+                     * only then makes it current: a big document takes seconds to read (3.5 s for
+                     * 1M strokes in ScaleBenchmark), which on the main thread froze the app, and
+                     * an ON_STOP save while it was half loaded wrote the half-loaded canvas over it.
+                     */
+                    suspend fun loadDocument(documentId: String) {
+                        val loaded = withContext(Dispatchers.IO) {
+                            LoadedDocument(
+                                strokes = CanvasStorage.load(context, documentId),
+                                layers = CanvasStorage.loadLayers(context, documentId),
+                                frames = CanvasStorage.loadFrames(context, documentId),
+                                history = CanvasStorage.loadHistory(context, documentId),
+                                texts = CanvasStorage.loadTextItems(context, documentId),
+                                images = CanvasStorage.loadImageItems(context, documentId),
+                                background = CanvasStorage.loadBackground(context, documentId),
+                                pins = CanvasStorage.listPins(context, documentId),
+                            )
+                        }
+                        canvasState.loadStrokes(loaded.strokes)
+                        canvasState.loadLayers(loaded.layers)
+                        canvasState.loadFrames(loaded.frames)
+                        canvasState.loadHistory(loaded.history.first, loaded.history.second)
+                        canvasState.loadTextItems(loaded.texts)
+                        canvasState.loadImageItems(loaded.images)
+                        canvasState.loadBackground(loaded.background.first, loaded.background.second)
+                        pins = loaded.pins
+                        currentDocumentId = documentId
                     }
 
-                    fun switchToDocument(documentId: String) {
+                    /**
+                     * Saves the open document and opens [documentId], both off the main thread,
+                     * with the canvas covered (and so not drawable) until it's done. Switches run
+                     * one at a time.
+                     */
+                    suspend fun switchToDocument(documentId: String) = switchMutex.withLock {
                         autosaveJob?.cancel()
-                        CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList())
-                        CanvasStorage.saveTextItems(context, currentDocumentId, canvasState.textItems.toList())
-                        CanvasStorage.saveImageItems(context, currentDocumentId, canvasState.imageItems.toList())
-                        canvasState.historySnapshot().let { (undo, redo) -> CanvasStorage.saveHistory(context, currentDocumentId, undo, redo) }
-                        currentDocumentId = documentId
-                        canvasState.loadStrokes(CanvasStorage.load(context, documentId))
-                        canvasState.loadLayers(CanvasStorage.loadLayers(context, documentId))
-                        canvasState.loadFrames(CanvasStorage.loadFrames(context, documentId))
-                        CanvasStorage.loadHistory(context, documentId).let { (undo, redo) -> canvasState.loadHistory(undo, redo) }
-                        canvasState.loadTextItems(CanvasStorage.loadTextItems(context, documentId))
-                        canvasState.loadImageItems(CanvasStorage.loadImageItems(context, documentId))
-                        val (backgroundColor, backgroundStyle) = CanvasStorage.loadBackground(context, documentId)
-                        canvasState.loadBackground(backgroundColor, backgroundStyle)
-                        pins = CanvasStorage.listPins(context, documentId)
+                        loadingDocument = true
+                        try {
+                            val leaving = currentDocumentId
+                            val strokes = canvasState.strokes.toList()
+                            val texts = canvasState.textItems.toList()
+                            val images = canvasState.imageItems.toList()
+                            val (undo, redo) = canvasState.historySnapshot()
+                            withContext(Dispatchers.IO) {
+                                CanvasStorage.save(context, leaving, strokes)
+                                CanvasStorage.saveTextItems(context, leaving, texts)
+                                CanvasStorage.saveImageItems(context, leaving, images)
+                                // The history lists materialize as read; nothing changes them meanwhile (canvas covered).
+                                CanvasStorage.saveHistory(context, leaving, undo, redo)
+                            }
+                            loadDocument(documentId)
+                        } finally {
+                            loadingDocument = false
+                        }
                     }
 
                     LaunchedEffect(Unit) {
@@ -459,17 +502,8 @@ class MainActivity : ComponentActivity() {
                             current = withContext(Dispatchers.IO) { CanvasStorage.createDocument(context, "My Canvas") }
                             refreshDocuments()
                         }
-                        currentDocumentId = current.id
-                        canvasState.loadStrokes(withContext(Dispatchers.IO) { CanvasStorage.load(context, current.id) })
-                        canvasState.loadLayers(withContext(Dispatchers.IO) { CanvasStorage.loadLayers(context, current.id) })
-                        canvasState.loadFrames(withContext(Dispatchers.IO) { CanvasStorage.loadFrames(context, current.id) })
-                        withContext(Dispatchers.IO) { CanvasStorage.loadHistory(context, current.id) }
-                            .let { (undo, redo) -> canvasState.loadHistory(undo, redo) }
-                        canvasState.loadTextItems(withContext(Dispatchers.IO) { CanvasStorage.loadTextItems(context, current.id) })
-                        canvasState.loadImageItems(withContext(Dispatchers.IO) { CanvasStorage.loadImageItems(context, current.id) })
-                        val (backgroundColor, backgroundStyle) = withContext(Dispatchers.IO) { CanvasStorage.loadBackground(context, current.id) }
-                        canvasState.loadBackground(backgroundColor, backgroundStyle)
-                        refreshPins()
+                        loadDocument(current.id)
+                        loadingDocument = false
                     }
 
                     // Saved synchronously on ON_STOP: the write is small (JSON of the current
@@ -558,7 +592,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                     is LinkTarget.Document -> {
                                         val document = documents.firstOrNull { it.id == target.documentId && it.trashedAt == null }
-                                        if (document != null) switchToDocument(document.id)
+                                        if (document != null) coroutineScope.launch { switchToDocument(document.id) }
                                         else Toast.makeText(context, "That document no longer exists", Toast.LENGTH_SHORT).show()
                                     }
                                 }
@@ -680,6 +714,7 @@ class MainActivity : ComponentActivity() {
                                     .padding(12.dp),
                             )
                             if (showQuickMenu) QuickMenuOverlay(state = canvasState, onDismiss = { showQuickMenu = false })
+                            if (loadingDocument) DocumentLoadingOverlay()
                         }
                     }
 
@@ -710,7 +745,7 @@ class MainActivity : ComponentActivity() {
                             documents = documents,
                             currentDocumentId = currentDocumentId,
                             onSelect = { doc ->
-                                switchToDocument(doc.id)
+                                coroutineScope.launch { switchToDocument(doc.id) }
                                 showDocumentsDialog = false
                             },
                             onRename = { doc, newName ->
