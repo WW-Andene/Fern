@@ -75,6 +75,7 @@ import com.andene.fern.canvas.Toolbar
 import com.andene.fern.canvas.VersionsDialog
 import com.andene.fern.canvas.WelcomeDialog
 import com.andene.fern.canvas.WorldPoint
+import com.andene.fern.canvas.exportAnimatedGif
 import com.andene.fern.canvas.exportDocumentBundle
 import com.andene.fern.canvas.exportDocumentPdf
 import com.andene.fern.canvas.exportDocumentPng
@@ -245,6 +246,11 @@ class MainActivity : ComponentActivity() {
                         contract = ActivityResultContracts.CreateDocument("image/png"),
                     ) { uri ->
                         if (uri != null) writeExport(uri) { exportSpriteSheetPng(canvasState, textMeasurer, density, imageForExport) }
+                    }
+                    val gifExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("image/gif"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportAnimatedGif(canvasState, textMeasurer, density, imageForExport) }
                     }
                     val pdfExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("application/pdf"),
@@ -452,6 +458,7 @@ class MainActivity : ComponentActivity() {
                                 onExportPng = { pngExportLauncher.launch("${currentDocumentName()}.png") },
                                 onExportPdf = { pdfExportLauncher.launch("${currentDocumentName()}.pdf") },
                                 onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
+                                onExportGif = { gifExportLauncher.launch("${currentDocumentName()}.gif") },
                                 onExportSpriteSheet = { spriteSheetExportLauncher.launch("${currentDocumentName()} sprites.png") },
                                 onExportBundle = { bundleExportLauncher.launch("${currentDocumentName()}.fern") },
                                 onShare = {

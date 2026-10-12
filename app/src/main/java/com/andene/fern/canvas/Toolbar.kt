@@ -114,6 +114,7 @@ fun Toolbar(
     onShare: () -> Unit = {},
     onExportBundle: () -> Unit = {},
     onExportSpriteSheet: () -> Unit = {},
+    onExportGif: () -> Unit = {},
     onImportPdf: () -> Unit = {},
     onOpenFrames: () -> Unit = {},
 ) {
@@ -505,6 +506,13 @@ fun Toolbar(
                             },
                         )
                         if (state.animFrameCount > 1) {
+                            DropdownMenuItem(
+                                text = { Text("Animated GIF") },
+                                onClick = {
+                                    showExportMenu = false
+                                    onExportGif()
+                                },
+                            )
                             DropdownMenuItem(
                                 text = { Text("Animation sprite sheet (PNG)") },
                                 onClick = {

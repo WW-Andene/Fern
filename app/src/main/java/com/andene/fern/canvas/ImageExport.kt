@@ -121,6 +121,24 @@ fun exportSpriteSheetPng(
     return out.toByteArray()
 }
 
+/** Every animation frame as a looping animated GIF at the document's playback speed; null for an empty document. */
+fun exportAnimatedGif(
+    source: CanvasState,
+    textMeasurer: TextMeasurer,
+    density: Density,
+    imageFor: (String) -> ImageBitmap?,
+): ByteArray? {
+    val frame = frameForExport(source, SPRITE_FRAME_EDGE_PX) ?: return null
+    val pixels = (0 until source.animFrameCount).map { i ->
+        frame.camera.goToAnimFrame(i)
+        val image = ImageBitmap(frame.widthPx, frame.heightPx)
+        frame.drawOn(Canvas(image), density, textMeasurer, imageFor)
+        IntArray(frame.widthPx * frame.heightPx).also { image.readPixels(it) }
+    }
+    // GIF delays are in hundredths of a second.
+    return encodeGif(pixels, frame.widthPx, frame.heightPx, delayCentis = (100 / source.animFps).coerceAtLeast(2))
+}
+
 /**
  * The whole document as a PDF, or null if it's empty: one page per canvas [Frame] when the
  * document has frames (a multi-page document laid out on the canvas), otherwise one page
