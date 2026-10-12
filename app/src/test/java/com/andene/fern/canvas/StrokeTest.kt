@@ -49,4 +49,40 @@ class StrokeTest {
         stroke.shiftBy(WorldPoint(1.0, 0.0))
         assertEquals(0.0, copy.points.first().x, 0.0)
     }
+
+    @Test
+    fun growsPastInitialCapacityKeepingStylusData() {
+        val stroke = Stroke(Color.Black, 1.0)
+        repeat(1000) { stroke.addPoint(WorldPoint(it.toDouble(), -it.toDouble()), it / 1000f, 0.5f, 0.25f) }
+        assertEquals(1000, stroke.points.size)
+        assertEquals(WorldPoint(999.0, -999.0), stroke.points[999])
+        assertEquals(0.999f, stroke.pressureAt(999), 0f)
+        assertEquals(0.5f, stroke.tilts[500], 0f)
+        assertEquals(0.25f, stroke.orientationAt(0), 0f)
+    }
+
+    @Test
+    fun viewsAreLive() {
+        val stroke = line(0.0)
+        val points = stroke.points
+        stroke.addPoint(WorldPoint(1.0, 0.0))
+        assertEquals(2, points.size)
+    }
+
+    @Test
+    fun setPointsAcceptsItsOwnView() {
+        val stroke = line(0.0, 1.0, 2.0)
+        stroke.setPoints(stroke.points)
+        assertEquals(listOf(0.0, 1.0, 2.0), stroke.points.map { it.x })
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun setPointsRejectsADifferentCount() {
+        line(0.0, 1.0).setPoints(listOf(WorldPoint.Zero))
+    }
+
+    @Test(expected = IndexOutOfBoundsException::class)
+    fun readingPastTheEndFails() {
+        line(0.0).pressureAt(1)
+    }
 }

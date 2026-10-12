@@ -68,22 +68,52 @@ class Stroke(
     var widthWorld: Double = widthWorld
         private set
 
-    private val _points = mutableListOf<WorldPoint>()
-    val points: List<WorldPoint> get() = _points
+    // Point data lives in growable primitive arrays, not lists of objects: a WorldPoint plus
+    // three boxed Floats cost ~106 bytes of heap per point, which a 100k-stroke document can't
+    // afford on a phone; this costs 28 (two Doubles, three Floats). Parallel by index:
+    // pressure (0..1, 1.0 = no pressure data), tilt (radians, 0 = perpendicular to the screen /
+    // no tilt data), and orientation (radians, the compass direction the stylus is tilted
+    // toward) at the moment each point was captured.
+    private var xs = DoubleArray(INITIAL_CAPACITY)
+    private var ys = DoubleArray(INITIAL_CAPACITY)
+    private var pressureData = FloatArray(INITIAL_CAPACITY)
+    private var tiltData = FloatArray(INITIAL_CAPACITY)
+    private var orientationData = FloatArray(INITIAL_CAPACITY)
+    private var size = 0
 
-    // Parallel to _points: pressure (0..1, 1.0 = no pressure data), tilt (radians, 0 =
-    // perpendicular to the screen / no tilt data), and orientation (radians, the compass
-    // direction the stylus is tilted toward) at the moment each point was captured.
-    private val _pressures = mutableListOf<Float>()
-    val pressures: List<Float> get() = _pressures
-    private val _tilts = mutableListOf<Float>()
-    val tilts: List<Float> get() = _tilts
-    private val _orientations = mutableListOf<Float>()
-    val orientations: List<Float> get() = _orientations
+    /** A live read-only view of the points; each element is created on access. */
+    val points: List<WorldPoint> = object : AbstractList<WorldPoint>() {
+        override val size: Int get() = this@Stroke.size
+        override fun get(index: Int): WorldPoint {
+            checkIndex(index)
+            return WorldPoint(xs[index], ys[index])
+        }
+    }
+
+    /** Live views of the stylus data; per-frame code should prefer [pressureAt] and friends, which don't box. */
+    val pressures: List<Float> = floatView { pressureData }
+    val tilts: List<Float> = floatView { tiltData }
+    val orientations: List<Float> = floatView { orientationData }
+
+    fun pressureAt(index: Int): Float { checkIndex(index); return pressureData[index] }
+    fun tiltAt(index: Int): Float { checkIndex(index); return tiltData[index] }
+    fun orientationAt(index: Int): Float { checkIndex(index); return orientationData[index] }
+
+    private fun floatView(data: () -> FloatArray): List<Float> = object : AbstractList<Float>() {
+        override val size: Int get() = this@Stroke.size
+        override fun get(index: Int): Float {
+            checkIndex(index)
+            return data()[index]
+        }
+    }
+
+    private fun checkIndex(index: Int) {
+        if (index < 0 || index >= size) throw IndexOutOfBoundsException("Index $index, size $size")
+    }
 
     /**
-     * Bumped on every mutation ([addPoint], [shiftBy]). [_points] itself is a plain
-     * `MutableList`, not something Compose's snapshot system can see — so without this,
+     * Bumped on every mutation ([addPoint], [shiftBy]). The point arrays themselves are plain
+     * arrays, not something Compose's snapshot system can see — so without this,
      * appending points while a stroke is being drawn wouldn't invalidate the `Canvas`
      * draw phase at all, and the in-progress stroke would only actually render on the
      * next *unrelated* redraw (e.g. the next pan/zoom, since panWorld/scale are
@@ -100,10 +130,13 @@ class Stroke(
     var maxY: Double = Double.NEGATIVE_INFINITY; private set
 
     fun addPoint(point: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
-        _points.add(point)
-        _pressures.add(pressure)
-        _tilts.add(tilt)
-        _orientations.add(orientation)
+        if (size == xs.size) grow()
+        xs[size] = point.x
+        ys[size] = point.y
+        pressureData[size] = pressure
+        tiltData[size] = tilt
+        orientationData[size] = orientation
+        size++
         if (point.x < minX) minX = point.x
         if (point.y < minY) minY = point.y
         if (point.x > maxX) maxX = point.x
@@ -120,8 +153,9 @@ class Stroke(
 
     /** Shifts every point (and the cached bounds) by [-offset], used when re-anchoring the world origin. */
     fun shiftBy(offset: WorldPoint) {
-        for (i in _points.indices) {
-            _points[i] -= offset
+        for (i in 0 until size) {
+            xs[i] -= offset.x
+            ys[i] -= offset.y
         }
         minX -= offset.x; maxX -= offset.x
         minY -= offset.y; maxY -= offset.y
@@ -137,8 +171,16 @@ class Stroke(
      * [orientations] stay correctly paired by index without needing to be passed in too.
      */
     fun setPoints(newPoints: List<WorldPoint>) {
-        _points.clear()
-        _points.addAll(newPoints)
+        require(newPoints.size == size) { "setPoints moves points; it can't change their number" }
+        // Read everything before writing, in case newPoints is a view of this stroke.
+        val newXs = DoubleArray(xs.size)
+        val newYs = DoubleArray(ys.size)
+        for (i in newPoints.indices) {
+            newXs[i] = newPoints[i].x
+            newYs[i] = newPoints[i].y
+        }
+        xs = newXs
+        ys = newYs
         minX = Double.POSITIVE_INFINITY
         minY = Double.POSITIVE_INFINITY
         maxX = Double.NEGATIVE_INFINITY
@@ -165,7 +207,7 @@ class Stroke(
 
     private fun restyled(newColor: Color, newLayerId: String, newFrame: Int = animFrame): Stroke {
         val copy = Stroke(newColor, widthWorld, penType, filled, blendMode, newLayerId, newFrame, dashed, fadeFill, screentone)
-        for (i in _points.indices) copy.addPoint(_points[i], _pressures[i], _tilts[i], _orientations[i])
+        for (i in 0 until size) copy.addPoint(WorldPoint(xs[i], ys[i]), pressureData[i], tiltData[i], orientationData[i])
         return copy
     }
 
@@ -193,7 +235,7 @@ class Stroke(
     fun eraseNear(center: WorldPoint, radius: Double): List<Stroke>? {
         val radiusSq = radius * radius
         var anyRemoved = false
-        val runs = mutableListOf<MutableList<Int>>() // indices into _points/_pressures/_tilts/_orientations
+        val runs = mutableListOf<MutableList<Int>>() // point indices
         var current: MutableList<Int>? = null
         for (index in points.indices) {
             val point = points[index]
@@ -214,8 +256,22 @@ class Stroke(
         if (!anyRemoved) return null
         return runs.filter { it.size >= 2 }.map { run ->
             val piece = Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone)
-            for (index in run) piece.addPoint(points[index], pressures[index], tilts[index], orientations[index])
+            for (index in run) piece.addPoint(WorldPoint(xs[index], ys[index]), pressureData[index], tiltData[index], orientationData[index])
             piece
         }
+    }
+
+    private fun grow() {
+        val capacity = xs.size * 2
+        xs = xs.copyOf(capacity)
+        ys = ys.copyOf(capacity)
+        pressureData = pressureData.copyOf(capacity)
+        tiltData = tiltData.copyOf(capacity)
+        orientationData = orientationData.copyOf(capacity)
+    }
+
+    private companion object {
+        // Most strokes are short; doubling from 8 keeps the slack small for them.
+        const val INITIAL_CAPACITY = 8
     }
 }

@@ -75,9 +75,9 @@ object StrokeCodec {
                 out.writeDouble(points[i].x)
                 out.writeDouble(points[i].y)
                 if (stylus) {
-                    out.writeFloat(stroke.pressures[i])
-                    out.writeFloat(stroke.tilts[i])
-                    out.writeFloat(stroke.orientations[i])
+                    out.writeFloat(stroke.pressureAt(i))
+                    out.writeFloat(stroke.tiltAt(i))
+                    out.writeFloat(stroke.orientationAt(i))
                 }
             }
         }
@@ -126,7 +126,7 @@ object StrokeCodec {
     }
 
     private fun hasStylusData(stroke: Stroke): Boolean =
-        stroke.pressures.any { it != 1f } || stroke.tilts.any { it != 0f } || stroke.orientations.any { it != 0f }
+        (0 until stroke.points.size).any { stroke.pressureAt(it) != 1f || stroke.tiltAt(it) != 0f || stroke.orientationAt(it) != 0f }
 
     // A negative count can only come from a damaged file; failing here lets the caller quarantine it.
     private fun checkCount(count: Int) {

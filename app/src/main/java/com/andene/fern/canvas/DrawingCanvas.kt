@@ -571,16 +571,25 @@ private class StylusSample {
  * always have.
  */
 private fun hasStylusVariation(stroke: Stroke): Boolean {
-    val minPressure = stroke.pressures.minOrNull() ?: 1f
-    val maxPressure = stroke.pressures.maxOrNull() ?: 1f
-    val maxTilt = stroke.tilts.maxOrNull() ?: 0f
+    // Primitive accessors, not the boxed list views: this runs for every stroke every frame.
+    var minPressure = 1f
+    var maxPressure = 1f
+    var maxTilt = 0f
+    for (i in 0 until stroke.points.size) {
+        val pressure = stroke.pressureAt(i)
+        if (pressure < minPressure) minPressure = pressure
+        if (pressure > maxPressure) maxPressure = pressure
+        val tilt = stroke.tiltAt(i)
+        if (tilt > maxTilt) maxTilt = tilt
+    }
     return (maxPressure - minPressure) > 0.05f || maxTilt > 0.05f
 }
 
 /** Pressure/tilt combined into a single multiplier on the base stroke width at one point. */
 private fun widthFactorAt(stroke: Stroke, index: Int): Float {
-    val pressure = stroke.pressures.getOrElse(index) { 1f }.coerceIn(0.1f, 1f)
-    val tilt = stroke.tilts.getOrElse(index) { 0f }
+    val inRange = index in 0 until stroke.points.size
+    val pressure = (if (inRange) stroke.pressureAt(index) else 1f).coerceIn(0.1f, 1f)
+    val tilt = if (inRange) stroke.tiltAt(index) else 0f
     // More tilt lays down more ink, like a real pen/marker tipped over - up to 80% wider at
     // maximum tilt (~90°, a stylus flat against the screen).
     val tiltFactor = 1f + (tilt / (Math.PI.toFloat() / 2f)).coerceIn(0f, 1f) * 0.8f
@@ -827,7 +836,10 @@ private fun DrawScope.drawCalligraphyStroke(stroke: Stroke, screenPoints: List<O
         if (screenPoints.size == 1) drawCircle(stroke.color, radius = baseWidthScreen / 2f, center = screenPoints[0], blendMode = blendMode)
         return
     }
-    val avgTilt = if (stroke.tilts.isEmpty()) 0f else stroke.tilts.average().toFloat()
+    val pointCount = stroke.points.size
+    var tiltSum = 0.0
+    for (i in 0 until pointCount) tiltSum += stroke.tiltAt(i)
+    val avgTilt = if (pointCount == 0) 0f else (tiltSum / pointCount).toFloat()
     val useRealNibAngle = avgTilt > 0.1f
     // Width is a property of each segment's direction; a point takes the mean of the segments
     // on either side of it, so the outline changes width smoothly through each point.
@@ -837,12 +849,12 @@ private fun DrawScope.drawCalligraphyStroke(stroke: Stroke, screenPoints: List<O
         val b = screenPoints[i + 1]
         val angle = atan2(b.y - a.y, b.x - a.x)
         val nibAngle = if (useRealNibAngle) {
-            val orientation = (stroke.orientations.getOrNull(source[i]) ?: stroke.orientations.getOrElse(0) { CALLIGRAPHY_NIB_ANGLE })
+            val orientation = stroke.orientationAt(source[i])
             orientation + (Math.PI.toFloat() / 2f)
         } else {
             CALLIGRAPHY_NIB_ANGLE
         }
-        val pressureFactor = ((stroke.pressures.getOrElse(source[i]) { 1f } + stroke.pressures.getOrElse(source[i + 1]) { 1f }) / 2f).coerceIn(0.1f, 1f)
+        val pressureFactor = ((stroke.pressureAt(source[i]) + stroke.pressureAt(source[i + 1])) / 2f).coerceIn(0.1f, 1f)
         val widthFactor = (0.25f + 0.75f * abs(sin(angle - nibAngle))) * pressureFactor
         segmentWidths[i] = (baseWidthScreen * widthFactor).coerceAtLeast(1f)
     }
