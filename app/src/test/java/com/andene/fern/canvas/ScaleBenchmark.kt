@@ -85,6 +85,7 @@ class ScaleBenchmark {
             }
         }
         val middle = WorldPoint(side / 2, side / 2)
+        measure("spatial index build") { StrokeSpatialIndex(state.strokes.toList()) }
         measure("render: whole document in view") { frame(middle, VIEW_PX / side) }
         measure("render: zoomed in (about 16 strokes in view)") { frame(middle, VIEW_PX / (4.0 * CELL)) }
     }
@@ -96,6 +97,11 @@ class ScaleBenchmark {
         state.loadStrokes(strokes)
         state.eraseWholeObjects = true
         measure("object-eraser touch") { state.beginErase(point); state.endErase(); state.undo() }
+        // A finger moving over the canvas: the per-event cost, without the per-gesture undo snapshot.
+        val empty = WorldPoint(-CELL * 10, -CELL * 10)
+        state.beginErase(empty)
+        measure("eraser move, nothing under it") { state.continueErase(empty) }
+        state.endErase()
     }
 
     private fun measure(label: String, block: () -> Unit) {

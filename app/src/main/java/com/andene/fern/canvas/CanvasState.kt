@@ -840,7 +840,6 @@ class CanvasState(
     private var spatialIndex: StrokeSpatialIndex? = null
     private var indexedStrokes: List<Stroke>? = null
     private var indexedEpoch = -1
-    private var indexPositions = java.util.IdentityHashMap<Stroke, Int>()
 
     /**
      * Strokes that may intersect the world rectangle, in drawing order - what rendering needs,
@@ -858,7 +857,6 @@ class CanvasState(
             spatialIndex = index
             indexedStrokes = list
             indexedEpoch = geometryEpoch
-            indexPositions = java.util.IdentityHashMap<Stroke, Int>(list.size).also { map -> list.forEachIndexed { i, s -> map[s] = i } }
         }
         val found = index.query(left, top, right, bottom)
         val live = buildList {
@@ -869,7 +867,12 @@ class CanvasState(
         if (live.isEmpty()) return found.map { list[it] }
         val positions = java.util.TreeSet<Int>()
         found.forEach(positions::add)
-        for (stroke in live) indexPositions[stroke]?.let(positions::add)
+        // Searched from the end: the stroke being drawn and fresh pastes/duplicates are last.
+        for (stroke in live) {
+            var at = list.size - 1
+            while (at >= 0 && list[at] !== stroke) at--
+            if (at >= 0) positions.add(at)
+        }
         return positions.map { list[it] }
     }
 
@@ -1289,15 +1292,20 @@ class CanvasState(
                 point.x >= image.position.x && point.x <= image.position.x + image.widthWorld &&
                     point.y >= image.position.y && point.y <= image.position.y + image.heightWorld
             }
-            strokes.removeWhere { stroke ->
-                isEditable(stroke) && (
+            // Only strokes near the eraser are tested (spatial index); the list is rewritten only
+            // when something was actually hit.
+            val hit = strokesNear(point.x - radius, point.y - radius, point.x + radius, point.y + radius).filterTo(
+                java.util.Collections.newSetFromMap(java.util.IdentityHashMap()),
+            ) { stroke ->
+                isEditable(stroke) && stroke.intersects(point.x - radius, point.y - radius, point.x + radius, point.y + radius) && (
                     if (stroke.filled) polygonContains(stroke.points, point)
                     else distanceToPolyline(stroke.points, point) <= radius + stroke.widthWorld / 2
                 )
             }
+            if (hit.isNotEmpty()) strokes.removeWhere { it in hit }
             return
         }
-        for (stroke in strokes.toList()) {
+        for (stroke in strokesNear(point.x - radius, point.y - radius, point.x + radius, point.y + radius)) {
             if (!isEditable(stroke)) continue
             if (!stroke.intersects(point.x - radius, point.y - radius, point.x + radius, point.y + radius)) continue
             val pieces = stroke.eraseNear(point, radius) ?: continue
@@ -1326,7 +1334,9 @@ class CanvasState(
 
     private fun snappedToObject(point: WorldPoint): WorldPoint? {
         if (!snapToObjects) return null
-        val anchor = nearestSnapAnchor(strokes, point, OBJECT_SNAP_RADIUS_SCREEN / scale.coerceAtLeast(1e-300), ::isVisible)
+        val radius = OBJECT_SNAP_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
+        val near = strokesNear(point.x - radius, point.y - radius, point.x + radius, point.y + radius)
+        val anchor = nearestSnapAnchor(near, point, radius, ::isVisible)
         snapIndicator = anchor
         return anchor
     }

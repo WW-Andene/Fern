@@ -137,4 +137,29 @@ class CanvasStateTest {
         state.generateInBetweens(1)
         assertTrue(state.strokes.all { it.brush == brush })
     }
+
+    @Test
+    fun objectEraserRemovesOnlyWhatItTouches() {
+        val state = CanvasState()
+        drawLine(state, WorldPoint(0.0, 0.0), WorldPoint(100.0, 0.0))
+        drawLine(state, WorldPoint(0.0, 500.0), WorldPoint(100.0, 500.0))
+        state.eraseWholeObjects = true
+        state.beginErase(WorldPoint(50.0, 2.0))
+        state.continueErase(WorldPoint(60.0, 2.0))
+        state.endErase()
+        assertEquals(1, state.strokes.size)
+        assertEquals(500.0, state.strokes.single().points.first().y, 0.0)
+    }
+
+    @Test
+    fun inkEraserCutsTheStrokeItCrosses() {
+        val state = CanvasState()
+        state.beginStroke(WorldPoint(0.0, 0.0))
+        for (x in 1..100) state.extendStroke(WorldPoint(x.toDouble(), 0.0))
+        state.endStroke()
+        state.beginErase(WorldPoint(50.0, 0.0))
+        state.endErase()
+        assertEquals(2, state.strokes.size)
+        assertTrue(state.strokes.none { stroke -> stroke.points.any { abs(it.x - 50.0) < 10.0 } })
+    }
 }
