@@ -290,6 +290,14 @@ fun Toolbar(
                             contentDescription = if (state.eraseWholeObjects) "Object eraser (tap for ink eraser)" else "Ink eraser (tap for object eraser)",
                         )
                     }
+                    // Same lasso icon as lasso selection: one icon per meaning.
+                    IconButton(onClick = { state.lassoErase = !state.lassoErase }) {
+                        Icon(
+                            Icons.Filled.Gesture,
+                            contentDescription = if (state.lassoErase) "Lasso erase on (tap to rub out instead)" else "Lasso erase off (tap to erase inside a loop)",
+                            tint = if (state.lassoErase) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
                 }
                 IconButton(onClick = {
                     state.activeTool = if (state.activeTool == Tool.SELECT) Tool.PEN else Tool.SELECT

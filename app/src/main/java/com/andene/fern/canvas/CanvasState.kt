@@ -991,18 +991,71 @@ class CanvasState(
         get() = ERASER_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
 
     fun beginErase(worldPoint: WorldPoint) {
+        eraseStartDepth = undoStack.size
         recordHistory()
         clearSelectionState() // avoid a stale selection referencing strokes this erase is about to split/remove
-        eraseAt(worldPoint)
+        if (lassoErase) lassoPath.add(worldPoint) else eraseAt(worldPoint)
     }
 
     fun continueErase(worldPoint: WorldPoint) {
-        eraseAt(worldPoint)
+        if (lassoErase) {
+            if (lassoPath.isNotEmpty()) lassoPath.add(worldPoint)
+        } else {
+            eraseAt(worldPoint)
+        }
     }
 
     fun endErase() {
+        if (lassoErase) {
+            val lasso = lassoPath.toList()
+            lassoPath.clear()
+            // A tap or a line encloses nothing: drop the history entry instead of leaving an empty undo step.
+            if (lasso.size < 3 || !eraseInsideLasso(lasso)) {
+                discardActionsSince(eraseStartDepth)
+                return
+            }
+        }
         onChanged(strokes.toList())
         onImageChanged(imageItems.toList())
+    }
+
+    /**
+     * Lasso eraser: instead of rubbing out where the eraser passes, the eraser gesture draws a
+     * loop and everything inside it is erased when the finger lifts - ink cut at the loop's edge
+     * in ink mode, whole strokes and images in object mode (see [eraseWholeObjects]).
+     */
+    var lassoErase by mutableStateOf(false)
+
+    private var eraseStartDepth = 0
+
+    /** Erases inside the closed loop [lasso]; returns whether anything was erased. */
+    private fun eraseInsideLasso(lasso: List<WorldPoint>): Boolean {
+        val minX = lasso.minOf { it.x }
+        val minY = lasso.minOf { it.y }
+        val maxX = lasso.maxOf { it.x }
+        val maxY = lasso.maxOf { it.y }
+        var changed = false
+        if (eraseWholeObjects) {
+            // An image goes when its centre is inside, so a loop drawn across a page's corner doesn't delete it.
+            changed = imageItems.removeAll { image ->
+                polygonContains(lasso, WorldPoint(image.position.x + image.widthWorld / 2, image.position.y + image.heightWorld / 2))
+            }
+            changed = strokes.removeAll { stroke ->
+                isEditable(stroke) && stroke.intersects(minX, minY, maxX, maxY) &&
+                    stroke.points.any { polygonContains(lasso, it) }
+            } || changed
+            return changed
+        }
+        for (stroke in strokes.toList()) {
+            if (!isEditable(stroke) || !stroke.intersects(minX, minY, maxX, maxY)) continue
+            val pieces = stroke.eraseInside(lasso) ?: continue
+            val index = strokes.indexOf(stroke)
+            if (index == -1) continue
+            strokes.removeAt(index)
+            strokes.addAll(index, pieces)
+            changed = true
+        }
+        return changed
     }
 
     /**

@@ -62,7 +62,7 @@ Goal: a full, professional tool set.
 - [~] 29. Brush engine — airbrush and crayon procedural textures; stamp brush (circle, soft, square, star tips) with a brush editor for spacing, scatter, size/angle jitter and direction following; no image-based tips or saved brush presets
 - [x] 30. Colour workflow — eyedropper, touch-and-hold pick, recent colours, saved palette, .gpl and .ase import
 - [~] 31. Quick tool switching — touch-and-hold eyedropper, keyboard shortcuts, four favourite pen slots on the toolbar; no radial menu
-- [~] 32. Erase modes — ink vs object eraser; no lasso eraser
+- [x] 32. Erase modes — ink vs object eraser, each also as a lasso eraser
 - [~] 33. Rich text — bold, italic, four sizes, sticky notes, links; no fonts, alignment or wrapping boxes
 - [~] 34. Gradients and pattern fills — fade fill, screentone fill; no two-colour or directional gradients
 - [~] 35. Symmetry (mirror, four-way, radial) done; perspective guides not started

@@ -59,4 +59,51 @@ class CanvasStateTest {
         val strokeScreen = state.worldToScreen(state.strokes.single().points.first(), center)
         assertEquals(500.0 - 1_000_000.0, strokeScreen.x.toDouble(), 1.0)
     }
+
+    private val square = listOf(WorldPoint(-10.0, -10.0), WorldPoint(10.0, -10.0), WorldPoint(10.0, 10.0), WorldPoint(-10.0, 10.0))
+
+    private fun lassoErase(state: CanvasState, loop: List<WorldPoint>) {
+        state.beginErase(loop.first())
+        loop.drop(1).forEach { state.continueErase(it) }
+        state.endErase()
+    }
+
+    @Test
+    fun lassoEraseCutsInkInsideTheLoop() {
+        val state = CanvasState()
+        // A horizontal line through the loop, with points every unit from -30 to 30.
+        state.beginStroke(WorldPoint(-30.0, 0.0))
+        for (x in -29..30) state.extendStroke(WorldPoint(x.toDouble(), 0.0))
+        state.endStroke()
+        state.lassoErase = true
+        lassoErase(state, square)
+        assertEquals(2, state.strokes.size)
+        // Points exactly on the loop's edge may go either way (ray casting); nothing strictly inside survives.
+        assertTrue(state.strokes.all { stroke -> stroke.points.all { abs(it.x) >= 10.0 } })
+        state.undo()
+        assertEquals(1, state.strokes.size)
+    }
+
+    @Test
+    fun lassoObjectEraseRemovesWholeStrokesTouched() {
+        val state = CanvasState()
+        drawLine(state, WorldPoint(0.0, 0.0), WorldPoint(100.0, 0.0)) // has a point inside the loop
+        drawLine(state, WorldPoint(50.0, 50.0), WorldPoint(100.0, 50.0)) // entirely outside
+        state.lassoErase = true
+        state.eraseWholeObjects = true
+        lassoErase(state, square)
+        assertEquals(1, state.strokes.size)
+        assertEquals(50.0, state.strokes.single().points.first().y, 0.0)
+    }
+
+    @Test
+    fun lassoTapLeavesNoUndoStep() {
+        val state = CanvasState()
+        drawLine(state, WorldPoint(50.0, 50.0), WorldPoint(100.0, 50.0))
+        val depth = state.historyDepth
+        state.lassoErase = true
+        lassoErase(state, listOf(WorldPoint(0.0, 0.0)))
+        assertEquals(depth, state.historyDepth)
+        assertEquals(1, state.strokes.size)
+    }
 }

@@ -238,15 +238,29 @@ class Stroke(
      */
     fun eraseNear(center: WorldPoint, radius: Double): List<Stroke>? {
         val radiusSq = radius * radius
+        return eraseWhere { i ->
+            val dx = xs[i] - center.x
+            val dy = ys[i] - center.y
+            dx * dx + dy * dy <= radiusSq
+        }
+    }
+
+    /** [eraseNear] for a lasso: removes the points inside [polygon] (see [polygonContains]). */
+    fun eraseInside(polygon: List<WorldPoint>): List<Stroke>? =
+        eraseWhere { i -> polygonContains(polygon, WorldPoint(xs[i], ys[i])) }
+
+    /**
+     * Removes every point [erased] selects and splits the survivors into pieces wherever a removal
+     * broke the stroke's continuity; each piece keeps this stroke's style, and a piece left with
+     * a single point is dropped. Returns null if nothing was erased, otherwise the surviving
+     * pieces (empty if the whole stroke went).
+     */
+    private inline fun eraseWhere(erased: (Int) -> Boolean): List<Stroke>? {
         var anyRemoved = false
         val runs = mutableListOf<MutableList<Int>>() // point indices
         var current: MutableList<Int>? = null
-        for (index in points.indices) {
-            val point = points[index]
-            val dx = point.x - center.x
-            val dy = point.y - center.y
-            val inside = dx * dx + dy * dy <= radiusSq
-            if (inside) {
+        for (index in 0 until size) {
+            if (erased(index)) {
                 anyRemoved = true
                 current = null
             } else {
