@@ -63,6 +63,7 @@ class CanvasState(
     private val onBackgroundChanged: (Color, BackgroundStyle) -> Unit = { _, _ -> },
     /** World-space content stored outside this class (pins) must shift by -offset too; see [rebaseIfNeeded]. */
     private val onRebased: (offset: WorldPoint) -> Unit = {},
+    private val onLayersChanged: (List<Layer>) -> Unit = {},
 ) {
     companion object {
         // Effectively unbounded: leaves ~250 orders of magnitude of headroom on both sides
@@ -149,6 +150,81 @@ class CanvasState(
      */
     var activeStabilization by mutableDoubleStateOf(0.0)
 
+    /** Drawing layers, bottom first. Never empty. */
+    val layers = mutableStateListOf(Layer(DEFAULT_LAYER_ID, "Layer 1"))
+
+    /** Layer new strokes, shapes and fills go on. */
+    var activeLayerId by mutableStateOf(DEFAULT_LAYER_ID)
+
+    private fun layerOf(stroke: Stroke): Layer? = layers.firstOrNull { it.id == stroke.layerId }
+
+    /** Shown and unlocked: tools may change it. Strokes on a layer that no longer exists count as editable. */
+    private fun isEditable(stroke: Stroke): Boolean = layerOf(stroke)?.let { it.visible && !it.locked } ?: true
+
+    private fun isVisible(stroke: Stroke): Boolean = layerOf(stroke)?.visible ?: true
+
+    /** Drawing tools do nothing on a hidden or locked active layer, rather than adding invisible or "locked" content. */
+    private val activeLayerEditable: Boolean
+        get() = layers.firstOrNull { it.id == activeLayerId }?.let { it.visible && !it.locked } ?: false
+
+    fun addLayer() {
+        val layer = Layer(UUID.randomUUID().toString(), "Layer ${layers.size + 1}")
+        layers.add(layer)
+        activeLayerId = layer.id
+        onLayersChanged(layers.toList())
+    }
+
+    fun updateLayer(id: String, change: (Layer) -> Layer) {
+        val index = layers.indexOfFirst { it.id == id }
+        if (index == -1) return
+        layers[index] = change(layers[index])
+        onLayersChanged(layers.toList())
+    }
+
+    /** Moves a layer one step up (towards the top) or down in the stack. */
+    fun moveLayer(id: String, up: Boolean) {
+        val index = layers.indexOfFirst { it.id == id }
+        val target = if (up) index + 1 else index - 1
+        if (index == -1 || target !in layers.indices) return
+        layers.add(target, layers.removeAt(index))
+        onLayersChanged(layers.toList())
+    }
+
+    /** Deletes a layer and its strokes (undoable for the strokes). The last layer can't be deleted. */
+    fun deleteLayer(id: String) {
+        if (layers.size <= 1) return
+        recordHistory()
+        clearSelectionState()
+        strokes.removeAll { it.layerId == id }
+        layers.removeAll { it.id == id }
+        if (activeLayerId == id) activeLayerId = layers.last().id
+        onChanged(strokes.toList())
+        onLayersChanged(layers.toList())
+    }
+
+    /** Moves every stroke of a layer onto the layer below it, then removes the emptied layer. */
+    fun mergeLayerDown(id: String) {
+        val index = layers.indexOfFirst { it.id == id }
+        if (index <= 0) return
+        val below = layers[index - 1]
+        recordHistory()
+        clearSelectionState()
+        for (i in strokes.indices) {
+            if (strokes[i].layerId == id) strokes[i] = strokes[i].onLayer(below.id)
+        }
+        layers.removeAt(index)
+        if (activeLayerId == id) activeLayerId = below.id
+        onChanged(strokes.toList())
+        onLayersChanged(layers.toList())
+    }
+
+    /** Replaces the layer stack (e.g. from [CanvasStorage.loadLayers]); an empty list means the single default layer. */
+    fun loadLayers(loaded: List<Layer>) {
+        layers.clear()
+        layers.addAll(loaded.ifEmpty { listOf(Layer(DEFAULT_LAYER_ID, "Layer 1")) })
+        activeLayerId = layers.last().id
+    }
+
     /** Colours most recently drawn with, newest first, for quick re-picking from the toolbar. */
     val recentColors = mutableStateListOf<Color>()
 
@@ -168,7 +244,8 @@ class CanvasState(
     fun pickColorAt(worldPoint: WorldPoint) {
         val tolerance = EYEDROPPER_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
         val hit = strokes.lastOrNull { stroke ->
-            if (stroke.filled) polygonContains(stroke.points, worldPoint)
+            if (!isVisible(stroke)) false
+            else if (stroke.filled) polygonContains(stroke.points, worldPoint)
             else distanceToPolyline(stroke.points, worldPoint) <= stroke.widthWorld / 2 + tolerance
         } ?: return
         activeColor = hit.color.copy(alpha = 1f)
@@ -308,6 +385,7 @@ class CanvasState(
     }
 
     fun beginStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
+        if (!activeLayerEditable) return
         recordHistory()
         clearSelectionState() // avoid a stale selection referencing strokes another tool is about to change
         val stroke = Stroke(
@@ -315,6 +393,7 @@ class CanvasState(
             activeWidthWorld / scale.coerceAtLeast(1e-300),
             activePenType,
             blendMode = activeBlendMode,
+            layerId = activeLayerId,
         )
         stroke.addPoint(snappedToActiveGuide(worldPoint), pressure, tilt, orientation)
         rememberActiveColor()
@@ -353,7 +432,7 @@ class CanvasState(
     private fun replaceWithShape(stroke: Stroke, cleanPoints: List<WorldPoint>) {
         val index = strokes.indexOf(stroke)
         if (index == -1) return
-        val shape = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode)
+        val shape = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode, layerId = stroke.layerId)
         for (point in cleanPoints) shape.addPoint(point)
         strokes[index] = shape
     }
@@ -423,6 +502,7 @@ class CanvasState(
                 point.y >= image.position.y && point.y <= image.position.y + image.heightWorld
         }
         for (stroke in strokes.toList()) {
+            if (!isEditable(stroke)) continue
             if (!stroke.intersects(point.x - radius, point.y - radius, point.x + radius, point.y + radius)) continue
             val pieces = stroke.eraseNear(point, radius) ?: continue
             val index = strokes.indexOf(stroke)
@@ -433,6 +513,7 @@ class CanvasState(
     }
 
     fun beginShape(worldPoint: WorldPoint) {
+        if (!activeLayerEditable) return
         recordHistory()
         rememberActiveColor()
         clearSelectionState()
@@ -456,6 +537,7 @@ class CanvasState(
             activeWidthWorld / scale.coerceAtLeast(1e-300),
             activePenType,
             blendMode = activeBlendMode,
+            layerId = activeLayerId,
         )
         for (point in generateShapePoints(activeShapeKind, start, end)) stroke.addPoint(point)
         strokes.add(stroke)
@@ -475,6 +557,7 @@ class CanvasState(
      * real fill-tool expectations. No-op if nothing qualifies.
      */
     fun fillAt(worldPoint: WorldPoint) {
+        if (!activeLayerEditable) return
         recordHistory()
         rememberActiveColor()
         clearSelectionState()
@@ -483,7 +566,7 @@ class CanvasState(
         var bestArea = Double.POSITIVE_INFINITY
         for (index in strokes.indices) {
             val stroke = strokes[index]
-            if (stroke.filled) continue
+            if (stroke.filled || !isVisible(stroke)) continue
             val points = stroke.points
             if (!isClosedLoop(points, closeTolerance)) continue
             if (!polygonContains(points, worldPoint)) continue
@@ -495,7 +578,7 @@ class CanvasState(
         }
         if (bestIndex == -1) return
         val boundary = strokes[bestIndex]
-        val fillStroke = Stroke(activeColor, 0.0, PenType.MARKER, filled = true)
+        val fillStroke = Stroke(activeColor, 0.0, PenType.MARKER, filled = true, layerId = activeLayerId)
         for (point in boundary.points) fillStroke.addPoint(point)
         strokes.add(bestIndex, fillStroke)
         onChanged(strokes.toList())
@@ -683,7 +766,7 @@ class CanvasState(
             // closed) outline - tolerant of a stroke that pokes slightly out of a loose loop.
             if (lasso.size >= 3) {
                 selection.addAll(strokes.filter { stroke ->
-                    stroke.points.isNotEmpty() &&
+                    isEditable(stroke) && stroke.points.isNotEmpty() &&
                         stroke.points.count { polygonContains(lasso, it) } * 2 >= stroke.points.size
                 })
             }
@@ -697,7 +780,7 @@ class CanvasState(
         val right = maxOf(start.x, end.x)
         val top = minOf(start.y, end.y)
         val bottom = maxOf(start.y, end.y)
-        selection.addAll(strokes.filter { it.intersects(left, top, right, bottom) })
+        selection.addAll(strokes.filter { isEditable(it) && it.intersects(left, top, right, bottom) })
     }
 
     /** The current selection's combined bounding box, or null if nothing is selected. */
@@ -859,7 +942,7 @@ class CanvasState(
         recordHistory()
         val nudge = WorldPoint(20.0 / scale.coerceAtLeast(1e-300), 20.0 / scale.coerceAtLeast(1e-300))
         val duplicates = selection.map { original ->
-            val copy = Stroke(original.color, original.widthWorld, original.penType, original.filled, original.blendMode)
+            val copy = Stroke(original.color, original.widthWorld, original.penType, original.filled, original.blendMode, original.layerId)
             for (point in original.points) copy.addPoint(point + nudge)
             copy
         }

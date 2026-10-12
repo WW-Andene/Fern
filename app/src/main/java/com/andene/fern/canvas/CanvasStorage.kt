@@ -161,6 +161,7 @@ object CanvasStorage {
         backgroundFile(context, id).delete()
         thumbnailFile(context, id).delete()
         historyFile(context, id).delete()
+        layersFile(context, id).delete()
         versionsDir(context, id).deleteRecursively()
         // Deliberately not deleting files under images/: they're shared/immutable and may
         // still be referenced by a duplicate of this document. Accepted tradeoff - orphaned
@@ -174,11 +175,13 @@ object CanvasStorage {
         val textItems = loadTextItems(context, id)
         val imageItems = loadImageItems(context, id)
         val (backgroundColor, backgroundStyle) = loadBackground(context, id)
+        val layers = loadLayers(context, id)
         val meta = createDocument(context, newName)
         save(context, meta.id, strokes)
         saveTextItems(context, meta.id, textItems)
         saveImageItems(context, meta.id, imageItems)
         saveBackground(context, meta.id, backgroundColor, backgroundStyle)
+        if (layers.isNotEmpty()) saveLayers(context, meta.id, layers)
         return meta
     }
 
@@ -374,6 +377,35 @@ object CanvasStorage {
         for (old in existing.drop(MAX_VERSIONS - 1)) File(dir, "$old.json").delete()
     }
 
+    fun saveLayers(context: Context, documentId: String, layers: List<Layer>) {
+        val root = JSONArray()
+        for (layer in layers) {
+            root.put(JSONObject().apply {
+                put("id", layer.id)
+                put("name", layer.name)
+                put("visible", layer.visible)
+                put("locked", layer.locked)
+                put("opacity", layer.opacity.toDouble())
+            })
+        }
+        writeStored(layersFile(context, documentId), root)
+    }
+
+    /** The document's layers, bottom first; empty for a document from before layers (it gets the default layer). */
+    fun loadLayers(context: Context, documentId: String): List<Layer> {
+        val root = readStored(layersFile(context, documentId)) { it as JSONArray } ?: return emptyList()
+        return (0 until root.length()).map { i ->
+            val entry = root.getJSONObject(i)
+            Layer(
+                id = entry.getString("id"),
+                name = entry.getString("name"),
+                visible = entry.optBoolean("visible", true),
+                locked = entry.optBoolean("locked", false),
+                opacity = entry.optDouble("opacity", 1.0).toFloat(),
+            )
+        }
+    }
+
     /** The document library preview, regenerated on every save; missing for a never-drawn-on document. */
     fun loadThumbnail(context: Context, documentId: String): Bitmap? {
         val file = thumbnailFile(context, documentId)
@@ -509,6 +541,8 @@ object CanvasStorage {
 
     private fun versionsDir(context: Context, documentId: String) = File(context.filesDir, "versions_$documentId")
 
+    private fun layersFile(context: Context, documentId: String) = File(context.filesDir, "layers_$documentId.json")
+
     private fun historyFile(context: Context, documentId: String) = File(context.filesDir, "history_$documentId.json")
 
     private fun thumbnailFile(context: Context, documentId: String) = File(context.filesDir, "thumb_$documentId.png")
@@ -528,6 +562,7 @@ object CanvasStorage {
             strokeJson.put("penType", stroke.penType.name)
             strokeJson.put("filled", stroke.filled)
             strokeJson.put("blendMode", stroke.blendMode.name)
+            strokeJson.put("layer", stroke.layerId)
             val pointsJson = JSONArray()
             for (index in stroke.points.indices) {
                 val point = stroke.points[index]
@@ -558,7 +593,9 @@ object CanvasStorage {
             // Older saved documents predate blend modes - default to NORMAL (how every
             // stroke was always composited before this existed).
             val blendMode = StrokeBlendMode.valueOf(strokeJson.optString("blendMode", StrokeBlendMode.NORMAL.name))
-            val stroke = Stroke(color, width, penType, filled, blendMode)
+            // Strokes saved before layers existed belong to the default layer.
+            val layerId = strokeJson.optString("layer", DEFAULT_LAYER_ID)
+            val stroke = Stroke(color, width, penType, filled, blendMode, layerId)
             val pointsJson = strokeJson.getJSONArray("points")
             for (j in 0 until pointsJson.length()) {
                 val pointJson = pointsJson.getJSONObject(j)

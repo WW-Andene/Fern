@@ -110,6 +110,7 @@ class MainActivity : ComponentActivity() {
                             onTextChanged = { snapshot -> CanvasStorage.saveTextItems(context, currentDocumentId, snapshot) },
                             onImageChanged = { snapshot -> CanvasStorage.saveImageItems(context, currentDocumentId, snapshot) },
                             onBackgroundChanged = { color, style -> CanvasStorage.saveBackground(context, currentDocumentId, color, style) },
+                            onLayersChanged = { layers -> CanvasStorage.saveLayers(context, currentDocumentId, layers) },
                             onRebased = { offset ->
                                 if (pins.isNotEmpty()) {
                                     pins = pins.map { it.copy(x = it.x - offset.x, y = it.y - offset.y) }
@@ -245,6 +246,7 @@ class MainActivity : ComponentActivity() {
                         canvasState.historySnapshot().let { (undo, redo) -> CanvasStorage.saveHistory(context, currentDocumentId, undo, redo) }
                         currentDocumentId = documentId
                         canvasState.loadStrokes(CanvasStorage.load(context, documentId))
+                        canvasState.loadLayers(CanvasStorage.loadLayers(context, documentId))
                         CanvasStorage.loadHistory(context, documentId).let { (undo, redo) -> canvasState.loadHistory(undo, redo) }
                         canvasState.loadTextItems(CanvasStorage.loadTextItems(context, documentId))
                         canvasState.loadImageItems(CanvasStorage.loadImageItems(context, documentId))
@@ -262,6 +264,7 @@ class MainActivity : ComponentActivity() {
                         }
                         currentDocumentId = current.id
                         canvasState.loadStrokes(withContext(Dispatchers.IO) { CanvasStorage.load(context, current.id) })
+                        canvasState.loadLayers(withContext(Dispatchers.IO) { CanvasStorage.loadLayers(context, current.id) })
                         withContext(Dispatchers.IO) { CanvasStorage.loadHistory(context, current.id) }
                             .let { (undo, redo) -> canvasState.loadHistory(undo, redo) }
                         canvasState.loadTextItems(withContext(Dispatchers.IO) { CanvasStorage.loadTextItems(context, current.id) })

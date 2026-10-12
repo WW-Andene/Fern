@@ -10,10 +10,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -625,27 +627,44 @@ internal fun DrawScope.drawScene(
         )
     }
 
-    for (stroke in state.strokes) {
-        // Reading revision here (and only here) is what subscribes this draw phase to
-        // the stroke's mutations, so a redraw is triggered as each new point is added
-        // mid-stroke rather than waiting for an unrelated pan/zoom to happen to redraw.
-        stroke.revision
-        if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
-        val points = stroke.points
-        if (points.isEmpty()) continue
-        val screenPoints = points.map { state.worldToScreen(it, screenCenter) }
-        if (stroke.filled) {
-            val path = Path()
-            path.moveTo(screenPoints[0].x, screenPoints[0].y)
-            for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
-            path.close()
-            drawPath(path = path, color = stroke.color)
-            continue
+    // Layers bottom to top; strokes keep their list order within a layer. A stroke whose layer
+    // no longer exists is drawn with the bottom layer rather than disappearing.
+    val layerIndex = state.layers.withIndex().associate { (index, layer) -> layer.id to index }
+    val strokesByLayer = state.strokes.groupBy { layerIndex[it.layerId] ?: 0 }
+    // Offscreen bounds for a translucent layer: the square around the screen centre that covers
+    // the screen at any canvas rotation.
+    val halfDiagonal = hypot(size.width, size.height) / 2f
+    val layerBounds = Rect(screenCenter - Offset(halfDiagonal, halfDiagonal), screenCenter + Offset(halfDiagonal, halfDiagonal))
+    for ((index, layer) in state.layers.withIndex()) {
+        if (!layer.visible) continue
+        val layerStrokes = strokesByLayer[index] ?: continue
+        // Layer opacity applies to the layer as a whole: drawn offscreen, then composited once,
+        // so overlapping strokes on one layer don't show through each other.
+        val translucent = layer.opacity < 1f
+        if (translucent) drawContext.canvas.saveLayer(layerBounds, Paint().apply { alpha = layer.opacity })
+        for (stroke in layerStrokes) {
+                // Reading revision here (and only here) is what subscribes this draw phase to
+                // the stroke's mutations, so a redraw is triggered as each new point is added
+                // mid-stroke rather than waiting for an unrelated pan/zoom to happen to redraw.
+                stroke.revision
+                if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
+                val points = stroke.points
+                if (points.isEmpty()) continue
+                val screenPoints = points.map { state.worldToScreen(it, screenCenter) }
+                if (stroke.filled) {
+                    val path = Path()
+                    path.moveTo(screenPoints[0].x, screenPoints[0].y)
+                    for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
+                    path.close()
+                    drawPath(path = path, color = stroke.color)
+                    continue
+                }
+                val rawWidthScreen = stroke.widthWorld * state.scale
+                if (!rawWidthScreen.isFinite()) continue
+                val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
+                drawStroke(stroke, screenPoints, widthScreen, stroke.blendMode.toComposeBlendMode())
         }
-        val rawWidthScreen = stroke.widthWorld * state.scale
-        if (!rawWidthScreen.isFinite()) continue
-        val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
-        drawStroke(stroke, screenPoints, widthScreen, stroke.blendMode.toComposeBlendMode())
+        if (translucent) drawContext.canvas.restore()
     }
 
     for (item in state.textItems) {

@@ -59,6 +59,7 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.Tonality
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -108,6 +109,7 @@ fun Toolbar(
     var showShapeKindMenu by remember { mutableStateOf(false) }
     var showOpacitySlider by remember { mutableStateOf(false) }
     var showStabilizationSlider by remember { mutableStateOf(false) }
+    var showLayersDialog by remember { mutableStateOf(false) }
     var showBlendModeMenu by remember { mutableStateOf(false) }
     var showBackgroundStyleMenu by remember { mutableStateOf(false) }
     var showBackgroundColorPicker by remember { mutableStateOf(false) }
@@ -263,10 +265,14 @@ fun Toolbar(
                         tint = if (showStabilizationSlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
                 }
+                IconButton(onClick = { showLayersDialog = true }) {
+                    Icon(Icons.Filled.Layers, contentDescription = "Layers")
+                }
                 Box {
                     IconButton(onClick = { showBlendModeMenu = true }) {
                         Icon(
-                            Icons.Filled.Layers,
+                            // Was the Layers icon before layers existed; that icon now opens the layer panel.
+                            Icons.Filled.Tonality,
                             contentDescription = "Blend mode: ${blendModeLabel(state.activeBlendMode)}",
                             tint = if (state.activeBlendMode != StrokeBlendMode.NORMAL) MaterialTheme.colorScheme.primary
                             else LocalContentColor.current,
@@ -465,6 +471,10 @@ fun Toolbar(
                 )
             }
         }
+    }
+
+    if (showLayersDialog) {
+        LayersDialog(state = state, onDismiss = { showLayersDialog = false })
     }
 
     if (showColorPicker) {

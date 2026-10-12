@@ -36,10 +36,18 @@ fun exportDocumentSvg(source: CanvasState, imageBytesFor: (String) -> ByteArray?
         svg.append("""href="data:image/png;base64,$data"/>""").append('\n')
     }
 
-    for (stroke in camera.strokes) {
+    // Same layer order and visibility as the canvas. Layer opacity is folded into each stroke's
+    // opacity, which only differs from the canvas where strokes on one layer overlap.
+    val layerIndex = camera.layers.withIndex().associate { (index, layer) -> layer.id to index }
+    val ordered = camera.strokes.withIndex()
+        .sortedWith(compareBy({ layerIndex[it.value.layerId] ?: 0 }, { it.index }))
+        .map { it.value }
+    for (stroke in ordered) {
         if (stroke.points.isEmpty()) continue
+        val layer = camera.layers.getOrNull(layerIndex[stroke.layerId] ?: 0)
+        if (layer != null && !layer.visible) continue
         val d = stroke.points.mapIndexed { i, p -> (if (i == 0) "M" else "L") + "${n(p.x)} ${n(p.y)}" }.joinToString(" ")
-        val opacity = n(stroke.color.alpha.toDouble())
+        val opacity = n(stroke.color.alpha.toDouble() * (layer?.opacity ?: 1f))
         if (stroke.filled) {
             svg.append("""<path d="$d Z" fill="${hex(stroke.color)}" fill-opacity="$opacity"/>""")
         } else {

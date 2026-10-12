@@ -49,6 +49,8 @@ class Stroke(
     val filled: Boolean = false,
     /** How this stroke composites with content beneath it - see [StrokeBlendMode]. */
     val blendMode: StrokeBlendMode = StrokeBlendMode.NORMAL,
+    /** The [Layer] this stroke is drawn on. */
+    val layerId: String = DEFAULT_LAYER_ID,
 ) {
     /** Mutable so a SELECT-tool scale gesture can resize the stroke proportionally with its geometry. */
     var widthWorld: Double = widthWorld
@@ -140,7 +142,14 @@ class Stroke(
 
     /** A deep copy drawn in [newColor] instead; colour is immutable on a stroke, so recolouring replaces it. */
     fun withColor(newColor: Color): Stroke {
-        val copy = Stroke(newColor, widthWorld, penType, filled, blendMode)
+        return restyled(newColor, layerId)
+    }
+
+    /** A deep copy moved onto [newLayerId], e.g. when merging a layer down. */
+    fun onLayer(newLayerId: String): Stroke = restyled(color, newLayerId)
+
+    private fun restyled(newColor: Color, newLayerId: String): Stroke {
+        val copy = Stroke(newColor, widthWorld, penType, filled, blendMode, newLayerId)
         for (i in _points.indices) copy.addPoint(_points[i], _pressures[i], _tilts[i], _orientations[i])
         return copy
     }
@@ -189,7 +198,7 @@ class Stroke(
         }
         if (!anyRemoved) return null
         return runs.filter { it.size >= 2 }.map { run ->
-            val piece = Stroke(color, widthWorld, penType, filled, blendMode)
+            val piece = Stroke(color, widthWorld, penType, filled, blendMode, layerId)
             for (index in run) piece.addPoint(points[index], pressures[index], tilts[index], orientations[index])
             piece
         }
