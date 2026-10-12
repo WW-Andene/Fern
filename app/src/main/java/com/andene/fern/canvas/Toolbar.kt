@@ -20,10 +20,12 @@ import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AlignHorizontalLeft
+import androidx.compose.material.icons.filled.AutoFixNormal
 import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.Circle
+import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Colorize
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
@@ -246,6 +248,14 @@ fun Toolbar(
                         tint = if (state.activeTool == Tool.ERASER) MaterialTheme.colorScheme.primary
                         else LocalContentColor.current,
                     )
+                }
+                if (state.activeTool == Tool.ERASER) {
+                    IconButton(onClick = { state.eraseWholeObjects = !state.eraseWholeObjects }) {
+                        Icon(
+                            if (state.eraseWholeObjects) Icons.Filled.CleaningServices else Icons.Filled.AutoFixNormal,
+                            contentDescription = if (state.eraseWholeObjects) "Object eraser (tap for ink eraser)" else "Ink eraser (tap for object eraser)",
+                        )
+                    }
                 }
                 IconButton(onClick = {
                     state.activeTool = if (state.activeTool == Tool.SELECT) Tool.PEN else Tool.SELECT

@@ -498,30 +498,46 @@ class CanvasState(
     // after (redo) an action. The previous design popped the last stroke, which was only
     // correct for drawing - undoing an erase, move, fill or clear removed an unrelated stroke
     // instead of reverting the action. Snapshots make every stroke action undoable the same way.
-    private val undoStack = ArrayDeque<List<Stroke>>()
-    private val redoStack = ArrayDeque<List<Stroke>>()
+    // Images are recorded too, so erasing an image is undoable. They're immutable values, so
+    // the list itself is the copy. Null means "not recorded" (history reloaded from disk, which
+    // stores strokes only) and leaves the current images as they are.
+    private class HistoryEntry(val strokes: List<Stroke>, var images: List<ImageItem>?)
+
+    private val undoStack = ArrayDeque<HistoryEntry>()
+    private val redoStack = ArrayDeque<HistoryEntry>()
+
+    private fun currentEntry() = HistoryEntry(strokes.map { it.deepCopy() }, imageItems.toList())
 
     /** Called at the start of every stroke-changing action; also invalidates redo, standard editor semantics. */
     private fun recordHistory() {
-        undoStack.addLast(strokes.map { it.deepCopy() })
+        undoStack.addLast(currentEntry())
         while (undoStack.size > MAX_UNDO_STEPS) undoStack.removeFirst()
         redoStack.clear()
     }
 
-    /** Undo and redo snapshots, oldest first, for [CanvasStorage.saveHistory]. */
-    fun historySnapshot(): Pair<List<List<Stroke>>, List<List<Stroke>>> = undoStack.toList() to redoStack.toList()
+    /** Undo and redo stroke snapshots, oldest first, for [CanvasStorage.saveHistory]. */
+    fun historySnapshot(): Pair<List<List<Stroke>>, List<List<Stroke>>> =
+        undoStack.map { it.strokes } to redoStack.map { it.strokes }
 
     /** Restores history saved by [CanvasStorage.saveHistory]; call after [loadStrokes], which clears it. */
     fun loadHistory(undo: List<List<Stroke>>, redo: List<List<Stroke>>) {
         undoStack.clear()
-        undoStack.addAll(undo.takeLast(MAX_UNDO_STEPS))
+        undoStack.addAll(undo.takeLast(MAX_UNDO_STEPS).map { HistoryEntry(it, null) })
         redoStack.clear()
-        redoStack.addAll(redo)
+        redoStack.addAll(redo.map { HistoryEntry(it, null) })
     }
 
-    private fun restore(snapshot: List<Stroke>) {
+    private fun restore(snapshot: List<Stroke>) = restore(HistoryEntry(snapshot, null))
+
+    private fun restore(entry: HistoryEntry) {
+        val images = entry.images
+        if (images != null && images != imageItems.toList()) {
+            imageItems.clear()
+            imageItems.addAll(images)
+            onImageChanged(imageItems.toList())
+        }
         strokes.clear()
-        strokes.addAll(snapshot.map { it.deepCopy() })
+        strokes.addAll(entry.strokes.map { it.deepCopy() })
         // Undoing a frame insert/delete changes how many frames have strokes; keep the count in step.
         animFrameCount = (strokes.maxOfOrNull { it.animFrame } ?: 0) + 1
         currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
@@ -706,16 +722,30 @@ class CanvasState(
     }
 
     /**
-     * Erases at [point]: strokes are split like normal (see [Stroke.eraseNear]); an image is
-     * removed outright if [point] falls within its bounds (images aren't vector geometry, so
-     * there's no equivalent of partially erasing one - full removal is the whole baseline for
-     * now; see the TEXT tool's similar move/resize deferral).
+     * Eraser mode: false (default) erases ink only, cutting strokes where the eraser passes
+     * (see [Stroke.eraseNear]); true is an object eraser that removes each stroke or image it
+     * touches whole, the note-taking-app convention.
+     *
+     * Images are only ever removed by the object eraser. The ink eraser used to delete any
+     * image it passed over, so erasing a mistake written on an imported PDF page deleted the
+     * page itself.
      */
+    var eraseWholeObjects by mutableStateOf(false)
+
     private fun eraseAt(point: WorldPoint) {
         val radius = eraserRadiusWorld
-        imageItems.removeAll { image ->
-            point.x >= image.position.x && point.x <= image.position.x + image.widthWorld &&
-                point.y >= image.position.y && point.y <= image.position.y + image.heightWorld
+        if (eraseWholeObjects) {
+            imageItems.removeAll { image ->
+                point.x >= image.position.x && point.x <= image.position.x + image.widthWorld &&
+                    point.y >= image.position.y && point.y <= image.position.y + image.heightWorld
+            }
+            strokes.removeAll { stroke ->
+                isEditable(stroke) && (
+                    if (stroke.filled) polygonContains(stroke.points, point)
+                    else distanceToPolyline(stroke.points, point) <= radius + stroke.widthWorld / 2
+                )
+            }
+            return
         }
         for (stroke in strokes.toList()) {
             if (!isEditable(stroke)) continue
@@ -1258,7 +1288,7 @@ class CanvasState(
      */
     fun discardActionsSince(depth: Int) {
         if (undoStack.size <= depth) return
-        var snapshot: List<Stroke>? = null
+        var snapshot: HistoryEntry? = null
         while (undoStack.size > depth) snapshot = undoStack.removeLast()
         clearSelectionState()
         currentStroke = null
@@ -1270,7 +1300,7 @@ class CanvasState(
     fun undo() {
         val previous = undoStack.removeLastOrNull() ?: return
         clearSelectionState()
-        redoStack.addLast(strokes.map { it.deepCopy() })
+        redoStack.addLast(currentEntry())
         restore(previous)
         onChanged(strokes.toList())
     }
@@ -1278,7 +1308,7 @@ class CanvasState(
     fun redo() {
         val next = redoStack.removeLastOrNull() ?: return
         clearSelectionState()
-        undoStack.addLast(strokes.map { it.deepCopy() })
+        undoStack.addLast(currentEntry())
         restore(next)
         onChanged(strokes.toList())
     }
@@ -1443,8 +1473,9 @@ class CanvasState(
         }
         // History snapshots are in the same world space, so they must move with it, or an
         // undo after a rebase would restore strokes at their pre-rebase coordinates.
-        for (snapshot in undoStack + redoStack) {
-            for (stroke in snapshot) stroke.shiftBy(offset)
+        for (entry in undoStack + redoStack) {
+            for (stroke in entry.strokes) stroke.shiftBy(offset)
+            entry.images = entry.images?.map { it.copy(position = it.position - offset) }
         }
         // Everything else positioned in world space moves too. Previously only strokes did,
         // so after panning past the threshold, text, images, the ruler and pins jumped away
