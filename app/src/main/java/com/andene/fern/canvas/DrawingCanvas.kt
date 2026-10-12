@@ -718,6 +718,9 @@ private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
 private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
+// Faint enough to read as "the previous drawing" without competing with the current one.
+private const val ONION_SKIN_ALPHA = 0.25f
+
 // One wheel notch pans 64 px, or zooms by 10% with Ctrl held.
 private const val WHEEL_PAN_PX = 64f
 private const val WHEEL_ZOOM_STEP = 1.1
@@ -783,11 +786,27 @@ internal fun DrawScope.drawScene(
     // Layers bottom to top; strokes keep their list order within a layer. A stroke whose layer
     // no longer exists is drawn with the bottom layer rather than disappearing.
     val layerIndex = state.layers.withIndex().associate { (index, layer) -> layer.id to index }
-    val strokesByLayer = state.strokes.groupBy { layerIndex[it.layerId] ?: 0 }
+    // Only the current animation frame is drawn (outside animation everything is frame 0), plus
+    // the previous frame as a faint onion skin while editing an animation.
+    val onionFrame = if (state.animationMode && state.onionSkin && !state.playing && state.currentAnimFrame > 0) state.currentAnimFrame - 1 else null
+    val strokesByLayer = state.strokes.filter { it.animFrame == state.currentAnimFrame }.groupBy { layerIndex[it.layerId] ?: 0 }
     // Offscreen bounds for a translucent layer: the square around the screen centre that covers
     // the screen at any canvas rotation.
     val halfDiagonal = hypot(size.width, size.height) / 2f
     val layerBounds = Rect(screenCenter - Offset(halfDiagonal, halfDiagonal), screenCenter + Offset(halfDiagonal, halfDiagonal))
+    if (onionFrame != null) {
+        drawContext.canvas.saveLayer(layerBounds, Paint().apply { alpha = ONION_SKIN_ALPHA })
+        for (stroke in state.strokes) {
+            if (stroke.animFrame != onionFrame || stroke.points.isEmpty()) continue
+            if (state.layers.firstOrNull { it.id == stroke.layerId }?.visible == false) continue
+            if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
+            val screenPoints = stroke.points.map { state.worldToScreen(it, screenCenter) }
+            val widthScreen = (stroke.widthWorld * state.scale).toFloat().coerceIn(1f, 1_000_000f)
+            drawStroke(stroke, screenPoints, widthScreen, BlendMode.SrcOver)
+        }
+        drawContext.canvas.restore()
+    }
+
     for ((index, layer) in state.layers.withIndex()) {
         if (!layer.visible) continue
         val layerStrokes = strokesByLayer[index] ?: continue

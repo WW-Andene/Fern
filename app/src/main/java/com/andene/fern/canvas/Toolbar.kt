@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PictureAsPdf
@@ -112,6 +113,7 @@ fun Toolbar(
     onExportSvg: () -> Unit = {},
     onShare: () -> Unit = {},
     onExportBundle: () -> Unit = {},
+    onExportSpriteSheet: () -> Unit = {},
     onImportPdf: () -> Unit = {},
     onOpenFrames: () -> Unit = {},
 ) {
@@ -329,6 +331,16 @@ fun Toolbar(
                         }
                     }
                 }
+                IconButton(onClick = {
+                    state.animationMode = !state.animationMode
+                    state.playing = false
+                }) {
+                    Icon(
+                        Icons.Filled.Movie,
+                        contentDescription = if (state.animationMode) "Animation: on" else "Animation: off",
+                        tint = if (state.animationMode) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                    )
+                }
                 IconButton(onClick = { showSearchDialog = true }) {
                     Icon(Icons.Filled.Search, contentDescription = "Search text")
                 }
@@ -492,6 +504,15 @@ fun Toolbar(
                                 onExportSvg()
                             },
                         )
+                        if (state.animFrameCount > 1) {
+                            DropdownMenuItem(
+                                text = { Text("Animation sprite sheet (PNG)") },
+                                onClick = {
+                                    showExportMenu = false
+                                    onExportSpriteSheet()
+                                },
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text("Fern backup (.fern)") },
                             onClick = {

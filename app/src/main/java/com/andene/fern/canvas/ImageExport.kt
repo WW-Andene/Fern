@@ -89,6 +89,38 @@ fun exportDocumentPng(
     return out.toByteArray()
 }
 
+// Each frame's cell in a sprite sheet; 512 px keeps a 24-frame sheet (5x5 grid) at 2560 px.
+private const val SPRITE_FRAME_EDGE_PX = 512
+
+/**
+ * Every animation frame as a sprite sheet: a near-square grid, left to right then top to
+ * bottom, each cell framed identically (all frames' content together), so a game engine or web
+ * page can step through equal cells. Null for an empty document.
+ */
+fun exportSpriteSheetPng(
+    source: CanvasState,
+    textMeasurer: TextMeasurer,
+    density: Density,
+    imageFor: (String) -> ImageBitmap?,
+): ByteArray? {
+    val frame = frameForExport(source, SPRITE_FRAME_EDGE_PX) ?: return null
+    val count = source.animFrameCount
+    val columns = kotlin.math.ceil(kotlin.math.sqrt(count.toDouble())).toInt()
+    val rows = (count + columns - 1) / columns
+    val sheet = ImageBitmap(frame.widthPx * columns, frame.heightPx * rows)
+    val canvas = Canvas(sheet)
+    for (i in 0 until count) {
+        frame.camera.goToAnimFrame(i)
+        canvas.save()
+        canvas.translate((i % columns * frame.widthPx).toFloat(), (i / columns * frame.heightPx).toFloat())
+        frame.drawOn(canvas, density, textMeasurer, imageFor)
+        canvas.restore()
+    }
+    val out = ByteArrayOutputStream()
+    sheet.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
+    return out.toByteArray()
+}
+
 /**
  * The whole document as a PDF, or null if it's empty: one page per canvas [Frame] when the
  * document has frames (a multi-page document laid out on the canvas), otherwise one page

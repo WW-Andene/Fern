@@ -2,6 +2,7 @@ package com.andene.fern.canvas
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -177,6 +178,68 @@ class CanvasState(
      */
     var activeStabilization by mutableDoubleStateOf(0.0)
 
+    /** Flipbook animation: number of frames (at least 1) and the one being shown and edited. */
+    var animFrameCount by mutableIntStateOf(1)
+        private set
+    var currentAnimFrame by mutableIntStateOf(0)
+        private set
+
+    /** Shows the animation bar; with it off, documents behave exactly as before (one frame). */
+    var animationMode by mutableStateOf(false)
+
+    /** Previous frame shown faintly under the current one while editing, the animator's onion skin. */
+    var onionSkin by mutableStateOf(true)
+
+    var playing by mutableStateOf(false)
+
+    /** Playback speed in frames per second; 12 is the classic hand-drawn animation rate ("on twos"). */
+    var animFps by mutableIntStateOf(12)
+
+    fun goToAnimFrame(frame: Int) {
+        clearSelectionState()
+        currentAnimFrame = frame.coerceIn(0, animFrameCount - 1)
+    }
+
+    /** Next frame for playback, wrapping to the first. */
+    fun advanceAnimFrame() {
+        currentAnimFrame = (currentAnimFrame + 1) % animFrameCount
+    }
+
+    /**
+     * Inserts a frame right after the current one and moves to it. With [copyCurrent], it
+     * starts as a copy of the current frame (the usual way to make the next drawing);
+     * otherwise blank. Later frames shift up by one.
+     */
+    fun insertAnimFrame(copyCurrent: Boolean) {
+        recordHistory()
+        clearSelectionState()
+        val insertAt = currentAnimFrame + 1
+        for (i in strokes.indices) {
+            if (strokes[i].animFrame >= insertAt) strokes[i] = strokes[i].onAnimFrame(strokes[i].animFrame + 1)
+        }
+        if (copyCurrent) {
+            strokes.addAll(strokes.filter { it.animFrame == currentAnimFrame }.map { it.onAnimFrame(insertAt) })
+        }
+        animFrameCount++
+        currentAnimFrame = insertAt
+        onChanged(strokes.toList())
+    }
+
+    /** Deletes the current frame and its strokes; later frames shift down. The last frame can't be deleted. */
+    fun deleteAnimFrame() {
+        if (animFrameCount <= 1) return
+        recordHistory()
+        clearSelectionState()
+        val removed = currentAnimFrame
+        strokes.removeAll { it.animFrame == removed }
+        for (i in strokes.indices) {
+            if (strokes[i].animFrame > removed) strokes[i] = strokes[i].onAnimFrame(strokes[i].animFrame - 1)
+        }
+        animFrameCount--
+        currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
+        onChanged(strokes.toList())
+    }
+
     /** Named regions of the canvas, in creation order. */
     val frames = mutableStateListOf<Frame>()
 
@@ -222,9 +285,13 @@ class CanvasState(
     private fun layerOf(stroke: Stroke): Layer? = layers.firstOrNull { it.id == stroke.layerId }
 
     /** Shown and unlocked: tools may change it. Strokes on a layer that no longer exists count as editable. */
-    private fun isEditable(stroke: Stroke): Boolean = layerOf(stroke)?.let { it.visible && !it.locked } ?: true
+    // Only the current animation frame can be edited or picked from; other frames are hidden
+    // (or shown as a faint onion skin) and must not be erased or selected by accident.
+    private fun isEditable(stroke: Stroke): Boolean =
+        stroke.animFrame == currentAnimFrame && (layerOf(stroke)?.let { it.visible && !it.locked } ?: true)
 
-    private fun isVisible(stroke: Stroke): Boolean = layerOf(stroke)?.visible ?: true
+    private fun isVisible(stroke: Stroke): Boolean =
+        stroke.animFrame == currentAnimFrame && (layerOf(stroke)?.visible ?: true)
 
     /** Drawing tools do nothing on a hidden or locked active layer, rather than adding invisible or "locked" content. */
     private val activeLayerEditable: Boolean
@@ -455,6 +522,9 @@ class CanvasState(
     private fun restore(snapshot: List<Stroke>) {
         strokes.clear()
         strokes.addAll(snapshot.map { it.deepCopy() })
+        // Undoing a frame insert/delete changes how many frames have strokes; keep the count in step.
+        animFrameCount = (strokes.maxOfOrNull { it.animFrame } ?: 0) + 1
+        currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
     }
 
     fun worldToScreen(world: WorldPoint, screenCenter: Offset): Offset {
@@ -482,6 +552,7 @@ class CanvasState(
             activePenType,
             blendMode = activeBlendMode,
             layerId = activeLayerId,
+            animFrame = currentAnimFrame,
         )
         stroke.addPoint(snappedToActiveGuide(worldPoint), pressure, tilt, orientation)
         rememberActiveColor()
@@ -490,7 +561,7 @@ class CanvasState(
         currentStroke = stroke
         strokes.add(stroke)
         symmetryCopies = symmetryTransforms(symmetryMode, symmetryCenter).map { transform ->
-            val copy = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode, layerId = stroke.layerId)
+            val copy = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode, layerId = stroke.layerId, animFrame = stroke.animFrame)
             copy.addPoint(transform(stroke.points.first()), pressure, tilt, orientation)
             strokes.add(copy)
             copy to transform
@@ -572,7 +643,7 @@ class CanvasState(
     private fun replaceWithShape(stroke: Stroke, cleanPoints: List<WorldPoint>) {
         val index = strokes.indexOf(stroke)
         if (index == -1) return
-        val shape = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode, layerId = stroke.layerId)
+        val shape = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode, layerId = stroke.layerId, animFrame = stroke.animFrame)
         for (point in cleanPoints) shape.addPoint(point)
         strokes[index] = shape
     }
@@ -695,6 +766,7 @@ class CanvasState(
             activePenType,
             blendMode = activeBlendMode,
             layerId = activeLayerId,
+            animFrame = currentAnimFrame,
         )
         for (point in generateShapePoints(activeShapeKind, start, end)) stroke.addPoint(point)
         strokes.add(stroke)
@@ -735,7 +807,7 @@ class CanvasState(
         }
         if (bestIndex == -1) return
         val boundary = strokes[bestIndex]
-        val fillStroke = Stroke(activeColor, 0.0, PenType.MARKER, filled = true, layerId = activeLayerId)
+        val fillStroke = Stroke(activeColor, 0.0, PenType.MARKER, filled = true, layerId = activeLayerId, animFrame = currentAnimFrame)
         for (point in boundary.points) fillStroke.addPoint(point)
         strokes.add(bestIndex, fillStroke)
         onChanged(strokes.toList())
@@ -1154,7 +1226,7 @@ class CanvasState(
         recordHistory()
         val nudge = WorldPoint(20.0 / scale.coerceAtLeast(1e-300), 20.0 / scale.coerceAtLeast(1e-300))
         val duplicates = selection.map { original ->
-            val copy = Stroke(original.color, original.widthWorld, original.penType, original.filled, original.blendMode, original.layerId)
+            val copy = Stroke(original.color, original.widthWorld, original.penType, original.filled, original.blendMode, original.layerId, original.animFrame)
             for (point in original.points) copy.addPoint(point + nudge)
             copy
         }
@@ -1221,6 +1293,11 @@ class CanvasState(
 
     /** Replaces all strokes with [loaded] (e.g. from [CanvasStorage.load] on app start). */
     fun loadStrokes(loaded: List<Stroke>) {
+        // Frame count isn't stored separately: it's one past the highest frame any stroke is on
+        // (so trailing empty frames aren't kept across sessions).
+        animFrameCount = (loaded.maxOfOrNull { it.animFrame } ?: 0) + 1
+        currentAnimFrame = 0
+        playing = false
         strokes.clear()
         undoStack.clear()
         redoStack.clear()

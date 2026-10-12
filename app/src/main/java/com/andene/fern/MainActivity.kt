@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.andene.fern.canvas.AnimationBar
 import com.andene.fern.canvas.BackgroundStyle
 import com.andene.fern.canvas.CanvasState
 import com.andene.fern.canvas.CanvasStorage
@@ -78,6 +79,7 @@ import com.andene.fern.canvas.exportDocumentBundle
 import com.andene.fern.canvas.exportDocumentPdf
 import com.andene.fern.canvas.exportDocumentPng
 import com.andene.fern.canvas.exportDocumentSvg
+import com.andene.fern.canvas.exportSpriteSheetPng
 import com.andene.fern.canvas.importDocumentBundle
 import com.andene.fern.canvas.importPdfPages
 import com.andene.fern.canvas.markWelcomeSeen
@@ -239,6 +241,11 @@ class MainActivity : ComponentActivity() {
                         val name = currentDocumentName()
                         writeExport(uri) { exportDocumentBundle(context, id, name) }
                     }
+                    val spriteSheetExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("image/png"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportSpriteSheetPng(canvasState, textMeasurer, density, imageForExport) }
+                    }
                     val pdfExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("application/pdf"),
                     ) { uri ->
@@ -371,6 +378,14 @@ class MainActivity : ComponentActivity() {
                         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
                     }
 
+                    // Flipbook playback: advances one frame per tick while playing.
+                    LaunchedEffect(canvasState.playing, canvasState.animFps) {
+                        while (canvasState.playing) {
+                            delay(1000L / canvasState.animFps)
+                            canvasState.advanceAnimFrame()
+                        }
+                    }
+
                     val shortcutFocus = remember { FocusRequester() }
                     LaunchedEffect(Unit) { shortcutFocus.requestFocus() }
                     Box(
@@ -437,7 +452,8 @@ class MainActivity : ComponentActivity() {
                                 onExportPng = { pngExportLauncher.launch("${currentDocumentName()}.png") },
                                 onExportPdf = { pdfExportLauncher.launch("${currentDocumentName()}.pdf") },
                                 onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
-                            onExportBundle = { bundleExportLauncher.launch("${currentDocumentName()}.fern") },
+                                onExportSpriteSheet = { spriteSheetExportLauncher.launch("${currentDocumentName()} sprites.png") },
+                                onExportBundle = { bundleExportLauncher.launch("${currentDocumentName()}.fern") },
                                 onShare = {
                                     coroutineScope.launch {
                                         val png = withContext(Dispatchers.Default) {
@@ -470,6 +486,15 @@ class MainActivity : ComponentActivity() {
                                     )
                                 },
                             )
+                            if (canvasState.animationMode) {
+                                AnimationBar(
+                                    state = canvasState,
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .padding(WindowInsets.systemBars.asPaddingValues())
+                                        .padding(bottom = 16.dp),
+                                )
+                            }
                             Minimap(
                                 state = canvasState,
                                 modifier = Modifier
