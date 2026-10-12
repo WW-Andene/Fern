@@ -95,7 +95,7 @@ Goal: 120 fps at any zoom, with any amount of content.
 - [x] 52. GPU rendering path — the canvas draws through Android's hardware pipeline; scene tiles are rasterized on the GPU (RenderNode + HardwareRenderer into hardware bitmaps, API 29+) instead of on the CPU, falling back to the CPU if the GPU path fails; GPU speed not yet measured on a device
 - [x] 53. Background loading / streaming of off-screen regions — documents load and switch off the main thread behind a loading cover; strokes are stored in chunks with bounds, and each document reopens at its saved view with the chunks in view read and shown first, the rest after; once loaded the whole document is held in memory (no unloading of distant regions)
 - [x] 54. Large images and PDF pages downscaled to 2048 px
-- [ ] 55. Battery and thermal checks
+- [x] 55. Battery and thermal checks — battery saver or severe heat (thermal status, API 29+) lengthens the autosave batch (0.5 s -> 3 s) and caps animation playback at 12 fps
 
 ## Phase 6 — Import, export & sharing
 

@@ -169,6 +169,18 @@ private fun decodeDownsampled(context: android.content.Context, uri: Uri, maxEdg
 }
 
 class MainActivity : ComponentActivity() {
+    private val powerMonitor by lazy { PowerMonitor(applicationContext) }
+
+    override fun onStart() {
+        super.onStart()
+        powerMonitor.start()
+    }
+
+    override fun onStop() {
+        powerMonitor.stop()
+        super.onStop()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         CrashReporter.install(this)
@@ -228,7 +240,7 @@ class MainActivity : ComponentActivity() {
                                 autosaveJob?.cancel()
                                 val documentId = currentDocumentId
                                 autosaveJob = coroutineScope.launch {
-                                    delay(500)
+                                    delay(PowerMonitor.autosaveDelayMillis(powerMonitor.constrained))
                                     withContext(Dispatchers.IO) { CanvasStorage.save(context, documentId, snapshot, withThumbnail = false) }
                                 }
                             },
@@ -681,9 +693,9 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // Flipbook playback: advances one frame per tick while playing.
-                    LaunchedEffect(canvasState.playing, canvasState.animFps) {
+                    LaunchedEffect(canvasState.playing, canvasState.animFps, powerMonitor.constrained) {
                         while (canvasState.playing) {
-                            delay(1000L / canvasState.animFps)
+                            delay(1000L / PowerMonitor.playbackFps(canvasState.animFps, powerMonitor.constrained))
                             canvasState.advanceAnimFrame()
                         }
                     }
