@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AlignHorizontalLeft
+import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.Circle
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.filled.Colorize
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.CopyAll
+import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Delete
@@ -612,6 +614,8 @@ private fun penTypeIcon(penType: PenType) = when (penType) {
     PenType.PENCIL -> Icons.Filled.Edit
     PenType.HIGHLIGHTER -> Icons.Filled.Highlight
     PenType.CALLIGRAPHY -> Icons.Filled.Gesture
+    PenType.AIRBRUSH -> Icons.Filled.BlurOn
+    PenType.CRAYON -> Icons.Filled.Create
 }
 
 private fun penTypeLabel(penType: PenType) = when (penType) {
@@ -619,6 +623,8 @@ private fun penTypeLabel(penType: PenType) = when (penType) {
     PenType.PENCIL -> "Pencil"
     PenType.HIGHLIGHTER -> "Highlighter"
     PenType.CALLIGRAPHY -> "Calligraphy"
+    PenType.AIRBRUSH -> "Airbrush"
+    PenType.CRAYON -> "Crayon"
 }
 
 private fun shapeKindIcon(kind: ShapeKind) = when (kind) {

@@ -14,8 +14,10 @@ import androidx.compose.ui.graphics.Color
  * - [CALLIGRAPHY]: width varies along the stroke based on drawing direction relative to a
  *   nib angle (a real stylus's tilt orientation when available, otherwise a fixed 45°),
  *   simulating a flat calligraphy nib.
+ * - [AIRBRUSH]: a soft spray of fine dots around the path, denser at the centre.
+ * - [CRAYON]: a waxy line broken up by paper grain, letting the paper show through.
  */
-enum class PenType { MARKER, PENCIL, HIGHLIGHTER, CALLIGRAPHY }
+enum class PenType { MARKER, PENCIL, HIGHLIGHTER, CALLIGRAPHY, AIRBRUSH, CRAYON }
 
 /**
  * How a stroke composites with whatever is already drawn beneath it, mirroring the standard

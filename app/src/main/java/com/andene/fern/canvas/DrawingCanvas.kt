@@ -531,6 +531,10 @@ private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, bas
         drawCalligraphyStroke(stroke, screenPoints, baseWidthScreen, blendMode)
         return
     }
+    if (stroke.penType == PenType.AIRBRUSH || stroke.penType == PenType.CRAYON) {
+        drawTexturedStroke(stroke, screenPoints, baseWidthScreen, blendMode)
+        return
+    }
     val style = penStyle(stroke.penType, stroke.color, baseWidthScreen)
     if (screenPoints.size >= 2 && hasStylusVariation(stroke)) {
         for (i in 0 until screenPoints.size - 1) {
@@ -590,7 +594,70 @@ private fun penStyle(penType: PenType, baseColor: Color, baseWidthScreen: Float)
         widthScreen = baseWidthScreen * 3f,
         cap = StrokeCap.Square,
     )
-    PenType.CALLIGRAPHY -> PenStyle(baseColor, baseWidthScreen, StrokeCap.Round) // unused: drawCalligraphyStroke handles it
+    // Unused: these pens have their own renderers (drawCalligraphyStroke, drawTexturedStroke).
+    PenType.CALLIGRAPHY, PenType.AIRBRUSH, PenType.CRAYON -> PenStyle(baseColor, baseWidthScreen, StrokeCap.Round)
+}
+
+/**
+ * Procedural textured pens. Every "random" value comes from a hash of the point index and
+ * sample number, never a live random generator, so the texture is identical every frame and
+ * doesn't shimmer while panning; it's laid out in screen space, so it keeps a constant grain
+ * size at any zoom.
+ * - AIRBRUSH: [AIRBRUSH_DOTS_PER_SAMPLE] dots per sample, spread around the path within the
+ *   stroke width with a centre-weighted falloff, each faint so overlaps build up density.
+ * - CRAYON: the line drawn as short segments with grain gaps, plus a jittered second pass, so
+ *   it reads as wax over textured paper.
+ */
+private fun DrawScope.drawTexturedStroke(stroke: Stroke, screenPoints: List<Offset>, baseWidthScreen: Float, blendMode: BlendMode) {
+    val radius = baseWidthScreen / 2f
+    // Walk the path at a fixed screen spacing so texture density doesn't depend on how fast
+    // (and so how sparsely) the points were captured.
+    val step = (radius / 2f).coerceAtLeast(1f)
+    var sample = 0
+    for (i in 0 until maxOf(1, screenPoints.size - 1)) {
+        val a = screenPoints[i]
+        val b = screenPoints.getOrElse(i + 1) { a }
+        val segment = b - a
+        val length = segment.getDistance()
+        val count = maxOf(1, (length / step).toInt())
+        for (k in 0 until count) {
+            val center = a + segment * (k.toFloat() / count)
+            val width = baseWidthScreen * widthFactorAt(stroke, i)
+            when (stroke.penType) {
+                PenType.AIRBRUSH -> for (d in 0 until AIRBRUSH_DOTS_PER_SAMPLE) {
+                    val angle = hash01(sample, d * 2) * 2f * Math.PI.toFloat()
+                    // Squaring the radius fraction concentrates dots towards the centre line.
+                    val distance = hash01(sample, d * 2 + 1).let { it * it } * width
+                    drawCircle(
+                        color = stroke.color.copy(alpha = stroke.color.alpha * 0.25f),
+                        radius = (width / 24f).coerceAtLeast(0.75f),
+                        center = center + Offset(cos(angle) * distance, sin(angle) * distance),
+                        blendMode = blendMode,
+                    )
+                }
+                else -> {
+                    // About one sample in five is a grain gap where the paper shows through.
+                    if (hash01(sample, 0) > 0.2f) {
+                        val next = a + segment * ((k + 1).toFloat() / count)
+                        val jitter = Offset(hash01(sample, 1) - 0.5f, hash01(sample, 2) - 0.5f) * (width * 0.3f)
+                        drawLine(stroke.color.copy(alpha = stroke.color.alpha * 0.8f), center, next, strokeWidth = width * 0.8f, cap = StrokeCap.Round, blendMode = blendMode)
+                        drawLine(stroke.color.copy(alpha = stroke.color.alpha * 0.4f), center + jitter, next + jitter, strokeWidth = width * 0.5f, cap = StrokeCap.Round, blendMode = blendMode)
+                    }
+                }
+            }
+            sample++
+        }
+    }
+}
+
+private const val AIRBRUSH_DOTS_PER_SAMPLE = 6
+
+/** A stable pseudo-random value in [0, 1) from two integers (integer hash, no state). */
+private fun hash01(a: Int, b: Int): Float {
+    var h = a * 374761393 + b * 668265263
+    h = (h xor (h ushr 13)) * 1274126177
+    h = h xor (h ushr 16)
+    return (h and 0x7FFFFFFF) / 2147483648f
 }
 
 /**
