@@ -127,7 +127,7 @@ All deferred: they need a server or cloud platform.
 - [x] 71. Two-finger tap undo, three-finger tap redo, toolbar top or bottom; customisable toolbar (Settings → Customise toolbar hides optional button groups; core tools always stay)
 - [x] 72. Gesture guide on first launch, templates (graph, dot, lined, comic, storyboard, weekly planner in the locale's week order, mind map of connected sticky notes)
 - [x] 73. Dark mode for the UI; light and dark paper presets (paper menu), with a pattern tone for dark paper and the pen switched to a readable ink when it would vanish
-- [~] 74. Keyboard shortcuts, mouse wheel and trackpad; no dedicated large-screen layout
+- [x] 74. Keyboard shortcuts, mouse wheel and trackpad; large-screen layout: from 768dp wide the toolbar wraps onto several rows with every tool in view instead of scrolling
 - [ ] 75. Multi-window drag-and-drop
 - [ ] 76. Generative assists ⏸ (hosted AI)
 - [ ] 77. Release work: Play Store listing, privacy policy, staged rollouts

@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.annotation.StringRes
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
@@ -131,12 +133,15 @@ private const val MAX_WIDTH_SCREEN = 32f
 // this floor keeps the lightest setting still faintly visible.
 private const val MIN_OPACITY = 0.1f
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun Toolbar(
     state: CanvasState,
     modifier: Modifier = Modifier,
     /** Button groups the user turned off in Settings (roadmap item 71); see [ToolbarGroup]. */
     hiddenGroups: Set<ToolbarGroup> = emptySet(),
+    /** Wrap the tools onto several rows instead of scrolling them sideways: for wide windows (roadmap item 74). */
+    wrap: Boolean = false,
     onOpenDocuments: () -> Unit = {},
     onOpenPins: () -> Unit = {},
     onOpenVersions: () -> Unit = {},
@@ -228,13 +233,10 @@ fun Toolbar(
                     }
                 }
             }
-            // Scrolls sideways: the tools add up to far more than a phone's width, and without
-            // this everything past the screen edge was simply unreachable.
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
-            ) {
+            // Every tool, in toolbar order. On a phone they scroll sideways: they add up to far
+            // more than its width, and without scrolling everything past the edge was unreachable.
+            // On a wide window (roadmap item 74) they wrap onto further rows instead, all in view.
+            val tools: @Composable () -> Unit = {
                 if (ToolbarGroup.FAVOURITES !in hiddenGroups) {
                     for (index in 0 until TOOL_SLOT_COUNT) ToolSlotButton(state, index)
                 }
@@ -243,6 +245,8 @@ fun Toolbar(
                         val selected = state.activeTool == Tool.PEN && state.activeColor == color
                         Surface(
                             modifier = Modifier
+                                // 48dp tall like the buttons beside it, so wrapped rows line up.
+                                .padding(vertical = 8.dp)
                                 .size(32.dp)
                                 .clickable {
                                     state.activeColor = color
@@ -805,6 +809,18 @@ fun Toolbar(
                         )
                     }
                 }
+                        }
+            if (wrap) {
+                FlowRow(
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                ) { tools() }
+            } else {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                ) { tools() }
             }
             if (showWidthSlider) {
                 Slider(
@@ -930,6 +946,8 @@ private fun ToolSlotButton(state: CanvasState, index: Int) {
     Box {
         Box(
             modifier = Modifier
+                // 48dp tall like the buttons beside it, so wrapped rows line up.
+                .padding(vertical = 8.dp)
                 .size(32.dp)
                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)) // §7.3: 0.24 × 32 = 7.7 → 8
                 .semantics { contentDescription = description }

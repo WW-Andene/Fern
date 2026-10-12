@@ -62,6 +62,7 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -131,6 +132,11 @@ import kotlinx.coroutines.withContext
 // image, while a full-resolution phone photo (48 MP+) decoded every session could exhaust
 // memory. 2048 is on the project size scale.
 private const val MAX_IMAGE_EDGE_PX = 2048
+
+// Window width from which the toolbar wraps instead of scrolling (tablets, unfolded foldables,
+// wide split windows). Material's "expanded" class starts at 840dp; this is that, put on the §7
+// scale (512 + 256), which also takes in a portrait tablet.
+private const val WIDE_WINDOW_DP = 768
 
 /**
  * Decodes the image at [uri] no larger than [maxEdgePx] on its longest edge: first reads only
@@ -679,6 +685,7 @@ class MainActivity : ComponentActivity() {
                             Toolbar(
                                 state = canvasState,
                                 hiddenGroups = hiddenToolbarGroups,
+                                wrap = LocalConfiguration.current.screenWidthDp >= WIDE_WINDOW_DP,
                                 modifier = Modifier
                                     .align(if (toolbarAtBottom) Alignment.BottomCenter else Alignment.TopCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
