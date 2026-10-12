@@ -43,9 +43,9 @@ fun ColorPickerDialog(
     initialColor: Color,
     onDismiss: () -> Unit,
     onColorSelected: (Color) -> Unit,
-    /** When set, a stringResource(R.string.color_save_palette) button stores the current colour without closing. */
+    /** When set, a "Save to palette" button stores the current colour without closing. */
     onSaveColor: ((Color) -> Unit)? = null,
-    /** When set, an stringResource(R.string.color_import_palette) button imports a .gpl or .ase palette file into the saved colours. */
+    /** When set, an "Import palette" button imports a .gpl or .ase palette file into the saved colours. */
     onImportPalette: (() -> Unit)? = null,
 ) {
     var hue by remember { mutableFloatStateOf(0f) }

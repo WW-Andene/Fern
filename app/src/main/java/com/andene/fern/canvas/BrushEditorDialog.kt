@@ -47,7 +47,7 @@ import kotlin.math.sin
  * (or dismissing) leaves the brush as it was; Reset returns to the default brush.
  *
  * Presets: tapping a saved preset loads it into the editor (still applied only by Apply); the
- * loaded preset then shows a close icon that deletes it, and stringResource(R.string.brush_save_preset) stores the brush being edited under a name -
+ * loaded preset then shows a close icon that deletes it, and "Save as preset" stores the brush being edited under a name -
  * saving under an existing name replaces that preset.
  */
 @Composable
