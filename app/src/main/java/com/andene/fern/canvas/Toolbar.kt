@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.EmojiPeople
 import androidx.compose.material.icons.filled.InvertColors
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.AutoFixHigh
@@ -657,6 +658,9 @@ fun Toolbar(
                                 contentDescription = if (state.inverseKinematics) stringResource(R.string.tb_ik_on) else stringResource(R.string.tb_ik_off),
                                 tint = if (state.inverseKinematics) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                             )
+                        }
+                        IconButton(onClick = { state.insertMannequin() }) {
+                            Icon(Icons.Filled.EmojiPeople, contentDescription = stringResource(R.string.tb_mannequin))
                         }
                         IconButton(onClick = { state.bindStrokesToNearestBones() }, enabled = state.currentBones.isNotEmpty()) {
                             Icon(Icons.Filled.Link, contentDescription = stringResource(R.string.tb_bones_bind))

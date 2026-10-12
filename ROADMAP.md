@@ -173,8 +173,8 @@ All deferred: they need a server or cloud platform.
 - [~] 105. Comics — comic page template, speech bubbles, screentones
 - [x] 106. Notes — sticky notes, connectors between them (68), mind-map and planner templates (72)
 - [~] 107. Whiteboard — links in text labels open in the browser or another document; PDF pages imported onto the canvas to annotate; no embedded video (needs a device to verify a live video surface)
-- [ ] 108. 3D painting and posable mannequins
-- [ ] 109. AR placement and tracing
+- [~] 108. Posable mannequin in 2D (a rigged figure posed with the bone tool); no 3D painting
+- [ ] 109. AR placement and tracing ⏸ (ARCore is a Google Play Services platform)
 - [ ] 110. Generative AI ⏸
 
 ## Phase 13 — Ecosystem

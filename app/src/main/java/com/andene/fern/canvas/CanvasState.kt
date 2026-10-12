@@ -824,6 +824,61 @@ class CanvasState(
     var boneDraft by mutableStateOf<Pair<WorldPoint, WorldPoint>?>(null)
         private set
 
+    /**
+     * A posable mannequin (roadmap item 108, in 2D): a rigged figure standing in the middle of
+     * the view, about 0.6 of its height, on the current frame. Bones from the hips: spine, neck
+     * and head; upper and lower arms from the shoulders; thighs and shins. Each bone carries a
+     * limb drawn as a thick round-ended line (the head a circle) in the active colour, bound to
+     * it, so the bone tool poses it straight away. One undo step.
+     */
+    fun insertMannequin() {
+        if (!activeLayerEditable || viewportSize.height <= 0f) return
+        recordHistory()
+        val s = scale.coerceAtLeast(1e-300)
+        val unit = viewportSize.height * 0.6 / s / 8 // the figure is 8 head-heights tall
+        val hips = WorldPoint(panWorld.x, panWorld.y + unit * 0.5)
+        fun at(dx: Double, dy: Double) = WorldPoint(hips.x + dx * unit, hips.y + dy * unit)
+        val frame = currentAnimFrame
+        val added = ArrayList<Bone>()
+        val joints = ArrayList<Bone>()
+        fun bone(parent: Bone?, head: WorldPoint, tail: WorldPoint) =
+            Bone(UUID.randomUUID().toString(), parent?.id, head, tail, frame).also { added.add(it) }
+        val spine = bone(null, hips, at(0.0, -2.5))
+        val neck = bone(spine, spine.tail, at(0.0, -3.0))
+        val head = bone(neck, neck.tail, at(0.0, -4.0))
+        for (side in listOf(-1.0, 1.0)) {
+            val shoulder = bone(spine, spine.tail, at(side * 1.0, -2.5)).also { joints.add(it) }
+            val upperArm = bone(shoulder, shoulder.tail, at(side * 1.2, -1.0))
+            bone(upperArm, upperArm.tail, at(side * 1.3, 0.3))
+            val hip = bone(spine, hips, at(side * 0.5, 0.0)).also { joints.add(it) }
+            val thigh = bone(hip, hip.tail, at(side * 0.6, 1.8))
+            bone(thigh, thigh.tail, at(side * 0.6, 3.5))
+        }
+        bones.addAll(added)
+        val ink = activeColor.copy(alpha = activeColor.alpha * activeOpacity.toFloat())
+        for (b in added) {
+            // The head is a circle round its bone; shoulder and hip bones are joints, not limbs.
+            if (b in joints) continue
+            val limb = if (b === head) {
+                Stroke(ink, unit * 0.12, PenType.MARKER, layerId = activeLayerId, animFrame = frame, boneId = b.id).apply {
+                    val c = WorldPoint((b.head.x + b.tail.x) / 2, (b.head.y + b.tail.y) / 2)
+                    for (p in generateShapePoints(ShapeKind.ELLIPSE, WorldPoint(c.x - unit * 0.4, c.y - unit * 0.5), WorldPoint(c.x + unit * 0.4, c.y + unit * 0.5))) addPoint(p)
+                }
+            } else {
+                val width = if (b === spine) unit * 0.9 else if (b === neck) unit * 0.3 else unit * 0.4
+                Stroke(ink, width, PenType.MARKER, layerId = activeLayerId, animFrame = frame, boneId = b.id).apply {
+                    addPoint(b.head)
+                    addPoint(b.tail)
+                }
+            }
+            strokes.add(limb)
+        }
+        activeTool = Tool.BONE
+        posingBones = true
+        onBonesChanged(bones.toList())
+        strokesChanged()
+    }
+
     fun loadBones(loaded: List<Bone>) {
         bones.clear()
         bones.addAll(loaded)

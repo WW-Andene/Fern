@@ -391,4 +391,5 @@
     <string name="tb_indexed_on">Palette indexée : activée (les pixels n\'utilisent que les couleurs enregistrées)</string>
     <string name="tb_indexed_off">Palette indexée : désactivée</string>
     <string name="tb_reduce_palette">Ramener la sélection aux couleurs enregistrées</string>
+    <string name="tb_mannequin">Insérer un mannequin articulé</string>
 </resources>
