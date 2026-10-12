@@ -32,6 +32,8 @@ android {
 
     buildFeatures {
         compose = true
+        // CrashReporter stamps reports with the app version from BuildConfig.
+        buildConfig = true
     }
 
     composeOptions {

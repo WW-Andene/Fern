@@ -19,8 +19,11 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.DisposableEffect
@@ -76,6 +79,7 @@ import kotlinx.coroutines.withContext
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        CrashReporter.install(this)
         enableEdgeToEdge()
         setContent {
             // Follows the system light/dark setting for the app's own UI (toolbar, dialogs). The
@@ -94,6 +98,7 @@ class MainActivity : ComponentActivity() {
                     var showPinsDialog by remember { mutableStateOf(false) }
                     var showFramesDialog by remember { mutableStateOf(false) }
                     var showWelcome by remember { mutableStateOf(shouldShowWelcome(context)) }
+                    var crashReport by remember { mutableStateOf(CrashReporter.pendingReport(context)) }
                     var presentingIndex by remember { mutableStateOf<Int?>(null) } // non-null = presenting that frame
                     var frameToExport by remember { mutableStateOf<Frame?>(null) }
                     var versions by remember { mutableStateOf<List<Long>?>(null) } // non-null = dialog open
@@ -459,6 +464,35 @@ class MainActivity : ComponentActivity() {
                                 versions = null
                             },
                             onDismiss = { versions = null },
+                        )
+                    }
+
+                    crashReport?.let { report ->
+                        AlertDialog(
+                            onDismissRequest = {
+                                CrashReporter.clearPendingReport(context)
+                                crashReport = null
+                            },
+                            title = { Text("Fern closed unexpectedly") },
+                            text = { Text("A crash report was saved on this device. Share it to help fix the problem? It contains technical details only, no drawings.") },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    val send = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_SUBJECT, "Fern crash report")
+                                        putExtra(Intent.EXTRA_TEXT, report)
+                                    }
+                                    context.startActivity(Intent.createChooser(send, null))
+                                    CrashReporter.clearPendingReport(context)
+                                    crashReport = null
+                                }) { Text("Share report") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = {
+                                    CrashReporter.clearPendingReport(context)
+                                    crashReport = null
+                                }) { Text("Dismiss") }
+                            },
                         )
                     }
 
