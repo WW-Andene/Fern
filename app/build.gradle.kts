@@ -49,7 +49,15 @@ android {
         // reproducible only in a full run, never with the class alone or after any single other
         // class, and with the toolbar code unchanged - so state leaking between test classes,
         // not the code under test. Isolating classes removes the leak path.
-        unitTests.all { it.forkEvery = 1 }
+        unitTests.all {
+            it.forkEvery = 1
+            // Scale benchmarks (ScaleBenchmark) only run when asked: ./gradlew testDebugUnitTest -Pbenchmark
+            // --tests '*ScaleBenchmark'. A million strokes needs more heap than the default.
+            if (project.hasProperty("benchmark")) {
+                it.systemProperty("fern.benchmark", "true")
+                it.maxHeapSize = "4g"
+            }
+        }
     }
 
     packaging {

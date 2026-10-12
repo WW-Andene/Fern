@@ -101,6 +101,15 @@ Run the tests (plain JVM; storage and Compose UI tests use Robolectric, no devic
 ./gradlew testDebugUnitTest
 ```
 
+Scale benchmarks (10k / 100k / 1M strokes; JVM numbers for comparing changes, not phone frame
+times) are skipped by default; run them with:
+
+```
+./gradlew testDebugUnitTest -Pbenchmark --tests '*ScaleBenchmark'
+```
+
+Results go to `app/build/reports/benchmarks/scale.txt`.
+
 The debug APK lands in `app/build/outputs/apk/debug/`. Open the project in
 Android Studio for the full IDE experience (emulator, layout inspector,
 etc.) — it will pick up `local.properties` automatically; that file is
