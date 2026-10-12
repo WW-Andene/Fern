@@ -92,6 +92,8 @@
     <string name="layers_remove_empty">Remove empty</string>
     <string name="layers_delete_hidden">Delete hidden</string>
     <string name="layers_new">New layer</string>
+    <string name="layers_new_raster">Raster</string>
+    <string name="layers_new_raster_16">Raster 16-bit</string>
     <string name="color_title">Choose color</string>
     <string name="color_hue">Hue</string>
     <string name="color_saturation">Saturation</string>

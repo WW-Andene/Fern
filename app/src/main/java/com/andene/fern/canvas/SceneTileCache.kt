@@ -116,6 +116,7 @@ class SceneTileCache(private val useGpu: Boolean = true) {
         CanvasState(floatingOrigin = false).apply {
             loadStrokes(state.strokes.map { it.deepCopy() })
             loadLayers(state.layers.toList())
+            loadRasters(state.rasters.mapValues { it.value.view() })
             loadTextItems(state.textItems.toList())
             loadConnectors(state.connectors.toList())
             loadImageItems(state.imageItems.toList())

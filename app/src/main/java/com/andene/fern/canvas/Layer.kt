@@ -31,4 +31,11 @@ data class Layer(
      * every other skin's ([CanvasState.applySkin]).
      */
     val skin: String? = null,
+    /**
+     * A raster layer (roadmap item 89) holds pixels ([RasterSurface], kept by
+     * [CanvasState.rasters]) instead of strokes; painting and erasing on it change pixels.
+     */
+    val raster: Boolean = false,
+    /** A raster layer's bits per channel: 8, or 16 for smooth gradients and repeated editing. */
+    val depth: Int = 8,
 )

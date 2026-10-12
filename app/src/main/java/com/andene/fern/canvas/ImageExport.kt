@@ -64,6 +64,7 @@ fun frameForExport(source: CanvasState, maxEdgePx: Int, region: Frame? = null): 
     val camera = CanvasState()
     camera.loadStrokes(source.strokes.map { it.deepCopy() })
     camera.loadLayers(source.layers.toList())
+    camera.loadRasters(source.rasters.mapValues { it.value.view() })
     camera.loadFrames(source.frames.toList())
     camera.loadTextItems(source.textItems.toList())
     camera.loadConnectors(source.connectors.toList())

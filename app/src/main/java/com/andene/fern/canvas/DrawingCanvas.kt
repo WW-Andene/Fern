@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
@@ -674,6 +675,29 @@ fun DrawingCanvas(
             linkChoices = linkChoices,
             onFollowLink = onFollowLink,
         )
+    }
+}
+
+/**
+ * A raster layer's painted tiles within the view, each scaled from its pixels to the screen.
+ * Magnified pixels stay crisp (nearest neighbour) once a pixel covers two screen pixels, so
+ * pixel work reads clearly; below that they're filtered.
+ */
+private fun DrawScope.drawRaster(surface: RasterSurface, state: CanvasState, screenCenter: Offset, topLeftWorld: WorldPoint, bottomRightWorld: WorldPoint) {
+    val tileWorld = RASTER_TILE * surface.pixelWorld
+    val quality = if (surface.pixelWorld * state.scale >= 2.0) FilterQuality.None else FilterQuality.Low
+    for ((key, tile) in surface.tiles) {
+        val left = surface.originX + RasterSurface.tileX(key) * tileWorld
+        val top = surface.originY + RasterSurface.tileY(key) * tileWorld
+        if (left > bottomRightWorld.x || top > bottomRightWorld.y || left + tileWorld < topLeftWorld.x || top + tileWorld < topLeftWorld.y) continue
+        val a = state.worldToScreen(WorldPoint(left, top), screenCenter)
+        val b = state.worldToScreen(WorldPoint(left + tileWorld, top + tileWorld), screenCenter)
+        val x = a.x.roundToInt()
+        val y = a.y.roundToInt()
+        val width = b.x.roundToInt() - x
+        val height = b.y.roundToInt() - y
+        if (width <= 0 || height <= 0) continue
+        drawImage(surface.bitmapOf(tile).asImageBitmap(), dstOffset = IntOffset(x, y), dstSize = IntSize(width, height), filterQuality = quality)
     }
 }
 
@@ -1342,8 +1366,16 @@ internal fun DrawScope.drawScene(
         drawContext.canvas.restore()
     }
 
+    state.rasterRevision // repaint as raster pixels change
     for ((index, layer) in state.layers.withIndex()) {
         if (!layer.visible) continue
+        if (layer.raster) {
+            val surface = state.rasters[layer.id] ?: continue
+            if (layer.opacity < 1f) drawContext.canvas.saveLayer(layerBounds, Paint().apply { alpha = layer.opacity })
+            drawRaster(surface, state, screenCenter, topLeftWorld, bottomRightWorld)
+            if (layer.opacity < 1f) drawContext.canvas.restore()
+            continue
+        }
         val layerStrokes = strokesByLayer[index] ?: continue
         // Layer opacity applies to the layer as a whole: drawn offscreen, then composited once,
         // so overlapping strokes on one layer don't show through each other.

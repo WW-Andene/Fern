@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.DisposableEffect
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.LaunchedEffect
@@ -205,6 +206,8 @@ class MainActivity : ComponentActivity() {
                     val lifecycleOwner = LocalLifecycleOwner.current
                     val coroutineScope = rememberCoroutineScope()
                     var autosaveJob by remember { mutableStateOf<Job?>(null) }
+                    // Raster changes ask for a save here; the writer below batches them.
+                    val rasterSaveRequests = remember { kotlinx.coroutines.flow.MutableStateFlow(0) }
 
                     var currentDocumentId by remember { mutableStateOf("") }
                     var documents by remember { mutableStateOf(emptyList<DocumentMeta>()) }
@@ -267,6 +270,8 @@ class MainActivity : ComponentActivity() {
                             onAnimationSettingsChanged = { settings -> CanvasStorage.saveAnimationSettings(context, currentDocumentId, settings) },
                             onFramesChanged = { frames -> CanvasStorage.saveFrames(context, currentDocumentId, frames) },
                             onLayersChanged = { layers -> CanvasStorage.saveLayers(context, currentDocumentId, layers) },
+                            // Raster pixels are saved by the debounced writer below (it needs this state).
+                            onRasterChanged = { rasterSaveRequests.value++ },
                             onRebased = { offset ->
                                 if (pins.isNotEmpty()) {
                                     pins = pins.map { it.copy(x = it.x - offset.x, y = it.y - offset.y) }
@@ -275,6 +280,24 @@ class MainActivity : ComponentActivity() {
                             },
                         )
                     }
+
+                    // Raster pixels: changed tiles are copied here on the main thread, then written off it.
+                    fun saveRasters(documentId: String) {
+                        val dirty = canvasState.takeDirtyRasterTiles()
+                        val deleted = canvasState.takeDeletedRasterLayers()
+                        if (dirty.isEmpty() && deleted.isEmpty()) return
+                        coroutineScope.launch(Dispatchers.IO) {
+                            for (id in deleted) CanvasStorage.deleteRasterLayer(context, documentId, id)
+                            for ((id, change) in dirty) CanvasStorage.saveRasterTiles(context, documentId, id, change.first, change.second)
+                        }
+                    }
+                    LaunchedEffect(Unit) {
+                        rasterSaveRequests.collectLatest {
+                            delay(PowerMonitor.autosaveDelayMillis(powerMonitor.constrained))
+                            saveRasters(currentDocumentId)
+                        }
+                    }
+
 
                     val textMeasurer = rememberTextMeasurer()
                     val density = LocalDensity.current
@@ -635,6 +658,7 @@ class MainActivity : ComponentActivity() {
                                     coroutineScope.launch(Dispatchers.Main) { if (previewWanted && loadingDocument) canvasState.loadStrokes(visible) }
                                 },
                                 layers = CanvasStorage.loadLayers(context, documentId),
+                                rasters = CanvasStorage.loadRasters(context, documentId, CanvasStorage.loadLayers(context, documentId).filter { it.raster }.map { it.id }),
                                 frames = CanvasStorage.loadFrames(context, documentId),
                                 history = CanvasStorage.loadHistory(context, documentId),
                                 texts = CanvasStorage.loadTextItems(context, documentId),
@@ -649,6 +673,7 @@ class MainActivity : ComponentActivity() {
                         previewWanted = false
                         canvasState.loadStrokes(loaded.strokes)
                         canvasState.loadLayers(loaded.layers)
+                        canvasState.loadRasters(loaded.rasters)
                         canvasState.loadFrames(loaded.frames)
                         canvasState.loadHistory(loaded.history.first, loaded.history.second)
                         canvasState.loadTextItems(loaded.texts)
@@ -671,6 +696,7 @@ class MainActivity : ComponentActivity() {
                         loadingDocument = true
                         try {
                             val leaving = currentDocumentId
+                            saveRasters(leaving)
                             val leavingView = canvasState.panWorld to canvasState.scale
                             val strokes = canvasState.strokes.toList()
                             val texts = canvasState.textItems.toList()
@@ -716,6 +742,7 @@ class MainActivity : ComponentActivity() {
                                 // No thumbnail: rendering every stroke on the main thread here took seconds on
                                 // huge documents; the library refreshes it when it's next opened.
                                 CanvasStorage.saveView(context, currentDocumentId, canvasState.panWorld, canvasState.scale)
+                                saveRasters(currentDocumentId)
                                 CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList(), withThumbnail = false)
                                 CanvasStorage.saveTextItems(context, currentDocumentId, canvasState.textItems.toList())
                                 CanvasStorage.saveImageItems(context, currentDocumentId, canvasState.imageItems.toList())

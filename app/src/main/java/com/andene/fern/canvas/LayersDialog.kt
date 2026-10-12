@@ -168,6 +168,9 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                 TextButton(onClick = { state.deleteEmptyLayers() }) { Text(stringResource(R.string.layers_remove_empty)) }
                 TextButton(onClick = { state.deleteHiddenLayers() }) { Text(stringResource(R.string.layers_delete_hidden)) }
                 TextButton(onClick = { state.addLayer() }) { Text(stringResource(R.string.layers_new)) }
+                // Raster layers hold pixels; 16 bits per channel for smooth gradients.
+                TextButton(onClick = { state.addRasterLayer(8) }) { Text(stringResource(R.string.layers_new_raster)) }
+                TextButton(onClick = { state.addRasterLayer(16) }) { Text(stringResource(R.string.layers_new_raster_16)) }
             }
         },
         dismissButton = {

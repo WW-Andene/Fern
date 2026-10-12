@@ -81,6 +81,8 @@ class CanvasState(
     /** World-space content stored outside this class (pins) must shift by -offset too; see [rebaseIfNeeded]. */
     private val onRebased: (offset: WorldPoint) -> Unit = {},
     private val onLayersChanged: (List<Layer>) -> Unit = {},
+    /** Raster pixels changed; [takeDirtyRasterTiles] has what to save. */
+    private val onRasterChanged: () -> Unit = {},
     private val onFramesChanged: (List<Frame>) -> Unit = {},
     private val onSavedColorsChanged: (List<Color>) -> Unit = {},
     private val onBrushChanged: (StampBrush) -> Unit = {},
@@ -126,6 +128,8 @@ class CanvasState(
         private const val PANEL_BORDER_SCREEN = 3.0
         // Bone tool reach and the shortest bone an add drag makes, in screen px (§7 scale).
         private const val BONE_HIT_SCREEN = 24.0
+        // Raster brush dabs this fraction of their radius apart: close enough to read as a line.
+        private const val RASTER_DAB_SPACING = 0.25
         // Spring of a dynamic bone, per second: stiff enough to keep up within a few frames,
         // damped to settle after about one overshoot.
         private const val DYNAMICS_STIFFNESS = 120.0
@@ -1365,6 +1369,118 @@ class CanvasState(
         onLayersChanged(layers.toList())
     }
 
+    /**
+     * Raster layers' pixels by layer id (roadmap item 89). Not snapshot state: [rasterRevision]
+     * is bumped whenever any of them changes, which is what views observe.
+     */
+    val rasters = HashMap<String, RasterSurface>()
+
+    var rasterRevision by mutableIntStateOf(0)
+        private set
+
+    // The history entry whose log changes are recorded into now (see openLog).
+    private var openEntry: HistoryEntry? = null
+
+    // Tiles changed since the last save, by layer, for incremental raster saving.
+    private val dirtyRasterTiles = HashMap<String, MutableSet<Long>>()
+
+    /** Adds a raster layer of [depth] bits above the others, its pixels the size of a screen pixel at the current zoom. */
+    fun addRasterLayer(depth: Int) {
+        val layer = Layer(UUID.randomUUID().toString(), "Raster ${layers.size + 1}", raster = true, depth = depth)
+        attachRaster(layer.id, RasterSurface(depth, 1.0 / scale.coerceAtLeast(1e-300)))
+        layers.add(layer)
+        activeLayerId = layer.id
+        onLayersChanged(layers.toList())
+        markRasterDirty(layer.id, emptySet())
+    }
+
+    /** Replaces the raster layers' pixels (from [CanvasStorage.loadRasters]); call after [loadLayers]. */
+    fun loadRasters(loaded: Map<String, RasterSurface>) {
+        rasters.clear()
+        dirtyRasterTiles.clear()
+        for ((id, surface) in loaded) attachRaster(id, surface)
+        // A raster layer saved before its first tile has no file yet; it starts empty.
+        for (layer in layers) if (layer.raster && layer.id !in rasters) attachRaster(layer.id, RasterSurface(layer.depth, 1.0 / scale.coerceAtLeast(1e-300)))
+        rasterRevision++
+    }
+
+    private fun attachRaster(layerId: String, surface: RasterSurface) {
+        surface.beforeTileChange = { key -> recordRasterTile(layerId, surface, key) }
+        surface.afterTileChange = { key -> dirtyRasterTiles.getOrPut(layerId) { HashSet() }.add(key) }
+        rasters[layerId] = surface
+    }
+
+    /** Saves [key]'s tile as it is now into the open history entry, once per entry. */
+    private fun recordRasterTile(layerId: String, surface: RasterSurface, key: Long) {
+        val entry = openEntry ?: return
+        val ref = layerId to key
+        if (ref !in entry.rasterLog) entry.rasterLog[ref] = surface.tileAt(key)?.copy()
+    }
+
+    private fun markRasterDirty(layerId: String, keys: Set<Long>) {
+        dirtyRasterTiles.getOrPut(layerId) { HashSet() }.addAll(keys)
+        rasterRevision++
+        onRasterChanged()
+    }
+
+    /**
+     * The raster tiles changed since the last call, by layer, as copies safe to write from
+     * another thread (null for a tile that's gone), with each layer's surface for its settings.
+     */
+    fun takeDirtyRasterTiles(): Map<String, Pair<RasterSurface, Map<Long, RasterTile?>>> {
+        val result = dirtyRasterTiles.mapNotNull { (layerId, keys) ->
+            val surface = rasters[layerId] ?: return@mapNotNull null
+            layerId to (surface to keys.associateWith { key -> surface.tileAt(key)?.takeUnless { it.isEmpty() }?.copy() })
+        }.toMap()
+        dirtyRasterTiles.clear()
+        return result
+    }
+
+    private val activeRaster: RasterSurface?
+        get() = layers.firstOrNull { it.id == activeLayerId }?.takeIf { it.raster }?.let { rasters[it.id] }
+
+    // The raster brush stroke in progress: its last point, and how far along the segment the
+    // next dab falls (dabs are evenly spaced across points).
+    private var rasterLast: WorldPoint? = null
+    private var rasterCarry = 0.0
+    private var rasterErasing = false
+
+    /** Radius, opacity and hardness of the raster brush for the current pen at [pressure]. */
+    private fun rasterBrush(pressure: Float): Triple<Double, Float, Float> {
+        val radius = activeWidthWorld / scale.coerceAtLeast(1e-300) / 2 * pressure.coerceIn(0.1f, 1f)
+        return when (activePenType) {
+            PenType.AIRBRUSH -> Triple(radius * 3, 0.08f, 0f)
+            PenType.PENCIL -> Triple(radius * 0.6, 0.85f, 1f)
+            PenType.HIGHLIGHTER -> Triple(radius * 2, 0.35f, 1f)
+            else -> Triple(radius, 1f, 0.8f)
+        }
+    }
+
+    private fun rasterDabs(surface: RasterSurface, to: WorldPoint, pressure: Float) {
+        val (radius, opacity, hardness) = if (rasterErasing) Triple(eraserRadiusWorld, 1f, 0.9f) else rasterBrush(pressure)
+        val color = activeColor.let { floatArrayOf(it.red, it.green, it.blue, it.alpha * activeOpacity.toFloat()) }
+        val spacing = (radius * RASTER_DAB_SPACING).coerceAtLeast(surface.pixelWorld * 0.5)
+        val from = rasterLast ?: to
+        val dabs = dabsAlong(from, to, spacing, rasterCarry)
+        for (p in dabs) surface.dab(p, radius, color, opacity, hardness, erase = rasterErasing)
+        // Distance past [to] where the next dab falls, so spacing stays even across segments.
+        rasterCarry += spacing * dabs.size - hypot(to.x - from.x, to.y - from.y)
+        rasterLast = to
+        rasterRevision++
+    }
+
+    private fun beginRasterStroke(surface: RasterSurface, at: WorldPoint, pressure: Float, erasing: Boolean) {
+        rasterErasing = erasing
+        rasterLast = null
+        rasterCarry = 0.0
+        rasterDabs(surface, at, pressure)
+    }
+
+    private fun endRasterStroke() {
+        rasterLast = null
+        markRasterDirty(activeLayerId, emptySet())
+    }
+
     /** The document's skins (roadmap item 86), in layer order. */
     val skins: List<String> get() = layers.mapNotNull { it.skin }.distinct()
 
@@ -1400,16 +1516,67 @@ class CanvasState(
         clearSelectionState()
         strokes.removeWhere { it.layerId == id }
         layers.removeWhere { it.id == id }
+        dropRaster(id)
         if (activeLayerId == id) activeLayerId = layers.last().id
         strokesChanged()
         onLayersChanged(layers.toList())
     }
 
+    /**
+     * Merges raster layer [upper] onto raster layer [lower] (source-over, at the upper layer's
+     * opacity), when both share one pixel grid; a vector layer and a raster layer don't merge
+     * (that would need the strokes rasterized). Undoable for the pixels.
+     */
+    private fun mergeRasterDown(upper: Layer, lower: Layer) {
+        val top = rasters[upper.id] ?: return
+        val bottom = rasters[lower.id] ?: return
+        if (!upper.raster || !lower.raster || top.pixelWorld != bottom.pixelWorld) return
+        val dx = (top.originX - bottom.originX) / top.pixelWorld
+        val dy = (top.originY - bottom.originY) / top.pixelWorld
+        if (dx != Math.rint(dx) || dy != Math.rint(dy)) return
+        recordHistory()
+        for ((key, tile) in top.tiles.toList()) {
+            val left = RasterSurface.tileX(key) * RASTER_TILE + dx
+            val topEdge = RasterSurface.tileY(key) * RASTER_TILE + dy
+            bottom.forEachPixelIn(left, topEdge, left + RASTER_TILE - 1, topEdge + RASTER_TILE - 1) { target, index, px, py ->
+                val sx = px - left.toInt()
+                val sy = py - topEdge.toInt()
+                if (sx !in 0 until RASTER_TILE || sy !in 0 until RASTER_TILE) return@forEachPixelIn
+                val source = (sy * RASTER_TILE + sx) * 4
+                val a = RasterSurface.u16(tile.data[source + 3]) / 65535.0 * upper.opacity
+                if (a == 0.0) return@forEachPixelIn
+                for (c in 0 until 4) {
+                    val src = RasterSurface.u16(tile.data[source + c]) * upper.opacity
+                    target.data[index + c] = (src + RasterSurface.u16(target.data[index + c]) * (1 - a)).toInt().coerceIn(0, 65535).toShort()
+                }
+            }
+        }
+        layers.removeWhere { it.id == upper.id }
+        dropRaster(upper.id)
+        if (activeLayerId == upper.id) activeLayerId = lower.id
+        onLayersChanged(layers.toList())
+    }
+
+    // Raster layers deleted since the last save, whose stored pixels go too.
+    private val deletedRasterLayers = HashSet<String>()
+
+    private fun dropRaster(layerId: String) {
+        if (rasters.remove(layerId) == null) return
+        dirtyRasterTiles.remove(layerId)
+        deletedRasterLayers.add(layerId)
+        markRasterDirty(activeLayerId, emptySet())
+    }
+
+    /** Raster layers deleted since the last call, whose stored pixels should be removed. */
+    fun takeDeletedRasterLayers(): Set<String> = deletedRasterLayers.toSet().also { deletedRasterLayers.clear() }
+
     /** Removes layers with no strokes in any animation frame, keeping at least one layer. */
     fun deleteEmptyLayers() {
-        val used = strokes.map { it.layerId }.toSet()
+        // A raster layer with paint isn't empty, though it has no strokes.
+        val used = strokes.map { it.layerId }.toSet() + rasters.filterValues { it.tiles.isNotEmpty() }.keys
         val keep = layers.filter { it.id in used }.ifEmpty { listOf(layers.first()) }
         if (keep.size == layers.size) return
+        for (layer in layers) if (layer !in keep) dropRaster(layer.id)
         layers.retainAll(keep.toSet())
         if (layers.none { it.id == activeLayerId }) activeLayerId = layers.last().id
         onLayersChanged(layers.toList())
@@ -1423,6 +1590,7 @@ class CanvasState(
         clearSelectionState()
         strokes.removeWhere { it.layerId in hidden }
         layers.removeWhere { it.id in hidden }
+        hidden.forEach(::dropRaster)
         if (activeLayerId in hidden) activeLayerId = layers.last().id
         strokesChanged()
         onLayersChanged(layers.toList())
@@ -1433,6 +1601,11 @@ class CanvasState(
         val index = layers.indexOfFirst { it.id == id }
         if (index <= 0) return
         val below = layers[index - 1]
+        val layer = layers[index]
+        if (layer.raster || below.raster) {
+            mergeRasterDown(layer, below)
+            return
+        }
         recordHistory()
         clearSelectionState()
         for (i in strokes.indices) {
@@ -1728,6 +1901,10 @@ class CanvasState(
         val holds: Map<Int, Int>? = null,
     ) {
         val log = Stroke.MutationLog()
+
+        // Raster tiles as they were before their first change after this entry (null: the
+        // tile didn't exist), by layer and tile key; the raster counterpart of [log].
+        val rasterLog = HashMap<Pair<String, Long>, RasterTile?>()
         val seq = nextSeq++
 
         companion object {
@@ -1773,6 +1950,7 @@ class CanvasState(
 
     /** Makes [entry]'s log the one in-place stroke changes are recorded in from now on. */
     private fun openLog(entry: HistoryEntry?) {
+        openEntry = entry
         Stroke.activeLog = entry?.log
     }
 
@@ -1904,7 +2082,7 @@ class CanvasState(
 
     /** What the rendered scene depends on, for [SceneTileCache]; comparing two is O(1). */
     fun sceneVersion() = SceneVersion(
-        listOf(strokes.toList(), geometryEpoch, layers.toList(), textItems.toList(), imageItems.toList(), connectors.toList(), backgroundColor, backgroundStyle, currentAnimFrame),
+        listOf(strokes.toList(), geometryEpoch, rasterRevision, layers.toList(), textItems.toList(), imageItems.toList(), connectors.toList(), backgroundColor, backgroundStyle, currentAnimFrame),
     )
 
     /** Arrows between text labels and sticky notes; see [Connector]. */
@@ -2056,6 +2234,17 @@ class CanvasState(
     private fun restore(snapshot: List<Stroke>) = restore(HistoryEntry.of(snapshot, null))
 
     private fun restore(entry: HistoryEntry) {
+        // Raster tiles back as they were; restoring logs the current ones into the open entry,
+        // so redo can put them back.
+        if (entry.rasterLog.isNotEmpty()) {
+            for ((ref, tile) in entry.rasterLog) {
+                val surface = rasters[ref.first] ?: continue
+                recordRasterTile(ref.first, surface, ref.second)
+                surface.setTile(ref.second, tile?.copy())
+            }
+            rasterRevision++
+            onRasterChanged()
+        }
         val texts = entry.texts
         if (texts != null && texts != textItems.toList()) {
             textItems.clear()
@@ -2130,6 +2319,10 @@ class CanvasState(
         strokeMovedAway = false
         recordHistory()
         clearSelectionState() // avoid a stale selection referencing strokes another tool is about to change
+        activeRaster?.let { surface ->
+            beginRasterStroke(surface, worldPoint, pressure, erasing = false)
+            return
+        }
         // Indexed palette (roadmap item 104): pixel art stays within the saved colours.
         val inkColor = if (activePenType == PenType.PIXEL && indexedPalette) nearestPaletteColor(activeColor) else activeColor
         val stroke = Stroke(
@@ -2180,6 +2373,10 @@ class CanvasState(
     }
 
     fun extendStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
+        if (rasterLast != null) {
+            activeRaster?.let { rasterDabs(it, worldPoint, pressure) }
+            return
+        }
         draggingVanishingPoint?.let { index ->
             vanishingPoints[index] = worldPoint
             return
@@ -2334,6 +2531,10 @@ class CanvasState(
             draggingVanishingPoint = null
             return
         }
+        if (rasterLast != null) {
+            endRasterStroke()
+            return
+        }
         val stroke = currentStroke
         // Touch and hold without moving = eyedropper (the Procreate gesture): the stroke never
         // left the jitter radius around where it started, so it was a press, not a mark.
@@ -2377,10 +2578,19 @@ class CanvasState(
         eraseStartDepth = undoStack.size
         recordHistory()
         clearSelectionState() // avoid a stale selection referencing strokes this erase is about to split/remove
+        val surface = activeRaster
+        if (surface != null && activeLayerEditable) {
+            beginRasterStroke(surface, worldPoint, 1f, erasing = true)
+            return
+        }
         if (lassoErase) lassoPath.add(worldPoint) else eraseAt(worldPoint)
     }
 
     fun continueErase(worldPoint: WorldPoint) {
+        if (rasterLast != null) {
+            activeRaster?.let { rasterDabs(it, worldPoint, 1f) }
+            return
+        }
         if (lassoErase) {
             if (lassoPath.isNotEmpty()) lassoPath.add(worldPoint)
         } else {
@@ -2390,6 +2600,10 @@ class CanvasState(
 
     fun endErase() {
         isErasing = false
+        if (rasterLast != null) {
+            endRasterStroke()
+            return
+        }
         if (lassoErase) {
             val lasso = lassoPath.toList()
             lassoPath.clear()
@@ -3634,6 +3848,7 @@ class CanvasState(
         symmetryCopies = emptyList()
         // Newest first: each entry's log takes strokes back to that entry, the oldest one last.
         Stroke.withoutLogging {
+            openEntry = null
             while (undoStack.size > depth) restore(undoStack.removeLast())
         }
         openLog(listOf(undoStack.lastOrNull(), redoStack.lastOrNull()).filterNotNull().maxByOrNull { it.seq })
@@ -3822,6 +4037,8 @@ class CanvasState(
             kotlin.math.round(panWorld.y / spacing) * spacing,
         )
         endMeshWarp() // its box and starting points are in the old coordinates
+        for (surface in rasters.values) surface.shiftOrigin(offset)
+        if (rasters.isNotEmpty()) markRasterDirty(activeLayerId, emptySet()) // origins are saved with the tiles
         // Not logged: the logs and entries are moved below instead.
         Stroke.withoutLogging {
             for (stroke in strokes) stroke.shiftBy(offset)

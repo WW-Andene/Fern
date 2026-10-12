@@ -16,6 +16,7 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.File
 import java.io.FileNotFoundException
+import java.io.IOException
 import java.util.UUID
 
 /** Metadata for one saved document, without loading its (potentially large) stroke data. */
@@ -175,6 +176,7 @@ object CanvasStorage {
         synchronized(this) { lastSaved.remove(id) }
         pinsFile(context, id).delete()
         viewFile(context, id).delete()
+        rasterDir(context, id).deleteRecursively()
         textItemsFile(context, id).delete()
         connectorsFile(context, id).delete()
         bonesFile(context, id).delete()
@@ -668,6 +670,7 @@ object CanvasStorage {
                 put("opacity", layer.opacity.toDouble())
                 put("reference", layer.reference)
                 layer.skin?.let { put("skin", it) }
+                if (layer.raster) put("raster", true).put("depth", layer.depth)
             })
         }
         writeStored(layersFile(context, documentId), root)
@@ -686,9 +689,76 @@ object CanvasStorage {
                 opacity = entry.optDouble("opacity", 1.0).toFloat(),
                 reference = entry.optBoolean("reference", false),
                 skin = entry.optString("skin").ifEmpty { null },
+                raster = entry.optBoolean("raster", false),
+                depth = if (entry.optInt("depth", 8) == 16) 16 else 8,
             )
         }
     }
+
+    /**
+     * Raster layers' pixels (roadmap item 89) live in `raster_<doc>/<layer>/`: `layer.meta`
+     * (depth, pixel size, origin) and one compressed file per painted tile, `<x>_<y>.tile`. Saves
+     * are incremental: only the tiles [tiles] lists are written (or deleted, for null).
+     */
+    fun saveRasterTiles(context: Context, documentId: String, layerId: String, surface: RasterSurface, tiles: Map<Long, RasterTile?>) {
+        val dir = rasterLayerDir(context, documentId, layerId).apply { mkdirs() }
+        writeBinary(File(dir, RASTER_META)) { out ->
+            out.writeInt(RASTER_META_VERSION)
+            out.writeInt(surface.depth)
+            out.writeDouble(surface.pixelWorld)
+            out.writeDouble(surface.originX)
+            out.writeDouble(surface.originY)
+        }
+        for ((key, tile) in tiles) {
+            val file = File(dir, "${RasterSurface.tileX(key)}_${RasterSurface.tileY(key)}$RASTER_TILE_SUFFIX")
+            if (tile == null) file.delete() else writeBinary(file) { RasterSurface.writeTile(it, tile, surface.depth) }
+        }
+    }
+
+    fun deleteRasterLayer(context: Context, documentId: String, layerId: String) {
+        rasterLayerDir(context, documentId, layerId).deleteRecursively()
+    }
+
+    /** Every saved raster layer of the document whose id is in [layerIds], by layer id. */
+    fun loadRasters(context: Context, documentId: String, layerIds: Collection<String>): Map<String, RasterSurface> =
+        layerIds.mapNotNull { id ->
+            val dir = rasterLayerDir(context, documentId, id)
+            val surface = readBinary(File(dir, RASTER_META)) { input ->
+                if (input.readInt() > RASTER_META_VERSION) throw IOException("Newer raster layer format")
+                RasterSurface(input.readInt(), input.readDouble(), input.readDouble(), input.readDouble())
+            } ?: return@mapNotNull null
+            for (file in dir.listFiles().orEmpty()) {
+                if (!file.name.endsWith(RASTER_TILE_SUFFIX)) continue
+                val (x, y) = file.name.removeSuffix(RASTER_TILE_SUFFIX).split('_').mapNotNull { it.toIntOrNull() }.takeIf { it.size == 2 } ?: continue
+                readBinary(file) { RasterSurface.readTile(it, surface.depth) }?.let { surface.tiles[RasterSurface.tileKey(x, y)] = it }
+            }
+            id to surface
+        }.toMap()
+
+    /** Every stored raster file of the document, by its path under the raster folder ("<layer>/<file>"), for bundles. */
+    internal fun rasterFiles(context: Context, documentId: String): Map<String, File> =
+        rasterDir(context, documentId).listFiles().orEmpty().filter { it.isDirectory }.flatMap { layer ->
+            layer.listFiles().orEmpty().filter { it.isFile }.map { "${layer.name}/${it.name}" to it }
+        }.toMap()
+
+    /**
+     * Where a bundled raster file "<layer>/<file>" goes for document [documentId], or null for a
+     * path that isn't one Fern writes (so a crafted bundle can't write elsewhere).
+     */
+    internal fun rasterTarget(context: Context, documentId: String, path: String): File? {
+        val parts = path.split('/')
+        if (parts.size != 2 || !parts[0].matches(Regex("[A-Za-z0-9-]+"))) return null
+        if (parts[1] != RASTER_META && !parts[1].matches(Regex("-?[0-9]+_-?[0-9]+\\$RASTER_TILE_SUFFIX"))) return null
+        return File(rasterLayerDir(context, documentId, parts[0]).apply { mkdirs() }, parts[1])
+    }
+
+    private fun rasterDir(context: Context, documentId: String) = File(context.filesDir, "raster_$documentId")
+
+    private fun rasterLayerDir(context: Context, documentId: String, layerId: String) = File(rasterDir(context, documentId), File(layerId).name)
+
+    private const val RASTER_META = "layer.meta"
+    private const val RASTER_META_VERSION = 1
+    private const val RASTER_TILE_SUFFIX = ".tile"
 
     /** The document library preview, regenerated on every save; missing for a never-drawn-on document. */
     fun loadThumbnail(context: Context, documentId: String): Bitmap? {

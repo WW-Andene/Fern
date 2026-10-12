@@ -92,6 +92,8 @@
     <string name="layers_remove_empty">Retirer les vides</string>
     <string name="layers_delete_hidden">Supprimer les masqués</string>
     <string name="layers_new">Nouveau calque</string>
+    <string name="layers_new_raster">Matriciel</string>
+    <string name="layers_new_raster_16">Matriciel 16 bits</string>
     <string name="color_title">Choisir une couleur</string>
     <string name="color_hue">Teinte</string>
     <string name="color_saturation">Saturation</string>

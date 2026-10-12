@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.semantics
 class LoadedDocument(
     val strokes: List<Stroke>,
     val layers: List<Layer>,
+    val rasters: Map<String, RasterSurface>,
     val frames: List<Frame>,
     val history: Pair<List<List<Stroke>>, List<List<Stroke>>>,
     val texts: List<TextItem>,
