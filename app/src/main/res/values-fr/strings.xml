@@ -987,4 +987,14 @@
     <string name="palm_off">Désactivé</string>
     <string name="palm_normal">Quand le stylet touche</string>
     <string name="palm_strict">Quand le stylet est proche</string>
+    <string name="shortcut_copy">Copier</string>
+    <string name="shortcut_paste">Coller</string>
+    <string name="shortcut_duplicate">Dupliquer</string>
+    <string name="shortcut_size_down">Pinceau plus petit</string>
+    <string name="shortcut_size_up">Pinceau plus grand</string>
+    <string name="shortcut_zoom_in">Zoom avant</string>
+    <string name="shortcut_zoom_out">Zoom arrière</string>
+    <string name="shortcut_press_key">Appuyez sur une touche…</string>
+    <string name="shortcut_sheet_title">Raccourcis clavier</string>
+    <string name="settings_shortcuts">Raccourcis clavier</string>
 </resources>

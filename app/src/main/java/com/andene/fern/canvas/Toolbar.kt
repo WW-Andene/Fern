@@ -194,8 +194,8 @@ private val palette = listOf(
 
 // Screen-pixel pen width range: matches CanvasState's default of 4.0 and stays reasonable
 // across the full slider (a 1px pen is barely visible; 32px is a thick marker).
-private const val MIN_WIDTH_SCREEN = 1f
-private const val MAX_WIDTH_SCREEN = 32f
+internal const val MIN_WIDTH_SCREEN = 1f
+internal const val MAX_WIDTH_SCREEN = 32f
 
 // A fully transparent stroke would be pointless and indistinguishable from "nothing drawn" -
 // this floor keeps the lightest setting still faintly visible.

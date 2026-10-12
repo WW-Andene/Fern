@@ -984,4 +984,14 @@
     <string name="palm_off">Off</string>
     <string name="palm_normal">While the stylus touches</string>
     <string name="palm_strict">While the stylus is near</string>
+    <string name="shortcut_copy">Copy</string>
+    <string name="shortcut_paste">Paste</string>
+    <string name="shortcut_duplicate">Duplicate</string>
+    <string name="shortcut_size_down">Smaller brush</string>
+    <string name="shortcut_size_up">Bigger brush</string>
+    <string name="shortcut_zoom_in">Zoom in</string>
+    <string name="shortcut_zoom_out">Zoom out</string>
+    <string name="shortcut_press_key">Press a key…</string>
+    <string name="shortcut_sheet_title">Keyboard shortcuts</string>
+    <string name="settings_shortcuts">Keyboard shortcuts</string>
 </resources>

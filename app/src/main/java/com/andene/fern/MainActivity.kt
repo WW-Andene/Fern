@@ -99,6 +99,13 @@ import com.andene.fern.canvas.CanvasHaptics
 import com.andene.fern.canvas.ToolRail
 import com.andene.fern.canvas.CommandPaletteState
 import com.andene.fern.canvas.GestureAction
+import com.andene.fern.canvas.KeyCombo
+import com.andene.fern.canvas.ShortcutAction
+import com.andene.fern.canvas.ShortcutCapture
+import com.andene.fern.canvas.ShortcutCheatSheet
+import com.andene.fern.canvas.ShortcutSettings
+import com.andene.fern.canvas.MIN_WIDTH_SCREEN
+import com.andene.fern.canvas.MAX_WIDTH_SCREEN
 import com.andene.fern.canvas.CanvasGesture
 import com.andene.fern.canvas.GestureSettings
 import com.andene.fern.canvas.runGestureAction
@@ -1037,6 +1044,15 @@ class MainActivity : ComponentActivity() {
                             .focusRequester(shortcutFocus)
                             .focusable()
                             .onPreviewKeyEvent { event ->
+                                val native = event.nativeKeyEvent
+                                val isCtrlKey = native.keyCode == android.view.KeyEvent.KEYCODE_CTRL_LEFT || native.keyCode == android.view.KeyEvent.KEYCODE_CTRL_RIGHT ||
+                                    native.keyCode == android.view.KeyEvent.KEYCODE_META_LEFT || native.keyCode == android.view.KeyEvent.KEYCODE_META_RIGHT
+                                // The shortcuts at a glance while Ctrl is held (design roadmap D18).
+                                if (isCtrlKey) {
+                                    ShortcutCapture.cheatSheet = event.type == KeyEventType.KeyDown
+                                    return@onPreviewKeyEvent false
+                                }
+                                ShortcutCapture.cheatSheet = false
                                 // A tool key held down borrows its tool until released (design roadmap D17).
                                 if (event.type == KeyEventType.KeyUp) {
                                     val hold = toolKeyHold
@@ -1048,32 +1064,9 @@ class MainActivity : ComponentActivity() {
                                     return@onPreviewKeyEvent false
                                 }
                                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                                val toolKey = mapOf(Key.P to Tool.PEN, Key.E to Tool.ERASER, Key.V to Tool.SELECT)[event.key]
-                                if (toolKey != null && !event.isCtrlPressed && !event.isMetaPressed) {
-                                    if (event.nativeKeyEvent.repeatCount == 0) {
-                                        toolKeyHold = Triple(event.key, canvasState.activeTool, SystemClock.uptimeMillis())
-                                        canvasState.activeTool = toolKey
-                                    }
-                                    return@onPreviewKeyEvent true
-                                }
-                                val ctrl = event.isCtrlPressed || event.isMetaPressed
-                                when {
-                                    ctrl && event.key == Key.K -> CommandPaletteState.open = true
-                                    ctrl && event.key == Key.Z && event.isShiftPressed -> canvasState.redo()
-                                    ctrl && event.key == Key.Z -> canvasState.undo()
-                                    ctrl && event.key == Key.Y -> canvasState.redo()
-                                    ctrl && event.key == Key.C -> copySelectionToClipboard()
-                                    ctrl && event.key == Key.V -> pasteFromClipboard()
-                                    ctrl && event.key == Key.D -> canvasState.duplicateSelection()
-                                    event.key == Key.Delete || event.key == Key.Backspace -> {
-                                        canvasState.deleteSelection()
-                                        FernMessages.show(context.getString(R.string.msg_deleted), context.getString(R.string.action_undo)) { canvasState.undo() }
-                                    }
-                                    event.key == Key.Zero -> canvasState.zoomToFit()
-                                    // Stylus barrel and tail buttons arrive as key events (API 34+ USI pens).
-                                    event.nativeKeyEvent.keyCode in STYLUS_BUTTON_KEYCODES -> canvasState.runGestureAction(
-                                        GestureSettings.read(context).getValue(CanvasGesture.STYLUS_BUTTON), null,
-                                    ) { action ->
+                                // Stylus barrel and tail buttons arrive as key events (API 34+ USI pens).
+                                if (native.keyCode in STYLUS_BUTTON_KEYCODES) {
+                                    canvasState.runGestureAction(GestureSettings.read(context).getValue(CanvasGesture.STYLUS_BUTTON), null) { action ->
                                         when (action) {
                                             GestureAction.QUICK_MENU -> showQuickMenu = true
                                             GestureAction.COMMAND_PALETTE -> CommandPaletteState.open = true
@@ -1081,6 +1074,35 @@ class MainActivity : ComponentActivity() {
                                             else -> {}
                                         }
                                     }
+                                    return@onPreviewKeyEvent true
+                                }
+                                val combo = KeyCombo(native.keyCode, event.isCtrlPressed || event.isMetaPressed, event.isShiftPressed)
+                                val action = ShortcutSettings.actionFor(ShortcutSettings.state(context).value, combo) ?: return@onPreviewKeyEvent false
+                                action.tool?.let { tool ->
+                                    if (native.repeatCount == 0) {
+                                        toolKeyHold = Triple(event.key, canvasState.activeTool, SystemClock.uptimeMillis())
+                                        canvasState.activeTool = tool
+                                    }
+                                    return@onPreviewKeyEvent true
+                                }
+                                val center = Offset(canvasState.viewportSize.width / 2f, canvasState.viewportSize.height / 2f)
+                                when (action) {
+                                    ShortcutAction.UNDO -> canvasState.undo()
+                                    ShortcutAction.REDO, ShortcutAction.REDO_ALT -> canvasState.redo()
+                                    ShortcutAction.COPY -> copySelectionToClipboard()
+                                    ShortcutAction.PASTE -> pasteFromClipboard()
+                                    ShortcutAction.DUPLICATE -> canvasState.duplicateSelection()
+                                    ShortcutAction.DELETE, ShortcutAction.DELETE_BACK -> {
+                                        canvasState.deleteSelection()
+                                        FernMessages.show(context.getString(R.string.msg_deleted), context.getString(R.string.action_undo)) { canvasState.undo() }
+                                    }
+                                    ShortcutAction.SIZE_DOWN -> canvasState.activeWidthWorld = (canvasState.activeWidthWorld / SIZE_STEP).coerceAtLeast(MIN_WIDTH_SCREEN.toDouble())
+                                    ShortcutAction.SIZE_UP -> canvasState.activeWidthWorld = (canvasState.activeWidthWorld * SIZE_STEP).coerceAtMost(MAX_WIDTH_SCREEN.toDouble())
+                                    ShortcutAction.ZOOM_IN -> canvasState.zoomAround(center, center, ZOOM_STEP)
+                                    ShortcutAction.ZOOM_OUT -> canvasState.zoomAround(center, center, 1 / ZOOM_STEP)
+                                    ShortcutAction.FIT -> canvasState.zoomToFit()
+                                    ShortcutAction.PALETTE -> CommandPaletteState.open = true
+                                    ShortcutAction.TOGGLE_CHROME -> chromeHidden = !chromeHidden
                                     else -> return@onPreviewKeyEvent false
                                 }
                                 true
@@ -1369,6 +1391,7 @@ class MainActivity : ComponentActivity() {
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(FernScale.s8),
                             )
+                            if (ShortcutCapture.cheatSheet) ShortcutCheatSheet(Modifier.align(Alignment.Center))
                             // Panels (design roadmap D10): beside the rail, never covering the canvas.
                             FernPanelHost(railOnLeft = !leftHanded, railInset = railInset, railSide = railSide)
                             if (showQuickMenu) QuickMenuOverlay(state = canvasState, onDismiss = { showQuickMenu = false }, actions = quickMenuActions)
@@ -1677,6 +1700,10 @@ private val STYLUS_BUTTON_KEYCODES = setOf(308, 309, 310, 311)
 
 // Room the rulers leave for the toolbar when it's along the top (its 48 dp buttons and padding).
 private const val TOOLBAR_CLEARANCE_DP = 64
+
+// Each [ or ] press scales the brush by this, and each zoom shortcut the view (design roadmap D18).
+private const val SIZE_STEP = 1.25
+private const val ZOOM_STEP = 1.25
 
 // A tool key held this long borrows the tool instead of switching to it (design roadmap D17).
 private const val TOOL_KEY_HOLD_MILLIS = 500L

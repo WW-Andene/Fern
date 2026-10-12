@@ -224,9 +224,10 @@ Goal: switching tools and adjusting without looking or opening anything.
 - [~] D17. **Hold to switch for a moment.** Hold a key, a stylus button or a rail tool to use
   another tool (eraser, eyedropper, pan); release to go back.
   Written, not yet compiled or tested: holding a rail tool for half a second borrows it until released (with a haptic press); holding P, E or V does the same on a keyboard, a quick press still switches; the stylus barrel button held while drawing erases for that stroke (existing).
-- [ ] D18. **(after phone) Keyboard shortcuts.** A full default set (B pen, E eraser, V select, Z/Y undo/redo,
+- [~] D18. **(after phone) Keyboard shortcuts.** A full default set (B pen, E eraser, V select, Z/Y undo/redo,
   [ ] size, space pan, and so on), all of them remappable, with a cheat sheet that appears while
   you hold Ctrl.
+  Written, not yet compiled or tested: `Shortcuts.kt`. Defaults P/B pen, E eraser, V select, U shape, G fill, T text, I eyedropper, N Bézier, M measure, Ctrl+Z/Y and Ctrl+Shift+Z, Ctrl+C/V/D, Del/Backspace, [ ] brush size, Ctrl+= / Ctrl+- zoom, 0 fit, Ctrl+K palette, Tab hide the bars. Each remappable in Settings > Keyboard shortcuts (a key bound elsewhere moves); the cheat sheet shows while Ctrl is held.
 - [ ] D19. **On-canvas adjusting.** Drag up or down on a rail tool to change its size, sideways
   for opacity, with a live preview ring at the cursor. Sizes snap to user presets.
 - [ ] D20. **One colour flow.** A single inline colour strip (current, recent, saved swatches,

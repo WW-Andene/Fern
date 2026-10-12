@@ -273,6 +273,9 @@ fun SettingsDialog(
                 Text(stringResource(R.string.settings_gestures), style = androidx.compose.material3.MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = FernScale.s8))
                 GestureMapEditor()
                 PalmRejectionEditor()
+                // Keyboard shortcuts (design roadmap D18).
+                Text(stringResource(R.string.settings_shortcuts), style = androidx.compose.material3.MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = FernScale.s8))
+                ShortcutEditor()
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8),
                     verticalAlignment = Alignment.CenterVertically,
