@@ -322,5 +322,3 @@ internal fun colorOfCmyk(cmyk: List<Float>): Color {
     ColorManagement.cmykProfile?.let { profile -> return profile.toRgb(floatArrayOf(c, m, y, k)).let { Color(it[0], it[1], it[2]) } }
     return Color((1 - c) * (1 - k), (1 - m) * (1 - k), (1 - y) * (1 - k))
 }
-    return Color((1 - c) * (1 - k), (1 - m) * (1 - k), (1 - y) * (1 - k))
-}
