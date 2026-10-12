@@ -613,6 +613,10 @@ private fun DrawScope.drawStroke(stroke: Stroke, screenPoints: List<Offset>, sou
         drawTexturedStroke(stroke, screenPoints, source, baseWidthScreen, blendMode)
         return
     }
+    if (stroke.penType == PenType.STAMP) {
+        drawStampStroke(stroke, screenPoints, source, baseWidthScreen, blendMode)
+        return
+    }
     val style = penStyle(stroke.penType, stroke.color, baseWidthScreen)
     if (screenPoints.size >= 2 && hasStylusVariation(stroke)) {
         val halfWidths = FloatArray(screenPoints.size) { i -> (style.widthScreen * widthFactorAt(stroke, source[i])).coerceAtLeast(1f) / 2f }
@@ -680,8 +684,8 @@ private fun penStyle(penType: PenType, baseColor: Color, baseWidthScreen: Float)
         widthScreen = baseWidthScreen * 3f,
         cap = StrokeCap.Square,
     )
-    // Unused: these pens have their own renderers (drawCalligraphyStroke, drawTexturedStroke).
-    PenType.CALLIGRAPHY, PenType.AIRBRUSH, PenType.CRAYON, PenType.PIXEL -> PenStyle(baseColor, baseWidthScreen, StrokeCap.Round)
+    // Unused: these pens have their own renderers (drawCalligraphyStroke, drawTexturedStroke, drawStampStroke).
+    PenType.CALLIGRAPHY, PenType.AIRBRUSH, PenType.CRAYON, PenType.PIXEL, PenType.STAMP -> PenStyle(baseColor, baseWidthScreen, StrokeCap.Round)
 }
 
 /**
@@ -737,6 +741,43 @@ private fun DrawScope.drawTexturedStroke(stroke: Stroke, screenPoints: List<Offs
 }
 
 private const val AIRBRUSH_DOTS_PER_SAMPLE = 6
+
+/**
+ * A [PenType.STAMP] stroke: its brush's tip drawn at each of [stampPlacements]. Each stamp is
+ * opaque in the stroke's colour, so a translucent colour builds up where stamps overlap - the
+ * way dab-based brushes behave in paint apps.
+ */
+private fun DrawScope.drawStampStroke(stroke: Stroke, screenPoints: List<Offset>, source: IntArray, baseWidthScreen: Float, blendMode: BlendMode) {
+    val brush = stroke.brush ?: StampBrush()
+    val stamps = stampPlacements(screenPoints, baseWidthScreen, brush) { i -> widthFactorAt(stroke, source[i]) }
+    for (stamp in stamps) drawStamp(brush.tip, stamp, stroke.color, blendMode)
+}
+
+/** Draws one stamp of [tip]; shared with the brush editor's preview. */
+fun DrawScope.drawStamp(tip: StampTip, stamp: Stamp, color: Color, blendMode: BlendMode = BlendMode.SrcOver) {
+    val radius = (stamp.size / 2f).coerceAtLeast(0.5f)
+    when (tip) {
+        StampTip.CIRCLE -> drawCircle(color, radius = radius, center = stamp.center, blendMode = blendMode)
+        // Soft: a radial falloff from full colour at the centre to transparent at the rim.
+        StampTip.SOFT -> drawCircle(
+            brush = Brush.radialGradient(listOf(color, color.copy(alpha = 0f)), center = stamp.center, radius = radius),
+            radius = radius,
+            center = stamp.center,
+            blendMode = blendMode,
+        )
+        StampTip.SQUARE -> rotate(Math.toDegrees(stamp.angle.toDouble()).toFloat(), pivot = stamp.center) {
+            drawRect(color, topLeft = stamp.center - Offset(radius, radius), size = Size(radius * 2f, radius * 2f), blendMode = blendMode)
+        }
+        StampTip.STAR -> {
+            val path = Path()
+            starOutline(stamp.size, stamp.angle).forEachIndexed { k, p ->
+                if (k == 0) path.moveTo(stamp.center.x + p.x, stamp.center.y + p.y) else path.lineTo(stamp.center.x + p.x, stamp.center.y + p.y)
+            }
+            path.close()
+            drawPath(path, color, blendMode = blendMode)
+        }
+    }
+}
 
 // Drawn points closer than this on screen are skipped: below a pixel they add no visible detail.
 private const val MIN_POINT_SPACING_SCREEN = 1.0

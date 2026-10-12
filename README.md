@@ -52,7 +52,8 @@ could do.
 
 ## Features
 
-- **Drawing:** pen types (marker, pencil, highlighter, calligraphy), stylus pressure/tilt,
+- **Drawing:** pen types (marker, pencil, highlighter, calligraphy, airbrush, crayon, pixel art,
+  stamp brush with a brush editor), stylus pressure/tilt,
   palm rejection, stylus eraser end and side button, stroke stabiliser, shape tool,
   draw-and-hold shape recognition, vector fill, eyedropper, text (bold/italic), images,
   ruler, symmetry (mirror, four-way, radial), opacity and blend modes.

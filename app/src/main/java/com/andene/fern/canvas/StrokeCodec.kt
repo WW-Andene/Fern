@@ -19,7 +19,10 @@ import java.io.IOException
  * int   name count, then that many UTF strings (pen types, blend modes, layer ids)
  * int   stroke count, then per stroke:
  *   int color (ARGB)  double width  short pen-type name  short blend-mode name
- *   int layer-id name  int animation frame  byte flags  int point count
+ *   int layer-id name  int animation frame  byte flags
+ *   [if FLAG_BRUSH: short tip name  float spacing  float scatter  float size jitter
+ *                   float angle jitter  byte follow-direction]          (version 2+)
+ *   int point count
  *   per point: double x, double y [, float pressure, float tilt, float orientation]
  * ```
  * Enum values are stored by name through the name table, not by ordinal, so reordering an enum
@@ -31,14 +34,18 @@ import java.io.IOException
 object StrokeCodec {
     private const val MAGIC = 0x4653544B // "FSTK"
 
-    /** Bump when the layout changes, and keep reading every older version. */
-    const val VERSION = 1
+    /**
+     * Bump when the layout changes, and keep reading every older version.
+     * 1: first binary format. 2: optional stamp-brush settings per stroke ([FLAG_BRUSH]).
+     */
+    const val VERSION = 2
 
     private const val FLAG_FILLED = 1
     private const val FLAG_DASHED = 2
     private const val FLAG_FADE = 4
     private const val FLAG_TONE = 8
     private const val FLAG_STYLUS = 16
+    private const val FLAG_BRUSH = 32
 
     fun write(out: DataOutputStream, strokes: List<Stroke>) {
         val names = LinkedHashMap<String, Int>()
@@ -48,6 +55,7 @@ object StrokeCodec {
             nameIndex(stroke.penType.name)
             nameIndex(stroke.blendMode.name)
             nameIndex(stroke.layerId)
+            stroke.brush?.let { nameIndex(it.tip.name) }
         }
         out.writeInt(MAGIC)
         out.writeInt(VERSION)
@@ -62,6 +70,8 @@ object StrokeCodec {
             if (stroke.fadeFill) flags = flags or FLAG_FADE
             if (stroke.screentone) flags = flags or FLAG_TONE
             if (stylus) flags = flags or FLAG_STYLUS
+            val brush = stroke.brush
+            if (brush != null) flags = flags or FLAG_BRUSH
             out.writeInt(stroke.color.toArgb())
             out.writeDouble(stroke.widthWorld)
             out.writeShort(nameIndex(stroke.penType.name))
@@ -69,6 +79,14 @@ object StrokeCodec {
             out.writeInt(nameIndex(stroke.layerId))
             out.writeInt(stroke.animFrame)
             out.writeByte(flags)
+            if (brush != null) {
+                out.writeShort(nameIndex(brush.tip.name))
+                out.writeFloat(brush.spacing)
+                out.writeFloat(brush.scatter)
+                out.writeFloat(brush.sizeJitter)
+                out.writeFloat(brush.angleJitter)
+                out.writeBoolean(brush.followDirection)
+            }
             val points = stroke.points
             out.writeInt(points.size)
             for (i in points.indices) {
@@ -104,6 +122,19 @@ object StrokeCodec {
             val layerId = name(input.readInt())
             val frame = input.readInt()
             val flags = input.readByte().toInt()
+            val brush = if ((flags and FLAG_BRUSH) != 0) {
+                val tipName = name(input.readShort().toInt())
+                StampBrush(
+                    tip = enumValues<StampTip>().firstOrNull { it.name == tipName } ?: StampTip.CIRCLE,
+                    spacing = input.readFloat(),
+                    scatter = input.readFloat(),
+                    sizeJitter = input.readFloat(),
+                    angleJitter = input.readFloat(),
+                    followDirection = input.readBoolean(),
+                ).clamped()
+            } else {
+                null
+            }
             val stroke = Stroke(
                 color, width, penType,
                 filled = (flags and FLAG_FILLED) != 0,
@@ -113,6 +144,7 @@ object StrokeCodec {
                 dashed = (flags and FLAG_DASHED) != 0,
                 fadeFill = (flags and FLAG_FADE) != 0,
                 screentone = (flags and FLAG_TONE) != 0,
+                brush = brush,
             )
             val stylus = (flags and FLAG_STYLUS) != 0
             repeat(input.readInt().also { checkCount(it) }) {

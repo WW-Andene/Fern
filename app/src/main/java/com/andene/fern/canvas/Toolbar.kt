@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AlignHorizontalLeft
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Approval
 import androidx.compose.material.icons.filled.AutoFixNormal
 import androidx.compose.material.icons.filled.BlurLinear
 import androidx.compose.material.icons.filled.BlurOn
@@ -76,6 +77,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Tonality
 import androidx.compose.material.icons.filled.ViewModule
@@ -156,6 +158,7 @@ fun Toolbar(
     var showBlendModeMenu by remember { mutableStateOf(false) }
     var showBackgroundStyleMenu by remember { mutableStateOf(false) }
     var showBackgroundColorPicker by remember { mutableStateOf(false) }
+    var showBrushEditor by remember { mutableStateOf(false) }
 
     Surface(
         modifier = modifier,
@@ -258,6 +261,11 @@ fun Toolbar(
                                 },
                             )
                         }
+                    }
+                }
+                if (state.activePenType == PenType.STAMP) {
+                    IconButton(onClick = { showBrushEditor = true }) {
+                        Icon(Icons.Filled.Tune, contentDescription = "Brush settings")
                     }
                 }
 
@@ -735,6 +743,19 @@ fun Toolbar(
         )
     }
 
+    if (showBrushEditor) {
+        BrushEditorDialog(
+            initialBrush = state.activeBrush,
+            color = state.activeColor,
+            onApply = { brush ->
+                state.setBrush(brush)
+                state.activeTool = Tool.PEN
+                showBrushEditor = false
+            },
+            onDismiss = { showBrushEditor = false },
+        )
+    }
+
     if (showBackgroundColorPicker) {
         ColorPickerDialog(
             initialColor = state.backgroundColor,
@@ -755,6 +776,7 @@ private fun penTypeIcon(penType: PenType) = when (penType) {
     PenType.AIRBRUSH -> Icons.Filled.BlurOn
     PenType.CRAYON -> Icons.Filled.Create
     PenType.PIXEL -> Icons.Filled.Apps
+    PenType.STAMP -> Icons.Filled.Approval
 }
 
 private fun penTypeLabel(penType: PenType) = when (penType) {
@@ -765,6 +787,7 @@ private fun penTypeLabel(penType: PenType) = when (penType) {
     PenType.AIRBRUSH -> "Airbrush"
     PenType.CRAYON -> "Crayon"
     PenType.PIXEL -> "Pixel art"
+    PenType.STAMP -> "Stamp brush"
 }
 
 private fun shapeKindIcon(kind: ShapeKind) = when (kind) {

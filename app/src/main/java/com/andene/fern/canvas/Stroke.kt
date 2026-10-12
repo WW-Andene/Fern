@@ -18,8 +18,10 @@ import androidx.compose.ui.graphics.Color
  * - [CRAYON]: a waxy line broken up by paper grain, letting the paper show through.
  * - [PIXEL]: pixel art - fills whole square cells of a grid whose cell size is the stroke
  *   width, with no gaps between cells however fast the pen moves.
+ * - [STAMP]: a [StampBrush] tip repeated along the path, with the stroke's own spacing,
+ *   scatter, size and angle settings (see [Stroke.brush]).
  */
-enum class PenType { MARKER, PENCIL, HIGHLIGHTER, CALLIGRAPHY, AIRBRUSH, CRAYON, PIXEL }
+enum class PenType { MARKER, PENCIL, HIGHLIGHTER, CALLIGRAPHY, AIRBRUSH, CRAYON, PIXEL, STAMP }
 
 /**
  * How a stroke composites with whatever is already drawn beneath it, mirroring the standard
@@ -63,6 +65,8 @@ class Stroke(
     val fadeFill: Boolean = false,
     /** For a fill: a comic screentone (a grid of dots in [color]) instead of a solid colour. */
     val screentone: Boolean = false,
+    /** The brush a [PenType.STAMP] stroke was drawn with; null for every other pen. */
+    val brush: StampBrush? = null,
 ) {
     /** Mutable so a SELECT-tool scale gesture can resize the stroke proportionally with its geometry. */
     var widthWorld: Double = widthWorld
@@ -206,7 +210,7 @@ class Stroke(
     fun onAnimFrame(frame: Int): Stroke = restyled(color, layerId, frame)
 
     private fun restyled(newColor: Color, newLayerId: String, newFrame: Int = animFrame): Stroke {
-        val copy = Stroke(newColor, widthWorld, penType, filled, blendMode, newLayerId, newFrame, dashed, fadeFill, screentone)
+        val copy = Stroke(newColor, widthWorld, penType, filled, blendMode, newLayerId, newFrame, dashed, fadeFill, screentone, brush)
         for (i in 0 until size) copy.addPoint(WorldPoint(xs[i], ys[i]), pressureData[i], tiltData[i], orientationData[i])
         return copy
     }
@@ -255,7 +259,7 @@ class Stroke(
         }
         if (!anyRemoved) return null
         return runs.filter { it.size >= 2 }.map { run ->
-            val piece = Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone)
+            val piece = Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush)
             for (index in run) piece.addPoint(WorldPoint(xs[index], ys[index]), pressureData[index], tiltData[index], orientationData[index])
             piece
         }

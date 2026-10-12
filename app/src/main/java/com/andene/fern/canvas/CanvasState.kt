@@ -80,6 +80,7 @@ class CanvasState(
     private val onLayersChanged: (List<Layer>) -> Unit = {},
     private val onFramesChanged: (List<Frame>) -> Unit = {},
     private val onSavedColorsChanged: (List<Color>) -> Unit = {},
+    private val onBrushChanged: (StampBrush) -> Unit = {},
 ) {
     companion object {
         // Effectively unbounded: leaves ~250 orders of magnitude of headroom on both sides
@@ -173,6 +174,21 @@ class CanvasState(
     var activeWidthWorld by mutableDoubleStateOf(4.0)
     var activeTool by mutableStateOf(Tool.PEN)
     var activePenType by mutableStateOf(PenType.MARKER)
+
+    /** Brush settings new [PenType.STAMP] strokes are drawn with; edited in the brush editor. */
+    var activeBrush by mutableStateOf(StampBrush())
+        private set
+
+    /** Changes the stamp brush and reports it for persistence (it applies to every document). */
+    fun setBrush(brush: StampBrush) {
+        activeBrush = brush.clamped()
+        onBrushChanged(activeBrush)
+    }
+
+    /** Restores the persisted stamp brush without reporting it back. */
+    fun loadBrush(brush: StampBrush) {
+        activeBrush = brush.clamped()
+    }
     var activeShapeKind by mutableStateOf(ShapeKind.LINE)
     var activeTextSizeWorld by mutableDoubleStateOf(24.0)
 
@@ -777,6 +793,7 @@ class CanvasState(
             layerId = activeLayerId,
             animFrame = currentAnimFrame,
             dashed = activeDashed,
+            brush = if (activePenType == PenType.STAMP) activeBrush else null,
         )
         stroke.addPoint(snappedToActiveGuide(worldPoint), pressure, tilt, orientation)
         rememberActiveColor()
@@ -785,7 +802,7 @@ class CanvasState(
         currentStroke = stroke
         strokes.add(stroke)
         symmetryCopies = symmetryTransforms(symmetryMode, symmetryCenter).map { transform ->
-            val copy = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode, layerId = stroke.layerId, animFrame = stroke.animFrame, dashed = stroke.dashed)
+            val copy = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode, layerId = stroke.layerId, animFrame = stroke.animFrame, dashed = stroke.dashed, brush = stroke.brush)
             copy.addPoint(transform(stroke.points.first()), pressure, tilt, orientation)
             strokes.add(copy)
             copy to transform
@@ -880,7 +897,7 @@ class CanvasState(
     private fun replaceWithShape(stroke: Stroke, cleanPoints: List<WorldPoint>) {
         val index = strokes.indexOf(stroke)
         if (index == -1) return
-        val shape = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode, layerId = stroke.layerId, animFrame = stroke.animFrame, dashed = stroke.dashed)
+        val shape = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode, layerId = stroke.layerId, animFrame = stroke.animFrame, dashed = stroke.dashed, brush = stroke.brush)
         for (point in cleanPoints) shape.addPoint(point)
         strokes[index] = shape
     }
@@ -1032,6 +1049,7 @@ class CanvasState(
             layerId = activeLayerId,
             animFrame = currentAnimFrame,
             dashed = activeDashed,
+            brush = if (activePenType == PenType.STAMP) activeBrush else null,
         )
         for (point in generateShapePoints(activeShapeKind, start, end)) stroke.addPoint(point)
         strokes.add(stroke)

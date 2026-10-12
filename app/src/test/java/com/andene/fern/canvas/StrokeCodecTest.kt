@@ -67,4 +67,14 @@ class StrokeCodecTest {
     fun emptyListRoundTrips() {
         assertTrue(decode(encode(emptyList())).isEmpty())
     }
+
+    @Test
+    fun stampBrushRoundTrips() {
+        val brush = StampBrush(StampTip.STAR, spacing = 0.75f, scatter = 0.5f, sizeJitter = 0.25f, angleJitter = 0.125f, followDirection = true)
+        val stroke = Stroke(Color.Black, 4.0, PenType.STAMP, brush = brush).apply { addPoint(WorldPoint(0.0, 0.0)); addPoint(WorldPoint(1.0, 1.0)) }
+        val plain = Stroke(Color.Black, 4.0).apply { addPoint(WorldPoint(0.0, 0.0)) }
+        val decoded = decode(encode(listOf(stroke, plain)))
+        assertEquals(brush, decoded[0].brush)
+        assertEquals(null, decoded[1].brush)
+    }
 }

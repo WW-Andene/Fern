@@ -13,10 +13,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import org.json.JSONException
+import org.json.JSONObject
 
 private const val PREFS_NAME = "settings"
 private const val KEY_LEFT_HANDED = "left_handed"
 private const val KEY_TOOLBAR_BOTTOM = "toolbar_bottom"
+private const val KEY_STAMP_BRUSH = "stamp_brush"
 
 /** App preferences, stored in SharedPreferences so they apply to every document and survive restarts. */
 object AppSettings {
@@ -32,6 +35,35 @@ object AppSettings {
 
     fun setToolbarAtBottom(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_TOOLBAR_BOTTOM, value).apply()
+    }
+
+    /** The last stamp brush chosen in the brush editor, or the default brush if none was (or it can't be read). */
+    fun stampBrush(context: Context): StampBrush {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_STAMP_BRUSH, null) ?: return StampBrush()
+        return try {
+            val json = JSONObject(raw)
+            StampBrush(
+                tip = StampTip.entries.firstOrNull { it.name == json.optString("tip") } ?: StampTip.CIRCLE,
+                spacing = json.optDouble("spacing", 0.5).toFloat(),
+                scatter = json.optDouble("scatter", 0.0).toFloat(),
+                sizeJitter = json.optDouble("sizeJitter", 0.0).toFloat(),
+                angleJitter = json.optDouble("angleJitter", 0.0).toFloat(),
+                followDirection = json.optBoolean("followDirection", false),
+            ).clamped()
+        } catch (e: JSONException) {
+            StampBrush()
+        }
+    }
+
+    fun setStampBrush(context: Context, brush: StampBrush) {
+        val json = JSONObject()
+            .put("tip", brush.tip.name)
+            .put("spacing", brush.spacing.toDouble())
+            .put("scatter", brush.scatter.toDouble())
+            .put("sizeJitter", brush.sizeJitter.toDouble())
+            .put("angleJitter", brush.angleJitter.toDouble())
+            .put("followDirection", brush.followDirection)
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString(KEY_STAMP_BRUSH, json.toString()).apply()
     }
 }
 
