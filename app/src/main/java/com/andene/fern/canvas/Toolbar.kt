@@ -57,6 +57,7 @@ import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.LineStyle
 import androidx.compose.material.icons.filled.LineWeight
+import androidx.compose.material.icons.filled.LinearScale
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.Palette
@@ -470,7 +471,8 @@ fun Toolbar(
                         }
                     }
                     IconButton(onClick = { state.straightenSelection() }) {
-                        Icon(Icons.Filled.Straighten, contentDescription = "Straighten selected strokes")
+                        // LinearScale, not Straighten: that icon (a ruler) already means the ruler guide.
+                        Icon(Icons.Filled.LinearScale, contentDescription = "Straighten selected strokes")
                     }
                     IconButton(onClick = { state.smoothSelection() }) {
                         Icon(Icons.Filled.Waves, contentDescription = "Smooth selected strokes")
