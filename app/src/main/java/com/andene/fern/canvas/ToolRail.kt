@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +55,11 @@ private const val KEY_PINNED_TOOLS = "rail_pinned_tools"
 
 /** Reading and saving the pinned tools. */
 object RailSettings {
+    private var loaded: MutableState<List<Tool>>? = null
+
+    /** The pinned tools as state, so the rail follows a change made elsewhere (a workspace switch, design roadmap D11). */
+    fun pinnedState(context: Context): MutableState<List<Tool>> = loaded ?: mutableStateOf(pinned(context)).also { loaded = it }
+
     fun pinned(context: Context): List<Tool> {
         val stored = AppSettings.prefs(context).getString(KEY_PINNED_TOOLS, null) ?: return DEFAULT_PINNED_TOOLS
         return stored.split(',').mapNotNull { name -> RAIL_EXTRA_TOOLS.firstOrNull { it.name == name } }
@@ -61,6 +67,7 @@ object RailSettings {
 
     fun setPinned(context: Context, tools: List<Tool>) {
         AppSettings.prefs(context).edit().putString(KEY_PINNED_TOOLS, tools.joinToString(",") { it.name }).apply()
+        loaded?.value = tools
     }
 }
 
@@ -90,7 +97,7 @@ internal fun railIcon(state: CanvasState, tool: Tool): ImageVector = when (tool)
 @Composable
 fun ToolRail(state: CanvasState, vertical: Boolean, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    var pinned by remember { mutableStateOf(RailSettings.pinned(context)) }
+    val pinned by RailSettings.pinnedState(context)
     var showMore by remember { mutableStateOf(false) }
     Surface(modifier = modifier, shape = MaterialTheme.shapes.large, tonalElevation = FernSpace.xs, shadowElevation = FernSpace.xs) {
         BoxWithConstraints {
@@ -115,8 +122,7 @@ fun ToolRail(state: CanvasState, vertical: Boolean, modifier: Modifier = Modifie
                                 },
                                 trailingIcon = {
                                     IconButton(onClick = {
-                                        pinned = if (isPinned) pinned - tool else pinned + tool
-                                        RailSettings.setPinned(context, pinned)
+                                        RailSettings.setPinned(context, if (isPinned) pinned - tool else pinned + tool)
                                     }) {
                                         Icon(
                                             if (isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,

@@ -1123,6 +1123,7 @@ class MainActivity : ComponentActivity() {
                             Toolbar(
                                 state = canvasState,
                                 hiddenGroups = hiddenToolbarGroups,
+                                onHiddenGroupsChange = { hiddenToolbarGroups = it },
                                 propertiesModifier = Modifier
                                     .align(Alignment.BottomCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())

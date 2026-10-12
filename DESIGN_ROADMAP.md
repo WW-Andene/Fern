@@ -187,9 +187,10 @@ Goal: the screen layout that replaces the single scrolling toolbar and the ⋮ j
   that leave the drawing visible; side docking comes on larger screens (after phone). These are the
   dialogs that today block the canvas.
   Done: `FernPanel`/`FernPanelHost`. Layers, frames, symbols, pins, versions, the object panel and its states, rules and script open as non-modal panels: a bottom sheet of at most half the screen above the rail on an upright phone (collapsible to its header), docked beside the rail otherwise; panels stack, Back closes the top one. Footer "Close" buttons removed (the header has one). Resizing by drag is left to D42.
-- [ ] D11. **A workspace switcher**: Draw, Paint (raster), Design (vector), Animate, Game, Notes
+- [x] D11. **A workspace switcher**: Draw, Paint (raster), Design (vector), Animate, Game, Notes
   (PDF and audio). Each one shows the tools and panels its work needs. The user can edit
   workspaces or create new ones. Animation, replay and guides stop crowding a drawing session.
+  Done: `Workspaces.kt`. A switcher first in the toolbar offers Draw, Paint, Design, Animate, Game and Notes, each setting the toolbar groups shown and the rail's pinned tools; the current layout saves as a new named workspace or into one of the user's, which can be deleted. Panels per workspace come with D83.
 - [ ] D12. **The ⋮ menu split by purpose**: Insert (image, video, 3D, symbol, QR, signature),
   Import, Export, Document (versions, statistics, search, frames) and App (settings, plugins,
   help). Each is one level deep and opens from a labelled entry, not hidden in an overflow.

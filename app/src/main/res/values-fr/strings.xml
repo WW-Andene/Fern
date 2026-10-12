@@ -940,4 +940,16 @@
     <string name="rail_unpin">Retirer %1$s du rail</string>
     <string name="panel_collapse">Replier le panneau</string>
     <string name="panel_expand">Déplier le panneau</string>
+    <string name="workspace_draw">Dessin</string>
+    <string name="workspace_paint">Peinture</string>
+    <string name="workspace_design">Design</string>
+    <string name="workspace_animate">Animation</string>
+    <string name="workspace_game">Jeu</string>
+    <string name="workspace_notes">Notes</string>
+    <string name="workspace_switch">Espace de travail : %1$s</string>
+    <string name="workspace_custom_layout">disposition personnalisée</string>
+    <string name="workspace_delete">Supprimer l’espace %1$s</string>
+    <string name="workspace_update">Enregistrer la disposition dans %1$s</string>
+    <string name="workspace_save_new">Enregistrer la disposition comme espace</string>
+    <string name="workspace_name">Nom de l’espace</string>
 </resources>

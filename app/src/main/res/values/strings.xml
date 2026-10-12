@@ -937,4 +937,16 @@
     <string name="rail_unpin">Unpin %1$s from the rail</string>
     <string name="panel_collapse">Collapse panel</string>
     <string name="panel_expand">Expand panel</string>
+    <string name="workspace_draw">Draw</string>
+    <string name="workspace_paint">Paint</string>
+    <string name="workspace_design">Design</string>
+    <string name="workspace_animate">Animate</string>
+    <string name="workspace_game">Game</string>
+    <string name="workspace_notes">Notes</string>
+    <string name="workspace_switch">Workspace: %1$s</string>
+    <string name="workspace_custom_layout">custom layout</string>
+    <string name="workspace_delete">Delete workspace %1$s</string>
+    <string name="workspace_update">Save layout into %1$s</string>
+    <string name="workspace_save_new">Save layout as a workspace</string>
+    <string name="workspace_name">Workspace name</string>
 </resources>

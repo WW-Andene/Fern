@@ -259,6 +259,8 @@ fun Toolbar(
     onInsertVideo: () -> Unit = {},
     /** Imports an OBJ model to paint in 3D (roadmap item 108). */
     onImportObj: () -> Unit = {},
+    /** Called when a workspace (design roadmap D11) changes which groups show. */
+    onHiddenGroupsChange: (Set<ToolbarGroup>) -> Unit = {},
     /** Where the contextual properties bar goes (design roadmap D9). */
     propertiesModifier: Modifier = Modifier,
 ) {
@@ -1114,6 +1116,7 @@ fun Toolbar(
             // more than its width, and without scrolling everything past the edge was unreachable.
             // On a wide window (roadmap item 74) they wrap onto further rows instead, all in view.
             val tools: @Composable () -> Unit = {
+                WorkspaceSwitcher(hiddenGroups, onHiddenGroupsChange)
                 if (ToolbarGroup.FAVOURITES !in hiddenGroups) {
                     for (index in 0 until TOOL_SLOT_COUNT) ToolSlotButton(state, index)
                 }
