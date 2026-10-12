@@ -45,25 +45,14 @@ private val PSD_BLEND_KEYS = mapOf(
  */
 object PsdFormat {
     fun write(image: LayeredImage): ByteArray {
-        val out = ByteArrayOutputStream()
-        val psd = DataOutputStream(out)
         val w = image.width
         val h = image.height
-        psd.writeBytes("8BPS")
-        psd.writeShort(1)
-        psd.write(ByteArray(6))
-        psd.writeShort(4) // merged image: RGB + transparency
-        psd.writeInt(h)
-        psd.writeInt(w)
-        psd.writeShort(8)
-        psd.writeShort(3) // RGB
-        psd.writeInt(0) // colour mode data
-        psd.writeInt(0) // image resources
-
-        val info = ByteArrayOutputStream()
-        val layerInfo = DataOutputStream(info)
+        // The records are small; the pixel data is not. At the 4096 px export edge a document is
+        // hundreds of MB, so the pixels are streamed once into a buffer of the exact final size
+        // rather than staged through intermediate buffers (each a full copy, which ran out of heap).
+        val records = ByteArrayOutputStream()
+        val layerInfo = DataOutputStream(records)
         layerInfo.writeShort(-image.layers.size) // negative: the merged image's first alpha is transparency
-        val channelData = ByteArrayOutputStream()
         for (layer in image.layers) {
             layerInfo.writeInt(0); layerInfo.writeInt(0); layerInfo.writeInt(h); layerInfo.writeInt(w)
             layerInfo.writeShort(4)
@@ -85,23 +74,51 @@ object PsdFormat {
             layerInfo.writeByte(name.size)
             layerInfo.write(name)
             layerInfo.write(ByteArray(namePadded - 1 - name.size))
-            val ch = DataOutputStream(channelData)
+        }
+        val channelBytes = image.layers.size.toLong() * 4 * (2 + w.toLong() * h)
+        val layerInfoLength = records.size() + channelBytes
+        val pad = (layerInfoLength % 2).toInt()
+        val total = 26 + 4 + 4 + 4 + 4 + layerInfoLength + pad + 4 + 2 + 4L * w * h
+        if (total > Int.MAX_VALUE) throw IOException("Too large for a .psd")
+
+        val out = ExactByteArrayOutputStream(total.toInt())
+        val psd = DataOutputStream(out)
+        psd.writeBytes("8BPS")
+        psd.writeShort(1)
+        psd.write(ByteArray(6))
+        psd.writeShort(4) // merged image: RGB + transparency
+        psd.writeInt(h)
+        psd.writeInt(w)
+        psd.writeShort(8)
+        psd.writeShort(3) // RGB
+        psd.writeInt(0) // colour mode data
+        psd.writeInt(0) // image resources
+        psd.writeInt((4 + layerInfoLength + pad + 4).toInt()) // layer and mask information
+        psd.writeInt((layerInfoLength + pad).toInt())
+        records.writeTo(psd)
+        val plane = ByteArray(w * h)
+        for (layer in image.layers) {
             for (shift in intArrayOf(24, 16, 8, 0)) {
-                ch.writeShort(0) // raw
-                ch.write(ByteArray(w * h) { (layer.pixels[it] ushr shift).toByte() })
+                psd.writeShort(0) // raw
+                for (i in plane.indices) plane[i] = (layer.pixels[i] ushr shift).toByte()
+                psd.write(plane)
             }
         }
-        layerInfo.write(channelData.toByteArray())
-        var layerBytes = info.toByteArray()
-        if (layerBytes.size % 2 != 0) layerBytes += 0
-        psd.writeInt(4 + layerBytes.size + 4) // layer and mask information
-        psd.writeInt(layerBytes.size)
-        psd.write(layerBytes)
+        if (pad == 1) psd.writeByte(0)
         psd.writeInt(0) // global layer mask
 
         psd.writeShort(0) // merged image, raw, planar R, G, B, A
-        for (shift in intArrayOf(16, 8, 0, 24)) psd.write(ByteArray(w * h) { (image.merged[it] ushr shift).toByte() })
-        return out.toByteArray()
+        for (shift in intArrayOf(16, 8, 0, 24)) {
+            for (i in plane.indices) plane[i] = (image.merged[i] ushr shift).toByte()
+            psd.write(plane)
+        }
+        psd.flush()
+        return out.bytes()
+    }
+
+    /** Sized up front to the exact output, so [bytes] hands back its buffer without a copy. */
+    private class ExactByteArrayOutputStream(size: Int) : ByteArrayOutputStream(size) {
+        fun bytes(): ByteArray = if (count == buf.size) buf else toByteArray()
     }
 
     fun read(bytes: ByteArray): ImportedDocument {
@@ -122,8 +139,8 @@ object PsdFormat {
         input.skipBytes(input.readInt()) // image resources
         val layerAndMaskLength = input.readInt()
         if (layerAndMaskLength == 0) return ImportedDocument(width, height, depth, emptyList())
-        val section = ByteArray(layerAndMaskLength).also { input.readFully(it) }
-        val s = DataInputStream(section.inputStream())
+        // Read in place: copying the section out first would duplicate nearly the whole file.
+        val s = input
         val infoLength = s.readInt()
         if (infoLength == 0) return ImportedDocument(width, height, depth, emptyList())
         val count = kotlin.math.abs(s.readShort().toInt())
