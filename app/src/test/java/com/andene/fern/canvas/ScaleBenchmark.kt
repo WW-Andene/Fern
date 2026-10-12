@@ -87,6 +87,20 @@ class ScaleBenchmark {
         val middle = WorldPoint(side / 2, side / 2)
         measure("spatial index build") { StrokeSpatialIndex(state.strokes.toList()) }
         measure("render: whole document in view") { frame(middle, VIEW_PX / side) }
+        // The same view from the tile cache: a pan frame once the tiles exist.
+        val tiles = SceneTileCache()
+        fun tiledFrame(center: WorldPoint, scale: Double) {
+            state.jumpTo(center, scale)
+            val c = state.panWorld
+            val half = VIEW_PX / 2.0 / scale
+            CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, androidx.compose.ui.graphics.Canvas(image), Size(VIEW_PX.toFloat(), VIEW_PX.toFloat())) {
+                tiles.draw(this, state, Offset(VIEW_PX / 2f, VIEW_PX / 2f), WorldPoint(c.x - half, c.y - half), WorldPoint(c.x + half, c.y + half), textMeasurer) { null }
+            }
+        }
+        val firstStart = System.nanoTime()
+        tiledFrame(middle, VIEW_PX / side)
+        line("%-48s %10.1f ms".format("render: whole document, filling the tile cache", (System.nanoTime() - firstStart) / 1e6))
+        measure("render: whole document from cached tiles") { tiledFrame(middle, VIEW_PX / side) }
         measure("render: mid zoom (about 1000 strokes in view)") { frame(middle, VIEW_PX / (32.0 * CELL)) }
         measure("render: zoomed in (about 16 strokes in view)") { frame(middle, VIEW_PX / (4.0 * CELL)) }
     }

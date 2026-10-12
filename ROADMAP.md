@@ -91,7 +91,7 @@ Goal: 120 fps at any zoom, with any amount of content.
 - [~] 48. Benchmark suite (10k / 100k / 1M strokes) — JVM suite (storage, rendering, hit-testing; `-Pbenchmark`); no on-device benchmark yet
 - [x] 49. Spatial index — multi-level grid for rendering, the eraser and object snapping (JVM, 1M strokes: zoomed-in frame 251 -> 1.6 ms, eraser move ~0 ms, rebuild after an action 356 ms)
 - [x] 50. Level of detail — sub-pixel strokes drawn as one dot; sub-pixel point spacing decimated, cached per stroke per zoom octave
-- [ ] 51. Tile caching
+- [x] 51. Tile caching — world-aligned 256 px tiles per zoom octave for documents of 20k+ strokes while nothing is edited live (JVM, 1M strokes: whole-document pan frame 1899 -> 16 ms; refilling after an edit ~3 s)
 - [ ] 52. GPU rendering path
 - [ ] 53. Background loading / streaming of off-screen regions
 - [x] 54. Large images and PDF pages downscaled to 2048 px

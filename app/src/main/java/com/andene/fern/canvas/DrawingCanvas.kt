@@ -96,6 +96,7 @@ fun DrawingCanvas(
     val predictor = remember(view) { MotionEventPredictor.newInstance(view) }
     var predictedScreen by remember { mutableStateOf<Offset?>(null) }
     val textMeasurer = rememberTextMeasurer()
+    val tileCache = remember { SceneTileCache() }
     val context = LocalContext.current
     // Decoded lazily and cached by file name: re-decoding from disk every frame would be
     // wasteful, and images never change once placed (a new image is a new ImageItem/file).
@@ -340,12 +341,16 @@ fun DrawingCanvas(
         // Everything below is laid out in unrotated view space (worldToScreen) and turned as a
         // whole here, so text, images and patterns rotate with the strokes.
         rotate(degrees = Math.toDegrees(state.rotation).toFloat(), pivot = screenCenter) {
-            drawScene(state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer, imageFor = { fileName ->
+            val imageFor = { fileName: String ->
                 imageBitmapCache[fileName]
                     ?: BitmapFactory.decodeFile(CanvasStorage.imageFile(context, fileName).absolutePath)
                         ?.asImageBitmap()
                         ?.also { imageBitmapCache[fileName] = it }
-            })
+            }
+            // Large documents pan and zoom from cached tiles when nothing is being edited live.
+            val fromTiles = state.tileCacheEligible &&
+                tileCache.draw(this, state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer, imageFor)
+            if (!fromTiles) drawScene(state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer, imageFor)
 
             state.textItems.firstOrNull { it.id == state.selectedTextId }?.let { item ->
                 val (min, max) = state.textBounds(item)

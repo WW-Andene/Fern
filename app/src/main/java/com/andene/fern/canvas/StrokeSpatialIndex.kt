@@ -3,8 +3,9 @@ package com.andene.fern.canvas
 import java.util.BitSet
 import kotlin.math.floor
 
-// A view spanning more cells than this on one level reads that level's strokes in full instead:
-// zoomed far out, most of them are on screen anyway, and walking cells would cost more.
+// A view spanning more cells than this on one level - and more cells than that level has
+// strokes - reads the level's strokes in full instead of walking cells: zoomed far out, most of
+// them are on screen anyway, and walking that many cells would cost more than reading them.
 private const val MAX_QUERY_CELLS_PER_LEVEL = 1024
 
 // Each entry packs a cell's 40-bit hash above a 24-bit stroke index: one primitive sort builds
@@ -92,7 +93,8 @@ class StrokeSpatialIndex(strokes: List<Stroke>) {
             val y1 = cellOf(bottom, size)
             val width = x1 - x0 + 1
             val height = y1 - y0 + 1
-            if (width <= 0 || height <= 0 || width > MAX_QUERY_CELLS_PER_LEVEL || width * height > MAX_QUERY_CELLS_PER_LEVEL) {
+            val limit = maxOf(MAX_QUERY_CELLS_PER_LEVEL, all.size).toLong()
+            if (width <= 0 || height <= 0 || width > limit || height > limit || width * height > limit) {
                 for (index in all) found.set(index)
                 continue
             }

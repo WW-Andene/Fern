@@ -83,6 +83,12 @@ class CanvasState(
     private val onBrushChanged: (StampBrush) -> Unit = {},
     private val onToolSlotsChanged: (List<ToolPreset?>) -> Unit = {},
     private val onBrushPresetsChanged: (List<BrushPreset>) -> Unit = {},
+    /**
+     * False for an off-screen camera that renders the document (the tile cache's): it never
+     * needs the floating origin, and rebasing would shift and re-index its whole copy of the
+     * document on every jump to a distant tile.
+     */
+    private val floatingOrigin: Boolean = true,
 ) {
     companion object {
         // Effectively unbounded: leaves ~250 orders of magnitude of headroom on both sides
@@ -876,6 +882,22 @@ class CanvasState(
         return positions.map { list[it] }
     }
 
+    /** What the rendered scene depends on, for [SceneTileCache]; comparing two is O(1). */
+    fun sceneVersion() = SceneVersion(
+        listOf(strokes.toList(), geometryEpoch, layers.toList(), textItems.toList(), imageItems.toList(), backgroundColor, backgroundStyle, currentAnimFrame),
+    )
+
+    /**
+     * Whether the scene may be drawn from [SceneTileCache]: a large document, and nothing that
+     * changes every frame - a stroke being drawn or erased, a selection, an image or label being
+     * dragged, animation or replay - since those must be drawn live, in their stacking order.
+     */
+    val tileCacheEligible: Boolean
+        get() = strokes.size >= TILE_CACHE_MIN_STROKES && currentStroke == null && selection.isEmpty() &&
+            !isErasing && !isMovingImage && !isMovingText && !animationMode && replayCount == null
+
+    private var isErasing = false
+
     private val undoStack = ArrayDeque<HistoryEntry>()
     private val redoStack = ArrayDeque<HistoryEntry>()
 
@@ -1207,6 +1229,7 @@ class CanvasState(
         get() = ERASER_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
 
     fun beginErase(worldPoint: WorldPoint) {
+        isErasing = true
         eraseStartDepth = undoStack.size
         recordHistory()
         clearSelectionState() // avoid a stale selection referencing strokes this erase is about to split/remove
@@ -1222,6 +1245,7 @@ class CanvasState(
     }
 
     fun endErase() {
+        isErasing = false
         if (lassoErase) {
             val lasso = lassoPath.toList()
             lassoPath.clear()
@@ -2369,6 +2393,7 @@ class CanvasState(
      * since it mutates the same point list a live stroke may still be appending to.
      */
     private fun rebaseIfNeeded() {
+        if (!floatingOrigin) return
         if (abs(panWorld.x) < REBASE_THRESHOLD && abs(panWorld.y) < REBASE_THRESHOLD) return
         // Rounded to whole pattern cells: the paper pattern is drawn at world multiples of its
         // spacing, so an arbitrary offset made it jump relative to the content on every rebase.
