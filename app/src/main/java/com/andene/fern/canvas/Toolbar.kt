@@ -667,6 +667,7 @@ private fun penTypeIcon(penType: PenType) = when (penType) {
     PenType.CALLIGRAPHY -> Icons.Filled.Gesture
     PenType.AIRBRUSH -> Icons.Filled.BlurOn
     PenType.CRAYON -> Icons.Filled.Create
+    PenType.PIXEL -> Icons.Filled.GridOn
 }
 
 private fun penTypeLabel(penType: PenType) = when (penType) {
@@ -676,6 +677,7 @@ private fun penTypeLabel(penType: PenType) = when (penType) {
     PenType.CALLIGRAPHY -> "Calligraphy"
     PenType.AIRBRUSH -> "Airbrush"
     PenType.CRAYON -> "Crayon"
+    PenType.PIXEL -> "Pixel art"
 }
 
 private fun shapeKindIcon(kind: ShapeKind) = when (kind) {

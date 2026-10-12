@@ -16,8 +16,10 @@ import androidx.compose.ui.graphics.Color
  *   simulating a flat calligraphy nib.
  * - [AIRBRUSH]: a soft spray of fine dots around the path, denser at the centre.
  * - [CRAYON]: a waxy line broken up by paper grain, letting the paper show through.
+ * - [PIXEL]: pixel art - fills whole square cells of a grid whose cell size is the stroke
+ *   width, with no gaps between cells however fast the pen moves.
  */
-enum class PenType { MARKER, PENCIL, HIGHLIGHTER, CALLIGRAPHY, AIRBRUSH, CRAYON }
+enum class PenType { MARKER, PENCIL, HIGHLIGHTER, CALLIGRAPHY, AIRBRUSH, CRAYON, PIXEL }
 
 /**
  * How a stroke composites with whatever is already drawn beneath it, mirroring the standard

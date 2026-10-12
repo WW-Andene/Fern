@@ -653,7 +653,7 @@ private fun penStyle(penType: PenType, baseColor: Color, baseWidthScreen: Float)
         cap = StrokeCap.Square,
     )
     // Unused: these pens have their own renderers (drawCalligraphyStroke, drawTexturedStroke).
-    PenType.CALLIGRAPHY, PenType.AIRBRUSH, PenType.CRAYON -> PenStyle(baseColor, baseWidthScreen, StrokeCap.Round)
+    PenType.CALLIGRAPHY, PenType.AIRBRUSH, PenType.CRAYON, PenType.PIXEL -> PenStyle(baseColor, baseWidthScreen, StrokeCap.Round)
 }
 
 /**
@@ -709,6 +709,48 @@ private fun DrawScope.drawTexturedStroke(stroke: Stroke, screenPoints: List<Offs
 }
 
 private const val AIRBRUSH_DOTS_PER_SAMPLE = 6
+
+/**
+ * Pixel-art rendering: the grid is in world space with cells [Stroke.widthWorld] wide,
+ * anchored at the world origin, so cells from different strokes of the same width line up.
+ * Every cell between consecutive points is filled (Bresenham's line), so fast movement leaves
+ * no gaps, and each cell is drawn once as a square. The grid is anchored at the world origin,
+ * which the floating-origin rebase moves in whole 40-unit steps: cells whose size divides 40
+ * stay aligned across a rebase.
+ */
+private fun DrawScope.drawPixelStroke(stroke: Stroke, state: CanvasState, screenCenter: Offset) {
+    val cell = stroke.widthWorld
+    if (cell <= 0.0 || stroke.points.isEmpty()) return
+    val points = stroke.points
+    fun cellOf(p: WorldPoint) = kotlin.math.floor(p.x / cell).toLong() to kotlin.math.floor(p.y / cell).toLong()
+    val cells = LinkedHashSet<Pair<Long, Long>>()
+    var previous = cellOf(points[0])
+    cells.add(previous)
+    for (i in 1 until points.size) {
+        val next = cellOf(points[i])
+        // Bresenham between the two cells.
+        var x = previous.first
+        var y = previous.second
+        val dx = kotlin.math.abs(next.first - x)
+        val dy = -kotlin.math.abs(next.second - y)
+        val sx = if (x < next.first) 1 else -1
+        val sy = if (y < next.second) 1 else -1
+        var error = dx + dy
+        while (true) {
+            cells.add(x to y)
+            if (x == next.first && y == next.second) break
+            val doubled = 2 * error
+            if (doubled >= dy) { error += dy; x += sx }
+            if (doubled <= dx) { error += dx; y += sy }
+        }
+        previous = next
+    }
+    for ((cx, cy) in cells) {
+        val topLeft = state.worldToScreen(WorldPoint(cx * cell, cy * cell), screenCenter)
+        val bottomRight = state.worldToScreen(WorldPoint((cx + 1) * cell, (cy + 1) * cell), screenCenter)
+        drawRect(color = stroke.color, topLeft = topLeft, size = Size(bottomRight.x - topLeft.x, bottomRight.y - topLeft.y))
+    }
+}
 
 /** A stable pseudo-random value in [0, 1) from two integers (integer hash, no state). */
 private fun hash01(a: Int, b: Int): Float {
@@ -902,7 +944,8 @@ internal fun DrawScope.drawScene(
                 val rawWidthScreen = stroke.widthWorld * state.scale
                 if (!rawWidthScreen.isFinite()) continue
                 val widthScreen = rawWidthScreen.toFloat().coerceIn(1f, 1_000_000f)
-                drawStroke(stroke, screenPoints, widthScreen, stroke.blendMode.toComposeBlendMode())
+                if (stroke.penType == PenType.PIXEL) drawPixelStroke(stroke, state, screenCenter)
+                else drawStroke(stroke, screenPoints, widthScreen, stroke.blendMode.toComposeBlendMode())
         }
         if (translucent) drawContext.canvas.restore()
     }
