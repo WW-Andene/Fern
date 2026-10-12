@@ -92,6 +92,8 @@ import com.andene.fern.canvas.exportSpriteSheetPng
 import com.andene.fern.canvas.importDocumentBundle
 import com.andene.fern.canvas.importPdfPages
 import com.andene.fern.canvas.markWelcomeSeen
+import com.andene.fern.canvas.isAdobeSwatchExchange
+import com.andene.fern.canvas.parseAdobeSwatchExchange
 import com.andene.fern.canvas.parseGimpPalette
 import com.andene.fern.canvas.shouldShowWelcome
 import java.io.File
@@ -330,13 +332,18 @@ class MainActivity : ComponentActivity() {
                         coroutineScope.launch {
                             val colors = withContext(Dispatchers.IO) {
                                 runCatching {
-                                    context.contentResolver.openInputStream(uri)?.use { parseGimpPalette(it.readBytes().decodeToString()) }
+                                    context.contentResolver.openInputStream(uri)?.use { stream ->
+                                        val bytes = stream.readBytes()
+                                        // Told apart by content, not file name: providers don't always keep the extension.
+                                        if (isAdobeSwatchExchange(bytes)) parseAdobeSwatchExchange(bytes)
+                                        else parseGimpPalette(bytes.decodeToString())
+                                    }
                                 }.getOrNull().orEmpty()
                             }
                             colors.forEach { canvasState.addSavedColor(it) }
                             Toast.makeText(
                                 context,
-                                if (colors.isEmpty()) "That isn't a GIMP palette (.gpl)" else "Imported ${colors.size} colours",
+                                if (colors.isEmpty()) "That isn't a GIMP (.gpl) or Adobe swatch (.ase) palette" else "Imported ${colors.size} colours",
                                 Toast.LENGTH_SHORT,
                             ).show()
                         }

@@ -43,7 +43,7 @@ fun ColorPickerDialog(
     onColorSelected: (Color) -> Unit,
     /** When set, a "Save to palette" button stores the current colour without closing. */
     onSaveColor: ((Color) -> Unit)? = null,
-    /** When set, an "Import .gpl" button imports a palette file into the saved colours. */
+    /** When set, an "Import palette" button imports a .gpl or .ase palette file into the saved colours. */
     onImportPalette: (() -> Unit)? = null,
 ) {
     var hue by remember { mutableFloatStateOf(0f) }
@@ -157,7 +157,7 @@ fun ColorPickerDialog(
         dismissButton = {
             Row {
                 if (onImportPalette != null) {
-                    TextButton(onClick = onImportPalette) { Text("Import .gpl") }
+                    TextButton(onClick = onImportPalette) { Text("Import palette") }
                 }
                 if (onSaveColor != null) {
                     TextButton(onClick = { onSaveColor(currentColor()) }) { Text("Save to palette") }
