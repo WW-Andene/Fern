@@ -570,6 +570,8 @@
     <string name="color_change_everywhere">Changer cette couleur partout…</string>
     <string name="color_remove_saved">Retirer de la palette</string>
     <string name="symbols_title">Symboles</string>
+    <string name="symbols_redefine">Mettre à jour « %1$s » depuis la sélection, partout</string>
+    <string name="symbols_detach">Détacher du symbole</string>
     <string name="symbols_empty">Aucun symbole pour l\'instant. Sélectionnez des traits et enregistrez-les ici pour les réutiliser dans n\'importe quel document.</string>
     <string name="symbols_delete">Supprimer le symbole %1$s</string>
     <string name="symbols_name">Nom de la sélection</string>

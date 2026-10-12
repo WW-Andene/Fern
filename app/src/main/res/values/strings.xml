@@ -568,6 +568,8 @@
     <string name="color_change_everywhere">Change this colour everywhere…</string>
     <string name="color_remove_saved">Remove from palette</string>
     <string name="symbols_title">Symbols</string>
+    <string name="symbols_redefine">Update “%1$s” from the selection, everywhere</string>
+    <string name="symbols_detach">Detach from symbol</string>
     <string name="symbols_empty">No symbols yet. Select strokes and save them here to reuse them in any document.</string>
     <string name="symbols_delete">Delete symbol %1$s</string>
     <string name="symbols_name">Name for the selection</string>

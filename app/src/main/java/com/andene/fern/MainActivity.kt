@@ -107,6 +107,7 @@ import com.andene.fern.canvas.startSelectionDrag
 import com.andene.fern.canvas.QuickMenuButton
 import com.andene.fern.canvas.QuickMenuOverlay
 import com.andene.fern.canvas.PinMeta
+import com.andene.fern.canvas.SymbolLibrary
 import com.andene.fern.canvas.Rulers
 import com.andene.fern.canvas.readFileLayerImage
 import com.andene.fern.canvas.QuickMenuCustomizeDialog
@@ -297,6 +298,7 @@ class MainActivity : ComponentActivity() {
                             onLayerCompsChanged = { comps -> CanvasStorage.saveLayerComps(context, currentDocumentId, comps) },
                             onStatsChanged = { stats -> CanvasStorage.saveStats(context, currentDocumentId, stats) },
                             onGuidesChanged = { guides -> CanvasStorage.saveGuides(context, currentDocumentId, guides) },
+                            onSymbolInstancesChanged = { instances -> CanvasStorage.saveSymbolInstances(context, currentDocumentId, instances) },
                             onBonesChanged = { bones -> CanvasStorage.saveBones(context, currentDocumentId, bones) },
                             onAnimationSettingsChanged = { settings -> CanvasStorage.saveAnimationSettings(context, currentDocumentId, settings) },
                             onFramesChanged = { frames -> CanvasStorage.saveFrames(context, currentDocumentId, frames) },
@@ -748,6 +750,7 @@ class MainActivity : ComponentActivity() {
                                 layerComps = CanvasStorage.loadLayerComps(context, documentId),
                                 stats = CanvasStorage.loadStats(context, documentId),
                                 guides = CanvasStorage.loadGuides(context, documentId),
+                                symbolInstances = CanvasStorage.loadSymbolInstances(context, documentId),
                                 rasters = CanvasStorage.loadLayers(context, documentId).let { layers ->
                                     // Raster layers' pixels and every layer mask (roadmap items 89, 91).
                                     CanvasStorage.loadRasters(context, documentId, layers.filter { it.raster }.map { it.id } + layers.filter { it.masked }.map { maskIdOf(it.id) })
@@ -775,6 +778,16 @@ class MainActivity : ComponentActivity() {
                         }
                         canvasState.loadStats(loaded.stats)
                         canvasState.loadGuides(loaded.guides)
+                        canvasState.loadSymbolInstances(loaded.symbolInstances)
+                        // Symbols redefined since this document was last open: catch its instances up.
+                        if (loaded.symbolInstances.isNotEmpty()) {
+                            val library = withContext(Dispatchers.IO) { SymbolLibrary.list(context) }
+                            for (symbol in library) {
+                                if (loaded.symbolInstances.none { it.symbolId == symbol.id && it.revision < symbol.revision }) continue
+                                val master = withContext(Dispatchers.IO) { SymbolLibrary.load(context, symbol.id) }
+                                if (master.isNotEmpty()) canvasState.syncSymbol(symbol, master, recordUndo = false)
+                            }
+                        }
                         canvasState.loadRasters(loaded.rasters)
                         canvasState.loadFrames(loaded.frames)
                         canvasState.loadHistory(loaded.history.first, loaded.history.second)

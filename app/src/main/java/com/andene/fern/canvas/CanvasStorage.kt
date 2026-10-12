@@ -191,6 +191,7 @@ object CanvasStorage {
         layerCompsFile(context, id).delete()
         statsFile(context, id).delete()
         guidesFile(context, id).delete()
+        symbolInstancesFile(context, id).delete()
         framesFile(context, id).delete()
         AudioNotes.deleteAll(context, id)
         versionsDir(context, id).deleteRecursively()
@@ -212,6 +213,7 @@ object CanvasStorage {
         val layers = loadLayers(context, id)
         val layerComps = loadLayerComps(context, id)
         val guides = loadGuides(context, id)
+        val symbolInstances = loadSymbolInstances(context, id)
         val frames = loadFrames(context, id)
         val meta = createDocument(context, newName)
         save(context, meta.id, strokes)
@@ -228,6 +230,7 @@ object CanvasStorage {
         if (layers.isNotEmpty()) saveLayers(context, meta.id, layers)
         if (layerComps.isNotEmpty()) saveLayerComps(context, meta.id, layerComps)
         if (guides.isNotEmpty()) saveGuides(context, meta.id, guides)
+        if (symbolInstances.isNotEmpty()) saveSymbolInstances(context, meta.id, symbolInstances)
         if (frames.isNotEmpty()) saveFrames(context, meta.id, frames)
         return meta
     }
@@ -692,6 +695,23 @@ object CanvasStorage {
         writeStored(layersFile(context, documentId), root)
     }
 
+    /** Saves the document's linked symbol instances (roadmap item 100). */
+    fun saveSymbolInstances(context: Context, documentId: String, instances: List<SymbolInstance>) {
+        val root = JSONArray()
+        for (i in instances) {
+            root.put(JSONObject().put("group", i.groupId).put("symbol", i.symbolId).put("revision", i.revision).put("masterWidth", i.masterWidth))
+        }
+        writeStored(symbolInstancesFile(context, documentId), root)
+    }
+
+    fun loadSymbolInstances(context: Context, documentId: String): List<SymbolInstance> {
+        val root = readStored(symbolInstancesFile(context, documentId)) { it as JSONArray } ?: return emptyList()
+        return (0 until root.length()).map { i ->
+            val e = root.getJSONObject(i)
+            SymbolInstance(e.getString("group"), e.getString("symbol"), e.optLong("revision"), e.getDouble("masterWidth"))
+        }
+    }
+
     /** Saves the document's ruler guides (roadmap item 99). */
     fun saveGuides(context: Context, documentId: String, guides: List<Guide>) {
         val root = JSONArray()
@@ -1012,6 +1032,7 @@ object CanvasStorage {
         "layercomps.json" to layerCompsFile(context, documentId),
         "stats.json" to statsFile(context, documentId),
         "guides.json" to guidesFile(context, documentId),
+        "symbols.json" to symbolInstancesFile(context, documentId),
         "frames.json" to framesFile(context, documentId),
     )
 
@@ -1055,6 +1076,8 @@ object CanvasStorage {
     private fun statsFile(context: Context, documentId: String) = File(context.filesDir, "stats_$documentId.json")
 
     private fun guidesFile(context: Context, documentId: String) = File(context.filesDir, "guides_$documentId.json")
+
+    private fun symbolInstancesFile(context: Context, documentId: String) = File(context.filesDir, "symbolinstances_$documentId.json")
 
     private fun historyFile(context: Context, documentId: String) = File(context.filesDir, "history_$documentId.bin")
 

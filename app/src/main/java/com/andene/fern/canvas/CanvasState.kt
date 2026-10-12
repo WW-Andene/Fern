@@ -94,6 +94,7 @@ class CanvasState(
     private val onLayerCompsChanged: (List<LayerComp>) -> Unit = {},
     private val onStatsChanged: (DocumentStats) -> Unit = {},
     private val onGuidesChanged: (List<Guide>) -> Unit = {},
+    private val onSymbolInstancesChanged: (List<SymbolInstance>) -> Unit = {},
     /** Playback speed and frame holds changed (see [AnimationSettings]). */
     private val onAnimationSettingsChanged: (AnimationSettings) -> Unit = {},
     /**
@@ -4601,6 +4602,92 @@ class CanvasState(
     fun placeSignature(signature: List<Stroke>) {
         val viewWidth = if (viewportSize.width > 0f) viewportSize.width.toDouble() else SIGNATURE_FALLBACK_VIEW_PX
         pasteStrokes(placedSignature(signature, viewWidth / 3 / scale.coerceAtLeast(1e-300)))
+    }
+
+    /** Placed symbols that stay linked to the library (roadmap item 100); see [SymbolInstance]. */
+    val symbolInstances = mutableStateListOf<SymbolInstance>()
+
+    fun loadSymbolInstances(loaded: List<SymbolInstance>) {
+        symbolInstances.clear()
+        symbolInstances.addAll(loaded)
+    }
+
+    /** Places [strokes], symbol [symbol]'s master, at the centre of the view as one linked, selected group. */
+    fun placeSymbol(symbol: SymbolMeta, strokes: List<Stroke>) {
+        if (strokes.isEmpty() || !activeLayerEditable) return
+        val group = UUID.randomUUID().toString()
+        pasteStrokes(strokes.map { it.inGroup(group) })
+        // pasteStrokes gives groups fresh ids; the instance is the group it ended up in.
+        val placed = selection.firstOrNull()?.groupId ?: return
+        symbolInstances.add(SymbolInstance(placed, symbol.id, symbol.revision, strokesWidth(strokes)))
+        onSymbolInstancesChanged(symbolInstances.toList())
+    }
+
+    /** The linked instance the selection belongs to, if it includes one (the first found). */
+    val selectedSymbolInstance: SymbolInstance?
+        get() = selection.mapNotNull { it.groupId }.distinct().firstNotNullOfOrNull { g -> symbolInstances.firstOrNull { it.groupId == g } }
+
+    /**
+     * Redraws every instance of [symbol] in this document from its new master [strokes], each at
+     * its own place and size, on its own layer and frame. [recordUndo] false for the catch-up when
+     * a document opens. Instances whose strokes are all gone are dropped.
+     */
+    fun syncSymbol(symbol: SymbolMeta, master: List<Stroke>, recordUndo: Boolean = true) {
+        val affected = symbolInstances.filter { it.symbolId == symbol.id }
+        if (affected.isEmpty()) return
+        if (recordUndo) recordHistory()
+        val newWidth = strokesWidth(master)
+        for (instance in affected) {
+            val members = strokes.filter { it.groupId == instance.groupId }
+            val index = symbolInstances.indexOf(instance)
+            if (members.isEmpty()) {
+                symbolInstances.removeAt(index)
+                continue
+            }
+            val min = WorldPoint(members.minOf { it.minX }, members.minOf { it.minY })
+            val max = WorldPoint(members.maxOf { it.maxX }, members.maxOf { it.maxY })
+            val first = members.first()
+            val fitted = fittedSymbol(master, instance.masterWidth, min, max)
+                .map { it.onLayer(first.layerId).onAnimFrame(first.animFrame).inGroup(instance.groupId) }
+            val at = strokes.indexOf(first)
+            strokes.removeAll { it.groupId == instance.groupId }
+            strokes.addAll(at.coerceIn(0, strokes.size), fitted)
+            // Its size now relates to the new master as it did to the old.
+            symbolInstances[index] = instance.copy(revision = symbol.revision, masterWidth = newWidth)
+        }
+        clearSelectionState()
+        onSymbolInstancesChanged(symbolInstances.toList())
+        strokesChanged()
+    }
+
+    /**
+     * Readies a redefinition of the selected instance's symbol from the selection: every
+     * selected stroke joins the instance's group (strokes drawn onto it become part of it), and
+     * the new master is the selection scaled back by the instance's size relative to the old
+     * master, so other instances keep their sizes. Null when no instance is selected.
+     */
+    fun symbolRedefinitionFromSelection(): Pair<SymbolInstance, List<Stroke>>? {
+        val instance = selectedSymbolInstance ?: return null
+        val members = strokes.filter { it.groupId == instance.groupId }
+        val factor = strokesWidth(members) / instance.masterWidth.coerceAtLeast(1e-9)
+        regroupSelection(instance.groupId)
+        val copies = selectionForClipboard()
+        if (copies.isEmpty() || factor <= 0.0) return null
+        val drawn = copies.filter { it.points.isNotEmpty() }
+        val cx = (drawn.minOf { it.minX } + drawn.maxOf { it.maxX }) / 2
+        val cy = (drawn.minOf { it.minY } + drawn.maxOf { it.maxY }) / 2
+        for (stroke in drawn) {
+            stroke.setPoints(stroke.points.map { WorldPoint(cx + (it.x - cx) / factor, cy + (it.y - cy) / factor) })
+            stroke.setWidth(stroke.widthWorld / factor)
+        }
+        return instance to drawn
+    }
+
+    /** Unlinks the selected instance: its strokes stay, as an ordinary group. */
+    fun detachSymbolInstance() {
+        val instance = selectedSymbolInstance ?: return
+        symbolInstances.remove(instance)
+        onSymbolInstancesChanged(symbolInstances.toList())
     }
 
     fun pasteStrokes(copied: List<Stroke>, at: WorldPoint = panWorld) {

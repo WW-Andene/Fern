@@ -270,11 +270,24 @@ fun Toolbar(
         SymbolsDialog(
             symbols = list,
             canSaveSelection = state.selection.isNotEmpty(),
+            selectedInstanceOf = state.selectedSymbolInstance?.let { instance -> list.firstOrNull { it.id == instance.symbolId } },
+            onRedefine = {
+                val (instance, master) = state.symbolRedefinitionFromSelection() ?: return@SymbolsDialog
+                symbolScope.launch {
+                    val meta = withContext(Dispatchers.IO) { SymbolLibrary.update(context, instance.symbolId, master) }
+                    if (meta != null) state.syncSymbol(meta, master)
+                    symbols = null
+                }
+            },
+            onDetach = {
+                state.detachSymbolInstance()
+                symbols = null
+            },
             onInsert = { symbol ->
                 symbolScope.launch {
                     val strokes = withContext(Dispatchers.IO) { SymbolLibrary.load(context, symbol.id) }
                     state.activeTool = Tool.SELECT
-                    state.pasteStrokes(strokes)
+                    state.placeSymbol(symbol, strokes)
                     symbols = null
                 }
             },
