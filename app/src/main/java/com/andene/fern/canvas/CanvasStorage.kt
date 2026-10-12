@@ -162,6 +162,7 @@ object CanvasStorage {
         thumbnailFile(context, id).delete()
         historyFile(context, id).delete()
         layersFile(context, id).delete()
+        framesFile(context, id).delete()
         versionsDir(context, id).deleteRecursively()
         // Deliberately not deleting files under images/: they're shared/immutable and may
         // still be referenced by a duplicate of this document. Accepted tradeoff - orphaned
@@ -176,12 +177,14 @@ object CanvasStorage {
         val imageItems = loadImageItems(context, id)
         val (backgroundColor, backgroundStyle) = loadBackground(context, id)
         val layers = loadLayers(context, id)
+        val frames = loadFrames(context, id)
         val meta = createDocument(context, newName)
         save(context, meta.id, strokes)
         saveTextItems(context, meta.id, textItems)
         saveImageItems(context, meta.id, imageItems)
         saveBackground(context, meta.id, backgroundColor, backgroundStyle)
         if (layers.isNotEmpty()) saveLayers(context, meta.id, layers)
+        if (frames.isNotEmpty()) saveFrames(context, meta.id, frames)
         return meta
     }
 
@@ -377,6 +380,34 @@ object CanvasStorage {
         for (old in existing.drop(MAX_VERSIONS - 1)) File(dir, "$old.json").delete()
     }
 
+    fun saveFrames(context: Context, documentId: String, frames: List<Frame>) {
+        val root = JSONArray()
+        for (frame in frames) {
+            root.put(JSONObject().apply {
+                put("id", frame.id)
+                put("name", frame.name)
+                put("minX", frame.min.x)
+                put("minY", frame.min.y)
+                put("maxX", frame.max.x)
+                put("maxY", frame.max.y)
+            })
+        }
+        writeStored(framesFile(context, documentId), root)
+    }
+
+    fun loadFrames(context: Context, documentId: String): List<Frame> {
+        val root = readStored(framesFile(context, documentId)) { it as JSONArray } ?: return emptyList()
+        return (0 until root.length()).map { i ->
+            val entry = root.getJSONObject(i)
+            Frame(
+                id = entry.getString("id"),
+                name = entry.getString("name"),
+                min = WorldPoint(entry.getDouble("minX"), entry.getDouble("minY")),
+                max = WorldPoint(entry.getDouble("maxX"), entry.getDouble("maxY")),
+            )
+        }
+    }
+
     fun saveLayers(context: Context, documentId: String, layers: List<Layer>) {
         val root = JSONArray()
         for (layer in layers) {
@@ -540,6 +571,8 @@ object CanvasStorage {
     private fun imageItemsFile(context: Context, documentId: String) = File(context.filesDir, "images_$documentId.json")
 
     private fun versionsDir(context: Context, documentId: String) = File(context.filesDir, "versions_$documentId")
+
+    private fun framesFile(context: Context, documentId: String) = File(context.filesDir, "frames_$documentId.json")
 
     private fun layersFile(context: Context, documentId: String) = File(context.filesDir, "layers_$documentId.json")
 

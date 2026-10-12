@@ -35,6 +35,7 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.hypot
@@ -289,6 +290,24 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                 val size = Size(abs(b.x - a.x), abs(b.y - a.y))
                 drawRect(color = MARQUEE_FILL_COLOR, topLeft = topLeft, size = size)
                 drawRect(color = MARQUEE_BORDER_COLOR, topLeft = topLeft, size = size, style = DrawStyle(width = 2f))
+            }
+
+            // Frame outlines and names: editing guides only, so not part of drawScene and never exported.
+            for (frame in state.frames) {
+                val a = state.worldToScreen(frame.min, screenCenter)
+                val b = state.worldToScreen(frame.max, screenCenter)
+                drawRect(
+                    color = FRAME_COLOR,
+                    topLeft = a,
+                    size = Size(b.x - a.x, b.y - a.y),
+                    style = DrawStyle(width = 2f),
+                )
+                drawText(
+                    textMeasurer = textMeasurer,
+                    text = frame.name,
+                    topLeft = Offset(a.x, a.y - 24f),
+                    style = TextStyle(color = FRAME_COLOR, fontSize = 12.sp),
+                )
             }
 
             if (state.lassoPath.size >= 2) {
@@ -577,6 +596,8 @@ private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
 private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
+// Muted purple, distinct from the blue selection/marquee colours.
+private val FRAME_COLOR = Color(0xFF7E57C2)
 private val MARQUEE_FILL_COLOR = Color(0x1A1E88E5)
 private val HANDLE_COLOR = Color(0xFF1E88E5)
 private val RULER_COLOR = Color(0xFFFB8C00)

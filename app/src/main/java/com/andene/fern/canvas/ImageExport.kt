@@ -47,18 +47,21 @@ class ExportFrame(val camera: CanvasState, val widthPx: Int, val heightPx: Int) 
     }
 }
 
-/** Frames all of [source]'s content with a 5% margin so its longest edge is [maxEdgePx]; null for an empty document. */
-fun frameForExport(source: CanvasState, maxEdgePx: Int): ExportFrame? {
-    val (min, max) = exportBounds(source) ?: return null
-    val contentWidth = (max.x - min.x).coerceAtLeast(1.0)
-    val contentHeight = (max.y - min.y).coerceAtLeast(1.0)
-    val worldWidth = contentWidth * (1 + 2 * EXPORT_MARGIN_RATIO)
-    val worldHeight = contentHeight * (1 + 2 * EXPORT_MARGIN_RATIO)
+/**
+ * Frames [source] so the longest edge is [maxEdgePx]: exactly [region] when given (a canvas
+ * [Frame]), otherwise all content plus a 5% margin. Null for an empty document.
+ */
+fun frameForExport(source: CanvasState, maxEdgePx: Int, region: Frame? = null): ExportFrame? {
+    val (min, max) = region?.let { it.min to it.max } ?: exportBounds(source) ?: return null
+    val margin = if (region == null) 1 + 2 * EXPORT_MARGIN_RATIO else 1.0
+    val worldWidth = (max.x - min.x).coerceAtLeast(1e-9) * margin
+    val worldHeight = (max.y - min.y).coerceAtLeast(1e-9) * margin
     val scale = maxEdgePx / maxOf(worldWidth, worldHeight)
 
     val camera = CanvasState()
     camera.loadStrokes(source.strokes.map { it.deepCopy() })
     camera.loadLayers(source.layers.toList())
+    camera.loadFrames(source.frames.toList())
     camera.loadTextItems(source.textItems.toList())
     camera.loadImageItems(source.imageItems.toList())
     camera.loadBackground(source.backgroundColor, source.backgroundStyle)
@@ -76,8 +79,9 @@ fun exportDocumentPng(
     textMeasurer: TextMeasurer,
     density: Density,
     imageFor: (String) -> ImageBitmap?,
+    region: Frame? = null,
 ): ByteArray? {
-    val frame = frameForExport(source, EXPORT_MAX_EDGE_PX) ?: return null
+    val frame = frameForExport(source, EXPORT_MAX_EDGE_PX, region) ?: return null
     val image = ImageBitmap(frame.widthPx, frame.heightPx)
     frame.drawOn(Canvas(image), density, textMeasurer, imageFor)
     val out = ByteArrayOutputStream()
@@ -86,7 +90,9 @@ fun exportDocumentPng(
 }
 
 /**
- * The whole document as a one-page PDF, or null if it's empty. Drawing goes through the
+ * The whole document as a PDF, or null if it's empty: one page per canvas [Frame] when the
+ * document has frames (a multi-page document laid out on the canvas), otherwise one page
+ * holding all content. Drawing goes through the
  * same draw calls as the screen, which PdfDocument records as vector operations, so strokes
  * and text stay sharp at any zoom in a PDF viewer. The page's longest edge is
  * [PDF_MAX_EDGE_PT] points (A4's long side).
@@ -96,12 +102,16 @@ fun exportDocumentPdf(
     textMeasurer: TextMeasurer,
     imageFor: (String) -> ImageBitmap?,
 ): ByteArray? {
-    val frame = frameForExport(source, PDF_MAX_EDGE_PT) ?: return null
+    val regions: List<Frame?> = source.frames.toList().ifEmpty { listOf(null) }
+    val pages = regions.mapNotNull { frameForExport(source, PDF_MAX_EDGE_PT, it) }
+    if (pages.isEmpty()) return null
     val pdf = PdfDocument()
-    val page = pdf.startPage(PdfDocument.PageInfo.Builder(frame.widthPx, frame.heightPx, 1).create())
-    // PDF units are points; density 1 so text sizes map one-to-one onto the page.
-    frame.drawOn(Canvas(page.canvas), Density(1f), textMeasurer, imageFor)
-    pdf.finishPage(page)
+    pages.forEachIndexed { index, frame ->
+        val page = pdf.startPage(PdfDocument.PageInfo.Builder(frame.widthPx, frame.heightPx, index + 1).create())
+        // PDF units are points; density 1 so text sizes map one-to-one onto the page.
+        frame.drawOn(Canvas(page.canvas), Density(1f), textMeasurer, imageFor)
+        pdf.finishPage(page)
+    }
     val out = ByteArrayOutputStream()
     pdf.writeTo(out)
     pdf.close()

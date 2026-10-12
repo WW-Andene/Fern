@@ -64,6 +64,7 @@ class CanvasState(
     /** World-space content stored outside this class (pins) must shift by -offset too; see [rebaseIfNeeded]. */
     private val onRebased: (offset: WorldPoint) -> Unit = {},
     private val onLayersChanged: (List<Layer>) -> Unit = {},
+    private val onFramesChanged: (List<Frame>) -> Unit = {},
 ) {
     companion object {
         // Effectively unbounded: leaves ~250 orders of magnitude of headroom on both sides
@@ -149,6 +150,42 @@ class CanvasState(
      * on a string - smoother but lagging behind the finger.
      */
     var activeStabilization by mutableDoubleStateOf(0.0)
+
+    /** Named regions of the canvas, in creation order. */
+    val frames = mutableStateListOf<Frame>()
+
+    /** Adds a frame covering exactly what's on screen now (unrotated view). */
+    fun addFrameFromView(name: String) {
+        if (viewportSize.width <= 0f || viewportSize.height <= 0f) return
+        val center = Offset(viewportSize.width / 2f, viewportSize.height / 2f)
+        val min = screenToWorld(Offset.Zero, center)
+        val max = screenToWorld(Offset(viewportSize.width, viewportSize.height), center)
+        frames.add(Frame(UUID.randomUUID().toString(), name, min, max))
+        onFramesChanged(frames.toList())
+    }
+
+    fun deleteFrame(id: String) {
+        frames.removeAll { it.id == id }
+        onFramesChanged(frames.toList())
+    }
+
+    fun loadFrames(loaded: List<Frame>) {
+        frames.clear()
+        frames.addAll(loaded)
+    }
+
+    /** Fits [frame] to the screen, upright. */
+    fun jumpToFrame(frame: Frame) {
+        val viewport = viewportSize
+        if (viewport.width <= 0f || viewport.height <= 0f) return
+        val width = (frame.max.x - frame.min.x).coerceAtLeast(1e-9)
+        val height = (frame.max.y - frame.min.y).coerceAtLeast(1e-9)
+        rotation = 0.0
+        jumpTo(
+            WorldPoint((frame.min.x + frame.max.x) / 2.0, (frame.min.y + frame.max.y) / 2.0),
+            minOf(viewport.width / width, viewport.height / height),
+        )
+    }
 
     /** Drawing layers, bottom first. Never empty. */
     val layers = mutableStateListOf(Layer(DEFAULT_LAYER_ID, "Layer 1"))
@@ -1141,6 +1178,10 @@ class CanvasState(
         if (imageItems.isNotEmpty()) {
             for (i in imageItems.indices) imageItems[i] = imageItems[i].copy(position = imageItems[i].position - offset)
             onImageChanged(imageItems.toList())
+        }
+        if (frames.isNotEmpty()) {
+            for (i in frames.indices) frames[i] = frames[i].copy(min = frames[i].min - offset, max = frames[i].max - offset)
+            onFramesChanged(frames.toList())
         }
         rulerLine = rulerLine?.let { (start, end) -> (start - offset) to (end - offset) }
         pendingTextEdit = pendingTextEdit?.let { it.copy(worldPoint = it.worldPoint - offset) }

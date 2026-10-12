@@ -49,6 +49,8 @@ import com.andene.fern.canvas.CanvasStorage
 import com.andene.fern.canvas.DocumentMeta
 import com.andene.fern.canvas.DocumentsDialog
 import com.andene.fern.canvas.DrawingCanvas
+import com.andene.fern.canvas.Frame
+import com.andene.fern.canvas.FramesDialog
 import com.andene.fern.canvas.Minimap
 import com.andene.fern.canvas.PinMeta
 import com.andene.fern.canvas.PinsDialog
@@ -86,6 +88,8 @@ class MainActivity : ComponentActivity() {
                     var showDocumentsDialog by remember { mutableStateOf(false) }
                     var pins by remember { mutableStateOf(emptyList<PinMeta>()) }
                     var showPinsDialog by remember { mutableStateOf(false) }
+                    var showFramesDialog by remember { mutableStateOf(false) }
+                    var frameToExport by remember { mutableStateOf<Frame?>(null) }
                     var versions by remember { mutableStateOf<List<Long>?>(null) } // non-null = dialog open
 
                     // Debounced: a completed stroke/undo/clear schedules a save ~500ms out,
@@ -110,6 +114,7 @@ class MainActivity : ComponentActivity() {
                             onTextChanged = { snapshot -> CanvasStorage.saveTextItems(context, currentDocumentId, snapshot) },
                             onImageChanged = { snapshot -> CanvasStorage.saveImageItems(context, currentDocumentId, snapshot) },
                             onBackgroundChanged = { color, style -> CanvasStorage.saveBackground(context, currentDocumentId, color, style) },
+                            onFramesChanged = { frames -> CanvasStorage.saveFrames(context, currentDocumentId, frames) },
                             onLayersChanged = { layers -> CanvasStorage.saveLayers(context, currentDocumentId, layers) },
                             onRebased = { offset ->
                                 if (pins.isNotEmpty()) {
@@ -156,6 +161,15 @@ class MainActivity : ComponentActivity() {
                             exportDocumentSvg(canvasState) { fileName ->
                                 CanvasStorage.imageFile(context, fileName).takeIf { it.exists() }?.readBytes()
                             }?.toByteArray()
+                        }
+                    }
+                    val frameExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("image/png"),
+                    ) { uri ->
+                        val frame = frameToExport
+                        frameToExport = null
+                        if (uri != null && frame != null) {
+                            writeExport(uri) { exportDocumentPng(canvasState, textMeasurer, density, imageForExport, frame) }
                         }
                     }
                     val pdfExportLauncher = rememberLauncherForActivityResult(
@@ -247,6 +261,7 @@ class MainActivity : ComponentActivity() {
                         currentDocumentId = documentId
                         canvasState.loadStrokes(CanvasStorage.load(context, documentId))
                         canvasState.loadLayers(CanvasStorage.loadLayers(context, documentId))
+                        canvasState.loadFrames(CanvasStorage.loadFrames(context, documentId))
                         CanvasStorage.loadHistory(context, documentId).let { (undo, redo) -> canvasState.loadHistory(undo, redo) }
                         canvasState.loadTextItems(CanvasStorage.loadTextItems(context, documentId))
                         canvasState.loadImageItems(CanvasStorage.loadImageItems(context, documentId))
@@ -265,6 +280,7 @@ class MainActivity : ComponentActivity() {
                         currentDocumentId = current.id
                         canvasState.loadStrokes(withContext(Dispatchers.IO) { CanvasStorage.load(context, current.id) })
                         canvasState.loadLayers(withContext(Dispatchers.IO) { CanvasStorage.loadLayers(context, current.id) })
+                        canvasState.loadFrames(withContext(Dispatchers.IO) { CanvasStorage.loadFrames(context, current.id) })
                         withContext(Dispatchers.IO) { CanvasStorage.loadHistory(context, current.id) }
                             .let { (undo, redo) -> canvasState.loadHistory(undo, redo) }
                         canvasState.loadTextItems(withContext(Dispatchers.IO) { CanvasStorage.loadTextItems(context, current.id) })
@@ -301,6 +317,7 @@ class MainActivity : ComponentActivity() {
                                 .padding(top = 12.dp),
                             onOpenDocuments = { showDocumentsDialog = true },
                             onOpenPins = { showPinsDialog = true },
+                            onOpenFrames = { showFramesDialog = true },
                             onOpenVersions = {
                                 coroutineScope.launch {
                                     versions = withContext(Dispatchers.IO) { CanvasStorage.listVersions(context, currentDocumentId) }
@@ -415,6 +432,23 @@ class MainActivity : ComponentActivity() {
                                 versions = null
                             },
                             onDismiss = { versions = null },
+                        )
+                    }
+
+                    if (showFramesDialog) {
+                        FramesDialog(
+                            frames = canvasState.frames,
+                            onJump = { frame ->
+                                canvasState.jumpToFrame(frame)
+                                showFramesDialog = false
+                            },
+                            onExport = { frame ->
+                                frameToExport = frame
+                                frameExportLauncher.launch("${frame.name.replace('/', '_')}.png")
+                            },
+                            onDelete = { frame -> canvasState.deleteFrame(frame.id) },
+                            onCreate = { name -> canvasState.addFrameFromView(name) },
+                            onDismiss = { showFramesDialog = false },
                         )
                     }
 

@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Colorize
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.CopyAll
+import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
@@ -101,6 +102,7 @@ fun Toolbar(
     onExportSvg: () -> Unit = {},
     onShare: () -> Unit = {},
     onImportPdf: () -> Unit = {},
+    onOpenFrames: () -> Unit = {},
 ) {
     var showExportMenu by remember { mutableStateOf(false) }
     var showWidthSlider by remember { mutableStateOf(false) }
@@ -360,6 +362,9 @@ fun Toolbar(
                 }
                 IconButton(onClick = onOpenPins) {
                     Icon(Icons.Filled.PushPin, contentDescription = "Pins")
+                }
+                IconButton(onClick = onOpenFrames) {
+                    Icon(Icons.Filled.CropFree, contentDescription = "Frames")
                 }
                 IconButton(onClick = onOpenVersions) {
                     Icon(Icons.Filled.History, contentDescription = "Version history")
