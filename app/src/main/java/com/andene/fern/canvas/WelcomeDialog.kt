@@ -28,7 +28,7 @@ private val tips = listOf(
     "Hold the pen still at the end of a stroke to snap it into a clean line, box or circle.",
     "Touch and hold without moving to pick up the colour underneath.",
     "Flip your stylus or hold its button to erase.",
-    "Scroll the toolbar sideways for layers, symmetry, frames, export and more.",
+    "Scroll the toolbar sideways for more tools; the ⋮ menu holds images, PDFs, frames, pins and settings.",
 )
 
 /** First-launch guide to the gestures; dismissing it marks it seen so it doesn't return. */
