@@ -194,6 +194,8 @@ fun Toolbar(
     onExportSelection: () -> Unit = {},
     onExportSvg: () -> Unit = {},
     onExportEps: () -> Unit = {},
+    /** Illustrator (.ai, PDF-compatible) export (roadmap item 103). */
+    onExportAi: () -> Unit = {},
     onExportDxf: () -> Unit = {},
     onExportCmykPdf: () -> Unit = {},
     onExportExr: () -> Unit = {},
@@ -211,6 +213,8 @@ fun Toolbar(
     onImportPdf: () -> Unit = {},
     onImportSpine: () -> Unit = {},
     onImportLayered: () -> Unit = {},
+    /** Vector import of a PDF or Illustrator file (roadmap item 103). */
+    onImportVectors: () -> Unit = {},
     onExportPsd: () -> Unit = {},
     onExportKra: () -> Unit = {},
     onExportSpine: () -> Unit = {},
@@ -1164,6 +1168,7 @@ fun Toolbar(
                             Triple(R.string.menu_import_pdf, Icons.Filled.PictureAsPdf, onImportPdf),
                             Triple(R.string.menu_import_spine, Icons.Filled.AccessibilityNew, onImportSpine),
                             Triple(R.string.menu_import_layered, Icons.Filled.Layers, onImportLayered),
+                            Triple(R.string.menu_import_vectors, Icons.Filled.Polyline, onImportVectors),
                             Triple(R.string.search_title, Icons.Filled.Search) { showSearchDialog = true },
                             Triple(R.string.pins_title, Icons.Filled.PushPin, onOpenPins),
                             Triple(R.string.frames_title, Icons.Filled.CropFree, onOpenFrames),
@@ -1268,6 +1273,13 @@ fun Toolbar(
                             onClick = {
                                 showExportMenu = false
                                 onExportEps()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.tb_export_ai)) },
+                            onClick = {
+                                showExportMenu = false
+                                onExportAi()
                             },
                         )
                         DropdownMenuItem(

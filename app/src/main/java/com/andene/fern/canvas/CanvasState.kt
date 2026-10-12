@@ -225,6 +225,8 @@ class CanvasState(
         private const val FILL_CLOSE_TOLERANCE_SCREEN = 24.0
         // Gaps in line art up to about twice this (screen px) are closed by the fill.
         private const val FILL_GAP_SCREEN = 4.0
+        // World units (points) between pages of an imported vector PDF (roadmap item 103).
+        private const val IMPORTED_PAGE_GAP = 32.0
         // How wide (screen px) a placed QR code is, quiet zone included (roadmap item 144).
         private const val QR_SIZE_SCREEN = 256.0
         // Width (screen px) of the cut a knife stroke takes out of a closed shape (roadmap item 141).
@@ -4794,6 +4796,65 @@ class CanvasState(
             emptyList()
         }
         pasteStrokes(backing + qr.outlines.map { place(it, activeColor) })
+    }
+
+    /**
+     * Places PDF or Illustrator pages read as vectors (roadmap item 103), one point per world
+     * unit, stacked top to bottom with a gap, centred on the view, each page a group, selected.
+     * Paths marked with a PDF layer go onto the Fern layer of that name (made when missing);
+     * the rest onto the active layer. Fills become filled outlines (holes kept, by the path's
+     * own fill rule), strokes outlines with their colour, width, cap, join and dashes. One
+     * undo step for the strokes; layers it makes stay on undo, as layers always do. Returns
+     * how many strokes were added.
+     */
+    fun importVectorPages(pages: List<ImportedVectorPage>): Int {
+        if (!activeLayerEditable) return 0
+        val created = ArrayList<Stroke>()
+        var top = 0.0
+        val layerFor = HashMap<String, String>()
+        for (page in pages) {
+            val group = UUID.randomUUID().toString()
+            val pageTop = top
+            // PDF y points up; the page's top edge lands at this page's place in the stack.
+            fun place(p: WorldPoint) = WorldPoint(p.x, pageTop + page.height - p.y)
+            for (path in page.paths) {
+                val layerId = path.layer?.let { name ->
+                    layerFor.getOrPut(name) {
+                        layers.firstOrNull { it.name == name && !it.raster }?.id ?: Layer(UUID.randomUUID().toString(), name).also { layers.add(it) }.id
+                    }
+                } ?: activeLayerId
+                val subpaths = path.subpaths.map { (points, closed) -> points.map(::place) to closed }
+                path.fill?.let { fill ->
+                    for (outline in importedFillOutlines(subpaths.map { it.first }, path.evenOdd)) {
+                        created.add(Stroke(fill, 0.0, filled = true, layerId = layerId, animFrame = currentAnimFrame, groupId = group).apply {
+                            for (p in outline) addPoint(p)
+                        })
+                    }
+                }
+                path.stroke?.let { color ->
+                    val style = LineStyle(path.cap, path.join).takeIf { it != LineStyle() }
+                    for ((points, closed) in subpaths) {
+                        created.add(Stroke(color, path.width, filled = false, layerId = layerId, animFrame = currentAnimFrame, dashed = path.dashed, groupId = group, lineStyle = style).apply {
+                            for (p in points) addPoint(p)
+                            if (closed && points.size > 1) addPoint(points.first())
+                        })
+                    }
+                }
+            }
+            top += page.height + IMPORTED_PAGE_GAP
+        }
+        if (layerFor.isNotEmpty()) onLayersChanged(layers.toList())
+        if (created.isEmpty()) return 0
+        recordHistory()
+        val centreX = (created.minOf { it.minX } + created.maxOf { it.maxX }) / 2
+        val centreY = (created.minOf { it.minY } + created.maxOf { it.maxY }) / 2
+        val offset = WorldPoint(centreX - panWorld.x, centreY - panWorld.y)
+        for (stroke in created) stroke.shiftBy(offset)
+        strokes.addAll(created)
+        clearSelectionState()
+        selection.addAll(created)
+        strokesChanged()
+        return created.size
     }
 
     /** Placed symbols that stay linked to the library (roadmap item 100); see [SymbolInstance]. */

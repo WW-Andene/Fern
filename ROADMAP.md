@@ -165,7 +165,7 @@ All deferred: they need a server or cloud platform.
 - [x] 100. Shared colour styles (a saved colour changed everywhere it's used, opacity kept), symbol library across documents (save a selection, place copies); placed symbols are linked instances - redefining a symbol from a selected instance redraws every instance at its own place and size (in other documents when they open), and an instance can be detached
 - [x] 101. Image trace: a selected image's dark shapes (Otsu threshold) become filled vector outlines, holes kept, in the active colour over the image; one colour (no colour separation)
 - [x] 102. CMYK entry in the colour picker; ICC colour management (CMYK profiles loaded in Settings, v2/v4 lookup tables, perceptual intent); spot colours (named inks); print PDF in CMYK with spots as Separation colour spaces (own PDF writer; no transparency, text or images)
-- [~] 103. EPS export (paths, fills, caps, joins, dashes; checked by rendering); no AI import/export, Figma ⏸ (external platform); SVG export done in 57
+- [x] 103. EPS export (paths, fills, caps, joins, dashes; checked by rendering); Illustrator export as a PDF-compatible .ai (Fern layers as PDF layers, opacity kept; no text or images) and vector import of PDF and PDF-compatible .ai files (paths, fills with their fill rule, colours incl. CMYK and opacity, widths, caps, joins, dashes, PDF layers onto Fern layers; text, images, shadings, clipping and encrypted files not read; legacy PostScript-based .ai not read); Figma ⏸ (external platform, deferred); SVG export done in 57
 
 ## Phase 12 — Specialty modes
 

@@ -594,6 +594,9 @@
     <string name="qr_correction">Résiste à des dégâts jusqu’à :</string>
     <string name="qr_background">Fond blanc</string>
     <string name="qr_insert">Insérer</string>
+    <string name="tb_export_ai">Illustrator (.ai)</string>
+    <string name="menu_import_vectors">Importer un PDF ou Illustrator en vectoriel</string>
+    <string name="toast_bad_vectors">Aucun tracé n’a pu être lu dans ce fichier (il est peut-être chiffré, ou pas compatible PDF)</string>
     <string name="tb_line_style">Style de trait</string>
     <string name="cap_round">Extrémités rondes</string>
     <string name="cap_square">Extrémités carrées</string>

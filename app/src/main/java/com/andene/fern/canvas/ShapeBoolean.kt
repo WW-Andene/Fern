@@ -58,8 +58,24 @@ internal fun shapesOf(path: Path, origin: WorldPoint, bridgeHoles: Boolean): Lis
     val holes = loops.filter { it !in outers }
     if (!bridgeHoles) return outers + holes
     return outers.map { outer ->
-        holes.filter { polygonContains(outer, it[0]) }.fold(outer) { joined, hole -> bridge(joined, hole) }
+        // A hole must wind against its outline for the non-zero fill to leave it empty; the
+        // platform usually returns it that way, but not always (an even-odd path's holes).
+        val outerSign = signedArea(outer) > 0
+        holes.filter { polygonContains(outer, it[0]) }
+            .map { hole -> if ((signedArea(hole) > 0) == outerSign) hole.reversed() else hole }
+            .fold(outer) { joined, hole -> bridge(joined, hole) }
     }
+}
+
+/** Twice the signed area of the polygon [points] (shoelace): its sign tells the winding direction. */
+private fun signedArea(points: List<WorldPoint>): Double {
+    var sum = 0.0
+    var j = points.size - 1
+    for (i in points.indices) {
+        sum += (points[j].x - points[i].x) * (points[j].y + points[i].y)
+        j = i
+    }
+    return sum
 }
 
 /** The point loops of [path], flattened ([Path.approximate]); a new loop starts where the fraction repeats. */

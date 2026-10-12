@@ -592,6 +592,9 @@
     <string name="qr_correction">Survives damage of up to:</string>
     <string name="qr_background">White background</string>
     <string name="qr_insert">Insert</string>
+    <string name="tb_export_ai">Illustrator (.ai)</string>
+    <string name="menu_import_vectors">Import PDF or Illustrator as vectors</string>
+    <string name="toast_bad_vectors">No paths could be read from that file (it may be encrypted, or not a PDF-compatible file)</string>
     <string name="tb_line_style">Line style</string>
     <string name="cap_round">Round ends</string>
     <string name="cap_square">Square ends</string>

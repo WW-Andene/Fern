@@ -133,6 +133,8 @@ import com.andene.fern.canvas.exportDocumentDxf
 import com.andene.fern.canvas.exportDocumentExr
 import com.andene.fern.canvas.exportSlicesZip
 import com.andene.fern.canvas.exportDocumentEps
+import com.andene.fern.canvas.exportDocumentAi
+import com.andene.fern.canvas.readPdfVectors
 import com.andene.fern.canvas.exportReplayGif
 import com.andene.fern.canvas.StrokeChunkFile
 import com.andene.fern.canvas.SpineImport
@@ -435,6 +437,12 @@ class MainActivity : ComponentActivity() {
                     ) { uri ->
                         if (uri != null) writeExport(uri) { exportDocumentEps(canvasState)?.toByteArray() }
                     }
+                    // A PDF-compatible Illustrator file (roadmap item 103).
+                    val aiExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/illustrator"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportDocumentAi(canvasState) }
+                    }
                     val exrExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("image/x-exr"),
                     ) { uri ->
@@ -513,6 +521,22 @@ class MainActivity : ComponentActivity() {
                         contract = ActivityResultContracts.CreateDocument("application/x-krita"),
                     ) { uri ->
                         if (uri != null) writeExport(uri) { renderLayers(canvasState, textMeasurer, density, imageForExport)?.let(KraFormat::write) }
+                    }
+                    // A PDF or Illustrator file's paths as strokes (roadmap item 103).
+                    val vectorImportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocument(),
+                    ) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val pages = withContext(Dispatchers.IO) {
+                                runCatching {
+                                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
+                                    readPdfVectors(bytes)
+                                }.getOrNull()
+                            }
+                            val added = if (pages == null) 0 else canvasState.importVectorPages(pages)
+                            if (added == 0) Toast.makeText(context, context.getString(R.string.toast_bad_vectors), Toast.LENGTH_SHORT).show()
+                        }
                     }
                     // PSD, Krita or Procreate, told apart by their contents (roadmap item 95).
                     val layeredImportLauncher = rememberLauncherForActivityResult(
@@ -1066,6 +1090,7 @@ class MainActivity : ComponentActivity() {
                                 onExportPdf = { pdfExportLauncher.launch("${currentDocumentName()}.pdf") },
                                 onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
                                 onExportEps = { epsExportLauncher.launch("${currentDocumentName()}.eps") },
+                                onExportAi = { aiExportLauncher.launch("${currentDocumentName()}.ai") },
                                 onExportDxf = { dxfExportLauncher.launch("${currentDocumentName()}.dxf") },
                                 onExportCmykPdf = { cmykPdfExportLauncher.launch("${currentDocumentName()} CMYK.pdf") },
                                 onExportExr = { exrExportLauncher.launch("${currentDocumentName()}.exr") },
@@ -1107,6 +1132,7 @@ class MainActivity : ComponentActivity() {
                                 onImportPdf = { pdfImportLauncher.launch(arrayOf("application/pdf")) },
                                 onImportSpine = { spineImportLauncher.launch(arrayOf("application/json", "application/zip", "application/octet-stream")) },
                                 onImportLayered = { layeredImportLauncher.launch(arrayOf("*/*")) },
+                                onImportVectors = { vectorImportLauncher.launch(arrayOf("application/pdf", "application/illustrator", "application/postscript", "*/*")) },
                                 onExportPsd = { psdExportLauncher.launch("${currentDocumentName()}.psd") },
                                 onExportKra = { kraExportLauncher.launch("${currentDocumentName()}.kra") },
                                 onExportSpine = { spineExportLauncher.launch("${currentDocumentName()} (Spine).zip") },
