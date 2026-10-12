@@ -80,6 +80,7 @@ import androidx.compose.material.icons.filled.FlipToBack
 import androidx.compose.material.icons.filled.FlipToFront
 import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.FormatPaint
+import androidx.compose.material.icons.filled.SquareFoot
 import androidx.compose.material.icons.filled.BorderColor
 import androidx.compose.material.icons.filled.Texture
 import androidx.compose.material.icons.filled.QueryStats
@@ -1060,6 +1061,7 @@ fun Toolbar(
                             Triple(R.string.pins_title, Icons.Filled.PushPin, onOpenPins),
                             Triple(R.string.frames_title, Icons.Filled.CropFree, onOpenFrames),
                             Triple(R.string.second_view_title, Icons.Filled.VerticalSplit) { state.secondViewOpen = !state.secondViewOpen },
+                            Triple(if (state.showRulers) R.string.rulers_hide else R.string.rulers_show, Icons.Filled.SquareFoot) { state.showRulers = !state.showRulers },
                             Triple(if (state.wrapFrameId == null) R.string.wrap_on else R.string.wrap_off, Icons.Filled.Texture) { state.toggleWrapAround() },
                             Triple(R.string.audio_title, Icons.Filled.Mic, onOpenAudioNotes),
                             Triple(R.string.versions_title, Icons.Filled.History, onOpenVersions),

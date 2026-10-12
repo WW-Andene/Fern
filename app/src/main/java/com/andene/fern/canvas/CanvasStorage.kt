@@ -190,6 +190,7 @@ object CanvasStorage {
         layersFile(context, id).delete()
         layerCompsFile(context, id).delete()
         statsFile(context, id).delete()
+        guidesFile(context, id).delete()
         framesFile(context, id).delete()
         AudioNotes.deleteAll(context, id)
         versionsDir(context, id).deleteRecursively()
@@ -210,6 +211,7 @@ object CanvasStorage {
         val (backgroundColor, backgroundStyle) = loadBackground(context, id)
         val layers = loadLayers(context, id)
         val layerComps = loadLayerComps(context, id)
+        val guides = loadGuides(context, id)
         val frames = loadFrames(context, id)
         val meta = createDocument(context, newName)
         save(context, meta.id, strokes)
@@ -225,6 +227,7 @@ object CanvasStorage {
         saveBackground(context, meta.id, backgroundColor, backgroundStyle)
         if (layers.isNotEmpty()) saveLayers(context, meta.id, layers)
         if (layerComps.isNotEmpty()) saveLayerComps(context, meta.id, layerComps)
+        if (guides.isNotEmpty()) saveGuides(context, meta.id, guides)
         if (frames.isNotEmpty()) saveFrames(context, meta.id, frames)
         return meta
     }
@@ -689,6 +692,21 @@ object CanvasStorage {
         writeStored(layersFile(context, documentId), root)
     }
 
+    /** Saves the document's ruler guides (roadmap item 99). */
+    fun saveGuides(context: Context, documentId: String, guides: List<Guide>) {
+        val root = JSONArray()
+        for (g in guides) root.put(JSONObject().put("id", g.id).put("vertical", g.vertical).put("position", g.position))
+        writeStored(guidesFile(context, documentId), root)
+    }
+
+    fun loadGuides(context: Context, documentId: String): List<Guide> {
+        val root = readStored(guidesFile(context, documentId)) { it as JSONArray } ?: return emptyList()
+        return (0 until root.length()).map { i ->
+            val e = root.getJSONObject(i)
+            Guide(e.getString("id"), e.getBoolean("vertical"), e.getDouble("position"))
+        }
+    }
+
     /** Saves the document's usage statistics (roadmap item 132). */
     fun saveStats(context: Context, documentId: String, stats: DocumentStats) {
         writeStored(
@@ -993,6 +1011,7 @@ object CanvasStorage {
         "layers.json" to layersFile(context, documentId),
         "layercomps.json" to layerCompsFile(context, documentId),
         "stats.json" to statsFile(context, documentId),
+        "guides.json" to guidesFile(context, documentId),
         "frames.json" to framesFile(context, documentId),
     )
 
@@ -1034,6 +1053,8 @@ object CanvasStorage {
     private fun layerCompsFile(context: Context, documentId: String) = File(context.filesDir, "layercomps_$documentId.json")
 
     private fun statsFile(context: Context, documentId: String) = File(context.filesDir, "stats_$documentId.json")
+
+    private fun guidesFile(context: Context, documentId: String) = File(context.filesDir, "guides_$documentId.json")
 
     private fun historyFile(context: Context, documentId: String) = File(context.filesDir, "history_$documentId.bin")
 

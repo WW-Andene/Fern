@@ -93,6 +93,9 @@
     <string name="layers_reload_file">Reload from file</string>
     <string name="layers_file_unreadable">That image couldn\'t be read.</string>
     <string name="second_view_title">Second view</string>
+    <string name="rulers_show">Show rulers</string>
+    <string name="rulers_hide">Hide rulers</string>
+    <string name="rulers_label">Ruler: drag out a guide; drag a guide\'s marker to move it, hold it to remove it</string>
     <string name="wrap_on">Wrap-around tile mode</string>
     <string name="wrap_off">Turn off wrap-around</string>
     <string name="second_view_fit">Fit the drawing in the second view</string>

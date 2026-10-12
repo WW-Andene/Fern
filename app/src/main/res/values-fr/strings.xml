@@ -93,6 +93,9 @@
     <string name="layers_reload_file">Recharger depuis le fichier</string>
     <string name="layers_file_unreadable">Cette image n\'a pas pu être lue.</string>
     <string name="second_view_title">Seconde vue</string>
+    <string name="rulers_show">Afficher les règles</string>
+    <string name="rulers_hide">Masquer les règles</string>
+    <string name="rulers_label">Règle : faites glisser pour tirer un repère ; faites glisser son marqueur pour le déplacer, maintenez-le pour le retirer</string>
     <string name="wrap_on">Mode tuile répétée</string>
     <string name="wrap_off">Désactiver la tuile répétée</string>
     <string name="second_view_fit">Afficher tout le dessin dans la seconde vue</string>

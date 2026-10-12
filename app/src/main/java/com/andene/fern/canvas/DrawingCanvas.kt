@@ -533,6 +533,13 @@ fun DrawingCanvas(
                 )
             }
 
+            // Ruler guides (roadmap item 99): lines across the whole view.
+            for (guide in state.guides) {
+                val a = if (guide.vertical) WorldPoint(guide.position, topLeftWorld.y) else WorldPoint(topLeftWorld.x, guide.position)
+                val b = if (guide.vertical) WorldPoint(guide.position, bottomRightWorld.y) else WorldPoint(bottomRightWorld.x, guide.position)
+                drawLine(GUIDE_COLOR, state.worldToScreen(a, screenCenter), state.worldToScreen(b, screenCenter), strokeWidth = 1f)
+            }
+
             // A painted selection (roadmap item 138): its coverage tinted, the way Krita shows a selection mask.
             state.selectionMask?.let { mask ->
                 state.rasterRevision // repaint as it's painted

@@ -107,6 +107,7 @@ import com.andene.fern.canvas.startSelectionDrag
 import com.andene.fern.canvas.QuickMenuButton
 import com.andene.fern.canvas.QuickMenuOverlay
 import com.andene.fern.canvas.PinMeta
+import com.andene.fern.canvas.Rulers
 import com.andene.fern.canvas.readFileLayerImage
 import com.andene.fern.canvas.QuickMenuCustomizeDialog
 import com.andene.fern.canvas.SecondView
@@ -295,6 +296,7 @@ class MainActivity : ComponentActivity() {
                             onConnectorsChanged = { connectors -> CanvasStorage.saveConnectors(context, currentDocumentId, connectors) },
                             onLayerCompsChanged = { comps -> CanvasStorage.saveLayerComps(context, currentDocumentId, comps) },
                             onStatsChanged = { stats -> CanvasStorage.saveStats(context, currentDocumentId, stats) },
+                            onGuidesChanged = { guides -> CanvasStorage.saveGuides(context, currentDocumentId, guides) },
                             onBonesChanged = { bones -> CanvasStorage.saveBones(context, currentDocumentId, bones) },
                             onAnimationSettingsChanged = { settings -> CanvasStorage.saveAnimationSettings(context, currentDocumentId, settings) },
                             onFramesChanged = { frames -> CanvasStorage.saveFrames(context, currentDocumentId, frames) },
@@ -745,6 +747,7 @@ class MainActivity : ComponentActivity() {
                                 layers = CanvasStorage.loadLayers(context, documentId),
                                 layerComps = CanvasStorage.loadLayerComps(context, documentId),
                                 stats = CanvasStorage.loadStats(context, documentId),
+                                guides = CanvasStorage.loadGuides(context, documentId),
                                 rasters = CanvasStorage.loadLayers(context, documentId).let { layers ->
                                     // Raster layers' pixels and every layer mask (roadmap items 89, 91).
                                     CanvasStorage.loadRasters(context, documentId, layers.filter { it.raster }.map { it.id } + layers.filter { it.masked }.map { maskIdOf(it.id) })
@@ -771,6 +774,7 @@ class MainActivity : ComponentActivity() {
                             canvasState.reloadFileLayer(layer.id, image.argb, image.width, image.height, recordUndo = false)
                         }
                         canvasState.loadStats(loaded.stats)
+                        canvasState.loadGuides(loaded.guides)
                         canvasState.loadRasters(loaded.rasters)
                         canvasState.loadFrames(loaded.frames)
                         canvasState.loadHistory(loaded.history.first, loaded.history.second)
@@ -970,6 +974,11 @@ class MainActivity : ComponentActivity() {
                             },
                         )
                         val presenting = presentingIndex
+                        // Below the status bar, and below the toolbar when it's at the top.
+                        if (canvasState.showRulers) {
+                            val insetTop = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
+                            Rulers(canvasState, topInset = insetTop + if (toolbarAtBottom) 0.dp else TOOLBAR_CLEARANCE_DP.dp)
+                        }
                         // Above the canvas, beneath every control: while a voice note plays, a tap on its ink seeks.
                         if (playingNote != null && audioNotes.recordingSince == null) {
                             AudioSeekOverlay(audio = audioNotes, state = canvasState, modifier = Modifier.fillMaxSize())
@@ -1422,3 +1431,6 @@ class MainActivity : ComponentActivity() {
  * mapping compiles against older platforms; older devices simply never send them.
  */
 private val STYLUS_BUTTON_KEYCODES = setOf(308, 309, 310, 311)
+
+// Room the rulers leave for the toolbar when it's along the top (its 48 dp buttons and padding).
+private const val TOOLBAR_CLEARANCE_DP = 64

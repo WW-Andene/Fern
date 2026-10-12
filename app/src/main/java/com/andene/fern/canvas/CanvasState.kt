@@ -93,6 +93,7 @@ class CanvasState(
     private val onBonesChanged: (List<Bone>) -> Unit = {},
     private val onLayerCompsChanged: (List<LayerComp>) -> Unit = {},
     private val onStatsChanged: (DocumentStats) -> Unit = {},
+    private val onGuidesChanged: (List<Guide>) -> Unit = {},
     /** Playback speed and frame holds changed (see [AnimationSettings]). */
     private val onAnimationSettingsChanged: (AnimationSettings) -> Unit = {},
     /**
@@ -4338,9 +4339,12 @@ class CanvasState(
         moveStart = worldPoint
         moveApplied = WorldPoint.Zero
         moveStartBounds = selectionBounds()
+        // Ruler guides always attract a moved selection; other objects only with snapping on.
+        val rulerX = guides.filter { it.vertical }.map { it.position }
+        val rulerY = guides.filter { !it.vertical }.map { it.position }
         if (!snapToObjects || viewportSize.width <= 0f) {
-            guideTargetsX = DoubleArray(0)
-            guideTargetsY = DoubleArray(0)
+            guideTargetsX = rulerX.toDoubleArray()
+            guideTargetsY = rulerY.toDoubleArray()
             return
         }
         // Edges and centres of the other visible strokes in view.
@@ -4351,8 +4355,40 @@ class CanvasState(
         val others = strokesNear(corners.minOf { it.x }, corners.minOf { it.y }, corners.maxOf { it.x }, corners.maxOf { it.y })
             .filter { it !in chosen && isVisible(it) && it.points.isNotEmpty() }
             .take(MAX_GUIDE_OBJECTS)
-        guideTargetsX = others.flatMap { listOf(it.minX, (it.minX + it.maxX) / 2, it.maxX) }.toDoubleArray()
-        guideTargetsY = others.flatMap { listOf(it.minY, (it.minY + it.maxY) / 2, it.maxY) }.toDoubleArray()
+        guideTargetsX = (others.flatMap { listOf(it.minX, (it.minX + it.maxX) / 2, it.maxX) } + rulerX).toDoubleArray()
+        guideTargetsY = (others.flatMap { listOf(it.minY, (it.minY + it.maxY) / 2, it.maxY) } + rulerY).toDoubleArray()
+    }
+
+    /** Screen rulers along the canvas's top and left edges (roadmap item 99). A view setting. */
+    var showRulers by mutableStateOf(false)
+
+    /** Guides pulled out of the rulers; see [Guide]. */
+    val guides = mutableStateListOf<Guide>()
+
+    fun loadGuides(loaded: List<Guide>) {
+        guides.clear()
+        guides.addAll(loaded)
+    }
+
+    /** Adds a [vertical] (or horizontal) guide at world [position]; returns its id. */
+    fun addGuide(vertical: Boolean, position: Double): String {
+        val guide = Guide(UUID.randomUUID().toString(), vertical, position)
+        guides.add(guide)
+        onGuidesChanged(guides.toList())
+        return guide.id
+    }
+
+    fun moveGuide(id: String, position: Double) {
+        val index = guides.indexOfFirst { it.id == id }
+        if (index == -1) return
+        guides[index] = guides[index].copy(position = position)
+    }
+
+    /** Reports guides moved with [moveGuide] (called once a drag ends, not every step). */
+    fun guidesSettled() = onGuidesChanged(guides.toList())
+
+    fun removeGuide(id: String) {
+        if (guides.removeAll { it.id == id }) onGuidesChanged(guides.toList())
     }
 
     /**
@@ -5057,6 +5093,10 @@ class CanvasState(
             onFramesChanged(frames.toList())
         }
         rulerLine = rulerLine?.let { (start, end) -> (start - offset) to (end - offset) }
+        if (guides.isNotEmpty()) {
+            for (i in guides.indices) guides[i] = guides[i].let { it.copy(position = it.position - if (it.vertical) offset.x else offset.y) }
+            onGuidesChanged(guides.toList())
+        }
         symmetryCenter -= offset
         pendingTextEdit = pendingTextEdit?.let { it.copy(worldPoint = it.worldPoint - offset) }
         onRebased(offset)
