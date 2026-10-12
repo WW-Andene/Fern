@@ -149,6 +149,7 @@
     <string name="frames_title">Frames</string>
     <string name="frames_empty">No frames yet. A frame marks out an area of the canvas to jump to and export as a page.</string>
     <string name="frames_export">Export frame as PNG</string>
+    <string name="frames_export_slices">Export slices</string>
     <string name="frames_delete">Delete frame</string>
     <string name="frames_new_name">New frame from current view</string>
     <string name="frames_add">Add frame</string>

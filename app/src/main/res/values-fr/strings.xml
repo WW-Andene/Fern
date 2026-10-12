@@ -149,6 +149,7 @@
     <string name="frames_title">Cadres</string>
     <string name="frames_empty">Aucun cadre pour l\'instant. Un cadre délimite une zone du canevas où revenir et à exporter comme une page.</string>
     <string name="frames_export">Exporter le cadre en PNG</string>
+    <string name="frames_export_slices">Exporter les tranches</string>
     <string name="frames_delete">Supprimer le cadre</string>
     <string name="frames_new_name">Nouveau cadre depuis la vue actuelle</string>
     <string name="frames_add">Ajouter un cadre</string>

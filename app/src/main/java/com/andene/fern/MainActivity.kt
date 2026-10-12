@@ -122,6 +122,7 @@ import com.andene.fern.canvas.exportReplayMp4
 import com.andene.fern.canvas.exportAnimatedPng
 import com.andene.fern.canvas.exportLottie
 import com.andene.fern.canvas.exportDocumentDxf
+import com.andene.fern.canvas.exportSlicesZip
 import com.andene.fern.canvas.exportDocumentEps
 import com.andene.fern.canvas.exportReplayGif
 import com.andene.fern.canvas.StrokeChunkFile
@@ -347,6 +348,14 @@ class MainActivity : ComponentActivity() {
                             exportDocumentSvg(canvasState) { fileName ->
                                 CanvasStorage.imageFile(context, fileName).takeIf { it.exists() }?.readBytes()
                             }?.toByteArray()
+                        }
+                    }
+                    var sliceScalesToExport by remember { mutableStateOf(emptyList<Int>()) }
+                    val slicesExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/zip"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) {
+                            exportSlicesZip(canvasState, canvasState.frames.toList(), sliceScalesToExport, textMeasurer, density, imageForExport)
                         }
                     }
                     val frameExportLauncher = rememberLauncherForActivityResult(
@@ -1273,6 +1282,10 @@ class MainActivity : ComponentActivity() {
                             onExport = { frame ->
                                 frameToExport = frame
                                 frameExportLauncher.launch("${frame.name.replace('/', '_')}.png")
+                            },
+                            onExportSlices = { scales ->
+                                sliceScalesToExport = scales
+                                slicesExportLauncher.launch("${currentDocumentName()} slices.zip")
                             },
                             onDelete = { frame -> canvasState.deleteFrame(frame.id) },
                             onCreate = { name -> canvasState.addFrameFromView(name) },
