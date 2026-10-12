@@ -157,6 +157,7 @@ fun Toolbar(
     onExportBundle: () -> Unit = {},
     onExportSpriteSheet: () -> Unit = {},
     onExportGif: () -> Unit = {},
+    onExportApng: () -> Unit = {},
     onExportReplayGif: () -> Unit = {},
     onImportPdf: () -> Unit = {},
     onOpenFrames: () -> Unit = {},
@@ -759,6 +760,13 @@ fun Toolbar(
                                 onClick = {
                                     showExportMenu = false
                                     onExportGif()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.tb_export_apng)) },
+                                onClick = {
+                                    showExportMenu = false
+                                    onExportApng()
                                 },
                             )
                             DropdownMenuItem(

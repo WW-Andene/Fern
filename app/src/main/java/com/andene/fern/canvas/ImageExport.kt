@@ -143,6 +143,23 @@ fun exportAnimatedGif(
     return encodeGif(pixels, frame.widthPx, frame.heightPx, delayCentis = (100 / source.animFps).coerceAtLeast(2))
 }
 
+/** Every animation frame as a looping animated PNG (full colour, unlike GIF) at the playback speed; null for an empty document. */
+fun exportAnimatedPng(
+    source: CanvasState,
+    textMeasurer: TextMeasurer,
+    density: Density,
+    imageFor: (String) -> ImageBitmap?,
+): ByteArray? {
+    val frame = frameForExport(source, SPRITE_FRAME_EDGE_PX) ?: return null
+    val pixels = (0 until source.animFrameCount).map { i ->
+        frame.camera.goToAnimFrame(i)
+        val image = ImageBitmap(frame.widthPx, frame.heightPx)
+        frame.drawOn(Canvas(image), density, textMeasurer, imageFor)
+        IntArray(frame.widthPx * frame.heightPx).also { image.readPixels(it) }
+    }
+    return encodeApng(pixels, frame.widthPx, frame.heightPx, source.animFps)
+}
+
 // Replay GIF: the strokes appear over this many frames at REPLAY_GIF_DELAY_CENTIS each (about
 // 5 s whatever the document's size, like the in-app replay's fixed length), then the finished
 // drawing holds for REPLAY_GIF_HOLD_FRAMES more (GIF frames share one delay, so a hold is repeats).

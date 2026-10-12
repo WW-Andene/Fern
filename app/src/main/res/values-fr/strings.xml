@@ -327,4 +327,5 @@
     <string name="paper_light">Papier clair</string>
     <string name="paper_dark">Papier sombre</string>
     <string name="tb_drag_out">Faire glisser la sélection vers une autre fenêtre</string>
+    <string name="tb_export_apng">PNG animé (APNG)</string>
 </resources>

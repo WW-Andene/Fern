@@ -325,4 +325,5 @@
     <string name="paper_light">Light paper</string>
     <string name="paper_dark">Dark paper</string>
     <string name="tb_drag_out">Drag selection to another window</string>
+    <string name="tb_export_apng">Animated PNG (APNG)</string>
 </resources>
