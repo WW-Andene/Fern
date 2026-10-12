@@ -235,14 +235,134 @@ Goal: complete and deep to master, while the first minute stays simple.
 - [ ] D35. **Usage-aware suggestions (on-device only).** Offer to pin a tool or action you use
   often but reach through menus. No telemetry leaves the device (CLAUDE.md §8.1).
 
-## Phase D7 — Verification
+## Phase D7 — The canvas itself: feedback while drawing
+
+Goal: the canvas says what is happening without a single word or dialog.
+
+- [ ] D36. **Brush cursor and hover preview.** The real footprint of the brush (size, shape,
+  angle) under the stylus or mouse before touching, and a crosshair option for small sizes.
+- [ ] D37. **Live readouts at the point of action.** While drawing a shape, moving or scaling:
+  length, angle, size and position next to the pen, in the document's scale (ROADMAP item 143),
+  then gone. No fixed info bar.
+- [ ] D38. **Visible gesture feedback.** A short ghost of the undone stroke on a two-finger undo,
+  the zoom percentage and rotation angle while pinching, snapping back to 0° and 100 % with a
+  haptic tick.
+- [ ] D39. **Selection that explains itself.** Handles sized for fingers (48 dp hit area), a
+  floating action strip beside the selection (move, transform, style, duplicate, delete, make
+  object) instead of the toolbar, and the count of what's selected.
+- [ ] D40. **Mode indicators.** Symmetry, snapping, perspective, wrap-around, isometric and
+  stabiliser show as small, tappable chips at the edge of the canvas while active, so a mode
+  never stays on unnoticed.
+- [ ] D41. **Navigation aids.** Fit, 100 %, reset rotation and "go back to where I was" one tap
+  away; the minimap as an optional overlay; a double-tap with two fingers to fit.
+
+## Phase D8 — Panels in depth
+
+Goal: every panel from Phase D2 designed to the same pattern and fast to work in.
+
+- [ ] D42. **One panel pattern.** A header (title, search or filter, the main action,
+  collapse), a body with rows that can be dragged, swiped and long-pressed for the same actions
+  everywhere, and a footer only when it's needed.
+- [ ] D43. **Layers panel.** Thumbnails, visibility and lock on the row, opacity with a drag on
+  the row, the blend mode inline, drag to reorder or into groups, swipe to delete with Undo,
+  multi-select, and layer comps (ROADMAP item 123) in the same panel.
+- [ ] D44. **Brush and preset library.** A visual grid with live stroke previews, tags and search
+  (ROADMAP item 140), favourites pinned to the rail, and editing beside the preview, not in a
+  separate dialog.
+- [ ] D45. **Timeline panel.** Frames, onion skin, tags and the X-sheet in one dockable strip with
+  scrubbing, play and loop at the edge of the hand. It replaces the animation toolbar group and
+  the separate X-sheet and dopesheet dialogs.
+- [ ] D46. **Objects and logic panel.** Object list, properties, behaviours, rules (blocks) and
+  script in one panel with tabs, instead of the object dialog opening states, rules and script
+  dialogs on top of each other.
+- [ ] D47. **Inspector for the selection.** Transform, style, constraints (ROADMAP item 144) and
+  the measurement for whatever is selected, always in the same place.
+
+## Phase D9 — Home, documents and files
+
+Goal: getting into a drawing and back out is instant.
+
+- [ ] D48. **A home screen** with recent documents as large thumbnails, a "New" button with
+  templates (blank, paper, storyboard, comic page, pixel art, game scene, PDF notes), folders,
+  search, sort and multi-select.
+- [ ] D49. **Resume where you left off.** Reopen the last document, view, tool and panels with no
+  splash and no prompt.
+- [ ] D50. **Save status you can trust.** A discreet saved/saving indicator, the version history
+  (ROADMAP versions) as a timeline you can scrub, and "restore" that never overwrites without a
+  copy.
+- [ ] D51. **Sharing in one step.** Share opens the system sheet with a sensible image right
+  away; options (format, size, background) come after, not before.
+
+## Phase D10 — Forms of device
+
+Goal: the same app at home on a phone, a tablet, a foldable, a Chromebook and with a mouse.
+
+- [ ] D52. **Responsive layouts** for compact, medium and expanded widths (Material window size
+  classes): a bottom rail and sheets on phones, side rail and docked panels on tablets, several
+  panels at once on wide screens.
+- [ ] D53. **Foldables and multi-window.** The layout follows the hinge (tabletop mode: canvas
+  above, tools below); drag and drop of images and text in and out of the app.
+- [ ] D54. **Mouse and trackpad.** Hover states, right-click context menus, scroll to zoom, middle
+  drag to pan, and tooltips that show the shortcut.
+- [ ] D55. **One-hand mode.** Everything reachable in the bottom third of a phone; the rail and
+  the quick menu mirrored for the left hand.
+- [ ] D56. **Orientation without loss.** Rotating keeps the view centre, the open panel and the
+  selection, with no relayout jump.
+
+## Phase D11 — Motion, sound and identity
+
+Goal: an app with a character that never gets in the way.
+
+- [ ] D57. **Motion system.** A few durations and easings as tokens (D1). Panels slide from where
+  they're docked, menus grow from the button that opened them, and nothing animates longer than
+  needed. Reduced motion is respected (D5).
+- [ ] D58. **Visual identity.** A Fern brand colour, an icon set drawn on one grid with one
+  stroke weight (instead of mixed Material icons), and a distinctive yet quiet chrome that lets
+  artwork dominate.
+- [ ] D59. **Optional sound cues** for the paper feel (pencil, marker) and confirmations, off by
+  default.
+- [ ] D60. **Dark, light and canvas-matched themes**, with the chrome able to follow the
+  document's background to reduce glare while painting.
+
+## Phase D12 — Languages and content
+
+Goal: the app reads naturally everywhere it's offered.
+
+- [ ] D61. **Text that fits.** Layouts tested with long French (and later German) strings, no
+  truncated labels, and icons with labels where a label is needed.
+- [ ] D62. **Right-to-left ready.** Mirrored layouts where they should be, but the canvas and
+  timeline direction kept as the user chooses.
+- [ ] D63. **A glossary.** One term per concept (frame, layer, object, symbol, comp, tag) used
+  the same way in UI, help and errors, in both languages.
+- [ ] D64. **Built-in help.** Searchable, offline, with short animated examples per tool, reached
+  from the command palette and from a long-press on any control ("What is this?").
+
+## Phase D13 — Recovery and trust
+
+Goal: when something goes wrong, the user is never the one who pays.
+
+- [ ] D65. **Errors with a way out.** Every failed import, export or script says what happened in
+  plain words and offers the next step (retry, choose another format, open the line).
+- [ ] D66. **Crash and battery recovery.** After a crash or a dead battery, the document reopens
+  with the last strokes and a short note of what was recovered.
+- [ ] D67. **Permission requests in context.** Camera, microphone and files asked for at the
+  moment they're needed, with why, and a working fallback when refused.
+- [ ] D68. **Privacy visible.** A plain statement in Settings that everything stays on the
+  device (CLAUDE.md §8.1), and nothing that suggests otherwise.
+
+## Phase D14 — Verification
 
 Goal: proof that the rework met the priorities.
 
-- [ ] D36. **Accessibility checks in CI.** Compose UI tests with `assertHasClickAction`,
+- [ ] D69. **Accessibility checks in CI.** Compose UI tests with `assertHasClickAction`,
   label, touch-size and contrast checks on every screen.
-- [ ] D37. **Task-time benchmarks.** Taps and seconds to do the 20 most common tasks (draw, change
+- [ ] D70. **Task-time benchmarks.** Taps and seconds to do the 20 most common tasks (draw, change
   colour, undo, new layer, select and move, export to share, …), measured before and after the
   rework, and kept from regressing.
-- [ ] D38. **Real-device passes** with TalkBack, Switch Access, a keyboard, a stylus and one hand.
+- [ ] D71. **Real-device passes** with TalkBack, Switch Access, a keyboard, a stylus and one hand.
   The results go in the commit that closes each phase.
+- [ ] D72. **Usability sessions.** A few people new to Fern and a few experienced artists try the
+  same scripted tasks after each phase; what made them hesitate becomes items here.
+- [ ] D73. **Friction log.** Every "where is…?" and "how do I…?" found in testing or feedback is
+  recorded against the item that should fix it, and a phase is not closed while one of its
+  entries is open.
