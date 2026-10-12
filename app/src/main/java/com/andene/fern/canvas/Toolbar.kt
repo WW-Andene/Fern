@@ -54,6 +54,7 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Tonality
@@ -288,6 +289,13 @@ fun Toolbar(
                         Icons.Filled.Opacity,
                         contentDescription = "Stroke opacity",
                         tint = if (showOpacitySlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                    )
+                }
+                IconButton(onClick = { state.velocityDynamics = !state.velocityDynamics }) {
+                    Icon(
+                        Icons.Filled.Speed,
+                        contentDescription = if (state.velocityDynamics) "Speed changes line width: on" else "Speed changes line width: off",
+                        tint = if (state.velocityDynamics) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
                 }
                 IconButton(onClick = { showStabilizationSlider = !showStabilizationSlider }) {

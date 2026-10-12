@@ -101,6 +101,12 @@ class CanvasState(
         // Holding the pen still this long before lifting turns a rough stroke into a clean shape.
         private const val SHAPE_HOLD_MILLIS = 500L
 
+        // Velocity dynamics tuning: at 2 screen px/ms (a brisk stroke) the line is at its
+        // thinnest; 30% blending per point keeps width changes smooth.
+        private const val VELOCITY_THINNING = 0.3
+        private const val MIN_VELOCITY_PRESSURE = 0.4
+        private const val VELOCITY_SMOOTHING = 0.3f
+
         // Procreate/Concepts-style dead zone around upright.
         private const val ROTATION_SNAP_DEGREES = 8.0
         private const val HOLD_JITTER_SCREEN = 2.0
@@ -480,6 +486,7 @@ class CanvasState(
         stroke.addPoint(snappedToActiveGuide(worldPoint), pressure, tilt, orientation)
         rememberActiveColor()
         lastStrokeMoveMillis = System.currentTimeMillis()
+        lastPointMillis = lastStrokeMoveMillis
         currentStroke = stroke
         strokes.add(stroke)
         symmetryCopies = symmetryTransforms(symmetryMode, symmetryCenter).map { transform ->
@@ -523,12 +530,35 @@ class CanvasState(
             lastStrokeMoveMillis = System.currentTimeMillis()
             holdAnchor = worldPoint
         }
+        val now = System.currentTimeMillis()
+        val effectivePressure = speedPressure(stroke, worldPoint, pressure, now)
+        lastPointMillis = now
         lastRawPoint = worldPoint
         val previous = stroke.points.lastOrNull()
         // Exponential smoothing: move only part of the way from the last point toward the pen.
         val smoothed = if (previous == null || activeStabilization <= 0.0) worldPoint
         else previous + (worldPoint - previous) * (1.0 - activeStabilization)
-        addStrokePoint(stroke, snappedToActiveGuide(smoothed), pressure, tilt, orientation)
+        addStrokePoint(stroke, snappedToActiveGuide(smoothed), effectivePressure, tilt, orientation)
+    }
+
+    /**
+     * Velocity dynamics: when on and the input has no real pressure (a finger reports 1.0),
+     * fast movement thins the line and slow movement thickens it, like ink from a nib. The
+     * result is stored as the point's pressure, so rendering, export and persistence need no
+     * changes. Smoothed against the previous point so width changes gradually.
+     */
+    var velocityDynamics by mutableStateOf(false)
+
+    private var lastPointMillis = 0L
+
+    private fun speedPressure(stroke: Stroke, worldPoint: WorldPoint, pressure: Float, now: Long): Float {
+        if (!velocityDynamics || pressure < 0.999f) return pressure
+        val previous = stroke.points.lastOrNull() ?: return pressure
+        val elapsed = (now - lastPointMillis).coerceAtLeast(1L)
+        val speedScreenPerMs = hypot(worldPoint.x - previous.x, worldPoint.y - previous.y) * scale / elapsed
+        val target = (1.0 - speedScreenPerMs * VELOCITY_THINNING).coerceIn(MIN_VELOCITY_PRESSURE, 1.0).toFloat()
+        val last = stroke.pressures.lastOrNull() ?: 1f
+        return last + (target - last) * VELOCITY_SMOOTHING
     }
 
     // When the pen last moved; a pause before lifting triggers shape recognition in endStroke.
