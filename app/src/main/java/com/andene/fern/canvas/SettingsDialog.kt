@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 
 private const val PREFS_NAME = "settings"
 private const val KEY_LEFT_HANDED = "left_handed"
+private const val KEY_TOOLBAR_BOTTOM = "toolbar_bottom"
 
 /** App preferences, stored in SharedPreferences so they apply to every document and survive restarts. */
 object AppSettings {
@@ -24,6 +25,13 @@ object AppSettings {
 
     fun setLeftHanded(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_LEFT_HANDED, value).apply()
+    }
+
+    fun toolbarAtBottom(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean(KEY_TOOLBAR_BOTTOM, false)
+
+    fun setToolbarAtBottom(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_TOOLBAR_BOTTOM, value).apply()
     }
 }
 
@@ -37,6 +45,8 @@ object AppSettings {
 fun SettingsDialog(
     leftHanded: Boolean,
     onLeftHandedChange: (Boolean) -> Unit,
+    toolbarAtBottom: Boolean,
+    onToolbarAtBottomChange: (Boolean) -> Unit,
     onShowGuide: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -51,6 +61,13 @@ fun SettingsDialog(
                 ) {
                     Text("Left-handed layout", modifier = Modifier.weight(1f))
                     Switch(checked = leftHanded, onCheckedChange = onLeftHandedChange)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Toolbar at the bottom", modifier = Modifier.weight(1f))
+                    Switch(checked = toolbarAtBottom, onCheckedChange = onToolbarAtBottomChange)
                 }
                 TextButton(onClick = onShowGuide) { Text("Show the gesture guide") }
             }

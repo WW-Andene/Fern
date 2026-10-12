@@ -161,6 +161,7 @@ class MainActivity : ComponentActivity() {
                         else Toast.makeText(context, "Voice notes need microphone access", Toast.LENGTH_SHORT).show()
                     }
                     var leftHanded by remember { mutableStateOf(AppSettings.leftHanded(context)) }
+                    var toolbarAtBottom by remember { mutableStateOf(AppSettings.toolbarAtBottom(context)) }
                     var crashReport by remember { mutableStateOf(CrashReporter.pendingReport(context)) }
                     var presentingIndex by remember { mutableStateOf<Int?>(null) } // non-null = presenting that frame
                     var frameToExport by remember { mutableStateOf<Frame?>(null) }
@@ -514,9 +515,9 @@ class MainActivity : ComponentActivity() {
                             Toolbar(
                                 state = canvasState,
                                 modifier = Modifier
-                                    .align(Alignment.TopCenter)
+                                    .align(if (toolbarAtBottom) Alignment.BottomCenter else Alignment.TopCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(top = 12.dp),
+                                    .padding(vertical = 12.dp),
                                 onOpenDocuments = {
                                     // Autosave skips thumbnails, so bring this document's up to date for the library.
                                     val id = currentDocumentId
@@ -584,7 +585,8 @@ class MainActivity : ComponentActivity() {
                                 AnimationBar(
                                     state = canvasState,
                                     modifier = Modifier
-                                        .align(Alignment.BottomCenter)
+                                        // Opposite edge from the toolbar so the two never overlap.
+                                        .align(if (toolbarAtBottom) Alignment.TopCenter else Alignment.BottomCenter)
                                         .padding(WindowInsets.systemBars.asPaddingValues())
                                         .padding(bottom = 16.dp),
                                 )
@@ -739,6 +741,11 @@ class MainActivity : ComponentActivity() {
                             onLeftHandedChange = { value ->
                                 leftHanded = value
                                 AppSettings.setLeftHanded(context, value)
+                            },
+                            toolbarAtBottom = toolbarAtBottom,
+                            onToolbarAtBottomChange = { value ->
+                                toolbarAtBottom = value
+                                AppSettings.setToolbarAtBottom(context, value)
                             },
                             onShowGuide = {
                                 showSettings = false
