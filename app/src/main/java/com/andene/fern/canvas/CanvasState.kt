@@ -299,9 +299,18 @@ class CanvasState(
     fun saveBrushPreset(name: String, brush: StampBrush) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return
-        val preset = BrushPreset(trimmed, brush.clamped())
         val existing = brushPresets.indexOfFirst { it.name == trimmed }
+        // Replacing a preset keeps its tags.
+        val preset = BrushPreset(trimmed, brush.clamped(), brushPresets.getOrNull(existing)?.tags.orEmpty())
         if (existing == -1) brushPresets.add(preset) else brushPresets[existing] = preset
+        onBrushPresetsChanged(brushPresets.toList())
+    }
+
+    /** Sets preset [name]'s tags (trimmed, blank and repeated ones dropped). */
+    fun setBrushPresetTags(name: String, tags: List<String>) {
+        val index = brushPresets.indexOfFirst { it.name == name }
+        if (index == -1) return
+        brushPresets[index] = brushPresets[index].copy(tags = tags.map { it.trim() }.filter { it.isNotEmpty() }.distinct())
         onBrushPresetsChanged(brushPresets.toList())
     }
 
@@ -1861,6 +1870,10 @@ class CanvasState(
     private var rasterLast: WorldPoint? = null
     private var rasterLastDab: WorldPoint? = null
     private var rasterCarry = 0.0
+    // Brush engines' place along the stroke (roadmap item 140): distance so far, dabs so far, and the stroke's hair pattern.
+    private var rasterTravelled = 0.0
+    private var rasterDabIndex = 0
+    private var rasterStrokeSeed = 0
     private var rasterErasing = false
 
     /** Radius, opacity and hardness of the raster brush for the current pen at [pressure]. */
@@ -1897,6 +1910,16 @@ class CanvasState(
                 brush.mode == RasterBrushMode.SMUDGE -> surface.smudge(previous, p, radius, brush.strength, brush.tip)
                 brush.mode == RasterBrushMode.BLUR -> surface.blur(p, radius, brush.strength, brush.tip)
                 brush.mode == RasterBrushMode.LIQUIFY -> surface.liquify(previous, p, radius, brush.strength, brush.tip)
+                brush.mode == RasterBrushMode.SPRAY -> {
+                    val grain = sprayParticleRadius(radius, surface.pixelWorld)
+                    for (particle in sprayParticles(p, radius, rasterStrokeSeed * 31 + rasterDabIndex)) surface.dab(particle, grain, color, opacity, 0.5f)
+                }
+                brush.mode == RasterBrushMode.BRISTLE -> {
+                    val hair = bristleRadius(radius, surface.pixelWorld)
+                    for ((at, paint) in bristleHairs(previous, p, radius, rasterTravelled, rasterStrokeSeed)) {
+                        if (paint > 0f) surface.dab(at, hair, color, opacity * paint, 0.9f)
+                    }
+                }
                 brush.mode == RasterBrushMode.WET -> {
                     // Pick up some of what's underneath, then lay the mixture down.
                     val carried = wetColor ?: color.copyOf().also { wetColor = it }
@@ -1907,6 +1930,8 @@ class CanvasState(
                 }
                 else -> surface.dab(p, radius, color, opacity, hardness, tip = brush.tip)
             }
+            rasterTravelled += hypot(p.x - previous.x, p.y - previous.y)
+            rasterDabIndex++
             previous = p
         }
         if (dabs.isNotEmpty()) rasterLastDab = dabs.last()
@@ -1926,6 +1951,9 @@ class CanvasState(
         rasterLastDab = null
         wetColor = null
         rasterCarry = 0.0
+        rasterTravelled = 0.0
+        rasterDabIndex = 0
+        rasterStrokeSeed = (System.nanoTime() and 0x7FFFFFFF).toInt() // each bristle stroke's hairs differ
         rasterDabs(surface, at, pressure)
     }
 

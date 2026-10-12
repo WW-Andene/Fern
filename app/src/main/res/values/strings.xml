@@ -66,6 +66,10 @@
     <string name="text_links_to">Links to: %1$s</string>
     <string name="brush_title">Stamp brush</string>
     <string name="brush_presets">Presets</string>
+    <string name="brush_tag_all">All</string>
+    <string name="brush_remove_tag">Remove tag %1$s</string>
+    <string name="brush_add_tag">Tag</string>
+    <string name="brush_tag_add_button">Add tag</string>
     <string name="brush_spacing">Spacing</string>
     <string name="brush_scatter">Scatter</string>
     <string name="brush_size_jitter">Size jitter</string>
@@ -161,6 +165,8 @@
     <string name="adjust_lightness">Lightness</string>
     <string name="adjust_apply">Apply</string>
     <string name="raster_brush_liquify">Liquify</string>
+    <string name="raster_brush_spray">Spray</string>
+    <string name="raster_brush_bristle">Bristle</string>
     <string name="color_title">Choose color</string>
     <string name="color_hue">Hue</string>
     <string name="color_saturation">Saturation</string>

@@ -216,7 +216,7 @@ Concepts, GoodNotes, Notability, Infinite Painter, Aseprite, Spine and Affinity 
 | 137 | Wrap-around tiled mode | Krita, Aseprite | 10 | done: a "Tile" frame repeated across the view, ink drawn on any repeat moved onto the tile, the frame exported seamless |
 | 138 | Filter / file layers, global selection mask | Krita | 10 | done: blur, sharpen, pixelate, posterize, threshold and invert on raster and filter (adjustment) layers; file layers that reload from their image; the raster selection painted with the pen and eraser |
 | 139 | HDR / OpenEXR, OpenColorIO | Krita | 10 | done: HDR raster layers (light up to ~22x paper white, painted at an intensity), an exposure + clip/filmic view transform in place of OpenColorIO (no Android port; .ocio configs aren't read), OpenEXR export and import keeping HDR |
-| 140 | Multiple brush engines, brush tagging | Krita | 10 | not started |
+| 140 | Multiple brush engines, brush tagging | Krita | 10 | done: raster engines paint, wet, smudge, blur, liquify, spray and bristle beside the stamp engine and vector pens; brush presets tagged and filtered by tag |
 | 141 | Shape builder, knife, contour | Affinity | 11 | not started |
 | 142 | Isometric panel, layout grids | Affinity | 11 | not started |
 | 143 | Real-world scale and measurement | Concepts, Affinity | 11 | not started |

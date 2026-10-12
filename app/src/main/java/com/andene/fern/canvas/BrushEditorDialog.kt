@@ -65,8 +65,12 @@ fun BrushEditorDialog(
     presets: List<BrushPreset> = emptyList(),
     onSavePreset: (name: String, brush: StampBrush) -> Unit = { _, _ -> },
     onDeletePreset: (name: String) -> Unit = {},
+    onSetPresetTags: (name: String, tags: List<String>) -> Unit = { _, _ -> },
 ) {
     var brush by remember { mutableStateOf(initialBrush) }
+    // Brush tags (roadmap item 140): which tag the preset row is filtered to, and a new tag being typed.
+    var tagFilter by remember { mutableStateOf<String?>(null) }
+    var newTag by remember { mutableStateOf("") }
     var namingPreset by remember { mutableStateOf(false) }
     var presetName by remember { mutableStateOf("") }
     val context = LocalContext.current
@@ -82,8 +86,17 @@ fun BrushEditorDialog(
                 BrushPreview(brush, color)
                 if (presets.isNotEmpty()) {
                     Text(stringResource(R.string.brush_presets), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+                    val tags = presets.flatMap { it.tags }.distinct().sorted()
+                    if (tags.isNotEmpty()) {
+                        Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                            FilterChip(selected = tagFilter == null, onClick = { tagFilter = null }, label = { Text(stringResource(R.string.brush_tag_all)) }, modifier = Modifier.padding(end = 4.dp))
+                            for (tag in tags) {
+                                FilterChip(selected = tagFilter == tag, onClick = { tagFilter = if (tagFilter == tag) null else tag }, label = { Text(tag) }, modifier = Modifier.padding(end = 4.dp))
+                            }
+                        }
+                    }
                     Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                        for (preset in presets) {
+                        for (preset in presets.filter { tagFilter == null || tagFilter in it.tags }) {
                             val loaded = preset.brush == brush
                             InputChip(
                                 selected = loaded,
@@ -106,6 +119,33 @@ fun BrushEditorDialog(
                                 modifier = Modifier.padding(end = 4.dp),
                             )
                         }
+                    }
+                }
+                // The loaded preset's tags: tap one to remove it, or add another.
+                presets.firstOrNull { it.brush == brush }?.let { loaded ->
+                    Row(modifier = Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                        for (tag in loaded.tags) {
+                            InputChip(
+                                selected = false,
+                                onClick = { onSetPresetTags(loaded.name, loaded.tags - tag) },
+                                label = { Text(tag) },
+                                trailingIcon = { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.brush_remove_tag, tag), modifier = Modifier.size(16.dp)) },
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = newTag,
+                            onValueChange = { newTag = it },
+                            label = { Text(stringResource(R.string.brush_add_tag)) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = {
+                            if (newTag.isNotBlank()) onSetPresetTags(loaded.name, loaded.tags + newTag.trim())
+                            newTag = ""
+                        }) { Text(stringResource(R.string.brush_tag_add_button)) }
                     }
                 }
                 Row(modifier = Modifier.padding(vertical = 8.dp).horizontalScroll(rememberScrollState())) {

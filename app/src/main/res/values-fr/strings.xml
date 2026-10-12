@@ -66,6 +66,10 @@
     <string name="text_links_to">Renvoie vers : %1$s</string>
     <string name="brush_title">Pinceau à tampons</string>
     <string name="brush_presets">Préréglages</string>
+    <string name="brush_tag_all">Toutes</string>
+    <string name="brush_remove_tag">Retirer l\'étiquette %1$s</string>
+    <string name="brush_add_tag">Étiquette</string>
+    <string name="brush_tag_add_button">Ajouter</string>
     <string name="brush_spacing">Espacement</string>
     <string name="brush_scatter">Dispersion</string>
     <string name="brush_size_jitter">Variation de taille</string>
@@ -161,6 +165,8 @@
     <string name="adjust_lightness">Luminosité</string>
     <string name="adjust_apply">Appliquer</string>
     <string name="raster_brush_liquify">Fluidité</string>
+    <string name="raster_brush_spray">Pulvérisation</string>
+    <string name="raster_brush_bristle">Poils</string>
     <string name="color_title">Choisir une couleur</string>
     <string name="color_hue">Teinte</string>
     <string name="color_saturation">Saturation</string>

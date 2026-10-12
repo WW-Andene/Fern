@@ -55,6 +55,8 @@ fun RasterBrushControls(state: CanvasState) {
         RasterBrushMode.SMUDGE to R.string.raster_brush_smudge,
         RasterBrushMode.BLUR to R.string.raster_brush_blur,
         RasterBrushMode.LIQUIFY to R.string.raster_brush_liquify,
+        RasterBrushMode.SPRAY to R.string.raster_brush_spray,
+        RasterBrushMode.BRISTLE to R.string.raster_brush_bristle,
     )
     Box {
         IconButton(onClick = { open = true }) {

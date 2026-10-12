@@ -147,13 +147,16 @@ object AppSettings {
         return (0 until array.length()).mapNotNull { i ->
             val json = array.optJSONObject(i) ?: return@mapNotNull null
             val name = json.optString("name").takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            BrushPreset(name, json.optJSONObject("brush")?.let(::brushFromJson) ?: return@mapNotNull null)
+            val tags = json.optJSONArray("tags")?.let { a -> (0 until a.length()).mapNotNull { a.optString(it).takeIf(String::isNotBlank) } }.orEmpty()
+            BrushPreset(name, json.optJSONObject("brush")?.let(::brushFromJson) ?: return@mapNotNull null, tags)
         }
     }
 
     fun setBrushPresets(context: Context, presets: List<BrushPreset>) {
         val array = JSONArray()
-        for (preset in presets) array.put(JSONObject().put("name", preset.name).put("brush", brushToJson(preset.brush)))
+        for (preset in presets) {
+            array.put(JSONObject().put("name", preset.name).put("brush", brushToJson(preset.brush)).put("tags", JSONArray(preset.tags)))
+        }
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString(KEY_BRUSH_PRESETS, array.toString()).apply()
     }
 

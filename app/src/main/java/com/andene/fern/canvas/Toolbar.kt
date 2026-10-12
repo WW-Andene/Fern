@@ -1420,6 +1420,7 @@ fun Toolbar(
             presets = state.brushPresets,
             onSavePreset = { name, brush -> state.saveBrushPreset(name, brush) },
             onDeletePreset = { name -> state.deleteBrushPreset(name) },
+            onSetPresetTags = { name, tags -> state.setBrushPresetTags(name, tags) },
         )
     }
 
