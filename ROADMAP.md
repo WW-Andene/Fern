@@ -128,7 +128,7 @@ All deferred: they need a server or cloud platform.
 - [x] 72. Gesture guide on first launch, templates (graph, dot, lined, comic, storyboard, weekly planner in the locale's week order, mind map of connected sticky notes)
 - [x] 73. Dark mode for the UI; light and dark paper presets (paper menu), with a pattern tone for dark paper and the pen switched to a readable ink when it would vanish
 - [x] 74. Keyboard shortcuts, mouse wheel and trackpad; large-screen layout: from 768dp wide the toolbar wraps onto several rows with every tool in view instead of scrolling
-- [ ] 75. Multi-window drag-and-drop
+- [x] 75. Multi-window drag-and-drop: images, text and Fern strokes dropped onto the canvas; a selection dragged out from its handle to other apps (as a PNG) or another Fern window (as strokes). The cross-window drag itself is untested here (needs a device)
 - [ ] 76. Generative assists ⏸ (hosted AI)
 - [ ] 77. Release work: Play Store listing, privacy policy, staged rollouts
 

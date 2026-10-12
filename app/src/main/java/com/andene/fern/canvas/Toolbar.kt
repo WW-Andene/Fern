@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.material.icons.filled.OpenWith
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.annotation.StringRes
@@ -165,7 +167,10 @@ fun Toolbar(
     onCopySelection: () -> Unit = {},
     /** Paste whatever the system clipboard holds: Fern strokes, text or an image. */
     onPaste: () -> Unit = {},
+    /** Start dragging the selection to another window; called as a drag begins on its handle. */
+    onDragSelectionOut: () -> Unit = {},
 ) {
+    val dragOutLabel = stringResource(R.string.tb_drag_out)
     var showExportMenu by remember { mutableStateOf(false) }
     var showWidthSlider by remember { mutableStateOf(false) }
     var showColorPicker by remember { mutableStateOf(false) }
@@ -593,6 +598,17 @@ fun Toolbar(
                     }
                     IconButton(onClick = onCopySelection) {
                         Icon(Icons.Filled.CopyAll, contentDescription = stringResource(R.string.tb_copy))
+                    }
+                    // Drag-only: dragging from this handle carries the selection to another window
+                    // (Copy and Paste do the same without a gesture).
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .semantics { contentDescription = dragOutLabel }
+                            .pointerInput(Unit) { detectDragGestures(onDragStart = { onDragSelectionOut() }) { change, _ -> change.consume() } },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Filled.OpenWith, contentDescription = null)
                     }
                     IconButton(onClick = onPaste) {
                         Icon(Icons.Filled.ContentPaste, contentDescription = stringResource(R.string.action_paste))

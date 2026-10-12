@@ -55,6 +55,16 @@ class SystemClipboardTest {
     }
 
     @Test
+    fun aDraggedSelectionDropsAsStrokesAndLeavesTheClipboardPasteable() {
+        SystemClipboard.copy(context, listOf(line()), png)
+        val dragged = Stroke(Color.Blue, 2.0).apply { addPoint(WorldPoint(5.0, 6.0)) }
+        val drop = SystemClipboard.contentOf(context, SystemClipboard.dragClip(context, listOf(dragged), png))
+        assertEquals(dragged.points, (drop as ClipboardContent.FernStrokes).strokes.single().points)
+        // The drag kept its files apart: the earlier copy still pastes as strokes.
+        assertEquals(line().points, (SystemClipboard.read(context) as ClipboardContent.FernStrokes).strokes.single().points)
+    }
+
+    @Test
     fun emptyClipboardIsNothing() {
         context.getSystemService(ClipboardManager::class.java).clearPrimaryClip()
         assertEquals(ClipboardContent.Nothing, SystemClipboard.read(context))

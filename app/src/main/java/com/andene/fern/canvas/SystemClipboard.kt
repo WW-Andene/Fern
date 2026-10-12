@@ -40,26 +40,37 @@ object SystemClipboard {
     // Under cache/shared/, the folder the share FileProvider exposes (see res/xml/share_paths.xml).
     private const val SHARED_DIR = "shared"
     private const val STROKES_DIR = "clipboard"
+    private const val DRAG_STROKES_DIR = "drag"
     private const val AUTHORITY_SUFFIX = ".share"
 
     /** Puts [strokes] (and [png], the image other apps get) on the clipboard. */
     fun copy(context: Context, strokes: List<Stroke>, png: ByteArray) {
+        clipboard(context).setPrimaryClip(clipOf(context, strokes, png, STROKES_DIR, "clipboard.png"))
+    }
+
+    /**
+     * The same kind of clip for dragging a selection to another window (roadmap item 75); its
+     * files are kept apart from the clipboard's, so a drag doesn't spoil a pending paste.
+     */
+    fun dragClip(context: Context, strokes: List<Stroke>, png: ByteArray): ClipData =
+        clipOf(context, strokes, png, DRAG_STROKES_DIR, "drag.png")
+
+    private fun clipOf(context: Context, strokes: List<Stroke>, png: ByteArray, strokesDirName: String, imageName: String): ClipData {
         val token = UUID.randomUUID().toString()
-        val strokesDir = File(context.cacheDir, STROKES_DIR).apply { mkdirs() }
+        val strokesDir = File(context.cacheDir, strokesDirName).apply { mkdirs() }
         // Only the newest copy matters; earlier ones can't be pasted any more.
         strokesDir.listFiles()?.forEach { it.delete() }
         val bytes = ByteArrayOutputStream().also { StrokeCodec.write(DataOutputStream(it), strokes) }.toByteArray()
         File(strokesDir, "$token.bin").writeBytes(bytes)
 
-        val imageFile = File(File(context.cacheDir, SHARED_DIR).apply { mkdirs() }, "clipboard.png")
+        val imageFile = File(File(context.cacheDir, SHARED_DIR).apply { mkdirs() }, imageName)
         imageFile.writeBytes(png)
         val uri = FileProvider.getUriForFile(context, context.packageName + AUTHORITY_SUFFIX, imageFile)
         // The MIME type is stated rather than looked up (ClipData.newUri asks the resolver), so
         // receiving apps and read() always see an image clip.
         val description = ClipDescription(CLIP_LABEL, arrayOf("image/png"))
         description.extras = PersistableBundle().apply { putString(EXTRA_TOKEN, token) }
-        val clip = ClipData(description, ClipData.Item(uri))
-        clipboard(context).setPrimaryClip(clip)
+        return ClipData(description, ClipData.Item(uri))
     }
 
     fun read(context: Context): ClipboardContent =
@@ -73,8 +84,8 @@ object SystemClipboard {
         if (clip.itemCount == 0) return ClipboardContent.Nothing
         val token = clip.description.extras?.getString(EXTRA_TOKEN)
         if (token != null && token.matches(Regex("[0-9a-f-]{36}"))) {
-            val file = File(File(context.cacheDir, STROKES_DIR), "$token.bin")
-            if (file.exists()) {
+            val file = listOf(STROKES_DIR, DRAG_STROKES_DIR).map { File(File(context.cacheDir, it), "$token.bin") }.firstOrNull { it.exists() }
+            if (file != null) {
                 val strokes = runCatching { StrokeCodec.read(DataInputStream(ByteArrayInputStream(file.readBytes()))) }.getOrNull()
                 if (!strokes.isNullOrEmpty()) return ClipboardContent.FernStrokes(strokes)
             }

@@ -321,4 +321,5 @@
     <string name="mind_map_branch">Idea</string>
     <string name="paper_light">Light paper</string>
     <string name="paper_dark">Dark paper</string>
+    <string name="tb_drag_out">Drag selection to another window</string>
 </resources>

@@ -62,6 +62,7 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -92,6 +93,7 @@ import com.andene.fern.canvas.LinkChoices
 import com.andene.fern.canvas.LinkTarget
 import com.andene.fern.canvas.Minimap
 import com.andene.fern.canvas.SystemClipboard
+import com.andene.fern.canvas.startSelectionDrag
 import com.andene.fern.canvas.QuickMenuButton
 import com.andene.fern.canvas.QuickMenuOverlay
 import com.andene.fern.canvas.PinMeta
@@ -442,6 +444,22 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    // Drag and drop to other windows (roadmap item 75): the same clip as a copy,
+                    // started once the picture is rendered if the finger is still down by then.
+                    val view = LocalView.current
+                    fun dragSelectionOut() {
+                        val strokes = canvasState.selectionForClipboard()
+                        val region = canvasState.selectionExportRegion()
+                        if (strokes.isEmpty() || region == null) return
+                        coroutineScope.launch {
+                            val png = exportDocumentPng(canvasState, textMeasurer, density, imageForExport, region) ?: return@launch
+                            val (clip, image) = withContext(Dispatchers.IO) {
+                                SystemClipboard.dragClip(context, strokes, png) to BitmapFactory.decodeByteArray(png, 0, png.size)
+                            }
+                            if (image != null) startSelectionDrag(view, clip, image)
+                        }
+                    }
+
                     /**
                      * Drag and drop from other apps: an image or text dropped on the canvas lands
                      * where it was dropped (Fern strokes too, from another Fern window). Reading a
@@ -704,6 +722,7 @@ class MainActivity : ComponentActivity() {
                                 onOpenFrames = { showFramesDialog = true },
                                 onOpenSettings = { showSettings = true },
                                 onCopySelection = { copySelectionToClipboard() },
+                                onDragSelectionOut = { dragSelectionOut() },
                                 onPaste = { pasteFromClipboard() },
                                 onOpenAudioNotes = {
                                     val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
