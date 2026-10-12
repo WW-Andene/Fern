@@ -172,7 +172,7 @@ All deferred: they need a server or cloud platform.
 - [x] 104. Pixel art — grid-aligned pixel pen; indexed palette (pixels snap to saved colours; reduce a selection to them; palette swaps via 100); sprites are animation frames exported as sprite sheets (80)
 - [~] 105. Comics — comic page template, speech bubbles, screentones
 - [x] 106. Notes — sticky notes, connectors between them (68), mind-map and planner templates (72)
-- [~] 107. Whiteboard — links in text labels open in the browser; no embedded video or documents
+- [~] 107. Whiteboard — links in text labels open in the browser or another document; PDF pages imported onto the canvas to annotate; no embedded video (needs a device to verify a live video surface)
 - [ ] 108. 3D painting and posable mannequins
 - [ ] 109. AR placement and tracing
 - [ ] 110. Generative AI ⏸
