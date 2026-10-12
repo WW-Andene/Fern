@@ -1,5 +1,8 @@
 package com.andene.fern.canvas
 
+import androidx.annotation.StringRes
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -249,26 +252,26 @@ fun Toolbar(
                     ) {}
                 }
                 IconButton(onClick = { showColorPicker = true }) {
-                    Icon(Icons.Filled.Palette, contentDescription = "Custom color")
+                    Icon(Icons.Filled.Palette, contentDescription = stringResource(R.string.tb_custom_color))
                 }
                 IconButton(onClick = {
                     state.activeTool = if (state.activeTool == Tool.EYEDROPPER) Tool.PEN else Tool.EYEDROPPER
                 }) {
                     Icon(
                         Icons.Filled.Colorize,
-                        contentDescription = "Eyedropper",
+                        contentDescription = stringResource(R.string.tb_eyedropper),
                         tint = if (state.activeTool == Tool.EYEDROPPER) MaterialTheme.colorScheme.primary
                         else LocalContentColor.current,
                     )
                 }
                 Box {
                     IconButton(onClick = { showPenTypeMenu = true }) {
-                        Icon(penTypeIcon(state.activePenType), contentDescription = "Pen type: ${penTypeLabel(state.activePenType)}")
+                        Icon(penTypeIcon(state.activePenType), contentDescription = stringResource(R.string.tb_pen_type, stringResource(penTypeLabel(state.activePenType))))
                     }
                     DropdownMenu(expanded = showPenTypeMenu, onDismissRequest = { showPenTypeMenu = false }) {
                         for (type in PenType.entries) {
                             DropdownMenuItem(
-                                text = { Text(penTypeLabel(type)) },
+                                text = { Text(stringResource(penTypeLabel(type))) },
                                 leadingIcon = { Icon(penTypeIcon(type), contentDescription = null) },
                                 onClick = {
                                     state.activePenType = type
@@ -281,7 +284,7 @@ fun Toolbar(
                 }
                 if (state.activePenType == PenType.STAMP) {
                     IconButton(onClick = { showBrushEditor = true }) {
-                        Icon(Icons.Filled.Tune, contentDescription = "Brush settings")
+                        Icon(Icons.Filled.Tune, contentDescription = stringResource(R.string.brush_settings))
                     }
                 }
 
@@ -290,7 +293,7 @@ fun Toolbar(
                 }) {
                     Icon(
                         Icons.AutoMirrored.Filled.Backspace,
-                        contentDescription = "Eraser",
+                        contentDescription = stringResource(R.string.tb_eraser),
                         tint = if (state.activeTool == Tool.ERASER) MaterialTheme.colorScheme.primary
                         else LocalContentColor.current,
                     )
@@ -299,14 +302,14 @@ fun Toolbar(
                     IconButton(onClick = { state.eraseWholeObjects = !state.eraseWholeObjects }) {
                         Icon(
                             if (state.eraseWholeObjects) Icons.Filled.CleaningServices else Icons.Filled.AutoFixNormal,
-                            contentDescription = if (state.eraseWholeObjects) "Object eraser (tap for ink eraser)" else "Ink eraser (tap for object eraser)",
+                            contentDescription = if (state.eraseWholeObjects) stringResource(R.string.tb_object_eraser) else stringResource(R.string.tb_ink_eraser),
                         )
                     }
                     // Same lasso icon as lasso selection: one icon per meaning.
                     IconButton(onClick = { state.lassoErase = !state.lassoErase }) {
                         Icon(
                             Icons.Filled.Gesture,
-                            contentDescription = if (state.lassoErase) "Lasso erase on (tap to rub out instead)" else "Lasso erase off (tap to erase inside a loop)",
+                            contentDescription = if (state.lassoErase) stringResource(R.string.tb_lasso_erase_on) else stringResource(R.string.tb_lasso_erase_off),
                             tint = if (state.lassoErase) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
@@ -316,7 +319,7 @@ fun Toolbar(
                 }) {
                     Icon(
                         Icons.Filled.SelectAll,
-                        contentDescription = "Select",
+                        contentDescription = stringResource(R.string.action_select),
                         tint = if (state.activeTool == Tool.SELECT) MaterialTheme.colorScheme.primary
                         else LocalContentColor.current,
                     )
@@ -328,7 +331,7 @@ fun Toolbar(
                     }) {
                         Icon(
                             shapeKindIcon(state.activeShapeKind),
-                            contentDescription = "Shape: ${shapeKindLabel(state.activeShapeKind)}",
+                            contentDescription = stringResource(R.string.tb_shape, stringResource(shapeKindLabel(state.activeShapeKind))),
                             tint = if (state.activeTool == Tool.SHAPE) MaterialTheme.colorScheme.primary
                             else LocalContentColor.current,
                         )
@@ -336,7 +339,7 @@ fun Toolbar(
                     DropdownMenu(expanded = showShapeKindMenu, onDismissRequest = { showShapeKindMenu = false }) {
                         for (kind in ShapeKind.entries) {
                             DropdownMenuItem(
-                                text = { Text(shapeKindLabel(kind)) },
+                                text = { Text(stringResource(shapeKindLabel(kind))) },
                                 leadingIcon = { Icon(shapeKindIcon(kind), contentDescription = null) },
                                 onClick = {
                                     state.activeShapeKind = kind
@@ -350,35 +353,35 @@ fun Toolbar(
                 IconButton(onClick = { showWidthSlider = !showWidthSlider }) {
                     Icon(
                         Icons.Filled.FormatSize,
-                        contentDescription = "Brush size",
+                        contentDescription = stringResource(R.string.tb_brush_size),
                         tint = if (showWidthSlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
                 }
                 IconButton(onClick = { showOpacitySlider = !showOpacitySlider }) {
                     Icon(
                         Icons.Filled.Opacity,
-                        contentDescription = "Stroke opacity",
+                        contentDescription = stringResource(R.string.tb_opacity),
                         tint = if (showOpacitySlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
                 }
                 IconButton(onClick = { state.activeDashed = !state.activeDashed }) {
                     Icon(
                         Icons.Filled.LineStyle,
-                        contentDescription = if (state.activeDashed) "Dashed lines: on" else "Dashed lines: off",
+                        contentDescription = if (state.activeDashed) stringResource(R.string.tb_dashed_on) else stringResource(R.string.tb_dashed_off),
                         tint = if (state.activeDashed) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
                 }
                 IconButton(onClick = { state.velocityDynamics = !state.velocityDynamics }) {
                     Icon(
                         Icons.Filled.Speed,
-                        contentDescription = if (state.velocityDynamics) "Speed changes line width: on" else "Speed changes line width: off",
+                        contentDescription = if (state.velocityDynamics) stringResource(R.string.tb_speed_on) else stringResource(R.string.tb_speed_off),
                         tint = if (state.velocityDynamics) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
                 }
                 IconButton(onClick = { showStabilizationSlider = !showStabilizationSlider }) {
                     Icon(
                         Icons.Filled.Timeline,
-                        contentDescription = "Stroke stabilisation",
+                        contentDescription = stringResource(R.string.tb_stabilisation),
                         tint = if (showStabilizationSlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
                 }
@@ -386,7 +389,7 @@ fun Toolbar(
                     IconButton(onClick = { showSymmetryMenu = true }) {
                         Icon(
                             Icons.Filled.Flare,
-                            contentDescription = "Symmetry: ${state.symmetryMode.label}",
+                            contentDescription = stringResource(R.string.tb_symmetry, stringResource(state.symmetryMode.label)),
                             tint = if (state.symmetryMode != SymmetryMode.OFF) MaterialTheme.colorScheme.primary
                             else LocalContentColor.current,
                         )
@@ -394,7 +397,7 @@ fun Toolbar(
                     DropdownMenu(expanded = showSymmetryMenu, onDismissRequest = { showSymmetryMenu = false }) {
                         for (mode in SymmetryMode.entries) {
                             DropdownMenuItem(
-                                text = { Text(mode.label) },
+                                text = { Text(stringResource(mode.label)) },
                                 onClick = {
                                     state.setSymmetry(mode)
                                     showSymmetryMenu = false
@@ -407,7 +410,7 @@ fun Toolbar(
                     IconButton(onClick = { showPerspectiveMenu = true }) {
                         Icon(
                             Icons.Filled.ViewInAr,
-                            contentDescription = "Perspective guide: ${state.perspectiveMode.label}",
+                            contentDescription = stringResource(R.string.tb_perspective, stringResource(state.perspectiveMode.label)),
                             tint = if (state.perspectiveMode != PerspectiveMode.OFF) MaterialTheme.colorScheme.primary
                             else LocalContentColor.current,
                         )
@@ -415,7 +418,7 @@ fun Toolbar(
                     DropdownMenu(expanded = showPerspectiveMenu, onDismissRequest = { showPerspectiveMenu = false }) {
                         for (mode in PerspectiveMode.entries) {
                             DropdownMenuItem(
-                                text = { Text(mode.label) },
+                                text = { Text(stringResource(mode.label)) },
                                 onClick = {
                                     state.setPerspective(mode)
                                     showPerspectiveMenu = false
@@ -430,19 +433,19 @@ fun Toolbar(
                 }) {
                     Icon(
                         Icons.Filled.Movie,
-                        contentDescription = if (state.animationMode) "Animation: on" else "Animation: off",
+                        contentDescription = if (state.animationMode) stringResource(R.string.tb_anim_on) else stringResource(R.string.tb_anim_off),
                         tint = if (state.animationMode) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
                 }
                 IconButton(onClick = { showLayersDialog = true }) {
-                    Icon(Icons.Filled.Layers, contentDescription = "Layers")
+                    Icon(Icons.Filled.Layers, contentDescription = stringResource(R.string.layers_title))
                 }
                 Box {
                     IconButton(onClick = { showBlendModeMenu = true }) {
                         Icon(
                             // Was the Layers icon before layers existed; that icon now opens the layer panel.
                             Icons.Filled.Tonality,
-                            contentDescription = "Blend mode: ${blendModeLabel(state.activeBlendMode)}",
+                            contentDescription = stringResource(R.string.tb_blend, stringResource(blendModeLabel(state.activeBlendMode))),
                             tint = if (state.activeBlendMode != StrokeBlendMode.NORMAL) MaterialTheme.colorScheme.primary
                             else LocalContentColor.current,
                         )
@@ -450,7 +453,7 @@ fun Toolbar(
                     DropdownMenu(expanded = showBlendModeMenu, onDismissRequest = { showBlendModeMenu = false }) {
                         for (mode in StrokeBlendMode.entries) {
                             DropdownMenuItem(
-                                text = { Text(blendModeLabel(mode)) },
+                                text = { Text(stringResource(blendModeLabel(mode))) },
                                 onClick = {
                                     state.activeBlendMode = mode
                                     showBlendModeMenu = false
@@ -464,7 +467,7 @@ fun Toolbar(
                 }) {
                     Icon(
                         Icons.Filled.FormatColorFill,
-                        contentDescription = "Fill",
+                        contentDescription = stringResource(R.string.tb_fill),
                         tint = if (state.activeTool == Tool.FILL) MaterialTheme.colorScheme.primary
                         else LocalContentColor.current,
                     )
@@ -473,7 +476,7 @@ fun Toolbar(
                     IconButton(onClick = { state.activeScreentone = !state.activeScreentone }) {
                         Icon(
                             Icons.Filled.BlurLinear,
-                            contentDescription = if (state.activeScreentone) "Screentone fill: on" else "Screentone fill: off",
+                            contentDescription = if (state.activeScreentone) stringResource(R.string.tb_screentone_on) else stringResource(R.string.tb_screentone_off),
                             tint = if (state.activeScreentone) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
@@ -482,9 +485,9 @@ fun Toolbar(
                         Icon(
                             Icons.Filled.Gradient,
                             contentDescription = when {
-                                state.activeGradient != null -> "Gradient fill: two colours"
-                                state.activeFadeFill -> "Gradient fill: fade out"
-                                else -> "Gradient fill: off"
+                                state.activeGradient != null -> stringResource(R.string.tb_gradient_two)
+                                state.activeFadeFill -> stringResource(R.string.tb_gradient_fade)
+                                else -> stringResource(R.string.tb_gradient_off)
                             },
                             tint = if (gradientOn) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
@@ -495,7 +498,7 @@ fun Toolbar(
                 }) {
                     Icon(
                         Icons.Filled.TextFields,
-                        contentDescription = "Text",
+                        contentDescription = stringResource(R.string.text_label),
                         tint = if (state.activeTool == Tool.TEXT) MaterialTheme.colorScheme.primary
                         else LocalContentColor.current,
                     )
@@ -505,43 +508,43 @@ fun Toolbar(
                 }) {
                     Icon(
                         Icons.Filled.AccountTree,
-                        contentDescription = "Connect labels (drag from one to another; press a connector to remove it)",
+                        contentDescription = stringResource(R.string.tb_connect),
                         tint = if (state.activeTool == Tool.CONNECT) MaterialTheme.colorScheme.primary
                         else LocalContentColor.current,
                     )
                 }
                 if (state.activeTool == Tool.CONNECT) {
                     IconButton(onClick = { state.tidyDiagram() }, enabled = state.connectors.isNotEmpty()) {
-                        Icon(Icons.Filled.Schema, contentDescription = "Tidy diagram into layers")
+                        Icon(Icons.Filled.Schema, contentDescription = stringResource(R.string.tb_tidy))
                     }
                 }
                 if (state.activeTool == Tool.SELECT) {
                     IconButton(onClick = { state.selectAllOnActiveLayer() }) {
-                        Icon(Icons.Filled.ViewModule, contentDescription = "Select all on this layer")
+                        Icon(Icons.Filled.ViewModule, contentDescription = stringResource(R.string.tb_select_layer))
                     }
                     IconButton(onClick = { state.selectSameColor() }) {
-                        Icon(Icons.Filled.ColorLens, contentDescription = "Select strokes of the same colour")
+                        Icon(Icons.Filled.ColorLens, contentDescription = stringResource(R.string.tb_select_colour))
                     }
                     IconButton(onClick = { state.lassoSelect = !state.lassoSelect }) {
                         Icon(
                             if (state.lassoSelect) Icons.Filled.Gesture else Icons.Filled.HighlightAlt,
-                            contentDescription = if (state.lassoSelect) "Lasso select (tap for rectangle)" else "Rectangle select (tap for lasso)",
+                            contentDescription = if (state.lassoSelect) stringResource(R.string.tb_lasso_select) else stringResource(R.string.tb_rect_select),
                         )
                     }
                     IconButton(onClick = { state.reorderSelection(toFront = true) }) {
-                        Icon(Icons.Filled.FlipToFront, contentDescription = "Bring selection to front")
+                        Icon(Icons.Filled.FlipToFront, contentDescription = stringResource(R.string.tb_front))
                     }
                     IconButton(onClick = { state.reorderSelection(toFront = false) }) {
-                        Icon(Icons.Filled.FlipToBack, contentDescription = "Send selection to back")
+                        Icon(Icons.Filled.FlipToBack, contentDescription = stringResource(R.string.tb_back))
                     }
                     Box {
                         IconButton(onClick = { showAlignMenu = true }) {
-                            Icon(Icons.Filled.AlignHorizontalLeft, contentDescription = "Align and distribute")
+                            Icon(Icons.Filled.AlignHorizontalLeft, contentDescription = stringResource(R.string.tb_align))
                         }
                         DropdownMenu(expanded = showAlignMenu, onDismissRequest = { showAlignMenu = false }) {
                             for (alignment in StrokeAlignment.entries) {
                                 DropdownMenuItem(
-                                    text = { Text(alignment.label) },
+                                    text = { Text(stringResource(alignment.label)) },
                                     onClick = {
                                         state.alignSelection(alignment)
                                         showAlignMenu = false
@@ -551,34 +554,34 @@ fun Toolbar(
                         }
                     }
                     IconButton(onClick = { state.animateAlongPath() }) {
-                        Icon(Icons.Filled.Route, contentDescription = "Animate selection along the last drawn path")
+                        Icon(Icons.Filled.Route, contentDescription = stringResource(R.string.tb_motion_path))
                     }
                     IconButton(onClick = { state.straightenSelection() }) {
                         // LinearScale, not Straighten: that icon (a ruler) already means the ruler guide.
-                        Icon(Icons.Filled.LinearScale, contentDescription = "Straighten selected strokes")
+                        Icon(Icons.Filled.LinearScale, contentDescription = stringResource(R.string.tb_straighten))
                     }
                     IconButton(onClick = { state.smoothSelection() }) {
-                        Icon(Icons.Filled.Waves, contentDescription = "Smooth selected strokes")
+                        Icon(Icons.Filled.Waves, contentDescription = stringResource(R.string.tb_smooth))
                     }
                     IconButton(onClick = { state.applyWidthToSelection() }) {
-                        Icon(Icons.Filled.LineWeight, contentDescription = "Apply current brush width to selection")
+                        Icon(Icons.Filled.LineWeight, contentDescription = stringResource(R.string.tb_apply_width))
                     }
                     IconButton(onClick = { state.recolorSelection() }) {
-                        Icon(Icons.Filled.FormatPaint, contentDescription = "Apply current colour to selection")
+                        Icon(Icons.Filled.FormatPaint, contentDescription = stringResource(R.string.tb_apply_colour))
                     }
                     IconButton(onClick = onCopySelection) {
-                        Icon(Icons.Filled.CopyAll, contentDescription = "Copy selection")
+                        Icon(Icons.Filled.CopyAll, contentDescription = stringResource(R.string.tb_copy))
                     }
                     IconButton(onClick = onPaste) {
-                        Icon(Icons.Filled.ContentPaste, contentDescription = "Paste")
+                        Icon(Icons.Filled.ContentPaste, contentDescription = stringResource(R.string.action_paste))
                     }
                     IconButton(onClick = { state.duplicateSelection() }) {
-                        Icon(Icons.Filled.ContentCopy, contentDescription = "Duplicate selection")
+                        Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.tb_duplicate))
                     }
                     IconButton(onClick = { state.toggleNodeEditing() }, enabled = state.selection.size == 1) {
                         Icon(
                             Icons.Filled.Polyline,
-                            contentDescription = if (state.nodeEditing) "Stop editing nodes" else "Edit nodes",
+                            contentDescription = if (state.nodeEditing) stringResource(R.string.tb_nodes_stop) else stringResource(R.string.tb_nodes),
                             tint = if (state.nodeEditing) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
@@ -589,53 +592,53 @@ fun Toolbar(
                     ) {
                         Icon(
                             Icons.Filled.GroupWork,
-                            contentDescription = if (grouped) "Ungroup selection" else "Group selection",
+                            contentDescription = if (grouped) stringResource(R.string.tb_ungroup) else stringResource(R.string.tb_group),
                             tint = if (grouped) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
                     IconButton(onClick = { state.deleteSelection() }) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Delete selection")
+                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.tb_delete))
                     }
                 }
 
                 IconButton(onClick = { state.undo() }) {
-                    Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo")
+                    Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.action_undo))
                 }
                 IconButton(onClick = { state.redo() }) {
-                    Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo")
+                    Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = stringResource(R.string.action_redo))
                 }
                 IconButton(onClick = { state.clear() }) {
-                    Icon(Icons.Filled.DeleteSweep, contentDescription = "Clear all")
+                    Icon(Icons.Filled.DeleteSweep, contentDescription = stringResource(R.string.tb_clear_all))
                 }
                 IconButton(onClick = { state.resetView() }) {
-                    Icon(Icons.Filled.ZoomOutMap, contentDescription = "Reset view")
+                    Icon(Icons.Filled.ZoomOutMap, contentDescription = stringResource(R.string.tb_reset_view))
                 }
                 IconButton(onClick = { state.zoomToFit() }) {
-                    Icon(Icons.Filled.CenterFocusStrong, contentDescription = "Zoom to fit content")
+                    Icon(Icons.Filled.CenterFocusStrong, contentDescription = stringResource(R.string.tb_fit))
                 }
                 IconButton(onClick = onOpenDocuments) {
-                    Icon(Icons.Filled.Description, contentDescription = "Documents")
+                    Icon(Icons.Filled.Description, contentDescription = stringResource(R.string.documents_title))
                 }
                 // Occasional, dialog-opening actions live in an overflow menu so the toolbar row
                 // keeps the tools used while drawing within reach.
                 Box {
                     IconButton(onClick = { showMoreMenu = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "More")
+                        Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.tb_more))
                     }
                     DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
                         val moreItems = listOf(
-                            Triple("Insert image", Icons.Filled.Image, onInsertImage),
-                            Triple("Import PDF to annotate", Icons.Filled.PictureAsPdf, onImportPdf),
-                            Triple("Search text", Icons.Filled.Search) { showSearchDialog = true },
-                            Triple("Pins", Icons.Filled.PushPin, onOpenPins),
-                            Triple("Frames", Icons.Filled.CropFree, onOpenFrames),
-                            Triple("Voice notes", Icons.Filled.Mic, onOpenAudioNotes),
-                            Triple("Version history", Icons.Filled.History, onOpenVersions),
-                            Triple("Settings", Icons.Filled.Settings, onOpenSettings),
+                            Triple(R.string.menu_insert_image, Icons.Filled.Image, onInsertImage),
+                            Triple(R.string.menu_import_pdf, Icons.Filled.PictureAsPdf, onImportPdf),
+                            Triple(R.string.search_title, Icons.Filled.Search) { showSearchDialog = true },
+                            Triple(R.string.pins_title, Icons.Filled.PushPin, onOpenPins),
+                            Triple(R.string.frames_title, Icons.Filled.CropFree, onOpenFrames),
+                            Triple(R.string.audio_title, Icons.Filled.Mic, onOpenAudioNotes),
+                            Triple(R.string.versions_title, Icons.Filled.History, onOpenVersions),
+                            Triple(R.string.settings_title, Icons.Filled.Settings, onOpenSettings),
                         )
                         for ((label, icon, action) in moreItems) {
                             DropdownMenuItem(
-                                text = { Text(label) },
+                                text = { Text(stringResource(label)) },
                                 leadingIcon = { Icon(icon, contentDescription = null) },
                                 onClick = {
                                     showMoreMenu = false
@@ -648,24 +651,24 @@ fun Toolbar(
                 IconButton(onClick = { state.replayCount = if (state.replayCount == null) 0 else null }) {
                     Icon(
                         Icons.Filled.Replay,
-                        contentDescription = if (state.replayCount == null) "Replay how this drawing was made" else "Stop replay",
+                        contentDescription = if (state.replayCount == null) stringResource(R.string.tb_replay) else stringResource(R.string.tb_stop_replay),
                         tint = if (state.replayCount != null) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
                 }
                 Box {
                     IconButton(onClick = { showExportMenu = true }) {
-                        Icon(Icons.Filled.IosShare, contentDescription = "Export")
+                        Icon(Icons.Filled.IosShare, contentDescription = stringResource(R.string.tb_export))
                     }
                     DropdownMenu(expanded = showExportMenu, onDismissRequest = { showExportMenu = false }) {
                         DropdownMenuItem(
-                            text = { Text("Share…") },
+                            text = { Text(stringResource(R.string.tb_share)) },
                             onClick = {
                                 showExportMenu = false
                                 onShare()
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("Image (PNG)") },
+                            text = { Text(stringResource(R.string.tb_export_png)) },
                             onClick = {
                                 showExportMenu = false
                                 onExportPng()
@@ -673,7 +676,7 @@ fun Toolbar(
                         )
                         if (state.selection.isNotEmpty()) {
                             DropdownMenuItem(
-                                text = { Text("Selected area (PNG)") },
+                                text = { Text(stringResource(R.string.tb_export_selection)) },
                                 onClick = {
                                     showExportMenu = false
                                     onExportSelection()
@@ -681,28 +684,28 @@ fun Toolbar(
                             )
                         }
                         DropdownMenuItem(
-                            text = { Text("Image, transparent (PNG)") },
+                            text = { Text(stringResource(R.string.tb_export_transparent)) },
                             onClick = {
                                 showExportMenu = false
                                 onExportTransparentPng()
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("PDF") },
+                            text = { Text(stringResource(R.string.tb_export_pdf)) },
                             onClick = {
                                 showExportMenu = false
                                 onExportPdf()
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("Vector (SVG)") },
+                            text = { Text(stringResource(R.string.tb_export_svg)) },
                             onClick = {
                                 showExportMenu = false
                                 onExportSvg()
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("Time-lapse replay (GIF)") },
+                            text = { Text(stringResource(R.string.tb_export_replay)) },
                             onClick = {
                                 showExportMenu = false
                                 onExportReplayGif()
@@ -710,14 +713,14 @@ fun Toolbar(
                         )
                         if (state.animFrameCount > 1) {
                             DropdownMenuItem(
-                                text = { Text("Animated GIF") },
+                                text = { Text(stringResource(R.string.tb_export_gif)) },
                                 onClick = {
                                     showExportMenu = false
                                     onExportGif()
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text("Animation sprite sheet (PNG)") },
+                                text = { Text(stringResource(R.string.tb_export_sprites)) },
                                 onClick = {
                                     showExportMenu = false
                                     onExportSpriteSheet()
@@ -725,7 +728,7 @@ fun Toolbar(
                             )
                         }
                         DropdownMenuItem(
-                            text = { Text("Fern backup (.fern)") },
+                            text = { Text(stringResource(R.string.tb_export_fern)) },
                             onClick = {
                                 showExportMenu = false
                                 onExportBundle()
@@ -735,12 +738,12 @@ fun Toolbar(
                 }
                 Box {
                     IconButton(onClick = { showBackgroundStyleMenu = true }) {
-                        Icon(Icons.Filled.GridOn, contentDescription = "Background: ${backgroundStyleLabel(state.backgroundStyle)}")
+                        Icon(Icons.Filled.GridOn, contentDescription = stringResource(R.string.tb_background, stringResource(backgroundStyleLabel(state.backgroundStyle))))
                     }
                     DropdownMenu(expanded = showBackgroundStyleMenu, onDismissRequest = { showBackgroundStyleMenu = false }) {
                         for (style in BackgroundStyle.entries) {
                             DropdownMenuItem(
-                                text = { Text(backgroundStyleLabel(style)) },
+                                text = { Text(stringResource(backgroundStyleLabel(style))) },
                                 onClick = {
                                     state.setBackground(state.backgroundColor, style)
                                     showBackgroundStyleMenu = false
@@ -748,7 +751,7 @@ fun Toolbar(
                             )
                         }
                         DropdownMenuItem(
-                            text = { Text("Background color…") },
+                            text = { Text(stringResource(R.string.tb_background_color)) },
                             onClick = {
                                 showBackgroundStyleMenu = false
                                 showBackgroundColorPicker = true
@@ -763,7 +766,7 @@ fun Toolbar(
                 }) {
                     Icon(
                         Icons.Filled.Straighten,
-                        contentDescription = "Ruler guide",
+                        contentDescription = stringResource(R.string.tb_ruler),
                         tint = if (state.rulerActive) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
                 }
@@ -887,8 +890,8 @@ fun Toolbar(
 private fun ToolSlotButton(state: CanvasState, index: Int) {
     val preset = state.toolSlots[index]
     var showMenu by remember { mutableStateOf(false) }
-    val description = if (preset == null) "Empty favourite ${index + 1}, tap to save the current pen"
-    else "Favourite ${index + 1}: ${penTypeLabel(preset.penType)}"
+    val description = if (preset == null) stringResource(R.string.tb_slot_empty, index + 1)
+    else stringResource(R.string.tb_slot, index + 1, stringResource(penTypeLabel(preset.penType)))
     Box {
         Box(
             modifier = Modifier
@@ -911,7 +914,7 @@ private fun ToolSlotButton(state: CanvasState, index: Int) {
         }
         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
             DropdownMenuItem(
-                text = { Text("Save current pen here") },
+                text = { Text(stringResource(R.string.tb_slot_save)) },
                 onClick = {
                     state.saveToolSlot(index)
                     showMenu = false
@@ -919,7 +922,7 @@ private fun ToolSlotButton(state: CanvasState, index: Int) {
             )
             if (preset != null) {
                 DropdownMenuItem(
-                    text = { Text("Clear") },
+                    text = { Text(stringResource(R.string.action_clear)) },
                     onClick = {
                         state.clearToolSlot(index)
                         showMenu = false
@@ -941,15 +944,16 @@ internal fun penTypeIcon(penType: PenType) = when (penType) {
     PenType.STAMP -> Icons.Filled.Approval
 }
 
+@StringRes
 private fun penTypeLabel(penType: PenType) = when (penType) {
-    PenType.MARKER -> "Marker"
-    PenType.PENCIL -> "Pencil"
-    PenType.HIGHLIGHTER -> "Highlighter"
-    PenType.CALLIGRAPHY -> "Calligraphy"
-    PenType.AIRBRUSH -> "Airbrush"
-    PenType.CRAYON -> "Crayon"
-    PenType.PIXEL -> "Pixel art"
-    PenType.STAMP -> "Stamp brush"
+    PenType.MARKER -> R.string.pen_marker
+    PenType.PENCIL -> R.string.pen_pencil
+    PenType.HIGHLIGHTER -> R.string.pen_highlighter
+    PenType.CALLIGRAPHY -> R.string.pen_calligraphy
+    PenType.AIRBRUSH -> R.string.pen_airbrush
+    PenType.CRAYON -> R.string.pen_crayon
+    PenType.PIXEL -> R.string.pen_pixel
+    PenType.STAMP -> R.string.brush_title
 }
 
 internal fun shapeKindIcon(kind: ShapeKind) = when (kind) {
@@ -960,23 +964,26 @@ internal fun shapeKindIcon(kind: ShapeKind) = when (kind) {
     ShapeKind.SPEECH_BUBBLE -> Icons.Filled.ChatBubbleOutline
 }
 
+@StringRes
 private fun shapeKindLabel(kind: ShapeKind) = when (kind) {
-    ShapeKind.LINE -> "Line"
-    ShapeKind.RECTANGLE -> "Rectangle"
-    ShapeKind.ELLIPSE -> "Ellipse"
-    ShapeKind.ARROW -> "Arrow"
-    ShapeKind.SPEECH_BUBBLE -> "Speech bubble"
+    ShapeKind.LINE -> R.string.shape_line
+    ShapeKind.RECTANGLE -> R.string.shape_rectangle
+    ShapeKind.ELLIPSE -> R.string.shape_ellipse
+    ShapeKind.ARROW -> R.string.shape_arrow
+    ShapeKind.SPEECH_BUBBLE -> R.string.shape_bubble
 }
 
+@StringRes
 private fun blendModeLabel(mode: StrokeBlendMode) = when (mode) {
-    StrokeBlendMode.NORMAL -> "Normal"
-    StrokeBlendMode.MULTIPLY -> "Multiply"
-    StrokeBlendMode.SCREEN -> "Screen"
+    StrokeBlendMode.NORMAL -> R.string.blend_normal
+    StrokeBlendMode.MULTIPLY -> R.string.blend_multiply
+    StrokeBlendMode.SCREEN -> R.string.blend_screen
 }
 
+@StringRes
 private fun backgroundStyleLabel(style: BackgroundStyle) = when (style) {
-    BackgroundStyle.PLAIN -> "Plain"
-    BackgroundStyle.GRID -> "Grid"
-    BackgroundStyle.DOT -> "Dot grid"
-    BackgroundStyle.RULED -> "Ruled"
+    BackgroundStyle.PLAIN -> R.string.paper_plain
+    BackgroundStyle.GRID -> R.string.paper_grid
+    BackgroundStyle.DOT -> R.string.template_dot
+    BackgroundStyle.RULED -> R.string.paper_ruled
 }

@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
 import android.graphics.BitmapFactory
 import android.view.MotionEvent
 import androidx.compose.foundation.Canvas
@@ -107,7 +108,7 @@ fun DrawingCanvas(
         modifier = modifier
             // Screen readers otherwise announce nothing for the drawing surface.
             .semantics {
-                contentDescription = "Drawing canvas, ${state.strokes.size} strokes. One finger draws, two fingers pan and zoom."
+                contentDescription = context.resources.getQuantityString(R.plurals.canvas_description, state.strokes.size, state.strokes.size)
             }
             .pointerInteropFilter { event ->
                 if (event.pointerCount > 0) {

@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import androidx.annotation.StringRes
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.Image
@@ -50,9 +51,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /** How the document list is ordered. Favourites are always pinned above the rest. */
-private enum class DocumentSort(val label: String) {
-    RECENT("Recent"),
-    NAME("Name"),
+private enum class DocumentSort(@StringRes val label: Int) {
+    RECENT(R.string.sort_recent),
+    NAME(R.string.sort_name),
 }
 
 /**
@@ -122,7 +123,7 @@ fun DocumentsDialog(
                         FilterChip(
                             selected = sort == option,
                             onClick = { sort = option },
-                            label = { Text(option.label) },
+                            label = { Text(stringResource(option.label)) },
                             modifier = Modifier.padding(end = 8.dp),
                         )
                     }
@@ -257,7 +258,7 @@ fun DocumentsDialog(
                     DropdownMenu(expanded = showTemplates, onDismissRequest = { showTemplates = false }) {
                         for (template in DocumentTemplate.entries) {
                             DropdownMenuItem(
-                                text = { Text(template.label) },
+                                text = { Text(stringResource(template.label)) },
                                 onClick = {
                                     showTemplates = false
                                     onCreateNew(template)

@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.annotation.StringRes
 import androidx.compose.ui.geometry.Offset
 import kotlin.math.PI
 import kotlin.math.atan2
@@ -8,11 +10,11 @@ import kotlin.math.hypot
 import kotlin.math.sin
 
 /** The shape a [PenType.STAMP] brush repeats along its path. */
-enum class StampTip(val label: String) {
-    CIRCLE("Circle"),
-    SOFT("Soft"),
-    SQUARE("Square"),
-    STAR("Star"),
+enum class StampTip(@StringRes val label: Int) {
+    CIRCLE(R.string.tip_circle),
+    SOFT(R.string.tip_soft),
+    SQUARE(R.string.tip_square),
+    STAR(R.string.tip_star),
 }
 
 /**

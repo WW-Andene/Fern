@@ -102,7 +102,7 @@ fun BrushEditorDialog(
                         FilterChip(
                             selected = brush.tip == tip,
                             onClick = { brush = brush.copy(tip = tip) },
-                            label = { Text(tip.label) },
+                            label = { Text(stringResource(tip.label)) },
                             modifier = Modifier.padding(end = 4.dp),
                         )
                     }
@@ -150,7 +150,7 @@ fun BrushEditorDialog(
 
 @Composable
 private fun BrushSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit) {
-    Text("$label: ${"%.2f".format(value)}", style = MaterialTheme.typography.bodySmall)
+    Text(stringResource(R.string.brush_slider_value, label, value), style = MaterialTheme.typography.bodySmall)
     Slider(value = value, onValueChange = onChange, valueRange = range)
 }
 
@@ -158,12 +158,13 @@ private fun BrushSlider(label: String, value: Float, range: ClosedFloatingPointR
 @Composable
 private fun BrushPreview(brush: StampBrush, color: Color) {
     val outline = MaterialTheme.colorScheme.outline
+    val previewLabel = stringResource(R.string.brush_preview)
     Canvas(
         modifier = Modifier
             .fillMaxWidth()
             .height(96.dp)
             .border(1.dp, outline)
-            .semantics { contentDescription = "Brush preview" },
+            .semantics { contentDescription = previewLabel },
     ) {
         val margin = 24.dp.toPx()
         val width = 16.dp.toPx()

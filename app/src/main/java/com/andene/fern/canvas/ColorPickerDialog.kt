@@ -114,7 +114,7 @@ fun ColorPickerDialog(
                         modifier = Modifier.padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(label, modifier = Modifier.width(128.dp))
+                        Text(stringResource(label), modifier = Modifier.width(128.dp))
                         for (offset in offsets) {
                             val swatchHue = (hue + offset) % 360f
                             Surface(
@@ -174,11 +174,11 @@ fun ColorPickerDialog(
 
 /** Hue offsets in degrees from the current colour, per harmony rule. */
 private val HARMONIES = listOf(
-    "Complementary" to listOf(180f),
-    "Analogous" to listOf(330f, 30f),
-    "Triadic" to listOf(120f, 240f),
-    "Split compl." to listOf(150f, 210f),
-    "Tetradic" to listOf(90f, 180f, 270f),
+    R.string.harmony_complementary to listOf(180f),
+    R.string.harmony_analogous to listOf(330f, 30f),
+    R.string.harmony_triadic to listOf(120f, 240f),
+    R.string.harmony_split to listOf(150f, 210f),
+    R.string.harmony_tetradic to listOf(90f, 180f, 270f),
 )
 
 private fun hexOf(hue: Float, saturation: Float, value: Float): String {

@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.annotation.StringRes
 import kotlin.math.abs
 import kotlin.math.hypot
 
@@ -12,10 +14,10 @@ import kotlin.math.hypot
  * - [TWO_POINT]: lines toward either of two vanishing points on the horizon, plus verticals
  *   (a building seen from a corner).
  */
-enum class PerspectiveMode(val label: String, val pointCount: Int) {
-    OFF("Off", 0),
-    ONE_POINT("One-point perspective", 1),
-    TWO_POINT("Two-point perspective", 2),
+enum class PerspectiveMode(@StringRes val label: Int, val pointCount: Int) {
+    OFF(R.string.perspective_off, 0),
+    ONE_POINT(R.string.perspective_one, 1),
+    TWO_POINT(R.string.perspective_two, 2),
 }
 
 /**

@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import androidx.annotation.StringRes
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
@@ -35,7 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 /** How new fills are shaded: solid, faded to transparent (top to bottom), or a two-colour gradient. */
-enum class GradientMode(val label: String) { NONE("Solid"), FADE("Fade out"), TWO_COLOURS("Two colours") }
+enum class GradientMode(@StringRes val label: Int) { NONE(R.string.gradient_solid), FADE(R.string.gradient_fade), TWO_COLOURS(R.string.gradient_two) }
 
 /**
  * Gradient options for the fill tool. A two-colour gradient runs from the active colour to an
@@ -54,6 +55,9 @@ fun GradientFillDialog(
     var endColor by remember { mutableStateOf(initialGradient?.endColor ?: Color.White) }
     var angle by remember { mutableIntStateOf(initialGradient?.angleDegrees ?: 90) }
     var pickingEndColor by remember { mutableStateOf(false) }
+    // Resolved here: semantics blocks aren't composable contexts.
+    val chooseEndLabel = stringResource(R.string.gradient_choose_end)
+    val previewLabel = stringResource(R.string.gradient_preview)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -65,7 +69,7 @@ fun GradientFillDialog(
                         FilterChip(
                             selected = mode == option,
                             onClick = { mode = option },
-                            label = { Text(option.label) },
+                            label = { Text(stringResource(option.label)) },
                             modifier = Modifier.padding(end = 4.dp),
                         )
                     }
@@ -79,18 +83,19 @@ fun GradientFillDialog(
                                 .background(endColor, CircleShape)
                                 .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
                                 .clickable { pickingEndColor = true }
-                                .semantics { contentDescription = "Choose the end colour" },
+                                .semantics { contentDescription = chooseEndLabel },
                         )
                     }
                     // Two rows of four directions.
                     for (row in GRADIENT_DIRECTIONS.chunked(4)) {
                         Row(modifier = Modifier.padding(top = 4.dp)) {
                             for ((degrees, arrow) in row) {
+                                val directionLabel = stringResource(R.string.gradient_direction, degrees)
                                 FilterChip(
                                     selected = angle == degrees,
                                     onClick = { angle = degrees },
                                     label = { Text(arrow) },
-                                    modifier = Modifier.padding(end = 4.dp).semantics { contentDescription = "Direction $degrees degrees" },
+                                    modifier = Modifier.padding(end = 4.dp).semantics { contentDescription = directionLabel },
                                 )
                             }
                         }
@@ -114,7 +119,7 @@ fun GradientFillDialog(
                                 }
                             }
                         }
-                        .semantics { contentDescription = "Gradient preview" },
+                        .semantics { contentDescription = previewLabel },
                 )
             }
         },

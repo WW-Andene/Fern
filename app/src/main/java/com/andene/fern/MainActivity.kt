@@ -838,7 +838,7 @@ class MainActivity : ComponentActivity() {
                             onCreateNew = { template ->
                                 coroutineScope.launch {
                                     val created = withContext(Dispatchers.IO) {
-                                        CanvasStorage.createDocument(context, if (template == DocumentTemplate.BLANK) "Untitled" else template.label)
+                                        CanvasStorage.createDocument(context, context.getString(if (template == DocumentTemplate.BLANK) R.string.untitled else template.label))
                                     }
                                     refreshDocuments()
                                     switchToDocument(created.id)

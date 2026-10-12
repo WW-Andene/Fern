@@ -1,5 +1,8 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.annotation.StringRes
+
 /**
  * The page pattern drawn behind a document's content, matching common physical paper styles:
  * - [PLAIN]: a flat color, no pattern.
@@ -21,11 +24,11 @@ enum class BackgroundStyle { PLAIN, GRID, DOT, RULED }
 const val BACKGROUND_PATTERN_SPACING_WORLD = 40.0
 
 /** Starting points offered when creating a document: a paper style, optionally with a page layout. */
-enum class DocumentTemplate(val label: String, val paper: BackgroundStyle) {
-    BLANK("Blank", BackgroundStyle.PLAIN),
-    GRID("Graph paper", BackgroundStyle.GRID),
-    DOT("Dot grid", BackgroundStyle.DOT),
-    RULED("Lined notes", BackgroundStyle.RULED),
-    COMIC("Comic page", BackgroundStyle.PLAIN),
-    STORYBOARD("Storyboard", BackgroundStyle.PLAIN),
+enum class DocumentTemplate(@StringRes val label: Int, val paper: BackgroundStyle) {
+    BLANK(R.string.template_blank, BackgroundStyle.PLAIN),
+    GRID(R.string.template_grid, BackgroundStyle.GRID),
+    DOT(R.string.template_dot, BackgroundStyle.DOT),
+    RULED(R.string.template_ruled, BackgroundStyle.RULED),
+    COMIC(R.string.frames_comic, BackgroundStyle.PLAIN),
+    STORYBOARD(R.string.template_storyboard, BackgroundStyle.PLAIN),
 }

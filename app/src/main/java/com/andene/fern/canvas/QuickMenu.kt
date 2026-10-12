@@ -1,5 +1,8 @@
 package com.andene.fern.canvas
 
+import androidx.annotation.StringRes
+import com.andene.fern.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -34,18 +37,18 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /** One action on the quick menu's ring; its icon is the toolbar's for the same thing (one icon per meaning). */
-private data class QuickAction(val label: String, val icon: (CanvasState) -> ImageVector, val run: (CanvasState) -> Unit)
+private data class QuickAction(@StringRes val label: Int, val icon: (CanvasState) -> ImageVector, val run: (CanvasState) -> Unit)
 
 // Clockwise from the top. Tools first, then undo/redo at the bottom where the thumb rests.
 private val QUICK_ACTIONS = listOf(
-    QuickAction("Pen", { penTypeIcon(it.activePenType) }) { it.activeTool = Tool.PEN },
-    QuickAction("Eraser", { Icons.AutoMirrored.Filled.Backspace }) { it.activeTool = Tool.ERASER },
-    QuickAction("Select", { Icons.Filled.SelectAll }) { it.activeTool = Tool.SELECT },
-    QuickAction("Shapes", { shapeKindIcon(it.activeShapeKind) }) { it.activeTool = Tool.SHAPE },
-    QuickAction("Redo", { Icons.AutoMirrored.Filled.Redo }) { it.redo() },
-    QuickAction("Undo", { Icons.AutoMirrored.Filled.Undo }) { it.undo() },
-    QuickAction("Text", { Icons.Filled.TextFields }) { it.activeTool = Tool.TEXT },
-    QuickAction("Fill", { Icons.Filled.FormatColorFill }) { it.activeTool = Tool.FILL },
+    QuickAction(R.string.pen_title, { penTypeIcon(it.activePenType) }) { it.activeTool = Tool.PEN },
+    QuickAction(R.string.tb_eraser, { Icons.AutoMirrored.Filled.Backspace }) { it.activeTool = Tool.ERASER },
+    QuickAction(R.string.action_select, { Icons.Filled.SelectAll }) { it.activeTool = Tool.SELECT },
+    QuickAction(R.string.quick_shapes, { shapeKindIcon(it.activeShapeKind) }) { it.activeTool = Tool.SHAPE },
+    QuickAction(R.string.action_redo, { Icons.AutoMirrored.Filled.Redo }) { it.redo() },
+    QuickAction(R.string.action_undo, { Icons.AutoMirrored.Filled.Undo }) { it.undo() },
+    QuickAction(R.string.text_label, { Icons.Filled.TextFields }) { it.activeTool = Tool.TEXT },
+    QuickAction(R.string.tb_fill, { Icons.Filled.FormatColorFill }) { it.activeTool = Tool.FILL },
 )
 
 // Ring radius and item size; both on the §7 scale.
@@ -55,10 +58,11 @@ private const val ITEM_SIZE_DP = 48
 /** The floating button that opens the quick menu; sits at the canvas edge away from the drawing hand. */
 @Composable
 fun QuickMenuButton(onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    val label = stringResource(R.string.quick_menu)
     Surface(
         modifier = modifier
             .size(ITEM_SIZE_DP.dp)
-            .semantics { contentDescription = "Quick menu" }
+            .semantics { contentDescription = label }
             .clickable(onClick = onOpen),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.secondaryContainer,
@@ -78,6 +82,7 @@ fun QuickMenuButton(onOpen: () -> Unit, modifier: Modifier = Modifier) {
  */
 @Composable
 fun QuickMenuOverlay(state: CanvasState, onDismiss: () -> Unit) {
+    val closeLabel = stringResource(R.string.quick_menu_close)
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -87,12 +92,13 @@ fun QuickMenuOverlay(state: CanvasState, onDismiss: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         for ((index, action) in QUICK_ACTIONS.withIndex()) {
+            val label = stringResource(action.label)
             val angle = -PI / 2 + 2 * PI * index / QUICK_ACTIONS.size
             Surface(
                 modifier = Modifier
                     .offset((cos(angle) * RING_RADIUS_DP).dp, (sin(angle) * RING_RADIUS_DP).dp)
                     .size(ITEM_SIZE_DP.dp)
-                    .semantics { contentDescription = action.label }
+                    .semantics { contentDescription = label }
                     .clickable {
                         action.run(state)
                         onDismiss()
@@ -107,7 +113,7 @@ fun QuickMenuOverlay(state: CanvasState, onDismiss: () -> Unit) {
         Surface(
             modifier = Modifier
                 .size(ITEM_SIZE_DP.dp)
-                .semantics { contentDescription = "Close quick menu" }
+                .semantics { contentDescription = closeLabel }
                 .clickable(onClick = onDismiss),
             shape = CircleShape,
             color = MaterialTheme.colorScheme.secondaryContainer,

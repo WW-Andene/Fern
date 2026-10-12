@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
@@ -8,11 +10,11 @@ import androidx.compose.ui.text.style.TextAlign
  * Typeface of a text label. The platform's generic families, so no font files ship with the
  * app and every device has all four.
  */
-enum class TextFont(val label: String, val fontFamily: FontFamily, val svgFamily: String) {
-    SANS("Sans", FontFamily.SansSerif, "sans-serif"),
-    SERIF("Serif", FontFamily.Serif, "serif"),
-    MONO("Mono", FontFamily.Monospace, "monospace"),
-    HANDWRITING("Handwriting", FontFamily.Cursive, "cursive"),
+enum class TextFont(@StringRes val label: Int, val fontFamily: FontFamily, val svgFamily: String) {
+    SANS(R.string.font_sans, FontFamily.SansSerif, "sans-serif"),
+    SERIF(R.string.font_serif, FontFamily.Serif, "serif"),
+    MONO(R.string.font_mono, FontFamily.Monospace, "monospace"),
+    HANDWRITING(R.string.font_handwriting, FontFamily.Cursive, "cursive"),
 }
 
 /**
@@ -29,10 +31,10 @@ sealed interface LinkTarget {
 data class LinkChoices(val pins: List<PinMeta> = emptyList(), val documents: List<DocumentMeta> = emptyList())
 
 /** Horizontal alignment of a label's lines: within its box if it has one, else against its longest line. */
-enum class TextAlignment(val label: String, val textAlign: TextAlign, val svgAnchor: String) {
-    START("Left", TextAlign.Start, "start"),
-    CENTER("Centre", TextAlign.Center, "middle"),
-    END("Right", TextAlign.End, "end"),
+enum class TextAlignment(@StringRes val label: Int, val textAlign: TextAlign, val svgAnchor: String) {
+    START(R.string.align_text_start, TextAlign.Start, "start"),
+    CENTER(R.string.align_text_center, TextAlign.Center, "middle"),
+    END(R.string.align_text_end, TextAlign.End, "end"),
 }
 
 /**

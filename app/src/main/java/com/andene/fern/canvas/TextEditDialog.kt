@@ -122,7 +122,7 @@ fun TextEditDialog(
                         FilterChip(
                             selected = font == option,
                             onClick = { font = option },
-                            label = { Text(option.label, fontFamily = option.fontFamily) },
+                            label = { Text(stringResource(option.label), fontFamily = option.fontFamily) },
                             modifier = Modifier.padding(end = 8.dp),
                         )
                     }
@@ -132,7 +132,7 @@ fun TextEditDialog(
                         FilterChip(
                             selected = alignment == option,
                             onClick = { alignment = option },
-                            label = { Text(option.label) },
+                            label = { Text(stringResource(option.label)) },
                             modifier = Modifier.padding(end = 8.dp),
                         )
                     }

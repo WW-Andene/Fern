@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.R
+import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -18,15 +20,15 @@ import kotlin.math.sin
 import java.util.UUID
 
 /** How [CanvasState.alignSelection] lines selected strokes up, by their bounding boxes. */
-enum class StrokeAlignment(val label: String) {
-    LEFT("Align left"),
-    CENTER_X("Align centres horizontally"),
-    RIGHT("Align right"),
-    TOP("Align top"),
-    CENTER_Y("Align centres vertically"),
-    BOTTOM("Align bottom"),
-    DISTRIBUTE_X("Distribute horizontally"),
-    DISTRIBUTE_Y("Distribute vertically"),
+enum class StrokeAlignment(@StringRes val label: Int) {
+    LEFT(R.string.align_left),
+    CENTER_X(R.string.align_center_x),
+    RIGHT(R.string.align_right),
+    TOP(R.string.align_top),
+    CENTER_Y(R.string.align_center_y),
+    BOTTOM(R.string.align_bottom),
+    DISTRIBUTE_X(R.string.align_distribute_x),
+    DISTRIBUTE_Y(R.string.align_distribute_y),
 }
 
 enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER, EYEDROPPER, CONNECT }
