@@ -85,6 +85,8 @@ import com.andene.fern.canvas.AnimationBar
 import com.andene.fern.canvas.AppSettings
 import com.andene.fern.canvas.AudioNotes
 import com.andene.fern.canvas.AudioNotesDialog
+import com.andene.fern.canvas.AudioSeekOverlay
+import com.andene.fern.canvas.AudioBar
 import com.andene.fern.canvas.BackgroundStyle
 import com.andene.fern.canvas.CanvasState
 import com.andene.fern.canvas.CanvasStorage
@@ -234,6 +236,15 @@ class MainActivity : ComponentActivity() {
                     val switchMutex = remember { Mutex() }
                     var showAudioNotes by remember { mutableStateOf(false) }
                     val audioNotes = remember { AudioNotes(context) }
+                    // The voice note playing on the canvas in step with its ink (roadmap item 130).
+                    var playingNote by remember { mutableStateOf<java.io.File?>(null) }
+                    // Recording carries on while drawing, but not past leaving the app's screen.
+                    DisposableEffect(audioNotes) {
+                        onDispose {
+                            audioNotes.stop()
+                            audioNotes.stopPlayback()
+                        }
+                    }
                     val micPermissionLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.RequestPermission(),
                     ) { granted ->
@@ -751,6 +762,7 @@ class MainActivity : ComponentActivity() {
                      */
                     suspend fun switchToDocument(documentId: String) = switchMutex.withLock {
                         autosaveJob?.cancel()
+                        playingNote = null // its ink is the other document's
                         loadingDocument = true
                         try {
                             val leaving = currentDocumentId
@@ -929,6 +941,10 @@ class MainActivity : ComponentActivity() {
                             },
                         )
                         val presenting = presentingIndex
+                        // Above the canvas, beneath every control: while a voice note plays, a tap on its ink seeks.
+                        if (playingNote != null && audioNotes.recordingSince == null) {
+                            AudioSeekOverlay(audio = audioNotes, state = canvasState, modifier = Modifier.fillMaxSize())
+                        }
                         if (presenting != null && presenting in canvasState.frames.indices) {
                             // Presentation mode: editing chrome hidden, frames shown one at a time.
                             PresentationControls(
@@ -1065,6 +1081,17 @@ class MainActivity : ComponentActivity() {
                                     .align(if (leftHanded) AbsoluteAlignment.BottomRight else AbsoluteAlignment.BottomLeft)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(12.dp),
+                            )
+                            AudioBar(
+                                audio = audioNotes,
+                                state = canvasState,
+                                playing = playingNote,
+                                onClosePlayback = { playingNote = null },
+                                modifier = Modifier
+                                    // Opposite edge from the toolbar, like the animation bar.
+                                    .align(if (toolbarAtBottom) Alignment.TopCenter else Alignment.BottomCenter)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(vertical = 64.dp),
                             )
                             QuickMenuButton(
                                 onOpen = { showQuickMenu = true },
@@ -1217,7 +1244,15 @@ class MainActivity : ComponentActivity() {
                     }
 
                     if (showAudioNotes) {
-                        AudioNotesDialog(audio = audioNotes, documentId = currentDocumentId, onDismiss = { showAudioNotes = false })
+                        AudioNotesDialog(
+                            audio = audioNotes,
+                            documentId = currentDocumentId,
+                            onPlay = { note ->
+                                playingNote = note
+                                showAudioNotes = false
+                            },
+                            onDismiss = { showAudioNotes = false },
+                        )
                     }
 
                     if (showSettings) {

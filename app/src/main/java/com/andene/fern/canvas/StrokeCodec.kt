@@ -27,6 +27,7 @@ import java.io.IOException
  *   [if FLAG2_BONE: int bone-id name]                                    (version 5+)
  *   [if FLAG2_STYLE: byte packed line style (LineStyle.pack)]            (version 5+)
  *   [if FLAG2_TIP_MASK: short mask size, then size x size coverage bytes] (version 6+)
+ *   [if FLAG2_TIME: long drawn-at time, epoch milliseconds]              (version 8+)
  *   [if FLAG2_WEIGHTS: after the points, one float joint weight per point] (version 7+)
  *   int point count
  *   per point: double x, double y [, float pressure, float tilt, float orientation]
@@ -48,8 +49,9 @@ object StrokeCodec {
      * 5: a second flags byte, its first flag an optional bone id ([FLAG2_BONE]).
      * 6: optional image-tip picture for a stamp brush ([FLAG2_TIP_MASK]).
      * 7: optional painted joint weights ([FLAG2_WEIGHTS]).
+     * 8: optional time the stroke was drawn ([FLAG2_TIME]).
      */
-    const val VERSION = 7
+    const val VERSION = 8
 
     private const val FLAG_FILLED = 1
     private const val FLAG_DASHED = 2
@@ -65,6 +67,7 @@ object StrokeCodec {
     private const val FLAG2_STYLE = 2
     private const val FLAG2_TIP_MASK = 4
     private const val FLAG2_WEIGHTS = 8
+    private const val FLAG2_TIME = 16
     // Guards against a corrupt size allocating a huge array; real masks are TIP_MASK_SIZE.
     private const val MAX_TIP_MASK_SIZE = 512
 
@@ -112,7 +115,8 @@ object StrokeCodec {
             val weights = stroke.jointWeights?.takeIf { it.size == stroke.points.size }
             out.writeByte(
                 (if (boneId != null) FLAG2_BONE else 0) or (if (lineStyle != null) FLAG2_STYLE else 0) or
-                    (if (mask != null) FLAG2_TIP_MASK else 0) or (if (weights != null) FLAG2_WEIGHTS else 0),
+                    (if (mask != null) FLAG2_TIP_MASK else 0) or (if (weights != null) FLAG2_WEIGHTS else 0) or
+                    (if (stroke.drawnAt != 0L) FLAG2_TIME else 0),
             )
             if (brush != null) {
                 out.writeShort(nameIndex(brush.tip.name))
@@ -133,6 +137,7 @@ object StrokeCodec {
                 out.writeShort(mask.size)
                 out.write(mask.alpha)
             }
+            if (stroke.drawnAt != 0L) out.writeLong(stroke.drawnAt)
             val points = stroke.points
             out.writeInt(points.size)
             for (i in points.indices) {
@@ -198,6 +203,7 @@ object StrokeCodec {
             } else {
                 null
             }
+            val drawnAt = if ((flags2 and FLAG2_TIME) != 0) input.readLong() else 0L
             val stroke = Stroke(
                 color, width, penType,
                 filled = (flags and FLAG_FILLED) != 0,
@@ -220,6 +226,7 @@ object StrokeCodec {
                 else stroke.addPoint(point)
             }
             if ((flags2 and FLAG2_WEIGHTS) != 0) stroke.setJointWeights(FloatArray(stroke.points.size) { input.readFloat() })
+            if (drawnAt != 0L) stroke.setDrawnAt(drawnAt)
             strokes.add(stroke)
         }
         return strokes

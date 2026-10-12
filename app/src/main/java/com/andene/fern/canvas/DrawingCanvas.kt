@@ -1335,6 +1335,7 @@ private val STICKY_NOTE_COLOR = Color(0xFFFFF59D)
 
 // Faint enough to read as "the previous drawing" without competing with the current one.
 private const val ONION_SKIN_ALPHA = 0.25f
+private const val AUDIO_AHEAD_ALPHA = 0.2f
 
 // One wheel notch pans 64 px, or zooms by 10% with Ctrl held.
 private const val WHEEL_PAN_PX = 64f
@@ -1432,7 +1433,12 @@ internal fun DrawScope.drawScene(
     // Only strokes near the view, from the spatial index - not a pass over the whole document.
     val nearby = state.strokesNear(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)
     // Replay draws the first replayCount strokes of the document, in drawing order.
-    val replayed = state.replayCount?.let { count -> state.strokes.take(count).toHashSet().let { shown -> nearby.filter { it in shown } } } ?: nearby
+    val replayedOrAll = state.replayCount?.let { count -> state.strokes.take(count).toHashSet().let { shown -> nearby.filter { it in shown } } } ?: nearby
+    // Audio sync (roadmap item 130): ink the playing voice note hasn't reached yet is drawn
+    // faded, underneath, until the playback gets to it.
+    val audio = state.audioReplay
+    val ahead = if (audio == null) emptyList() else replayedOrAll.filter { audio.isAhead(it) }
+    val replayed = if (ahead.isEmpty()) replayedOrAll else ahead.toHashSet().let { later -> replayedOrAll.filter { it !in later } }
     val strokesByLayer = replayed.filter { it.animFrame == state.currentAnimFrame }.groupBy { layerIndex[it.layerId] ?: 0 }
     // Offscreen bounds for a translucent layer: the square around the screen centre that covers
     // the screen at any canvas rotation.
@@ -1444,6 +1450,19 @@ internal fun DrawScope.drawScene(
             if (stroke.animFrame != onionFrame || stroke.points.isEmpty()) continue
             if (state.layers.firstOrNull { it.id == stroke.layerId }?.visible == false) continue
             if (!stroke.intersects(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)) continue
+            val source = stroke.decimatedIndices(MIN_POINT_SPACING_SCREEN / state.scale)
+            val screenPoints = source.map { state.worldToScreen(stroke.points[it], screenCenter) }
+            val widthScreen = (stroke.widthWorld * state.scale).toFloat().coerceIn(1f, 1_000_000f)
+            drawStroke(stroke, screenPoints, source, widthScreen, BlendMode.SrcOver)
+        }
+        drawContext.canvas.restore()
+    }
+
+    if (ahead.isNotEmpty()) {
+        drawContext.canvas.saveLayer(layerBounds, Paint().apply { alpha = AUDIO_AHEAD_ALPHA })
+        for (stroke in ahead) {
+            if (stroke.animFrame != state.currentAnimFrame || stroke.points.isEmpty()) continue
+            if (state.layers.firstOrNull { it.id == stroke.layerId }?.visible == false) continue
             val source = stroke.decimatedIndices(MIN_POINT_SPACING_SCREEN / state.scale)
             val screenPoints = source.map { state.worldToScreen(stroke.points[it], screenCenter) }
             val widthScreen = (stroke.widthWorld * state.scale).toFloat().coerceIn(1f, 1_000_000f)

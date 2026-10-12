@@ -121,6 +121,7 @@ class Stroke(
         internal val maxY: Double,
         internal val revision: Int,
         internal val jointWeights: FloatArray? = null,
+        internal val drawnAt: Long = 0L,
     )
 
     /** This stroke's current geometry as an immutable [State]; O(1). */
@@ -128,7 +129,7 @@ class Stroke(
         // Plain revision: undo snapshots capture every stroke, and a million snapshot-state reads per action add up.
         cachedState?.let { if (it.revision == plainRevision) return it }
         dataShared = true
-        return State(xs, ys, pressureData, tiltData, orientationData, size, widthWorld, minX, minY, maxX, maxY, plainRevision, jointWeights).also { cachedState = it }
+        return State(xs, ys, pressureData, tiltData, orientationData, size, widthWorld, minX, minY, maxX, maxY, plainRevision, jointWeights, drawnAt).also { cachedState = it }
     }
 
     /** Sets this stroke's geometry back to [state] (an undo); O(1), the arrays stay shared until written. */
@@ -149,6 +150,7 @@ class Stroke(
         maxX = state.maxX
         maxY = state.maxY
         jointWeights = state.jointWeights
+        drawnAt = state.drawnAt
         dataShared = true
         revision++
     }
@@ -431,6 +433,20 @@ class Stroke(
      */
     var jointWeights: FloatArray? = null
         private set
+
+    /**
+     * When the stroke was drawn (epoch milliseconds), or 0 when unknown (strokes from before
+     * this was recorded, shapes and fills). Audio notes use it to replay ink in step with a
+     * recording made while drawing (roadmap item 130). Carried with the geometry ([State]), so
+     * copies and undo keep it.
+     */
+    var drawnAt: Long = 0L
+        private set
+
+    fun setDrawnAt(millis: Long) {
+        drawnAt = millis
+        cachedState = null // a cached capture predates it
+    }
 
     fun setJointWeights(weights: FloatArray?) {
         require(weights == null || weights.size == size) { "One weight per point" }

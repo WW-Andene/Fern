@@ -173,6 +173,9 @@
     <string name="gradient_title">Gradient fill</string>
     <string name="gradient_end">End colour</string>
     <string name="audio_title">Voice notes</string>
+    <string name="audio_recording_for">Recording %1$s</string>
+    <string name="audio_pause">Pause</string>
+    <string name="audio_close_playback">Close playback</string>
     <string name="audio_mic_failed">The microphone couldn\'t be started.</string>
     <string name="audio_empty">No voice notes for this document yet.</string>
     <string name="action_stop">Stop</string>

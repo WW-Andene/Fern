@@ -636,6 +636,20 @@ class CanvasState(
      */
     var replayCount by mutableStateOf<Int?>(null)
 
+    /** A voice note playing in step with its ink (roadmap item 130); null otherwise. Purely a view. */
+    var audioReplay by mutableStateOf<AudioReplay?>(null)
+
+    /** The visible stroke drawn during [audioReplay]'s recording nearest [world] (within a finger's reach), for jumping playback to it. */
+    fun syncedStrokeAt(world: WorldPoint): Stroke? {
+        val replay = audioReplay ?: return null
+        val reach = ERASER_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
+        return strokesNear(world.x - reach, world.y - reach, world.x + reach, world.y + reach)
+            .filter { replay.covers(it) && isVisible(it) }
+            .map { it to distanceToPolyline(it.points, world) - it.widthWorld / 2 }
+            .filter { (_, distance) -> distance <= reach }
+            .minByOrNull { (_, distance) -> distance }?.first
+    }
+
     /** Named regions of the canvas, in creation order. */
     val frames = mutableStateListOf<Frame>()
 
@@ -2512,7 +2526,7 @@ class CanvasState(
      */
     val tileCacheEligible: Boolean
         get() = strokes.size >= TILE_CACHE_MIN_STROKES && currentStroke == null && selection.isEmpty() &&
-            !isErasing && !isMovingImage && !isMovingText && !animationMode && replayCount == null
+            !isErasing && !isMovingImage && !isMovingText && !animationMode && replayCount == null && audioReplay == null
 
     private var isErasing = false
 
@@ -2666,6 +2680,7 @@ class CanvasState(
             brush = if (activePenType == PenType.STAMP) activeBrush else null,
         )
         stroke.addPoint(snappedToActiveGuide(worldPoint), pressure, tilt, orientation)
+        stroke.setDrawnAt(strokeStartMillis)
         rememberActiveColor()
         lastStrokeMoveMillis = System.currentTimeMillis()
         lastPointMillis = lastStrokeMoveMillis
@@ -2674,6 +2689,7 @@ class CanvasState(
         symmetryCopies = symmetryTransforms(symmetryMode, symmetryCenter).map { transform ->
             val copy = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode, layerId = stroke.layerId, animFrame = stroke.animFrame, dashed = stroke.dashed, brush = stroke.brush)
             copy.addPoint(transform(stroke.points.first()), pressure, tilt, orientation)
+            copy.setDrawnAt(strokeStartMillis)
             strokes.add(copy)
             copy to transform
         }
@@ -2841,6 +2857,7 @@ class CanvasState(
         if (index == -1) return null
         val shape = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode, layerId = stroke.layerId, animFrame = stroke.animFrame, dashed = stroke.dashed, brush = stroke.brush)
         for (point in cleanPoints) shape.addPoint(point)
+        shape.setDrawnAt(stroke.drawnAt)
         strokes[index] = shape
         return shape
     }

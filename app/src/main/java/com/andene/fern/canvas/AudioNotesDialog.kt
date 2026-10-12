@@ -11,14 +11,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,21 +30,15 @@ import java.util.Date
 
 /**
  * The current document's voice notes: record a new one (the caller has already obtained the
- * microphone permission), play or delete existing ones. Recording and playback stop when the
- * dialog closes.
+ * microphone permission), play or delete existing ones. Recording closes the dialog and carries
+ * on while the user draws ([AudioBar] shows it and stops it); playing closes it too and plays the
+ * note on the canvas in step with the ink drawn during it ([onPlay]).
  */
 @Composable
-fun AudioNotesDialog(audio: AudioNotes, documentId: String, onDismiss: () -> Unit) {
+fun AudioNotesDialog(audio: AudioNotes, documentId: String, onPlay: (File) -> Unit, onDismiss: () -> Unit) {
     var notes by remember { mutableStateOf(audio.list(documentId)) }
-    var recording by remember { mutableStateOf(false) }
-    var playing by remember { mutableStateOf<File?>(null) }
+    val recording = audio.recordingSince != null
     var failed by remember { mutableStateOf(false) }
-    DisposableEffect(Unit) {
-        onDispose {
-            audio.stop()
-            audio.stopPlayback()
-        }
-    }
     val format = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
 
     AlertDialog(
@@ -61,22 +53,10 @@ fun AudioNotesDialog(audio: AudioNotes, documentId: String, onDismiss: () -> Uni
                     val time = note.nameWithoutExtension.substringAfterLast('_').toLongOrNull()
                     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(time?.let { format.format(Date(it)) } ?: note.name, modifier = Modifier.weight(1f))
-                        IconButton(onClick = {
-                            if (playing == note) {
-                                audio.stopPlayback()
-                                playing = null
-                            } else {
-                                audio.play(note) { playing = null }
-                                playing = note
-                            }
-                        }, enabled = !recording) {
-                            Icon(
-                                if (playing == note) Icons.Filled.Stop else Icons.Filled.PlayArrow,
-                                contentDescription = if (playing == note) stringResource(R.string.action_stop) else stringResource(R.string.action_play),
-                            )
+                        IconButton(onClick = { onPlay(note) }, enabled = !recording) {
+                            Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.action_play))
                         }
                         IconButton(onClick = {
-                            if (playing == note) audio.stopPlayback()
                             note.delete()
                             notes = audio.list(documentId)
                         }, enabled = !recording) {
@@ -90,12 +70,11 @@ fun AudioNotesDialog(audio: AudioNotes, documentId: String, onDismiss: () -> Uni
             TextButton(onClick = {
                 if (recording) {
                     audio.stop()
-                    recording = false
                     notes = audio.list(documentId)
                 } else {
-                    playing = null
+                    audio.stopPlayback()
                     failed = !audio.start(documentId)
-                    recording = !failed
+                    if (!failed) onDismiss() // draw while recording
                 }
             }) { Text(if (recording) stringResource(R.string.audio_stop_recording) else stringResource(R.string.audio_record)) }
         },
