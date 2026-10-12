@@ -31,13 +31,16 @@ fun TextEditDialog(
     initialBold: Boolean,
     initialItalic: Boolean,
     initialSticky: Boolean,
-    onConfirm: (text: String, bold: Boolean, italic: Boolean, sticky: Boolean) -> Unit,
+    initialSizePx: Double,
+    onConfirm: (text: String, bold: Boolean, italic: Boolean, sticky: Boolean, sizePx: Double) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var text by remember { mutableStateOf(initialText) }
     var bold by remember { mutableStateOf(initialBold) }
     var italic by remember { mutableStateOf(initialItalic) }
     var sticky by remember { mutableStateOf(initialSticky) }
+    // Snap to the nearest offered size, so an existing label shows its closest size selected.
+    var sizePx by remember { mutableStateOf(TEXT_SIZES_PX.minBy { kotlin.math.abs(it - initialSizePx) }) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -72,13 +75,26 @@ fun TextEditDialog(
                         label = { Text("Sticky note") },
                     )
                 }
+                Row(modifier = Modifier.padding(top = 8.dp)) {
+                    for ((size, label) in TEXT_SIZES_PX.zip(listOf("S", "M", "L", "XL"))) {
+                        FilterChip(
+                            selected = sizePx == size,
+                            onClick = { sizePx = size },
+                            label = { Text(label) },
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(text, bold, italic, sticky) }) { Text("Done") }
+            TextButton(onClick = { onConfirm(text, bold, italic, sticky, sizePx) }) { Text("Done") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         },
     )
 }
+
+// Text sizes offered, in screen px at the zoom the label is placed at; all on the §7 scale.
+private val TEXT_SIZES_PX = listOf(16.0, 24.0, 32.0, 48.0)

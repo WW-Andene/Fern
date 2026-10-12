@@ -567,6 +567,8 @@ class CanvasState(
         val initialBold: Boolean = false,
         val initialItalic: Boolean = false,
         val initialSticky: Boolean = false,
+        /** On-screen text size in px at the current zoom. */
+        val initialSizePx: Double = 24.0,
     )
 
     var pendingTextEdit: PendingTextEdit? by mutableStateOf(null)
@@ -1010,9 +1012,9 @@ class CanvasState(
     fun beginTextEdit(worldPoint: WorldPoint) {
         val existing = findTextItemAt(worldPoint)
         pendingTextEdit = if (existing != null) {
-            PendingTextEdit(existing.id, existing.position, existing.text, existing.bold, existing.italic, existing.sticky)
+            PendingTextEdit(existing.id, existing.position, existing.text, existing.bold, existing.italic, existing.sticky, existing.fontSizeWorld * scale)
         } else {
-            PendingTextEdit(null, worldPoint, "")
+            PendingTextEdit(null, worldPoint, "", initialSizePx = activeTextSizeWorld)
         }
     }
 
@@ -1021,7 +1023,10 @@ class CanvasState(
      * if this was a fresh placement), otherwise creates a new label or updates the edited
      * one's text in place.
      */
-    fun confirmTextEdit(text: String, bold: Boolean = false, italic: Boolean = false, sticky: Boolean = false) {
+    fun confirmTextEdit(text: String, bold: Boolean = false, italic: Boolean = false, sticky: Boolean = false, sizePx: Double = activeTextSizeWorld) {
+        // The chosen size also becomes the default for the next new label.
+        activeTextSizeWorld = sizePx
+        val fontSizeWorld = sizePx / scale.coerceAtLeast(1e-300)
         val pending = pendingTextEdit ?: return
         pendingTextEdit = null
         recordHistory()
@@ -1033,14 +1038,14 @@ class CanvasState(
         }
         val existingIndex = pending.id?.let { id -> textItems.indexOfFirst { it.id == id } } ?: -1
         if (existingIndex != -1) {
-            textItems[existingIndex] = textItems[existingIndex].copy(text = text, bold = bold, italic = italic, sticky = sticky)
+            textItems[existingIndex] = textItems[existingIndex].copy(text = text, bold = bold, italic = italic, sticky = sticky, fontSizeWorld = fontSizeWorld)
         } else {
             textItems.add(
                 TextItem(
                     id = UUID.randomUUID().toString(),
                     text = text,
                     position = pending.worldPoint,
-                    fontSizeWorld = activeTextSizeWorld / scale.coerceAtLeast(1e-300),
+                    fontSizeWorld = fontSizeWorld,
                     color = activeColor,
                     bold = bold,
                     italic = italic,

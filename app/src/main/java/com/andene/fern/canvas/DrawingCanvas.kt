@@ -477,7 +477,8 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
             initialBold = pending.initialBold,
             initialItalic = pending.initialItalic,
             initialSticky = pending.initialSticky,
-            onConfirm = { text, bold, italic, sticky -> state.confirmTextEdit(text, bold, italic, sticky) },
+            initialSizePx = pending.initialSizePx,
+            onConfirm = { text, bold, italic, sticky, sizePx -> state.confirmTextEdit(text, bold, italic, sticky, sizePx) },
             onDismiss = { state.cancelTextEdit() },
         )
     }
