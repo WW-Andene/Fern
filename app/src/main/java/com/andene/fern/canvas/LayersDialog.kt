@@ -18,6 +18,10 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Opacity
+import androidx.compose.material.icons.filled.SubdirectoryArrowRight
+import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.Gradient
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
@@ -143,6 +147,43 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                         }
                         IconButton(onClick = { state.deleteLayer(layer.id) }, enabled = state.layers.size > 1) {
                             Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.layers_delete))
+                        }
+                    }
+                    if (active) {
+                        // Masks, clipping and alpha lock (roadmap item 91).
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { if (layer.masked) state.removeLayerMask(layer.id) else state.addLayerMask(layer.id) }) {
+                                Icon(
+                                    Icons.Filled.Gradient,
+                                    contentDescription = stringResource(if (layer.masked) R.string.layers_mask_remove else R.string.layers_mask_add),
+                                    tint = if (layer.masked) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                )
+                            }
+                            if (layer.masked) {
+                                IconButton(onClick = { state.editingMask = !state.editingMask }) {
+                                    Icon(
+                                        Icons.Filled.Brush,
+                                        contentDescription = stringResource(if (state.editingMask) R.string.layers_mask_edit_stop else R.string.layers_mask_edit),
+                                        tint = if (state.editingMask) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                    )
+                                }
+                            }
+                            IconButton(onClick = { state.updateLayer(layer.id) { it.copy(clipped = !it.clipped) } }, enabled = layer != state.layers.first()) {
+                                Icon(
+                                    Icons.Filled.SubdirectoryArrowRight,
+                                    contentDescription = stringResource(if (layer.clipped) R.string.layers_clip_off else R.string.layers_clip_on),
+                                    tint = if (layer.clipped) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                )
+                            }
+                            if (layer.raster) {
+                                IconButton(onClick = { state.updateLayer(layer.id) { it.copy(alphaLocked = !it.alphaLocked) } }) {
+                                    Icon(
+                                        Icons.Filled.Opacity,
+                                        contentDescription = stringResource(if (layer.alphaLocked) R.string.layers_alpha_unlock else R.string.layers_alpha_lock),
+                                        tint = if (layer.alphaLocked) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                    )
+                                }
+                            }
                         }
                     }
                     if (active) {

@@ -63,6 +63,12 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
     /** Called with a tile's key after it changed, for incremental saving. */
     var afterTileChange: (Long) -> Unit = {}
 
+    /** While set, only pixels it accepts are painted (a raster selection, roadmap item 91). */
+    var clip: ((px: Int, py: Int) -> Boolean)? = null
+
+    /** Alpha lock (roadmap item 91): painting changes colour only, keeping every pixel's coverage. */
+    var alphaLock = false
+
     fun tileAt(key: Long): RasterTile? = tiles[key]
 
     /** Puts [tile] at [key], or removes it when null (undo, loading). */
@@ -99,7 +105,16 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
             if (falloff <= 0.0) return@forEachPixelIn
             val a = (opacity * falloff).coerceIn(0.0, 1.0)
             if (erase) {
+                if (alphaLock) return@forEachPixelIn // nothing can be removed under alpha lock
                 for (c in 0 until 4) tile.data[index + c] = (u16(tile.data[index + c]) * (1 - a)).toInt().toShort()
+            } else if (alphaLock) {
+                // Recolour toward the brush colour at the pixel's own coverage.
+                val destA = u16(tile.data[index + 3])
+                val srcA = color[3] * a
+                for (c in 0 until 3) {
+                    val dest = u16(tile.data[index + c])
+                    tile.data[index + c] = (dest + (color[c] * destA - dest) * srcA).toInt().coerceIn(0, destA).toShort()
+                }
             } else {
                 val srcA = color[3] * a
                 for (c in 0 until 3) {
@@ -164,7 +179,22 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
             val a = strength * coverage(px, py, cx, cy, r, 0.5f, tip)
             if (a <= 0.0) return@forEachPixelIn
             val s = source[RasterSurface.tileKey(px, py)] ?: return@forEachPixelIn
+            mixToward(tile, index, s, a)
+        }
+    }
+
+    /** Moves a pixel toward premultiplied colour [s] by [a]; under alpha lock its coverage stays and colour is rescaled to it. */
+    private fun mixToward(tile: RasterTile, index: Int, s: FloatArray, a: Double) {
+        if (!alphaLock) {
             for (c in 0 until 4) tile.data[index + c] = (u16(tile.data[index + c]) * (1 - a) + s[c] * 65535.0 * a).toInt().coerceIn(0, 65535).toShort()
+            return
+        }
+        val destA = u16(tile.data[index + 3])
+        if (destA == 0) return
+        val unpremultiplied = if (s[3] > 0f) FloatArray(3) { s[it] / s[3] } else FloatArray(3)
+        for (c in 0 until 3) {
+            val dest = u16(tile.data[index + c])
+            tile.data[index + c] = (dest * (1 - a) + unpremultiplied[c] * destA * a).toInt().coerceIn(0, destA).toShort()
         }
     }
 
@@ -186,7 +216,7 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
             val a = strength * coverage(px, py, cx, cy, r, 0.5f, tip)
             if (a <= 0.0) return@forEachPixelIn
             val s = averaged[RasterSurface.tileKey(px, py)] ?: return@forEachPixelIn
-            for (c in 0 until 4) tile.data[index + c] = (u16(tile.data[index + c]) * (1 - a) + s[c] * 65535.0 * a).toInt().coerceIn(0, 65535).toShort()
+            mixToward(tile, index, s, a)
         }
     }
 
@@ -206,6 +236,7 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
             val tile = tiles.getOrPut(key) { RasterTile() }
             for (py in maxOf(y0, ty * RASTER_TILE) until minOf(y1 + 1, (ty + 1) * RASTER_TILE)) {
                 for (px in maxOf(x0, tx * RASTER_TILE) until minOf(x1 + 1, (tx + 1) * RASTER_TILE)) {
+                    if (clip?.invoke(px, py) == false) continue
                     visit(tile, ((py - ty * RASTER_TILE) * RASTER_TILE + (px - tx * RASTER_TILE)) * 4, px, py)
                 }
             }

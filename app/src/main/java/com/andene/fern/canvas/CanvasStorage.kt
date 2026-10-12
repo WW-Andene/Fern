@@ -671,6 +671,9 @@ object CanvasStorage {
                 put("reference", layer.reference)
                 layer.skin?.let { put("skin", it) }
                 if (layer.raster) put("raster", true).put("depth", layer.depth)
+                if (layer.masked) put("masked", true)
+                if (layer.clipped) put("clipped", true)
+                if (layer.alphaLocked) put("alphaLocked", true)
             })
         }
         writeStored(layersFile(context, documentId), root)
@@ -691,6 +694,9 @@ object CanvasStorage {
                 skin = entry.optString("skin").ifEmpty { null },
                 raster = entry.optBoolean("raster", false),
                 depth = if (entry.optInt("depth", 8) == 16) 16 else 8,
+                masked = entry.optBoolean("masked", false),
+                clipped = entry.optBoolean("clipped", false),
+                alphaLocked = entry.optBoolean("alphaLocked", false),
             )
         }
     }

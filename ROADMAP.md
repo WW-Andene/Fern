@@ -150,7 +150,7 @@ All deferred: they need a server or cloud platform.
 
 - [x] 89. Raster layers with tiled pixel storage, up to 16-bit — 256 px tiles made only where there is paint, 8 or 16 bits per channel (16-bit shown through half-float bitmaps); the pen paints and the eraser erases on them with pressure; tile-level undo; saved tile by tile, in .fern bundles too; raster layers on one grid merge
 - [x] 90. Pixel brush engine: wet mixing (the brush picks up and carries colour), smudge, blur, tip-shaped dabs; brush tips imported from Photoshop .abr (sampled brushes) and Procreate .brush (shape); Procreate grain and brush dynamics not read
-- [ ] 91. Raster selections, masks, clipping masks, alpha lock
+- [x] 91. Raster selections (lasso or rectangle: painting stays inside; clear, fill, copy to a new layer, drag to move pixels), layer masks on raster or vector layers (pen hides, eraser reveals), clipping masks, alpha lock
 - [ ] 92. Adjustments: curves, levels, hue/saturation, liquify, warp
 - [ ] 93. Full Photoshop blend modes and adjustment layers
 - [x] 94. Reference layers (fills take their boundaries from them), gap-closing bucket fill (areas closed by several strokes, gaps up to ~8 px bridged, within the view)

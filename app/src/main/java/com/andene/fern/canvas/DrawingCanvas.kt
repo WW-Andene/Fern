@@ -506,6 +506,18 @@ fun DrawingCanvas(
                 )
             }
 
+            // Raster selection outline: dashed, so it reads over any paint.
+            state.rasterSelection?.let { outline ->
+                val path = Path()
+                outline.forEachIndexed { i, p ->
+                    val s = state.worldToScreen(p, screenCenter)
+                    if (i == 0) path.moveTo(s.x, s.y) else path.lineTo(s.x, s.y)
+                }
+                path.close()
+                drawPath(path, Color.White, style = DrawStyle(width = 2f))
+                drawPath(path, Color.Black, style = DrawStyle(width = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))))
+            }
+
             if (state.lassoPath.size >= 2) {
                 val lasso = Path()
                 state.lassoPath.forEachIndexed { index, point ->
@@ -683,7 +695,7 @@ fun DrawingCanvas(
  * Magnified pixels stay crisp (nearest neighbour) once a pixel covers two screen pixels, so
  * pixel work reads clearly; below that they're filtered.
  */
-private fun DrawScope.drawRaster(surface: RasterSurface, state: CanvasState, screenCenter: Offset, topLeftWorld: WorldPoint, bottomRightWorld: WorldPoint) {
+private fun DrawScope.drawRaster(surface: RasterSurface, state: CanvasState, screenCenter: Offset, topLeftWorld: WorldPoint, bottomRightWorld: WorldPoint, blendMode: BlendMode = BlendMode.SrcOver) {
     val tileWorld = RASTER_TILE * surface.pixelWorld
     val quality = if (surface.pixelWorld * state.scale >= 2.0) FilterQuality.None else FilterQuality.Low
     for ((key, tile) in surface.tiles) {
@@ -697,7 +709,7 @@ private fun DrawScope.drawRaster(surface: RasterSurface, state: CanvasState, scr
         val width = b.x.roundToInt() - x
         val height = b.y.roundToInt() - y
         if (width <= 0 || height <= 0) continue
-        drawImage(surface.bitmapOf(tile).asImageBitmap(), dstOffset = IntOffset(x, y), dstSize = IntSize(width, height), filterQuality = quality)
+        drawImage(surface.bitmapOf(tile).asImageBitmap(), dstOffset = IntOffset(x, y), dstSize = IntSize(width, height), filterQuality = quality, blendMode = blendMode)
     }
 }
 
@@ -1367,20 +1379,13 @@ internal fun DrawScope.drawScene(
     }
 
     state.rasterRevision // repaint as raster pixels change
-    for ((index, layer) in state.layers.withIndex()) {
-        if (!layer.visible) continue
+    // One layer's own content: its pixels, or its strokes in list order.
+    fun drawLayerContent(index: Int, layer: Layer) {
         if (layer.raster) {
-            val surface = state.rasters[layer.id] ?: continue
-            if (layer.opacity < 1f) drawContext.canvas.saveLayer(layerBounds, Paint().apply { alpha = layer.opacity })
-            drawRaster(surface, state, screenCenter, topLeftWorld, bottomRightWorld)
-            if (layer.opacity < 1f) drawContext.canvas.restore()
-            continue
+            state.rasters[layer.id]?.let { drawRaster(it, state, screenCenter, topLeftWorld, bottomRightWorld) }
+            return
         }
-        val layerStrokes = strokesByLayer[index] ?: continue
-        // Layer opacity applies to the layer as a whole: drawn offscreen, then composited once,
-        // so overlapping strokes on one layer don't show through each other.
-        val translucent = layer.opacity < 1f
-        if (translucent) drawContext.canvas.saveLayer(layerBounds, Paint().apply { alpha = layer.opacity })
+        val layerStrokes = strokesByLayer[index] ?: return
         for (stroke in layerStrokes) {
                 // Reading revision here (and only here) is what subscribes this draw phase to
                 // the stroke's mutations, so a redraw is triggered as each new point is added
@@ -1433,7 +1438,45 @@ internal fun DrawScope.drawScene(
                 if (stroke.penType == PenType.PIXEL) drawPixelStroke(stroke, state, screenCenter)
                 else drawStroke(stroke, screenPoints, source, widthScreen, stroke.blendMode.toComposeBlendMode())
         }
-        if (translucent) drawContext.canvas.restore()
+    }
+
+    // A layer as a whole: opacity applies to the layer once (drawn offscreen, then composited, so
+    // overlapping strokes on one layer don't show through each other), and its mask (roadmap item
+    // 91) hides what it covers.
+    fun drawLayer(index: Int, layer: Layer) {
+        val mask = if (layer.masked) state.rasters[maskIdOf(layer.id)] else null
+        val offscreen = layer.opacity < 1f || mask != null
+        if (offscreen) drawContext.canvas.saveLayer(layerBounds, Paint().apply { alpha = layer.opacity })
+        drawLayerContent(index, layer)
+        if (mask != null) drawRaster(mask, state, screenCenter, topLeftWorld, bottomRightWorld, BlendMode.DstOut)
+        if (offscreen) drawContext.canvas.restore()
+    }
+
+    // Bottom to top. A layer followed by clipped layers (clipping masks, roadmap item 91) is drawn
+    // with them in one group, each clipped layer only where the group already has paint.
+    val layerList = state.layers.toList()
+    var at = 0
+    while (at < layerList.size) {
+        val base = layerList[at]
+        var next = at + 1
+        while (next < layerList.size && layerList[next].clipped) next++
+        if (base.visible) {
+            if (next == at + 1) {
+                drawLayer(at, base)
+            } else {
+                drawContext.canvas.saveLayer(layerBounds, Paint())
+                drawLayer(at, base)
+                for (k in at + 1 until next) {
+                    if (!layerList[k].visible) continue
+                    drawContext.canvas.saveLayer(layerBounds, Paint().apply { blendMode = BlendMode.SrcAtop })
+                    drawLayer(k, layerList[k])
+                    drawContext.canvas.restore()
+                }
+                drawContext.canvas.restore()
+            }
+        }
+        // A hidden base hides the layers clipped to it, which have nothing to show through.
+        at = next
     }
 
     // Labels are measured first: connectors run to the boxes actually drawn (measured text plus a

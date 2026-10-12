@@ -122,6 +122,7 @@ import com.andene.fern.canvas.exportDocumentEps
 import com.andene.fern.canvas.exportReplayGif
 import com.andene.fern.canvas.StrokeChunkFile
 import com.andene.fern.canvas.SpineImport
+import com.andene.fern.canvas.maskIdOf
 import com.andene.fern.canvas.exportSpine
 import com.andene.fern.canvas.exportDragonBones
 import com.andene.fern.canvas.exportDocumentBundle
@@ -658,7 +659,10 @@ class MainActivity : ComponentActivity() {
                                     coroutineScope.launch(Dispatchers.Main) { if (previewWanted && loadingDocument) canvasState.loadStrokes(visible) }
                                 },
                                 layers = CanvasStorage.loadLayers(context, documentId),
-                                rasters = CanvasStorage.loadRasters(context, documentId, CanvasStorage.loadLayers(context, documentId).filter { it.raster }.map { it.id }),
+                                rasters = CanvasStorage.loadLayers(context, documentId).let { layers ->
+                                    // Raster layers' pixels and every layer mask (roadmap items 89, 91).
+                                    CanvasStorage.loadRasters(context, documentId, layers.filter { it.raster }.map { it.id } + layers.filter { it.masked }.map { maskIdOf(it.id) })
+                                },
                                 frames = CanvasStorage.loadFrames(context, documentId),
                                 history = CanvasStorage.loadHistory(context, documentId),
                                 texts = CanvasStorage.loadTextItems(context, documentId),

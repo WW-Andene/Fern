@@ -84,6 +84,7 @@ import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Gradient
 import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.Deselect
 import androidx.compose.material.icons.filled.Air
 import androidx.compose.material.icons.filled.GroupWork
 import androidx.compose.material.icons.filled.Highlight
@@ -820,6 +821,21 @@ fun Toolbar(
                         IconButton(onClick = { state.tidyDiagram() }, enabled = state.connectors.isNotEmpty()) {
                             Icon(Icons.Filled.Schema, contentDescription = stringResource(R.string.tb_tidy))
                         }
+                    }
+                }
+                if (state.activeTool == Tool.SELECT && state.rasterSelection != null) {
+                    // Raster selection actions (roadmap item 91).
+                    IconButton(onClick = { state.deleteRasterSelectionPixels() }) {
+                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.raster_sel_clear))
+                    }
+                    IconButton(onClick = { state.fillRasterSelection() }) {
+                        Icon(Icons.Filled.FormatColorFill, contentDescription = stringResource(R.string.raster_sel_fill))
+                    }
+                    IconButton(onClick = { state.copyRasterSelectionToNewLayer() }) {
+                        Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.raster_sel_copy_layer))
+                    }
+                    IconButton(onClick = { state.clearRasterSelection() }) {
+                        Icon(Icons.Filled.Deselect, contentDescription = stringResource(R.string.raster_sel_deselect))
                     }
                 }
                 if (state.activeTool == Tool.SELECT) {
