@@ -58,6 +58,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.andene.fern.canvas.AnimationBar
+import com.andene.fern.canvas.AppSettings
 import com.andene.fern.canvas.BackgroundStyle
 import com.andene.fern.canvas.CanvasState
 import com.andene.fern.canvas.CanvasStorage
@@ -71,6 +72,7 @@ import com.andene.fern.canvas.Minimap
 import com.andene.fern.canvas.PinMeta
 import com.andene.fern.canvas.PinsDialog
 import com.andene.fern.canvas.PresentationControls
+import com.andene.fern.canvas.SettingsDialog
 import com.andene.fern.canvas.Tool
 import com.andene.fern.canvas.Toolbar
 import com.andene.fern.canvas.VersionsDialog
@@ -144,6 +146,8 @@ class MainActivity : ComponentActivity() {
                     var showPinsDialog by remember { mutableStateOf(false) }
                     var showFramesDialog by remember { mutableStateOf(false) }
                     var showWelcome by remember { mutableStateOf(shouldShowWelcome(context)) }
+                    var showSettings by remember { mutableStateOf(false) }
+                    var leftHanded by remember { mutableStateOf(AppSettings.leftHanded(context)) }
                     var crashReport by remember { mutableStateOf(CrashReporter.pendingReport(context)) }
                     var presentingIndex by remember { mutableStateOf<Int?>(null) } // non-null = presenting that frame
                     var frameToExport by remember { mutableStateOf<Frame?>(null) }
@@ -477,6 +481,7 @@ class MainActivity : ComponentActivity() {
                                 onOpenDocuments = { showDocumentsDialog = true },
                                 onOpenPins = { showPinsDialog = true },
                                 onOpenFrames = { showFramesDialog = true },
+                                onOpenSettings = { showSettings = true },
                                 onImportPalette = { paletteImportLauncher.launch(arrayOf("*/*")) },
                                 onOpenVersions = {
                                     coroutineScope.launch {
@@ -534,7 +539,7 @@ class MainActivity : ComponentActivity() {
                             Minimap(
                                 state = canvasState,
                                 modifier = Modifier
-                                    .align(Alignment.BottomEnd)
+                                    .align(if (leftHanded) Alignment.BottomStart else Alignment.BottomEnd)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(12.dp),
                             )
@@ -667,6 +672,21 @@ class MainActivity : ComponentActivity() {
                                     crashReport = null
                                 }) { Text("Dismiss") }
                             },
+                        )
+                    }
+
+                    if (showSettings) {
+                        SettingsDialog(
+                            leftHanded = leftHanded,
+                            onLeftHandedChange = { value ->
+                                leftHanded = value
+                                AppSettings.setLeftHanded(context, value)
+                            },
+                            onShowGuide = {
+                                showSettings = false
+                                showWelcome = true
+                            },
+                            onDismiss = { showSettings = false },
                         )
                     }
 

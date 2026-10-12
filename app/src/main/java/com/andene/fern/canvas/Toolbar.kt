@@ -62,6 +62,7 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.TextFields
@@ -124,6 +125,7 @@ fun Toolbar(
     onImportPdf: () -> Unit = {},
     onOpenFrames: () -> Unit = {},
     onImportPalette: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
 ) {
     var showExportMenu by remember { mutableStateOf(false) }
     var showWidthSlider by remember { mutableStateOf(false) }
@@ -486,6 +488,9 @@ fun Toolbar(
                 }
                 IconButton(onClick = onOpenFrames) {
                     Icon(Icons.Filled.CropFree, contentDescription = "Frames")
+                }
+                IconButton(onClick = onOpenSettings) {
+                    Icon(Icons.Filled.Settings, contentDescription = "Settings")
                 }
                 IconButton(onClick = onOpenVersions) {
                     Icon(Icons.Filled.History, contentDescription = "Version history")
