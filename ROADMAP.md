@@ -162,7 +162,7 @@ All deferred: they need a server or cloud platform.
 - [x] 97. Stroke styles — dashed lines; caps (round, square, flat), joins (round, sharp, bevelled) and width profiles (even, taper either or both ends), saved per stroke and in SVG/Lottie exports (tapers drawn on canvas and in images only)
 - [~] 98. Text on a path (from a selected line; letters follow and turn with it; SVG textPath), outlined text; no OpenType feature controls (the platform's generic fonts offer few)
 - [~] 99. Smart guides (a moved selection snaps edges/centres to nearby objects, guide lines shown), numeric transform dialog (X, Y, width, height, proportions, rotation), live shape dimensions; no screen rulers
-- [ ] 100. Reusable symbols and shared colour styles
+- [~] 100. Shared colour styles (a saved colour changed everywhere it's used, opacity kept), symbol library across documents (save a selection, place copies); placed symbols are copies, not linked instances
 - [ ] 101. Image trace
 - [ ] 102. CMYK, spot colours, ICC, print-ready PDF
 - [ ] 103. AI / EPS / Figma import and export (SVG export done in 57)

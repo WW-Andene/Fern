@@ -1,5 +1,11 @@
 package com.andene.fern.canvas
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Transform
 import androidx.compose.material.icons.filled.TextRotationAngleup
 import androidx.compose.material3.HorizontalDivider
@@ -196,6 +202,50 @@ fun Toolbar(
     var showSearchDialog by remember { mutableStateOf(false) }
     var showSymmetryMenu by remember { mutableStateOf(false) }
     var showAlignMenu by remember { mutableStateOf(false) }
+    // Symbol library (roadmap item 100), read and written off the main thread.
+    val context = LocalContext.current
+    val symbolScope = rememberCoroutineScope()
+    var symbols by remember { mutableStateOf<List<SymbolMeta>?>(null) }
+    fun openSymbols() {
+        symbolScope.launch { symbols = withContext(Dispatchers.IO) { SymbolLibrary.list(context) } }
+    }
+    symbols?.let { list ->
+        SymbolsDialog(
+            symbols = list,
+            canSaveSelection = state.selection.isNotEmpty(),
+            onInsert = { symbol ->
+                symbolScope.launch {
+                    val strokes = withContext(Dispatchers.IO) { SymbolLibrary.load(context, symbol.id) }
+                    state.activeTool = Tool.SELECT
+                    state.pasteStrokes(strokes)
+                    symbols = null
+                }
+            },
+            onDelete = { symbol ->
+                symbolScope.launch { symbols = withContext(Dispatchers.IO) { SymbolLibrary.delete(context, symbol.id); SymbolLibrary.list(context) } }
+            },
+            onSaveSelection = { name ->
+                val strokes = state.selectionForClipboard()
+                val fallback = context.getString(R.string.symbols_default_name, list.size + 1)
+                symbolScope.launch {
+                    symbols = withContext(Dispatchers.IO) { SymbolLibrary.save(context, name.ifBlank { fallback }, strokes); SymbolLibrary.list(context) }
+                }
+            },
+            onDismiss = { symbols = null },
+        )
+    }
+    var savedColorMenu by remember { mutableStateOf<Color?>(null) }
+    var editingSavedColor by remember { mutableStateOf<Color?>(null) }
+    editingSavedColor?.let { old ->
+        ColorPickerDialog(
+            initialColor = old,
+            onDismiss = { editingSavedColor = null },
+            onColorSelected = { new ->
+                state.replaceColorEverywhere(old, new)
+                editingSavedColor = null
+            },
+        )
+    }
     var showTransformDialog by remember { mutableStateOf(false) }
     if (showTransformDialog) {
         val bounds = state.selectionBounds()
@@ -237,21 +287,41 @@ fun Toolbar(
                     horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
                 ) {
                     for (color in state.savedColors) {
-                        Surface(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .pointerInput(color) {
-                                    detectTapGestures(
-                                        onTap = {
-                                            state.activeColor = color
-                                            state.activeTool = Tool.PEN
-                                        },
-                                        onLongPress = { state.removeSavedColor(color) },
-                                    )
-                                },
-                            shape = RoundedCornerShape(6.dp), // §7.3: 0.24 × 24 = 5.8, nearest scale value 6
-                            color = color,
-                        ) {}
+                        Box {
+                            Surface(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .pointerInput(color) {
+                                        detectTapGestures(
+                                            onTap = {
+                                                state.activeColor = color
+                                                state.activeTool = Tool.PEN
+                                            },
+                                            onLongPress = { savedColorMenu = color },
+                                        )
+                                    },
+                                shape = RoundedCornerShape(6.dp), // §7.3: 0.24 × 24 = 5.8, nearest scale value 6
+                                color = color,
+                            ) {}
+                            // Touch and hold: change this colour everywhere it's used (a shared colour
+                            // style, roadmap item 100), or remove it from the palette.
+                            DropdownMenu(expanded = savedColorMenu == color, onDismissRequest = { savedColorMenu = null }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.color_change_everywhere)) },
+                                    onClick = {
+                                        editingSavedColor = color
+                                        savedColorMenu = null
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.color_remove_saved)) },
+                                    onClick = {
+                                        state.removeSavedColor(color)
+                                        savedColorMenu = null
+                                    },
+                                )
+                            }
+                        }
                     }
                     for (color in recents) {
                         Surface(
@@ -822,6 +892,7 @@ fun Toolbar(
                             Triple(R.string.frames_title, Icons.Filled.CropFree, onOpenFrames),
                             Triple(R.string.audio_title, Icons.Filled.Mic, onOpenAudioNotes),
                             Triple(R.string.versions_title, Icons.Filled.History, onOpenVersions),
+                            Triple(R.string.symbols_title, Icons.Filled.Category) { openSymbols() },
                             Triple(R.string.settings_title, Icons.Filled.Settings, onOpenSettings),
                         )
                         for ((label, icon, action) in moreItems) {

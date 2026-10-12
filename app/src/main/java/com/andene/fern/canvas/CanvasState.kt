@@ -1157,6 +1157,39 @@ class CanvasState(
         onSavedColorsChanged(savedColors.toList())
     }
 
+    /**
+     * Shared colour styles (roadmap item 100): changes saved colour [old] to [new] everywhere -
+     * in the palette, the pen, and every stroke, fill gradient and label drawn in it, on every
+     * layer and frame. Matching is by colour, ignoring alpha, so each stroke keeps its own
+     * opacity; anything else drawn in exactly the same colour changes too. One undo step; does
+     * nothing if no stroke or label uses it.
+     */
+    fun replaceColorEverywhere(old: Color, new: Color) {
+        fun same(c: Color) = c.copy(alpha = 1f) == old.copy(alpha = 1f)
+        val strokeHits = strokes.indices.filter { same(strokes[it].color) || strokes[it].gradient?.let { g -> same(g.endColor) } == true }
+        val textHits = textItems.indices.filter { same(textItems[it].color) }
+        if (strokeHits.isNotEmpty() || textHits.isNotEmpty()) {
+            recordHistory()
+            for (i in strokeHits) {
+                val stroke = strokes[i]
+                var changed = if (same(stroke.color)) stroke.withColor(new.copy(alpha = stroke.color.alpha)) else stroke
+                val gradient = changed.gradient
+                if (gradient != null && same(gradient.endColor)) changed = changed.withGradient(gradient.copy(endColor = new.copy(alpha = gradient.endColor.alpha)))
+                strokes[i] = changed
+            }
+            for (i in textHits) textItems[i] = textItems[i].copy(color = new.copy(alpha = textItems[i].color.alpha))
+            clearSelectionState()
+            strokesChanged()
+            if (textHits.isNotEmpty()) onTextChanged(textItems.toList())
+        }
+        val index = savedColors.indexOf(old)
+        if (index != -1) {
+            savedColors[index] = new
+            onSavedColorsChanged(savedColors.toList())
+        }
+        if (same(activeColor)) activeColor = new.copy(alpha = activeColor.alpha)
+    }
+
     fun removeSavedColor(color: Color) {
         if (savedColors.remove(color)) onSavedColorsChanged(savedColors.toList())
     }

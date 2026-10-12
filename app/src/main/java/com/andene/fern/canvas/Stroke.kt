@@ -354,6 +354,11 @@ class Stroke(
         return copy
     }
 
+    /** A deep copy with fill gradient [newGradient] (null = solid). */
+    fun withGradient(newGradient: FillGradient?): Stroke =
+        Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush, newGradient, groupId, boneId, lineStyle)
+            .also { it.restoreState(captureState()) }
+
     /** An independent copy: later edits to either stroke don't affect the other (copy-on-write, O(1)). */
     fun deepCopy(): Stroke = withColor(color)
 

@@ -377,4 +377,11 @@
     <string name="transform_height">Hauteur</string>
     <string name="transform_keep_proportions">Conserver les proportions</string>
     <string name="transform_rotate">Rotation (°)</string>
+    <string name="color_change_everywhere">Changer cette couleur partout…</string>
+    <string name="color_remove_saved">Retirer de la palette</string>
+    <string name="symbols_title">Symboles</string>
+    <string name="symbols_empty">Aucun symbole pour l\'instant. Sélectionnez des traits et enregistrez-les ici pour les réutiliser dans n\'importe quel document.</string>
+    <string name="symbols_delete">Supprimer le symbole %1$s</string>
+    <string name="symbols_name">Nom de la sélection</string>
+    <string name="symbols_default_name">Symbole %1$d</string>
 </resources>
