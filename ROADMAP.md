@@ -242,7 +242,7 @@ Shared, multiplayer parts need a server and are deferred ⏸; single-player part
 **From drawing to logic**
 
 - [x] 155. Turn a drawing into an object with properties and behaviours — a selection (grouped, so its strokes on every frame go together) becomes a named object with number properties and behaviours (move, rotate, swing, follow a drawn path, bounce off or wrap around the edges, blink, pulse) with their settings; Play runs them in the view, editing hidden, the drawing untouched; saved with the document and in bundles. Objects aren't part of undo, like frames and layers
-- [ ] 156. Visual scripting (nodes / blocks)
+- [x] 156. Visual scripting (nodes / blocks) — per object, rules built from blocks: "when" blocks (the state-machine conditions of item 158) and "do" blocks (set or add to a property, set speed, turn to, show, hide, remove, remove what it touches, go to a state), run in order each step while their conditions hold; reordered, saved with the document. Blocks, not a node graph
 - [x] 157. Drawn behaviours — a drawn path becomes motion (animate along path; an object's follow-path behaviour, item 155); a closed line drawn over an object becomes its hitbox; a line drawn between two objects becomes a link (rod, rope or attachment) held while the game plays; hitboxes and links shown dashed while editing
 - [x] 158. State machines linking rig animations to logic — per object: states that play frame tags (drawn frames or a rig posed frame by frame), looping or not, and transitions from a state or any state when conditions hold (action held or pressed, on the ground or in the air, moving or still, touching an object, a property compared to a value, time in state, animation finished)
 - [x] 159. 2D physics — arcade physics for game objects: fixed (solid) or dynamic bodies as boxes or circles, with mass, bounce, friction and gravity scale; world gravity in any direction and scene edges as walls; contacts and standing-on-something reported for rules and scripts. Bodies are axis-aligned (an object's turn doesn't tilt its body)
@@ -250,6 +250,6 @@ Shared, multiplayer parts need a server and are deferred ⏸; single-player part
 - [x] 161. Play mode — the game plays full screen with editing hidden: in a chosen frame fitted to the screen (or the view as it is), the camera easing after a chosen object within the scene, pause and resume, restart, stop back to the view as it was; objects' properties shown on screen when asked
 - [ ] 162. Online multiplayer play ⏸
 - [ ] 163. AI logic assistant ⏸
-- [~] 164. Text scripting (sandboxed): a turtle-graphics drawing language run from the ⋮ menu, step-limited, no file or network access; drawing only
+- [x] 164. Text scripting (sandboxed) — one language, step-limited, no file or network access, with variables, arithmetic, texts, `if`/`else`, `while`, `repeat`, procedures (recursion depth-limited) and maths functions; used by drawing scripts (turtle graphics, ⋮ menu) and by object scripts that run every step of the game, reading the object, input, contacts and properties and moving, showing, removing, scoring and switching states. A script that fails during play stops and shows its line on screen
 - [ ] 165. Publishing (link, gallery, Android/web export)
 - [ ] 166. Moderation and safety for shared content

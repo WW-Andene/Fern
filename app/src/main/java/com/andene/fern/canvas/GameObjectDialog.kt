@@ -54,6 +54,8 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
     var newProperty by remember { mutableStateOf("") }
     var showBehaviours by remember { mutableStateOf(false) }
     var showStates by remember { mutableStateOf(false) }
+    var showRules by remember { mutableStateOf(false) }
+    var showScript by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.object_title)) },
@@ -122,6 +124,19 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                 TextButton(onClick = { showStates = true }) { Text(stringResource(R.string.states_title)) }
                 if (showStates) StateMachineDialog(state, current.id, onDismiss = {
                     showStates = false
+                    state.gameObjects.firstOrNull { it.id == current.id }?.let { current = it }
+                })
+                // Rules from blocks (roadmap item 156) and the object's script (item 164).
+                TextButton(onClick = { showRules = true }) { Text(stringResource(R.string.rules_title_count, current.rules.size)) }
+                if (showRules) RulesDialog(state, current.id, onDismiss = {
+                    showRules = false
+                    state.gameObjects.firstOrNull { it.id == current.id }?.let { current = it }
+                })
+                TextButton(onClick = { showScript = true }) {
+                    Text(stringResource(if (current.script.isEmpty()) R.string.game_script_add else R.string.game_script_edit))
+                }
+                if (showScript) GameScriptDialog(state, current.id, onDismiss = {
+                    showScript = false
                     state.gameObjects.firstOrNull { it.id == current.id }?.let { current = it }
                 })
                 PhysicsSection(state, current.body) { save(current.copy(body = it)) }

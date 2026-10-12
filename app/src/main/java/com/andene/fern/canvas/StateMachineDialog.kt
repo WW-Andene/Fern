@@ -115,7 +115,7 @@ fun ConditionsEditor(conditions: List<Condition>, onChange: (List<Condition>) ->
 
 /** A button showing [current] that opens a menu of [options]. */
 @Composable
-private fun <T> Choice(current: String, options: List<T>, label: @Composable (T) -> String, onPick: (T) -> Unit) {
+internal fun <T> Choice(current: String, options: List<T>, label: @Composable (T) -> String, onPick: (T) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         TextButton(onClick = { open = true }) { Text(current) }

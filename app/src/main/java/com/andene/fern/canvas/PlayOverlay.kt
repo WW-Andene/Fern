@@ -115,10 +115,16 @@ fun PlayOverlay(state: CanvasState, modifier: Modifier = Modifier) {
         // The heads-up display (roadmap item 161): the properties of objects that show them.
         state.playRevision // refresh with every step
         val shown = world?.instances?.filter { it.def.showInHud && !it.removed }.orEmpty()
-        if (shown.isNotEmpty()) {
+        // Scripts that stopped on an error (roadmap item 164), so a game that misbehaves says why.
+        val failed = world?.instances?.filter { it.scriptError != null }.orEmpty()
+        if (shown.isNotEmpty() || failed.isNotEmpty()) {
             Column(Modifier.align(Alignment.TopStart).windowInsetsPadding(WindowInsets.systemBars).padding(16.dp).background(HUD_COLOR, MaterialTheme.shapes.medium).padding(8.dp)) {
                 for (instance in shown) for ((name, value) in instance.properties.toSortedMap()) {
                     Text("${instance.def.name} $name: ${plainNumber(value)}", color = Color.White, style = MaterialTheme.typography.bodyLarge)
+                }
+                for (instance in failed) {
+                    val error = instance.scriptError ?: continue
+                    Text(stringResource(R.string.game_script_stopped, instance.def.name, error.line, error.message.orEmpty()), color = Color.White, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

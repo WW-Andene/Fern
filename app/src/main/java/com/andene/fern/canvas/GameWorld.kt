@@ -52,6 +52,8 @@ class GameInstance(val def: GameObject, val drawn: WorldBox) {
     var animationDone = false
     // Time spent on the current animation frame.
     var frameClock = 0.0
+    /** Why its script stopped (roadmap item 164), shown while playing; null: running, or none. */
+    var scriptError: ScriptError? = null
 
     /** Where the drawn point [p] is shown now: turned and scaled about the pivot, then moved. */
     fun place(p: WorldPoint): WorldPoint {
@@ -92,6 +94,16 @@ class GameWorld(
 ) {
     val instances: List<GameInstance> = objects.mapNotNull { def -> drawnBoxes[def.id]?.let { GameInstance(def, it) } }
 
+    // Each object's script (roadmap item 164), parsed once; one that doesn't parse shows its error instead.
+    private val scripts: Map<GameInstance, GameScriptRunner> = instances.filter { it.def.script.isNotBlank() }.mapNotNull { o ->
+        try {
+            o to GameScriptRunner(GameScript.parse(o.def.script), o)
+        } catch (e: ScriptError) {
+            o.scriptError = e
+            null
+        }
+    }.toMap()
+
     init {
         for (instance in instances) for (b in instance.def.behaviours) {
             if (b.kind == BehaviourKind.MOVE || b.kind == BehaviourKind.BOUNCE) {
@@ -121,7 +133,35 @@ class GameWorld(
         }
         contacts = Physics2d.resolve(this, settings)
         holdLinks()
+        // Rules (roadmap item 156), then scripts (item 164), see where things ended up and what touched.
+        for (instance in instances) if (!instance.removed) GameActions.runRules(this, instance)
+        for ((instance, script) in scripts) {
+            if (instance.removed || instance.scriptError != null) continue
+            try {
+                script.step(this, dt)
+            } catch (e: ScriptError) {
+                instance.scriptError = e
+            }
+        }
         for (instance in instances) if (!instance.removed) runStateMachine(instance, dt)
+    }
+
+    /** The objects [o] touches this step called [name] (empty: any object): bodies in contact, or hitboxes overlapping. */
+    fun touching(o: GameInstance, name: String): List<GameInstance> {
+        val inContact = contacts.mapNotNull { c ->
+            when {
+                c.a === o -> c.b
+                c.b === o -> c.a
+                else -> null
+            }
+        }
+        return (inContact + overlapping(o)).distinct().filter { !it.removed && (name.isEmpty() || it.def.name == name) }
+    }
+
+    /** Moves [o]'s state machine (roadmap item 158) to the state called [name], if it has one and isn't in it. */
+    fun goToState(o: GameInstance, name: String) {
+        if (o.state == name) return
+        o.def.stateMachine?.states?.firstOrNull { it.name == name }?.let { enterState(o, it) }
     }
 
     /** The objects whose hitbox overlaps [o]'s, bodies or not (for touch conditions on objects without physics). */

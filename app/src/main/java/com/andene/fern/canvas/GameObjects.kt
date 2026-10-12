@@ -6,7 +6,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /*
- * From drawing to logic (roadmap items 155-161, 164): drawings become game objects. An object
+ * From drawing to logic (roadmap items 155-161, 156, 164): drawings become game objects. An object
  * is a group of strokes (its id is the group's id, so all its strokes, on every animation frame,
  * move together) with a name, named number properties, and behaviours that make it act when the
  * game plays.
@@ -85,6 +85,10 @@ data class GameObject(
     val showInHud: Boolean = false,
     /** Its animation states and what moves it between them (roadmap item 158); null: none. */
     val stateMachine: StateMachine? = null,
+    /** Its rules, built from blocks (roadmap item 156). */
+    val rules: List<Rule> = emptyList(),
+    /** Its game script (roadmap item 164), run every step; empty: none. */
+    val script: String = "",
 )
 
 /** How a link holds two objects together (roadmap item 157). */
@@ -165,6 +169,8 @@ object GameObjectsJson {
                     o.hitbox?.let { h -> put("hitbox", JSONArray(h.map { JSONArray().put(it.x).put(it.y) })) }
                     if (o.showInHud) put("hud", true)
                     o.stateMachine?.let { put("states", GameLogicJson.write(it)) }
+                    if (o.rules.isNotEmpty()) put("rules", GameRulesJson.write(o.rules))
+                    if (o.script.isNotEmpty()) put("script", o.script)
                 },
         )
     }
@@ -196,6 +202,8 @@ object GameObjectsJson {
             o.optJSONArray("hitbox")?.let { pts -> (0 until pts.length()).map { WorldPoint(pts.getJSONArray(it).getDouble(0), pts.getJSONArray(it).getDouble(1)) } }?.takeIf { it.size >= 3 },
             o.optBoolean("hud", false),
             o.optJSONObject("states")?.let(GameLogicJson::read),
+            o.optJSONArray("rules")?.let(GameRulesJson::read).orEmpty(),
+            o.optString("script"),
         )
     }
 }

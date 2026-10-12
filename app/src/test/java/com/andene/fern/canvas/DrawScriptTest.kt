@@ -44,4 +44,43 @@ class DrawScriptTest {
         val result = DrawScript.run("repeat 100000 [ repeat 100000 [ ] ]") as ScriptResult.Failed
         assertTrue(result.message.contains("steps"))
     }
+
+    @Test
+    fun variablesConditionsLoopsAndProcedures() {
+        val lines = drawn(
+            """
+            to polygon sides size [
+              repeat sides [ forward size turn 360 / sides ]
+            ]
+            set n 3
+            while n <= 5 [
+              if n % 2 == 0 [ color #0000FF ] else [ color #FF0000 ]
+              polygon n 10 * n
+              move 0 -5
+              set n n + 1
+            ]
+            """.trimIndent(),
+        )
+        assertEquals(3, lines.size)
+        assertEquals(listOf(4, 5, 6), lines.map { it.points.size })
+        assertEquals(listOf(Color.Red, Color.Blue, Color.Red), lines.map { it.color })
+        assertEquals(WorldPoint(0.0, -5.0), lines[1].points.first())
+    }
+
+    @Test
+    fun expressionsReadThePen() {
+        val line = drawn("forward 2 * (3 + 4) - 4 turn 90 forward sqrt(16) + max(1, xcor)").single()
+        assertEquals(10.0, line.points.last().x, 1e-9)
+        assertEquals(14.0, line.points.last().y, 1e-9)
+    }
+
+    @Test
+    fun runtimeErrorsNameTheirLine() {
+        val unknown = DrawScript.run("forward 1\nforward size") as ScriptResult.Failed
+        assertEquals(2, unknown.line)
+        assertTrue(unknown.message.contains("size"))
+        assertTrue((DrawScript.run("forward 1 / 0") as ScriptResult.Failed).message.contains("zero"))
+        assertTrue((DrawScript.run("to f [ f ]\nf") as ScriptResult.Failed).message.contains("deep"))
+        assertTrue((DrawScript.run("while 1 [ ]") as ScriptResult.Failed).message.contains("steps"))
+    }
 }
