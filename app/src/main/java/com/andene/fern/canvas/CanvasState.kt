@@ -1703,12 +1703,14 @@ class CanvasState(
 
     /** The combined bounding box of every stroke, or null if the canvas is empty. */
     fun contentBounds(): Pair<WorldPoint, WorldPoint>? {
-        if (strokes.isEmpty()) return null
-        val minX = strokes.minOf { it.minX }
-        val minY = strokes.minOf { it.minY }
-        val maxX = strokes.maxOf { it.maxX }
-        val maxY = strokes.maxOf { it.maxY }
-        return WorldPoint(minX, minY) to WorldPoint(maxX, maxY)
+        // Images and text count too: a document holding only an imported PDF or only typed
+        // notes used to have no bounds, so zoom-to-fit and the minimap did nothing.
+        val boxes = strokes.filter { it.points.isNotEmpty() }.map { WorldPoint(it.minX, it.minY) to WorldPoint(it.maxX, it.maxY) } +
+            imageItems.map { it.position to WorldPoint(it.position.x + it.widthWorld, it.position.y + it.heightWorld) } +
+            textItems.map { textBounds(it) }
+        if (boxes.isEmpty()) return null
+        return WorldPoint(boxes.minOf { it.first.x }, boxes.minOf { it.first.y }) to
+            WorldPoint(boxes.maxOf { it.second.x }, boxes.maxOf { it.second.y })
     }
 
     /** Recenters the camera on [world] without changing zoom. */
