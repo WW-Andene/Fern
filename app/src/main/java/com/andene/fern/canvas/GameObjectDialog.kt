@@ -105,6 +105,17 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                     }
                 }
                 PhysicsSection(state, current.body) { save(current.copy(body = it)) }
+                // Drawn hitbox and links (roadmap item 157).
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                Text(stringResource(if (current.hitbox == null) R.string.object_no_hitbox else R.string.object_has_hitbox), style = MaterialTheme.typography.bodySmall)
+                if (current.hitbox != null) TextButton(onClick = { save(current.copy(hitbox = null)) }) { Text(stringResource(R.string.object_clear_hitbox)) }
+                for (link in state.gameSettings.links.filter { it.from == current.id || it.to == current.id }) {
+                    val other = state.gameObjects.firstOrNull { it.id == (if (link.from == current.id) link.to else link.from) }?.name ?: "?"
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.object_link_row, stringResource(linkLabel(link.kind)), other), modifier = Modifier.weight(1f))
+                        IconButton(onClick = { state.removeLink(link.id) }) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.object_remove_link)) }
+                    }
+                }
                 Box {
                     TextButton(onClick = { showBehaviours = true }) { Text(stringResource(R.string.object_add_behaviour)) }
                     DropdownMenu(expanded = showBehaviours, onDismissRequest = { showBehaviours = false }) {
@@ -191,4 +202,10 @@ private fun LabelledNumber(@StringRes label: Int, value: Double, onChange: (Doub
         Text(stringResource(label), modifier = Modifier.weight(1f))
         NumberField(value, onChange)
     }
+}
+
+private fun linkLabel(kind: LinkKind) = when (kind) {
+    LinkKind.ROD -> R.string.link_rod
+    LinkKind.ROPE -> R.string.link_rope
+    LinkKind.ATTACH -> R.string.link_attach
 }

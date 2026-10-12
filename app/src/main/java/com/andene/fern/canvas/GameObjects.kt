@@ -71,20 +71,38 @@ data class GameObject(
     val properties: Map<String, Double> = emptyMap(),
     val behaviours: List<Behaviour> = emptyList(),
     val body: PhysicsBody = PhysicsBody(),
+    /**
+     * A drawn outline standing in for the object's drawing where it meets things (roadmap item
+     * 157), in world points as drawn; physics and touch tests use its box (or the circle in it).
+     * Null: the drawing's own box.
+     */
+    val hitbox: List<WorldPoint>? = null,
 )
+
+/** How a link holds two objects together (roadmap item 157). */
+enum class LinkKind { ROD, ROPE, ATTACH }
+
+/**
+ * A link drawn from object [from] to object [to] (roadmap item 157): a rod keeps their centres
+ * [length] apart, a rope no further than that, and an attachment carries [to] along with [from].
+ */
+data class ObjectLink(val id: String, val from: String, val to: String, val kind: LinkKind, val length: Double)
 
 /**
  * The game's world settings (roadmap item 159): gravity (world units a second squared, y down)
  * and whether the scene's edges are walls physics bodies collide with.
  */
-data class GameSettings(val gravityX: Double = 0.0, val gravityY: Double = 900.0, val walls: Boolean = true)
+data class GameSettings(val gravityX: Double = 0.0, val gravityY: Double = 900.0, val walls: Boolean = true, val links: List<ObjectLink> = emptyList())
 
 /** Reading and writing the objects (objects_<document>.json). */
 object GameObjectsJson {
     /** The objects and the world settings as one JSON object. */
     fun writeGame(objects: List<GameObject>, settings: GameSettings): JSONObject = JSONObject()
         .put("objects", write(objects))
-        .put("settings", JSONObject().put("gravityX", settings.gravityX).put("gravityY", settings.gravityY).put("walls", settings.walls))
+        .put("settings", JSONObject().put("gravityX", settings.gravityX).put("gravityY", settings.gravityY).put("walls", settings.walls)
+            .put("links", JSONArray().apply {
+                for (l in settings.links) put(JSONObject().put("id", l.id).put("from", l.from).put("to", l.to).put("kind", l.kind.name).put("length", l.length))
+            }))
 
     /** Objects and settings from [writeGame]'s form, or from the plain object list saved before settings existed. */
     fun readGame(stored: Any): Pair<List<GameObject>, GameSettings> = when (stored) {
@@ -93,6 +111,13 @@ object GameObjectsJson {
             val s = stored.optJSONObject("settings")
             (stored.optJSONArray("objects")?.let(::read).orEmpty()) to GameSettings(
                 s?.optDouble("gravityX", 0.0) ?: 0.0, s?.optDouble("gravityY", 900.0) ?: 900.0, s?.optBoolean("walls", true) ?: true,
+                s?.optJSONArray("links")?.let { links ->
+                    (0 until links.length()).mapNotNull { i ->
+                        val l = links.optJSONObject(i) ?: return@mapNotNull null
+                        val kind = LinkKind.entries.firstOrNull { it.name == l.optString("kind") } ?: return@mapNotNull null
+                        ObjectLink(l.optString("id"), l.optString("from"), l.optString("to"), kind, l.optDouble("length", 0.0))
+                    }
+                }.orEmpty(),
             )
         }
         else -> emptyList<GameObject>() to GameSettings()
@@ -108,7 +133,8 @@ object GameObjectsJson {
                     })
                 })
                 .put("body", JSONObject().put("type", o.body.type.name).put("shape", o.body.shape.name).put("mass", o.body.mass)
-                    .put("bounce", o.body.bounce).put("friction", o.body.friction).put("gravityScale", o.body.gravityScale)),
+                    .put("bounce", o.body.bounce).put("friction", o.body.friction).put("gravityScale", o.body.gravityScale))
+                .apply { o.hitbox?.let { h -> put("hitbox", JSONArray(h.map { JSONArray().put(it.x).put(it.y) })) } },
         )
     }
 
@@ -136,6 +162,7 @@ object GameObjectsJson {
                     b.optDouble("friction", 0.3).coerceIn(0.0, 1.0), b.optDouble("gravityScale", 1.0),
                 )
             } ?: PhysicsBody(),
+            o.optJSONArray("hitbox")?.let { pts -> (0 until pts.length()).map { WorldPoint(pts.getJSONArray(it).getDouble(0), pts.getJSONArray(it).getDouble(1)) } }?.takeIf { it.size >= 3 },
         )
     }
 }

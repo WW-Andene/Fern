@@ -243,7 +243,7 @@ Shared, multiplayer parts need a server and are deferred ⏸; single-player part
 
 - [x] 155. Turn a drawing into an object with properties and behaviours — a selection (grouped, so its strokes on every frame go together) becomes a named object with number properties and behaviours (move, rotate, swing, follow a drawn path, bounce off or wrap around the edges, blink, pulse) with their settings; Play runs them in the view, editing hidden, the drawing untouched; saved with the document and in bundles. Objects aren't part of undo, like frames and layers
 - [ ] 156. Visual scripting (nodes / blocks)
-- [~] 157. Drawn behaviours — a drawn path becomes motion (animate along path); hitboxes and links not started
+- [x] 157. Drawn behaviours — a drawn path becomes motion (animate along path; an object's follow-path behaviour, item 155); a closed line drawn over an object becomes its hitbox; a line drawn between two objects becomes a link (rod, rope or attachment) held while the game plays; hitboxes and links shown dashed while editing
 - [ ] 158. State machines linking rig animations to logic
 - [x] 159. 2D physics — arcade physics for game objects: fixed (solid) or dynamic bodies as boxes or circles, with mass, bounce, friction and gravity scale; world gravity in any direction and scene edges as walls; contacts and standing-on-something reported for rules and scripts. Bodies are axis-aligned (an object's turn doesn't tilt its body)
 - [ ] 160. Input mapping (touch, stylus, gamepad, keyboard)

@@ -553,9 +553,11 @@ class CanvasState(
         onGameObjectsChanged(gameObjects.toList(), gameSettings)
     }
 
-    /** Turns object [id] back into a plain drawing; its strokes stay (still grouped). */
+    /** Turns object [id] back into a plain drawing; its strokes stay (still grouped). Its links go with it. */
     fun removeObject(id: String) {
-        if (gameObjects.removeWhere { it.id == id }) onGameObjectsChanged(gameObjects.toList(), gameSettings)
+        if (!gameObjects.removeWhere { it.id == id }) return
+        gameSettings = gameSettings.copy(links = gameSettings.links.filter { it.from != id && it.to != id })
+        onGameObjectsChanged(gameObjects.toList(), gameSettings)
     }
 
     /**
@@ -577,6 +579,68 @@ class CanvasState(
             }
             else -> null
         }
+    }
+
+    /** The one selected stroke outside every object, with the objects the rest of the selection belongs to. */
+    private fun freeStrokeAndObjects(): Pair<Stroke, List<GameObject>>? {
+        val ids = gameObjects.map { it.id }.toSet()
+        val free = selection.filter { it.groupId !in ids }.singleOrNull() ?: return null
+        val owners = selection.mapNotNull { it.groupId }.filter { it in ids }.distinct().map { id -> gameObjects.first { it.id == id } }
+        return free to owners
+    }
+
+    /** Whether the selection is one object and a closed line, which [useSelectionAsHitbox] would take. */
+    val canUseHitbox: Boolean
+        get() = freeStrokeAndObjects()?.let { (line, owners) -> owners.size == 1 && isClosedLoop(line.points, FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)) } ?: false
+
+    /**
+     * Makes the closed line selected with an object that object's hitbox (roadmap item 157): the
+     * line's points are kept as the hitbox, and the line leaves the drawing (an undo step; the
+     * hitbox, like the object, isn't part of undo).
+     */
+    fun useSelectionAsHitbox() {
+        if (!canUseHitbox) return
+        val (line, owners) = freeStrokeAndObjects() ?: return
+        recordHistory()
+        strokes.removeWhere { it === line }
+        updateObject(owners[0].copy(hitbox = line.points.toList()))
+        clearSelectionState()
+        strokesChanged()
+    }
+
+    /** Whether the selection is a line and two objects, which [linkSelection] would link. */
+    val canLink: Boolean get() = freeStrokeAndObjects()?.let { (line, owners) -> owners.size == 2 && line.points.size >= 2 } ?: false
+
+    /**
+     * Links the two objects selected with a line drawn between them (roadmap item 157): the
+     * object nearer the line's start is the link's first, its length the distance between their
+     * centres now. The line leaves the drawing (an undo step).
+     */
+    fun linkSelection(kind: LinkKind) {
+        if (!canLink) return
+        val (line, owners) = freeStrokeAndObjects() ?: return
+        val (a, b) = owners
+        val ca = objectCentre(a.id) ?: return
+        val cb = objectCentre(b.id) ?: return
+        val start = line.points.first()
+        val aFirst = hypot(ca.x - start.x, ca.y - start.y) <= hypot(cb.x - start.x, cb.y - start.y)
+        val (from, to) = if (aFirst) a to b else b to a
+        recordHistory()
+        strokes.removeWhere { it === line }
+        changeGameSettings(gameSettings.copy(links = gameSettings.links + ObjectLink(UUID.randomUUID().toString(), from.id, to.id, kind, hypot(cb.x - ca.x, cb.y - ca.y))))
+        clearSelectionState()
+        strokesChanged()
+    }
+
+    /** Object [id]'s centre as drawn on the current frame, or null when it has nothing there. */
+    fun objectCentre(id: String): WorldPoint? {
+        val own = strokes.filter { it.groupId == id && it.animFrame == currentAnimFrame && it.points.isNotEmpty() }
+        if (own.isEmpty()) return null
+        return WorldPoint((own.minOf { it.minX } + own.maxOf { it.maxX }) / 2, (own.minOf { it.minY } + own.maxOf { it.maxY }) / 2)
+    }
+
+    fun removeLink(id: String) {
+        changeGameSettings(gameSettings.copy(links = gameSettings.links.filter { it.id != id }))
     }
 
     /** The game being played (roadmap items 155 and 161), or null while editing. */

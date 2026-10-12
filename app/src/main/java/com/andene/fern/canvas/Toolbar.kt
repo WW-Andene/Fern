@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.Cable
+import androidx.compose.material.icons.filled.Fence
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Toys
 import androidx.compose.material.icons.filled.Extension
@@ -429,6 +431,7 @@ fun Toolbar(
     var showDrawingScaleDialog by remember { mutableStateOf(false) }
     if (showDrawingScaleDialog) DrawingScaleDialog(state, onDismiss = { showDrawingScaleDialog = false })
     var showPlaceOnPlaneMenu by remember { mutableStateOf(false) }
+    var showLinkMenu by remember { mutableStateOf(false) }
     var showConstraintsDialog by remember { mutableStateOf(false) }
     if (showConstraintsDialog) ConstraintsDialog(state, onDismiss = { showConstraintsDialog = false })
     if (showContourDialog) ContourDialog(state, onDismiss = { showContourDialog = false })
@@ -1104,6 +1107,27 @@ fun Toolbar(
                     val newObjectName = stringResource(R.string.object_default_name, state.gameObjects.size + 1)
                     IconButton(onClick = { editingObject = state.objectForEditing(newObjectName) }, enabled = state.selection.isNotEmpty()) {
                         Icon(Icons.Filled.Toys, contentDescription = stringResource(R.string.object_title))
+                    }
+                    // Drawn hitboxes and links (roadmap item 157).
+                    if (state.canUseHitbox) {
+                        IconButton(onClick = { state.useSelectionAsHitbox() }) {
+                            Icon(Icons.Filled.Fence, contentDescription = stringResource(R.string.object_use_hitbox))
+                        }
+                    }
+                    if (state.canLink) {
+                        Box {
+                            IconButton(onClick = { showLinkMenu = true }) {
+                                Icon(Icons.Filled.Cable, contentDescription = stringResource(R.string.object_link))
+                            }
+                            DropdownMenu(expanded = showLinkMenu, onDismissRequest = { showLinkMenu = false }) {
+                                for ((kind, label) in listOf(LinkKind.ROD to R.string.link_rod, LinkKind.ROPE to R.string.link_rope, LinkKind.ATTACH to R.string.link_attach)) {
+                                    DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = {
+                                        showLinkMenu = false
+                                        state.linkSelection(kind)
+                                    })
+                                }
+                            }
+                        }
                     }
                     // Constraints (roadmap item 144): how the selection follows a resized frame.
                     IconButton(onClick = { showConstraintsDialog = true }, enabled = state.selection.isNotEmpty()) {

@@ -773,6 +773,16 @@
     <string name="physics_gravity_down">Gravité vers le bas</string>
     <string name="physics_gravity_across">Gravité horizontale</string>
     <string name="physics_walls">Les bords de la scène sont des murs</string>
+    <string name="object_use_hitbox">Utiliser la ligne fermée comme zone de collision de l’objet</string>
+    <string name="object_link">Relier les deux objets par cette ligne</string>
+    <string name="link_rod">Tige (garde leur distance)</string>
+    <string name="link_rope">Corde (pas plus loin)</string>
+    <string name="link_attach">Attache (le second suit le premier)</string>
+    <string name="object_no_hitbox">Zone de collision : la boîte du dessin. Sélectionnez l’objet avec une ligne fermée pour en dessiner une.</string>
+    <string name="object_has_hitbox">Zone de collision : dessinée</string>
+    <string name="object_clear_hitbox">Effacer la zone de collision</string>
+    <string name="object_link_row">%1$s avec %2$s</string>
+    <string name="object_remove_link">Supprimer le lien</string>
     <string name="tb_line_style">Style de trait</string>
     <string name="cap_round">Extrémités rondes</string>
     <string name="cap_square">Extrémités carrées</string>

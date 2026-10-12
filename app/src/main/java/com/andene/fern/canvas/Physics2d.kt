@@ -21,7 +21,7 @@ private class Shape(val circle: Boolean, val cx: Double, val cy: Double, val hw:
 }
 
 private fun shapeOf(o: GameInstance): Shape {
-    val box = o.box
+    val box = o.hitBox
     val c = box.centre
     return Shape(o.def.body.shape == BodyShape.CIRCLE, c.x, c.y, box.width / 2, box.height / 2)
 }

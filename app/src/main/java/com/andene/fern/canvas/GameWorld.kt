@@ -22,6 +22,9 @@ data class WorldBox(val min: WorldPoint, val max: WorldPoint) {
  */
 class GameInstance(val def: GameObject, val drawn: WorldBox) {
     val pivot: WorldPoint = drawn.centre
+
+    /** Where it meets things, as drawn: its hitbox's box (roadmap item 157), or the drawing's. */
+    val hitDrawn: WorldBox = def.hitbox?.let { h -> WorldBox(WorldPoint(h.minOf { it.x }, h.minOf { it.y }), WorldPoint(h.maxOf { it.x }, h.maxOf { it.y })) } ?: drawn
     var x = 0.0
     var y = 0.0
     var angle = 0.0
@@ -50,11 +53,18 @@ class GameInstance(val def: GameObject, val drawn: WorldBox) {
     }
 
     /** The object's box as it is now (the drawn box's corners placed, boxed again). */
-    val box: WorldBox
-        get() {
-            val corners = listOf(drawn.min, WorldPoint(drawn.max.x, drawn.min.y), drawn.max, WorldPoint(drawn.min.x, drawn.max.y)).map(::place)
-            return WorldBox(WorldPoint(corners.minOf { it.x }, corners.minOf { it.y }), WorldPoint(corners.maxOf { it.x }, corners.maxOf { it.y }))
-        }
+    val box: WorldBox get() = placedBox(drawn)
+
+    /** The hitbox's box as it is now: what physics and touch tests use. */
+    val hitBox: WorldBox get() = placedBox(hitDrawn)
+
+    /** The object's centre as it is now. */
+    val centre: WorldPoint get() = place(pivot)
+
+    private fun placedBox(b: WorldBox): WorldBox {
+        val corners = listOf(b.min, WorldPoint(b.max.x, b.min.y), b.max, WorldPoint(b.min.x, b.max.y)).map(::place)
+        return WorldBox(WorldPoint(corners.minOf { it.x }, corners.minOf { it.y }), WorldPoint(corners.maxOf { it.x }, corners.maxOf { it.y }))
+    }
 }
 
 /**
@@ -90,6 +100,52 @@ class GameWorld(objects: List<GameObject>, drawnBoxes: Map<String, WorldBox>, va
             for (b in instance.def.behaviours) act(instance, b, dt)
         }
         contacts = Physics2d.resolve(this, settings)
+        holdLinks()
+    }
+
+    /**
+     * Drawn links (roadmap item 157), after the bodies have settled: an attachment carries its
+     * object along with the other; a rod keeps their centres at its length, a rope within it,
+     * moving dynamic bodies only (a link between two fixed objects holds nothing).
+     */
+    private fun holdLinks() {
+        for (link in settings.links) {
+            val a = instanceOf(link.from) ?: continue
+            val b = instanceOf(link.to) ?: continue
+            if (a.removed || b.removed) continue
+            if (link.kind == LinkKind.ATTACH) {
+                b.x = a.x
+                b.y = a.y
+                b.vx = a.vx
+                b.vy = a.vy
+                continue
+            }
+            val ca = a.centre
+            val cb = b.centre
+            val dx = cb.x - ca.x
+            val dy = cb.y - ca.y
+            val d = hypot(dx, dy)
+            if (d < 1e-9 || (link.kind == LinkKind.ROPE && d <= link.length)) continue
+            val ia = if (a.def.body.type == BodyType.DYNAMIC) 1 / a.def.body.mass.coerceAtLeast(0.001) else 0.0
+            val ib = if (b.def.body.type == BodyType.DYNAMIC) 1 / b.def.body.mass.coerceAtLeast(0.001) else 0.0
+            if (ia + ib <= 0) continue
+            val nx = dx / d
+            val ny = dy / d
+            val error = (d - link.length) / (ia + ib)
+            a.x += nx * error * ia
+            a.y += ny * error * ia
+            b.x -= nx * error * ib
+            b.y -= ny * error * ib
+            // No speed left along the link (a rope only stops it stretching further).
+            val relative = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny
+            if (link.kind == LinkKind.ROD || relative > 0) {
+                val j = relative / (ia + ib)
+                a.vx += nx * j * ia
+                a.vy += ny * j * ia
+                b.vx -= nx * j * ib
+                b.vy -= ny * j * ib
+            }
+        }
     }
 
     private fun act(o: GameInstance, b: Behaviour, dt: Double) {

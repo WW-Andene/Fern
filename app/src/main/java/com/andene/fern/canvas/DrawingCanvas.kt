@@ -609,6 +609,23 @@ fun DrawingCanvas(
                 drawPath(lasso, color = MARQUEE_BORDER_COLOR, style = DrawStyle(width = 2f))
             }
 
+            // Game objects' drawn hitboxes and links (roadmap item 157), while editing with the selection tool.
+            if (state.play == null && state.activeTool == Tool.SELECT && state.gameObjects.isNotEmpty()) {
+                val dashes = PathEffect.dashPathEffect(floatArrayOf(6f, 6f))
+                for (o in state.gameObjects) {
+                    val hitbox = o.hitbox ?: continue
+                    val path = Path()
+                    hitbox.forEachIndexed { i, p -> val s = state.worldToScreen(p, screenCenter); if (i == 0) path.moveTo(s.x, s.y) else path.lineTo(s.x, s.y) }
+                    path.close()
+                    drawPath(path, GAME_GUIDE_COLOR, style = DrawStyle(width = 2f, pathEffect = dashes))
+                }
+                for (link in state.gameSettings.links) {
+                    val a = state.objectCentre(link.from) ?: continue
+                    val b = state.objectCentre(link.to) ?: continue
+                    drawLine(GAME_GUIDE_COLOR, state.worldToScreen(a, screenCenter), state.worldToScreen(b, screenCenter), strokeWidth = 2f, pathEffect = dashes)
+                }
+            }
+
             // Shape builder / knife drag (roadmap item 141): an open line, red when it removes or cuts.
             if (state.shapeEditPath.size >= 2) {
                 val trail = Path()
@@ -1432,6 +1449,8 @@ private val VIDEO_BADGE_COLOR = Color(0x99000000)
 private const val VIDEO_BADGE_RADIUS_PX = 24f
 // The measure tool's line and readout (roadmap item 143).
 private val MEASURE_COLOR = Color(0xFF00897B)
+// Game objects' hitboxes and links, while editing (roadmap item 157).
+private val GAME_GUIDE_COLOR = Color(0xFF43A047)
 // A frame's layout grid bands (roadmap item 142): the frame colour, faint, so overlaps read darker.
 private val LAYOUT_GRID_COLOR = Color(0x1A7E57C2)
 // The shape builder's remove drag and the knife's cut line (roadmap item 141).
