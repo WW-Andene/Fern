@@ -437,6 +437,34 @@ class CanvasState(
         lastStrokeMoveMillis = System.currentTimeMillis()
         currentStroke = stroke
         strokes.add(stroke)
+        symmetryCopies = symmetryTransforms(symmetryMode, symmetryCenter).map { transform ->
+            val copy = Stroke(stroke.color, stroke.widthWorld, stroke.penType, blendMode = stroke.blendMode, layerId = stroke.layerId)
+            copy.addPoint(transform(stroke.points.first()), pressure, tilt, orientation)
+            strokes.add(copy)
+            copy to transform
+        }
+    }
+
+    /** Active symmetry for new pen strokes; see [SymmetryMode]. */
+    var symmetryMode by mutableStateOf(SymmetryMode.OFF)
+        private set
+
+    /** World point the symmetry axes pass through; set to the view centre when symmetry is turned on. */
+    var symmetryCenter by mutableStateOf(WorldPoint.Zero)
+        private set
+
+    fun setSymmetry(mode: SymmetryMode) {
+        if (mode != SymmetryMode.OFF && symmetryMode == SymmetryMode.OFF) symmetryCenter = panWorld
+        symmetryMode = mode
+    }
+
+    // Mirrored/rotated copies of the stroke being drawn, each with the transform that produces it.
+    private var symmetryCopies: List<Pair<Stroke, (WorldPoint) -> WorldPoint>> = emptyList()
+
+    /** Adds a point to the current stroke and the same point, transformed, to each symmetry copy. */
+    private fun addStrokePoint(stroke: Stroke, point: WorldPoint, pressure: Float, tilt: Float, orientation: Float) {
+        stroke.addPoint(point, pressure, tilt, orientation)
+        for ((copy, transform) in symmetryCopies) copy.addPoint(transform(point), pressure, tilt, orientation)
     }
 
     fun extendStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
@@ -455,7 +483,7 @@ class CanvasState(
         // Exponential smoothing: move only part of the way from the last point toward the pen.
         val smoothed = if (previous == null || activeStabilization <= 0.0) worldPoint
         else previous + (worldPoint - previous) * (1.0 - activeStabilization)
-        stroke.addPoint(snappedToActiveGuide(smoothed), pressure, tilt, orientation)
+        addStrokePoint(stroke, snappedToActiveGuide(smoothed), pressure, tilt, orientation)
     }
 
     // When the pen last moved; a pause before lifting triggers shape recognition in endStroke.
@@ -495,11 +523,16 @@ class CanvasState(
         val raw = lastRawPoint
         if (stroke != null && raw != null && activeStabilization > 0.0) {
             // Smoothing trails behind the pen; close the gap so the stroke ends at the lift point.
-            stroke.addPoint(snappedToActiveGuide(raw), stroke.pressures.last(), stroke.tilts.last(), stroke.orientations.last())
+            addStrokePoint(stroke, snappedToActiveGuide(raw), stroke.pressures.last(), stroke.tilts.last(), stroke.orientations.last())
         }
         if (stroke != null && System.currentTimeMillis() - lastStrokeMoveMillis >= SHAPE_HOLD_MILLIS) {
-            recognizeShape(stroke.points)?.let { clean -> replaceWithShape(stroke, clean) }
+            recognizeShape(stroke.points)?.let { clean ->
+                replaceWithShape(stroke, clean)
+                // Copies get the same clean shape, transformed, so symmetry still holds.
+                for ((copy, transform) in symmetryCopies) replaceWithShape(copy, clean.map(transform))
+            }
         }
+        symmetryCopies = emptyList()
         lastRawPoint = null
         holdAnchor = null
         currentStroke = null
@@ -1184,6 +1217,7 @@ class CanvasState(
             onFramesChanged(frames.toList())
         }
         rulerLine = rulerLine?.let { (start, end) -> (start - offset) to (end - offset) }
+        symmetryCenter -= offset
         pendingTextEdit = pendingTextEdit?.let { it.copy(worldPoint = it.worldPoint - offset) }
         onRebased(offset)
         panWorld = WorldPoint.Zero

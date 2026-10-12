@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Flare
 import androidx.compose.material.icons.filled.FlipToBack
 import androidx.compose.material.icons.filled.FlipToFront
 import androidx.compose.material.icons.filled.FormatColorFill
@@ -114,6 +115,7 @@ fun Toolbar(
     var showStabilizationSlider by remember { mutableStateOf(false) }
     var showLayersDialog by remember { mutableStateOf(false) }
     var showSearchDialog by remember { mutableStateOf(false) }
+    var showSymmetryMenu by remember { mutableStateOf(false) }
     var showBlendModeMenu by remember { mutableStateOf(false) }
     var showBackgroundStyleMenu by remember { mutableStateOf(false) }
     var showBackgroundColorPicker by remember { mutableStateOf(false) }
@@ -268,6 +270,27 @@ fun Toolbar(
                         contentDescription = "Stroke stabilisation",
                         tint = if (showStabilizationSlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
+                }
+                Box {
+                    IconButton(onClick = { showSymmetryMenu = true }) {
+                        Icon(
+                            Icons.Filled.Flare,
+                            contentDescription = "Symmetry: ${state.symmetryMode.label}",
+                            tint = if (state.symmetryMode != SymmetryMode.OFF) MaterialTheme.colorScheme.primary
+                            else LocalContentColor.current,
+                        )
+                    }
+                    DropdownMenu(expanded = showSymmetryMenu, onDismissRequest = { showSymmetryMenu = false }) {
+                        for (mode in SymmetryMode.entries) {
+                            DropdownMenuItem(
+                                text = { Text(mode.label) },
+                                onClick = {
+                                    state.setSymmetry(mode)
+                                    showSymmetryMenu = false
+                                },
+                            )
+                        }
+                    }
                 }
                 IconButton(onClick = { showSearchDialog = true }) {
                     Icon(Icons.Filled.Search, contentDescription = "Search text")

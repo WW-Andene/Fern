@@ -36,8 +36,10 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
+import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -290,6 +292,23 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                 val size = Size(abs(b.x - a.x), abs(b.y - a.y))
                 drawRect(color = MARQUEE_FILL_COLOR, topLeft = topLeft, size = size)
                 drawRect(color = MARQUEE_BORDER_COLOR, topLeft = topLeft, size = size, style = DrawStyle(width = 2f))
+            }
+
+            // Symmetry axes through the symmetry centre, long enough to cross the screen at any rotation.
+            if (state.symmetryMode != SymmetryMode.OFF) {
+                val c = state.worldToScreen(state.symmetryCenter, screenCenter)
+                val reach = hypot(size.width, size.height) * 2f
+                val axisAngles = when (state.symmetryMode) {
+                    SymmetryMode.VERTICAL -> listOf(PI / 2)
+                    SymmetryMode.HORIZONTAL -> listOf(0.0)
+                    SymmetryMode.QUADRANT -> listOf(0.0, PI / 2)
+                    SymmetryMode.RADIAL -> (0 until RADIAL_SEGMENTS).map { PI * it / RADIAL_SEGMENTS }
+                    SymmetryMode.OFF -> emptyList()
+                }
+                for (angle in axisAngles) {
+                    val d = Offset((cos(angle) * reach).toFloat(), (sin(angle) * reach).toFloat())
+                    drawLine(color = SYMMETRY_COLOR, start = c - d, end = c + d, strokeWidth = 2f)
+                }
             }
 
             // Frame outlines and names: editing guides only, so not part of drawScene and never exported.
@@ -596,6 +615,8 @@ private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
 private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
+// Translucent teal so the axes guide without competing with the drawing.
+private val SYMMETRY_COLOR = Color(0x6600897B)
 // Muted purple, distinct from the blue selection/marquee colours.
 private val FRAME_COLOR = Color(0xFF7E57C2)
 private val MARQUEE_FILL_COLOR = Color(0x1A1E88E5)
