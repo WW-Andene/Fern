@@ -384,6 +384,37 @@ class Stroke(
         Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush, newGradient, groupId, boneId, lineStyle)
             .also { it.restoreState(captureState()) }
 
+    /**
+     * A deep copy drawn in [style] (roadmap item 121). Colour and blend carry over to anything;
+     * the outline attributes (width, pen, dashes, line style, brush) only to outlines, and the
+     * fill attributes (fade, screentone, gradient) only to fills, so pasting an outline's style
+     * onto a fill recolours it rather than turning it into something it can't be.
+     */
+    fun withStyle(style: StrokeStyle): Stroke {
+        val outline = !filled
+        val copy = Stroke(
+            style.color,
+            if (outline) style.widthWorld else widthWorld,
+            if (outline) style.penType else penType,
+            filled,
+            style.blendMode,
+            layerId,
+            animFrame,
+            if (outline) style.dashed else dashed,
+            if (outline) fadeFill else style.fadeFill,
+            if (outline) screentone else style.screentone,
+            if (outline) style.brush else brush,
+            if (outline) gradient else style.gradient,
+            groupId,
+            boneId,
+            if (outline) style.lineStyle else lineStyle,
+        )
+        copy.restoreState(captureState())
+        // The geometry came over at the old width; an outline takes the style's.
+        if (outline) copy.setWidth(style.widthWorld)
+        return copy
+    }
+
     /** An independent copy: later edits to either stroke don't affect the other (copy-on-write, O(1)). */
     fun deepCopy(): Stroke = withColor(color)
 

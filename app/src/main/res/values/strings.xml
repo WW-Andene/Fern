@@ -310,6 +310,8 @@
     <string name="tb_smooth">Smooth selected strokes</string>
     <string name="tb_apply_width">Apply current brush width to selection</string>
     <string name="tb_apply_colour">Apply current colour to selection</string>
+    <string name="tb_copy_style">Copy style of selection</string>
+    <string name="tb_paste_style">Paste copied style onto selection</string>
     <string name="tb_copy">Copy selection</string>
     <string name="action_paste">Paste</string>
     <string name="tb_duplicate">Duplicate selection</string>

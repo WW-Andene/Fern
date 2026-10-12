@@ -3946,6 +3946,31 @@ class CanvasState(
         strokesChanged()
     }
 
+    /** The style the style picker last copied (roadmap item 121); null until something's copied. Session-only, like the system clipboard's history. */
+    var copiedStyle by mutableStateOf<StrokeStyle?>(null)
+        private set
+
+    /** Copies the style of the first selected stroke for [pasteStyleToSelection]. */
+    fun copySelectionStyle() {
+        copiedStyle = StrokeStyle.of(selection.firstOrNull() ?: return)
+    }
+
+    /** Redraws every selected stroke in [copiedStyle] (see [Stroke.withStyle]); undoable, and the selection stays on them. */
+    fun pasteStyleToSelection() {
+        val style = copiedStyle ?: return
+        if (selection.isEmpty()) return
+        recordHistory()
+        val replaced = selection.toList().map { old ->
+            val restyled = old.withStyle(style)
+            val index = strokes.indexOf(old)
+            if (index != -1) strokes[index] = restyled
+            restyled
+        }
+        clearSelectionState()
+        selection.addAll(replaced)
+        strokesChanged()
+    }
+
     /** Moves the selected strokes to the top ([toFront]) or bottom of the drawing order, keeping their order relative to each other. */
     fun reorderSelection(toFront: Boolean) {
         if (selection.isEmpty()) return

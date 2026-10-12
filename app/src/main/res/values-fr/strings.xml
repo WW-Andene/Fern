@@ -310,6 +310,8 @@
     <string name="tb_smooth">Lisser les traits sélectionnés</string>
     <string name="tb_apply_width">Appliquer l\'épaisseur actuelle à la sélection</string>
     <string name="tb_apply_colour">Appliquer la couleur actuelle à la sélection</string>
+    <string name="tb_copy_style">Copier le style de la sélection</string>
+    <string name="tb_paste_style">Coller le style copié sur la sélection</string>
     <string name="tb_copy">Copier la sélection</string>
     <string name="action_paste">Coller</string>
     <string name="tb_duplicate">Dupliquer la sélection</string>

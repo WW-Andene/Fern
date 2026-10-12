@@ -196,8 +196,8 @@ Concepts, GoodNotes, Notability, Infinite Painter, Aseprite, Spine and Affinity 
 | 117 | Velocity dynamics | Clip Studio | 3 | done |
 | 118 | Drawing assist / live snap | Procreate, Concepts | 3 | done: a held stroke snaps while the pen is still down and the pen then resizes/rotates it; lines, polylines, arcs, rectangles, polygons, ellipses |
 | 119 | Colour harmonies | Aseprite, Affinity | 3 | done |
-| 120 | COPIC and PANTONE libraries | Concepts, Affinity | 3 | not started (licensing) |
-| 121 | Style picker | Affinity | 4 | not started |
+| 120 | COPIC and PANTONE libraries | Concepts, Affinity | 3 | skipped: proprietary colour data that needs a licence to ship |
+| 121 | Style picker | Affinity | 4 | done: copy a selected object's style, paste it onto the selection |
 | 122 | Warp, puppet warp, mesh transform | Procreate, Clip Studio | 4 | not started |
 | 123 | Layer states / comps | Affinity, Clip Studio | 4 | not started |
 | 124 | Multiple views / split screen | Affinity, Clip Studio | 4 | not started |

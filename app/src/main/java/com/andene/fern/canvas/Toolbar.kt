@@ -80,6 +80,8 @@ import androidx.compose.material.icons.filled.FlipToBack
 import androidx.compose.material.icons.filled.FlipToFront
 import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.FormatPaint
+import androidx.compose.material.icons.filled.ContentPasteGo
+import androidx.compose.material.icons.filled.Style
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Gradient
@@ -924,6 +926,12 @@ fun Toolbar(
                     }
                     IconButton(onClick = { state.recolorSelection() }) {
                         Icon(Icons.Filled.FormatPaint, contentDescription = stringResource(R.string.tb_apply_colour))
+                    }
+                    IconButton(onClick = { state.copySelectionStyle() }, enabled = state.selection.isNotEmpty()) {
+                        Icon(Icons.Filled.Style, contentDescription = stringResource(R.string.tb_copy_style))
+                    }
+                    IconButton(onClick = { state.pasteStyleToSelection() }, enabled = state.selection.isNotEmpty() && state.copiedStyle != null) {
+                        Icon(Icons.Filled.ContentPasteGo, contentDescription = stringResource(R.string.tb_paste_style))
                     }
                     IconButton(onClick = onCopySelection) {
                         Icon(Icons.Filled.CopyAll, contentDescription = stringResource(R.string.tb_copy))
