@@ -319,4 +319,6 @@
     <string name="planner_notes">Notes</string>
     <string name="mind_map_central">Central idea</string>
     <string name="mind_map_branch">Idea</string>
+    <string name="paper_light">Light paper</string>
+    <string name="paper_dark">Dark paper</string>
 </resources>

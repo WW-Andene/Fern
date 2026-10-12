@@ -773,6 +773,15 @@ fun Toolbar(
                                     },
                                 )
                             }
+                            for (paper in PaperPreset.entries) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(paper.label)) },
+                                    onClick = {
+                                        state.applyPaperPreset(paper)
+                                        showBackgroundStyleMenu = false
+                                    },
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.tb_background_color)) },
                                 onClick = {

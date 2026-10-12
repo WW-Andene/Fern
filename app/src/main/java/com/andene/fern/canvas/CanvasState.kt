@@ -818,7 +818,7 @@ class CanvasState(
     val imageItems = mutableStateListOf<ImageItem>()
 
     /** This document's page background color, matching the default canvas backdrop until changed. */
-    var backgroundColor by mutableStateOf(Color(0xFFF7F5F0))
+    var backgroundColor by mutableStateOf(PaperPreset.LIGHT.background)
         private set
 
     /** This document's page pattern - see [BackgroundStyle]. */
@@ -830,6 +830,16 @@ class CanvasState(
         backgroundColor = color
         backgroundStyle = style
         onBackgroundChanged(color, style)
+    }
+
+    /**
+     * Switches to [paper] (a [PaperPreset]), keeping the pattern. If the pen's colour would
+     * nearly vanish on the new paper (contrast under 3:1, WCAG's floor for graphics), the pen
+     * switches to the preset's ink, so the next stroke can be seen; existing strokes keep their colours.
+     */
+    fun applyPaperPreset(paper: PaperPreset) {
+        setBackground(paper.background, backgroundStyle)
+        if (contrastRatio(activeColor, paper.background) < 3.0) activeColor = paper.ink
     }
 
     /** Replaces the background with [color]/[style] without persisting (e.g. loading a document). */

@@ -19,6 +19,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
@@ -588,7 +589,7 @@ private fun DrawScope.drawBackgroundPattern(state: CanvasState, screenCenter: Of
     if (!columnCount.isFinite() || !rowCount.isFinite() || columnCount > MAX_BACKGROUND_PATTERN_LINES || rowCount > MAX_BACKGROUND_PATTERN_LINES) return
     val startX = kotlin.math.floor(topLeftWorld.x / spacing) * spacing
     val startY = kotlin.math.floor(topLeftWorld.y / spacing) * spacing
-    val lineColor = BACKGROUND_PATTERN_COLOR
+    val lineColor = if (state.backgroundColor.luminance() < 0.5f) DARK_BACKGROUND_PATTERN_COLOR else BACKGROUND_PATTERN_COLOR
     when (state.backgroundStyle) {
         BackgroundStyle.GRID -> {
             var x = startX
@@ -630,6 +631,8 @@ private fun DrawScope.drawBackgroundPattern(state: CanvasState, screenCenter: Of
 
 private const val MAX_BACKGROUND_PATTERN_LINES = 500.0
 private val BACKGROUND_PATTERN_COLOR = Color(0xFFD8D3C8)
+// The same faint step from the paper, the other way, for dark paper (roadmap item 73).
+private val DARK_BACKGROUND_PATTERN_COLOR = Color(0xFF3C3D40)
 
 /** Mutable holder for the most recent raw-MotionEvent pressure/tilt/orientation of pointer 0. */
 private class StylusSample {

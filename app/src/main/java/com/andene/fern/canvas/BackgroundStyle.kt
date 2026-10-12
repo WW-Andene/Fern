@@ -2,6 +2,8 @@ package com.andene.fern.canvas
 
 import com.andene.fern.R
 import androidx.annotation.StringRes
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 
 /**
  * The page pattern drawn behind a document's content, matching common physical paper styles:
@@ -33,4 +35,17 @@ enum class DocumentTemplate(@StringRes val label: Int, val paper: BackgroundStyl
     STORYBOARD(R.string.template_storyboard, BackgroundStyle.PLAIN),
     PLANNER(R.string.template_planner, BackgroundStyle.PLAIN),
     MIND_MAP(R.string.template_mind_map, BackgroundStyle.PLAIN),
+}
+
+/** Paper colours offered as presets, each with an ink that reads well on it (roadmap item 73). */
+enum class PaperPreset(@StringRes val label: Int, val background: Color, val ink: Color) {
+    LIGHT(R.string.paper_light, Color(0xFFF7F5F0), Color.Black),
+    DARK(R.string.paper_dark, Color(0xFF202124), Color.White),
+}
+
+/** WCAG contrast ratio between two colours (alpha ignored), from 1 to 21. */
+fun contrastRatio(a: Color, b: Color): Double {
+    val la = a.copy(alpha = 1f).luminance() + 0.05
+    val lb = b.copy(alpha = 1f).luminance() + 0.05
+    return (maxOf(la, lb) / minOf(la, lb)).toDouble()
 }
