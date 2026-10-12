@@ -125,4 +125,16 @@ class CanvasStateTest {
         assertEquals(20.0, copy.points.first().x - stamp.points.first().x, 1e-9) // nudged 20 px at scale 1
         assertEquals(20.0, copy.points.first().y - stamp.points.first().y, 1e-9)
     }
+
+    @Test
+    fun inBetweensKeepTheStampBrush() {
+        val state = CanvasState()
+        val brush = StampBrush(StampTip.SQUARE)
+        fun stamp(frame: Int, y: Double) = Stroke(androidx.compose.ui.graphics.Color.Black, 4.0, PenType.STAMP, animFrame = frame, brush = brush).apply {
+            addPoint(WorldPoint(0.0, y)); addPoint(WorldPoint(10.0, y))
+        }
+        state.loadStrokes(listOf(stamp(0, 0.0), stamp(1, 10.0)))
+        state.generateInBetweens(1)
+        assertTrue(state.strokes.all { it.brush == brush })
+    }
 }

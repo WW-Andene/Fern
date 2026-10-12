@@ -359,7 +359,7 @@ class CanvasState(
                 val pa = resamplePolyline(a.points, samples)
                 val pb = resamplePolyline(b.points, samples)
                 val color = androidx.compose.ui.graphics.lerp(a.color, b.color, t.toFloat())
-                val tween = Stroke(color, a.widthWorld + (b.widthWorld - a.widthWorld) * t, a.penType, blendMode = a.blendMode, layerId = a.layerId, animFrame = from + step, dashed = a.dashed)
+                val tween = Stroke(color, a.widthWorld + (b.widthWorld - a.widthWorld) * t, a.penType, blendMode = a.blendMode, layerId = a.layerId, animFrame = from + step, dashed = a.dashed, brush = a.brush)
                 for (i in 0 until samples) tween.addPoint(WorldPoint(pa[i].x + (pb[i].x - pa[i].x) * t, pa[i].y + (pb[i].y - pa[i].y) * t))
                 strokes.add(tween)
             }
