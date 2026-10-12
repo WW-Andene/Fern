@@ -171,7 +171,7 @@ All deferred: they need a server or cloud platform.
 
 - [~] 104. Pixel art — grid-aligned pixel pen; no indexed palettes or sprite editing
 - [~] 105. Comics — comic page template, speech bubbles, screentones
-- [~] 106. Notes — sticky notes; no connectors or mind maps
+- [x] 106. Notes — sticky notes, connectors between them (68), mind-map and planner templates (72)
 - [~] 107. Whiteboard — links in text labels open in the browser; no embedded video or documents
 - [ ] 108. 3D painting and posable mannequins
 - [ ] 109. AR placement and tracing
