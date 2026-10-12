@@ -925,6 +925,12 @@ fun DrawingCanvas(
             }
         }
     }
+    // The brush's size and opacity while a drag on the rail adjusts it (design roadmap D19).
+    if (RailAdjust.active) Canvas(Modifier.matchParentSize()) {
+        val radius = (state.activeWidthWorld * state.scale / 2).toFloat().coerceAtLeast(2f)
+        drawCircle(state.activeColor.copy(alpha = state.activeOpacity.toFloat()), radius = radius, center = center)
+        drawCircle(FernColors.current.selection, radius = radius + 2f, center = center, style = DrawStyle(width = 2f))
+    }
     // The brush's footprint under a hovering stylus (design roadmap D16).
     hoverPoint?.let { point ->
         if (state.activeTool == Tool.PEN || state.activeTool == Tool.ERASER) Canvas(Modifier.matchParentSize()) {

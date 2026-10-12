@@ -199,7 +199,7 @@ internal const val MAX_WIDTH_SCREEN = 32f
 
 // A fully transparent stroke would be pointless and indistinguishable from "nothing drawn" -
 // this floor keeps the lightest setting still faintly visible.
-private const val MIN_OPACITY = 0.1f
+internal const val MIN_OPACITY = 0.1f
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

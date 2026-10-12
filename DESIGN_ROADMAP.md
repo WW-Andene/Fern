@@ -228,8 +228,9 @@ Goal: switching tools and adjusting without looking or opening anything.
   [ ] size, space pan, and so on), all of them remappable, with a cheat sheet that appears while
   you hold Ctrl.
   Written, not yet compiled or tested: `Shortcuts.kt`. Defaults P/B pen, E eraser, V select, U shape, G fill, T text, I eyedropper, N Bézier, M measure, Ctrl+Z/Y and Ctrl+Shift+Z, Ctrl+C/V/D, Del/Backspace, [ ] brush size, Ctrl+= / Ctrl+- zoom, 0 fit, Ctrl+K palette, Tab hide the bars. Each remappable in Settings > Keyboard shortcuts (a key bound elsewhere moves); the cheat sheet shows while Ctrl is held.
-- [ ] D19. **On-canvas adjusting.** Drag up or down on a rail tool to change its size, sideways
+- [~] D19. **On-canvas adjusting.** Drag up or down on a rail tool to change its size, sideways
   for opacity, with a live preview ring at the cursor. Sizes snap to user presets.
+  Written, not yet compiled or tested: dragging up/down on the rail's pen or eraser scales its size (96 px doubles it), sideways sets opacity, with a ring of the brush's size and colour in the middle of the canvas; sizes settle on 1, 2, 4, 8, 12, 16, 24 or 32 when within 8 %. User-defined presets come with D84.
 - [ ] D20. **One colour flow.** A single inline colour strip (current, recent, saved swatches,
   harmonies) that expands in place to the full picker. "Change everywhere" becomes a visible
   action, not a hidden long-press.

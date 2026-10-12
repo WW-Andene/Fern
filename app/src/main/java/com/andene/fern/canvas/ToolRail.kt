@@ -49,6 +49,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlin.math.abs
+import kotlin.math.pow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -181,9 +183,42 @@ private fun RailButton(state: CanvasState, tool: Tool) {
             }
             .pointerInput(tool) {
                 awaitEachGesture {
-                    awaitFirstDown()
-                    val released = withTimeoutOrNull(HOLD_TO_SWITCH_MILLIS) { waitForUpOrCancellation() }
-                    if (released != null) {
+                    val down = awaitFirstDown()
+                    val adjustable = tool == Tool.PEN || tool == Tool.ERASER
+                    var adjusting = false
+                    // Up within the hold time (a tap), or a drag (adjusting); null when held still.
+                    val released = withTimeoutOrNull(HOLD_TO_SWITCH_MILLIS) {
+                        var ended: Boolean? = null
+                        while (ended == null) {
+                            val change = awaitPointerEvent().changes.firstOrNull() ?: continue
+                            if (!change.pressed) {
+                                ended = true
+                            } else if (adjustable && (change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
+                                adjusting = true
+                                ended = true
+                            }
+                        }
+                        ended
+                    }
+                    if (adjusting) {
+                        // Dragging on the pen or eraser sets its size (up and down) or opacity (sideways) (design roadmap D19).
+                        state.activeTool = tool
+                        val startWidth = state.activeWidthWorld
+                        val startOpacity = state.activeOpacity
+                        RailAdjust.active = true
+                        while (true) {
+                            val change = awaitPointerEvent().changes.firstOrNull() ?: break
+                            if (!change.pressed) break
+                            val d = change.position - down.position
+                            if (abs(d.y) >= abs(d.x)) {
+                                state.activeWidthWorld = snapToPresetSize(startWidth * 2.0.pow(-d.y / ADJUST_DOUBLING_PX))
+                            } else {
+                                state.activeOpacity = (startOpacity + d.x / ADJUST_OPACITY_PX).coerceIn(MIN_OPACITY.toDouble(), 1.0)
+                            }
+                            change.consume()
+                        }
+                        RailAdjust.active = false
+                    } else if (released != null) {
                         state.activeTool = tool
                     } else {
                         val previous = state.activeTool
@@ -206,3 +241,21 @@ private fun RailButton(state: CanvasState, tool: Tool) {
 
 // Held this long, a rail tool is borrowed instead of switched to (Android's long-press time).
 private const val HOLD_TO_SWITCH_MILLIS = 500L
+
+// Dragging this far up doubles the brush; this far sideways goes from clear to solid.
+private const val ADJUST_DOUBLING_PX = 96.0
+private const val ADJUST_OPACITY_PX = 384.0
+
+/** Brush sizes a drag settles on when it passes near them (design roadmap D19). */
+val PRESET_SIZES = listOf(1.0, 2.0, 4.0, 8.0, 12.0, 16.0, 24.0, 32.0)
+
+/** [width] snapped to a preset within 8 %, kept within the brush's range. */
+fun snapToPresetSize(width: Double): Double {
+    val clamped = width.coerceIn(MIN_WIDTH_SCREEN.toDouble(), MAX_WIDTH_SCREEN.toDouble())
+    return PRESET_SIZES.firstOrNull { abs(it - clamped) <= it * 0.08 } ?: clamped
+}
+
+/** Whether a rail drag is adjusting the brush, so the canvas shows its size ring. */
+object RailAdjust {
+    var active by mutableStateOf(false)
+}
