@@ -1,5 +1,14 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.andene.fern
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draganddrop.toAndroidDragEvent
+import androidx.compose.ui.draganddrop.mimeTypes
+import androidx.compose.ui.draganddrop.DragAndDropTarget
+import androidx.compose.ui.draganddrop.DragAndDropEvent
+import androidx.compose.foundation.draganddrop.dragAndDropTarget
+import android.view.DragEvent
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -367,8 +376,8 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    /** Places the image at [uri] centred in the view (from the image picker or a paste). */
-                    suspend fun insertImage(uri: android.net.Uri) {
+                    /** Places the image at [uri] centred on [at] - the view centre for a pick or a paste, the drop point for a drop. */
+                    suspend fun insertImage(uri: android.net.Uri, at: WorldPoint = canvasState.panWorld) {
                         val decoded = withContext(Dispatchers.IO) {
                             val bitmap = decodeDownsampled(context, uri, MAX_IMAGE_EDGE_PX) ?: return@withContext null
                             val fileName = "${UUID.randomUUID()}.png"
@@ -388,10 +397,7 @@ class MainActivity : ComponentActivity() {
                         val scale = canvasState.scale.coerceAtLeast(1e-300)
                         val widthWorld = targetWidthScreen / scale
                         val heightWorld = targetHeightScreen / scale
-                        val position = WorldPoint(
-                            canvasState.panWorld.x - widthWorld / 2.0,
-                            canvasState.panWorld.y - heightWorld / 2.0,
-                        )
+                        val position = WorldPoint(at.x - widthWorld / 2.0, at.y - heightWorld / 2.0)
                         canvasState.addImage(fileName, position, widthWorld, heightWorld)
                     }
 
@@ -414,6 +420,32 @@ class MainActivity : ComponentActivity() {
                             // Android 13+ confirms clipboard writes itself; earlier versions get a toast.
                             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
                                 Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+
+                    /**
+                     * Drag and drop from other apps: an image or text dropped on the canvas lands
+                     * where it was dropped (Fern strokes too, from another Fern window). Reading a
+                     * dropped content URI needs the drop's permission grant, requested first.
+                     */
+                    fun dropOntoCanvas(event: DragEvent) {
+                        val clip = event.clipData ?: return
+                        val permissions = this@MainActivity.requestDragAndDropPermissions(event)
+                        val size = canvasState.viewportSize
+                        val center = Offset(size.width / 2f, size.height / 2f)
+                        // The canvas fills the window, so the drop point is already in canvas coordinates.
+                        val at = canvasState.screenToWorld(canvasState.unrotateScreen(Offset(event.x, event.y), center), center)
+                        coroutineScope.launch {
+                            try {
+                                when (val content = withContext(Dispatchers.IO) { SystemClipboard.contentOf(context, clip) }) {
+                                    is ClipboardContent.FernStrokes -> canvasState.pasteStrokes(content.strokes, at)
+                                    is ClipboardContent.Text -> canvasState.pasteText(content.text, at)
+                                    is ClipboardContent.Image -> insertImage(content.uri, at)
+                                    ClipboardContent.Nothing -> {}
+                                }
+                            } finally {
+                                permissions?.release()
                             }
                         }
                     }
@@ -581,7 +613,21 @@ class MainActivity : ComponentActivity() {
                     ) {
                         DrawingCanvas(
                             state = canvasState,
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .dragAndDropTarget(
+                                    shouldStartDragAndDrop = { event ->
+                                        event.mimeTypes().any { it.startsWith("image/") || it.startsWith("text/") }
+                                    },
+                                    target = remember {
+                                        object : DragAndDropTarget {
+                                            override fun onDrop(event: DragAndDropEvent): Boolean {
+                                                dropOntoCanvas(event.toAndroidDragEvent())
+                                                return true
+                                            }
+                                        }
+                                    },
+                                ),
                             linkChoices = LinkChoices(pins, documents.filter { it.trashedAt == null && it.id != currentDocumentId }),
                             onFollowLink = { target ->
                                 when (target) {

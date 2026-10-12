@@ -1,6 +1,7 @@
 package com.andene.fern.canvas
 
 import android.content.ClipData
+import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.ui.graphics.Color
@@ -81,5 +82,25 @@ class SystemClipboardTest {
         assertEquals("Hello", state.textItems.single().text)
         state.undo()
         assertTrue(state.textItems.isEmpty())
+    }
+
+    @Test
+    fun droppedClipsAreClassifiedLikePastedOnes() {
+        val image = ClipData(ClipDescription("photo", arrayOf("image/jpeg")), ClipData.Item(android.net.Uri.parse("content://other.app/photo/1")))
+        assertTrue(SystemClipboard.contentOf(context, image) is ClipboardContent.Image)
+        assertEquals(ClipboardContent.Text("hello"), SystemClipboard.contentOf(context, ClipData.newPlainText("t", "hello")))
+    }
+
+    @Test
+    fun droppedTextAndStrokesLandWhereDropped() {
+        val state = CanvasState()
+        state.pasteText("Here", at = WorldPoint(500.0, 300.0))
+        val (min, max) = state.textBounds(state.textItems.single())
+        assertEquals(500.0, (min.x + max.x) / 2, 1e-9)
+        assertEquals(300.0, (min.y + max.y) / 2, 1e-9)
+        state.pasteStrokes(listOf(line()), at = WorldPoint(-200.0, 40.0))
+        val pasted = state.strokes.single()
+        assertEquals(-200.0, (pasted.minX + pasted.maxX) / 2, 1e-9)
+        assertEquals(40.0, (pasted.minY + pasted.maxY) / 2, 1e-9)
     }
 }

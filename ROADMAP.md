@@ -104,7 +104,7 @@ Goal: work can leave the app and come back.
 - [x] 56. Export PNG: whole document, a frame, the selected area, transparent background
 - [x] 57. Vector export: SVG and multi-page PDF (one page per frame)
 - [x] 58. `.fern` backup format: export and import a whole document
-- [~] 59. Import PDFs to annotate; no drag-and-drop from other apps yet
+- [x] 59. Import PDFs to annotate; drag and drop images and text from other apps onto the canvas
 - [~] 60. Share sheet and in-app time-lapse replay; replay can't be exported as video yet
 
 ## Phase 7 — Sync & collaboration ⏸

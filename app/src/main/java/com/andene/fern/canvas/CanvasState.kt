@@ -2027,28 +2027,28 @@ class CanvasState(
      */
     fun selectionForClipboard(): List<Stroke> = selection.map { it.deepCopy() }
 
-    /** Pastes [text] as a new label centred in the current view, in the active colour and text size. */
-    fun pasteText(text: String) {
+    /** Pastes [text] as a new label centred on [at] (the view centre by default), in the active colour and text size. */
+    fun pasteText(text: String, at: WorldPoint = panWorld) {
         if (text.isBlank()) return
         recordHistory()
         val fontSizeWorld = activeTextSizeWorld / scale.coerceAtLeast(1e-300)
-        val item = TextItem(UUID.randomUUID().toString(), text, panWorld, fontSizeWorld, activeColor)
+        val item = TextItem(UUID.randomUUID().toString(), text, at, fontSizeWorld, activeColor)
         val (min, max) = textBounds(item)
-        // Centre the label's approximate box on the view centre.
-        textItems.add(item.copy(position = WorldPoint(panWorld.x - (max.x - min.x) / 2, panWorld.y - (max.y - min.y) / 2)))
+        // Centre the label's approximate box on the point.
+        textItems.add(item.copy(position = WorldPoint(at.x - (max.x - min.x) / 2, at.y - (max.y - min.y) / 2)))
         onTextChanged(textItems.toList())
     }
 
-    /** Pastes [copied] strokes centred in the current view, on the active layer and frame, and selects them. */
-    fun pasteStrokes(copied: List<Stroke>) {
+    /** Pastes [copied] strokes centred on [at] (the view centre by default), on the active layer and frame, and selects them. */
+    fun pasteStrokes(copied: List<Stroke>, at: WorldPoint = panWorld) {
         if (copied.isEmpty() || !activeLayerEditable) return
         recordHistory()
         // Strokes from another document may name a layer or frame this one doesn't have.
         val pasted = withFreshGroups(copied.map { it.onLayer(activeLayerId).onAnimFrame(currentAnimFrame) })
         val centerX = (pasted.minOf { it.minX } + pasted.maxOf { it.maxX }) / 2.0
         val centerY = (pasted.minOf { it.minY } + pasted.maxOf { it.maxY }) / 2.0
-        // shiftBy subtracts, so shifting by (old centre - view centre) lands it at the view centre.
-        val offset = WorldPoint(centerX - panWorld.x, centerY - panWorld.y)
+        // shiftBy subtracts, so shifting by (old centre - target) lands it on the target.
+        val offset = WorldPoint(centerX - at.x, centerY - at.y)
         pasted.forEach { it.shiftBy(offset) }
         strokes.addAll(pasted)
         clearSelectionState()

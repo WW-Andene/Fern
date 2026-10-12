@@ -62,8 +62,14 @@ object SystemClipboard {
         clipboard(context).setPrimaryClip(clip)
     }
 
-    fun read(context: Context): ClipboardContent {
-        val clip = clipboard(context).primaryClip ?: return ClipboardContent.Nothing
+    fun read(context: Context): ClipboardContent =
+        clipboard(context).primaryClip?.let { contentOf(context, it) } ?: ClipboardContent.Nothing
+
+    /**
+     * What [clip] holds - from the clipboard, or dropped onto the canvas from another app: Fern
+     * strokes (a clip Fern copied, while its strokes are still cached), an image, or text.
+     */
+    fun contentOf(context: Context, clip: ClipData): ClipboardContent {
         if (clip.itemCount == 0) return ClipboardContent.Nothing
         val token = clip.description.extras?.getString(EXTRA_TOKEN)
         if (token != null && token.matches(Regex("[0-9a-f-]{36}"))) {
