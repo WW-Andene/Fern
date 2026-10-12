@@ -26,6 +26,7 @@ private const val KEY_STAMP_BRUSH = "stamp_brush"
 private const val KEY_TOOL_SLOTS = "tool_slots"
 private const val KEY_SNAP_TO_OBJECTS = "snap_to_objects"
 private const val KEY_BRUSH_PRESETS = "brush_presets"
+private const val KEY_HIGH_CONTRAST = "high_contrast"
 
 /** App preferences, stored in SharedPreferences so they apply to every document and survive restarts. */
 object AppSettings {
@@ -41,6 +42,13 @@ object AppSettings {
 
     fun setToolbarAtBottom(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_TOOLBAR_BOTTOM, value).apply()
+    }
+
+    fun highContrast(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean(KEY_HIGH_CONTRAST, false)
+
+    fun setHighContrast(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_HIGH_CONTRAST, value).apply()
     }
 
     fun snapToObjects(context: Context): Boolean =
@@ -154,6 +162,8 @@ fun SettingsDialog(
     onLeftHandedChange: (Boolean) -> Unit,
     toolbarAtBottom: Boolean,
     onToolbarAtBottomChange: (Boolean) -> Unit,
+    highContrast: Boolean,
+    onHighContrastChange: (Boolean) -> Unit,
     snapToObjects: Boolean,
     onSnapToObjectsChange: (Boolean) -> Unit,
     onShowGuide: () -> Unit,
@@ -177,6 +187,13 @@ fun SettingsDialog(
                 ) {
                     Text("Toolbar at the bottom", modifier = Modifier.weight(1f))
                     Switch(checked = toolbarAtBottom, onCheckedChange = onToolbarAtBottomChange)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("High contrast", modifier = Modifier.weight(1f))
+                    Switch(checked = highContrast, onCheckedChange = onHighContrastChange)
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),

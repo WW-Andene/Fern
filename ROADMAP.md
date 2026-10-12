@@ -122,7 +122,7 @@ All deferred: they need a server or cloud platform.
 
 - [ ] 67. Handwriting recognition ⏸ (ML Kit depends on Google Play Services)
 - [x] 68. Smart diagramming: connectors between labels and sticky notes (follow moves, undoable, saved, exported); "Tidy diagram" lays connected labels out as a layered flowchart
-- [~] 69. Accessibility — button descriptions, canvas screen-reader description, left-handed layout; no high-contrast theme
+- [x] 69. Accessibility — button descriptions, canvas screen-reader description, left-handed layout, high-contrast theme (light and dark, every pair 7:1 or better)
 - [ ] 70. Localisation (French first) and right-to-left
 - [~] 71. Two-finger tap undo, three-finger tap redo, toolbar top or bottom; toolbar not yet customisable
 - [~] 72. Gesture guide on first launch, templates (graph, dot, lined, comic, storyboard); no planner or mind-map templates

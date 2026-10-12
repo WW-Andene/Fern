@@ -25,7 +25,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -33,12 +32,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -160,7 +156,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             // Follows the system light/dark setting for the app's own UI (toolbar, dialogs). The
             // canvas paper keeps each document's chosen background colour either way.
-            MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
+            var highContrast by remember { mutableStateOf(AppSettings.highContrast(this)) }
+            FernTheme(highContrast = highContrast) {
                 Surface(color = Color(0xFFF7F5F0)) {
                     val context = LocalContext.current
                     val lifecycleOwner = LocalLifecycleOwner.current
@@ -918,6 +915,11 @@ class MainActivity : ComponentActivity() {
                             onToolbarAtBottomChange = { value ->
                                 toolbarAtBottom = value
                                 AppSettings.setToolbarAtBottom(context, value)
+                            },
+                            highContrast = highContrast,
+                            onHighContrastChange = { value ->
+                                highContrast = value
+                                AppSettings.setHighContrast(context, value)
                             },
                             snapToObjects = canvasState.snapToObjects,
                             onSnapToObjectsChange = { value ->
