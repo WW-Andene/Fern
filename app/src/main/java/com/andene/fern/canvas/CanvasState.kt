@@ -3107,6 +3107,23 @@ class CanvasState(
         strokesChanged()
     }
 
+    /**
+     * Places a drawing script's lines (roadmap items 111 and 164): one script unit is one screen
+     * pixel at the current zoom, so a script draws at the size it reads; centred in the view,
+     * on the active layer and frame, selected. One undo step.
+     */
+    fun insertScriptLines(lines: List<ScriptLine>) {
+        if (lines.isEmpty()) return
+        val s = scale.coerceAtLeast(1e-300)
+        val drawn = lines.map { line ->
+            Stroke(line.color, line.width / s, PenType.MARKER, layerId = activeLayerId, animFrame = currentAnimFrame).apply {
+                for (p in line.points) addPoint(WorldPoint(p.x / s, p.y / s))
+            }
+        }
+        activeTool = Tool.SELECT
+        pasteStrokes(drawn)
+    }
+
     fun deleteSelection() {
         val textId = selectedTextId
         if (textId != null) {

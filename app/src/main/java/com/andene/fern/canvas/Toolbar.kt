@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.EmojiPeople
 import androidx.compose.material.icons.filled.InvertColors
 import androidx.compose.material.icons.filled.GridView
@@ -209,6 +210,16 @@ fun Toolbar(
     var showSearchDialog by remember { mutableStateOf(false) }
     var showSymmetryMenu by remember { mutableStateOf(false) }
     var showAlignMenu by remember { mutableStateOf(false) }
+    var showScriptDialog by remember { mutableStateOf(false) }
+    if (showScriptDialog) {
+        ScriptDialog(
+            onRun = { lines ->
+                state.insertScriptLines(lines)
+                showScriptDialog = false
+            },
+            onDismiss = { showScriptDialog = false },
+        )
+    }
     // Symbol library (roadmap item 100), read and written off the main thread.
     val context = LocalContext.current
     val symbolScope = rememberCoroutineScope()
@@ -920,6 +931,7 @@ fun Toolbar(
                             Triple(R.string.audio_title, Icons.Filled.Mic, onOpenAudioNotes),
                             Triple(R.string.versions_title, Icons.Filled.History, onOpenVersions),
                             Triple(R.string.symbols_title, Icons.Filled.Category) { openSymbols() },
+                            Triple(R.string.script_title, Icons.Filled.Code) { showScriptDialog = true },
                             Triple(R.string.settings_title, Icons.Filled.Settings, onOpenSettings),
                         )
                         for ((label, icon, action) in moreItems) {
