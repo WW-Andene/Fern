@@ -124,6 +124,10 @@ class CanvasState(
         // Bone tool reach and the shortest bone an add drag makes, in screen px (§7 scale).
         private const val BONE_HIT_SCREEN = 24.0
         private const val BONE_MIN_SCREEN = 16.0
+        // IK: chain length, solver passes per move, and close enough (screen px).
+        private const val IK_CHAIN_BONES = 4
+        private const val IK_ITERATIONS = 8
+        private const val IK_TOLERANCE_SCREEN = 1.0
         // Template text sizes and spacing in screen px at the zoom the template is inserted at (§7 scale).
         private const val PLANNER_LABEL_SCREEN = 16.0
         private const val MIND_MAP_CENTRAL_SCREEN = 24.0
@@ -648,10 +652,17 @@ class CanvasState(
      */
     var smoothJoints by mutableStateOf(true)
 
+    /**
+     * Inverse kinematics (roadmap item 85): dragging a bone's tail pulls its chain - the bone
+     * and up to [IK_CHAIN_BONES] - 1 ancestors - so the tail follows the finger, each joint
+     * turning as needed (cyclic coordinate descent). Bound ink moves rigidly with its bone.
+     */
+    var inverseKinematics by mutableStateOf(false)
+
     /** The bones of the frame on screen. */
     val currentBones: List<Bone> get() = bones.filter { it.animFrame == currentAnimFrame }
 
-    private enum class BoneGestureKind { ADD, ROTATE, MOVE, NONE }
+    private enum class BoneGestureKind { ADD, ROTATE, MOVE, REACH, NONE }
 
     private data class BoneGesture(val kind: BoneGestureKind, val boneId: String?, val last: WorldPoint, val parentId: String? = null, val head: WorldPoint = last)
 
@@ -704,6 +715,7 @@ class CanvasState(
         }
         val tipBone = frameBones.filter { hypot(it.tail.x - world.x, it.tail.y - world.y) <= reach }.minByOrNull { hypot(it.tail.x - world.x, it.tail.y - world.y) }
         val gesture = when {
+            tipBone != null && inverseKinematics && tipBone.parentId != null -> BoneGesture(BoneGestureKind.REACH, tipBone.id, world)
             tipBone != null -> BoneGesture(BoneGestureKind.ROTATE, tipBone.id, world)
             hit != null && hit.parentId == null -> BoneGesture(BoneGestureKind.MOVE, hit.id, world)
             hit != null -> BoneGesture(BoneGestureKind.ROTATE, hit.id, world)
@@ -768,6 +780,10 @@ class CanvasState(
                 geometryEpoch++
                 boneGesture = gesture.copy(last = world)
             }
+            BoneGestureKind.REACH -> {
+                reachToward(gesture.boneId ?: return, world)
+                boneGesture = gesture.copy(last = world)
+            }
             BoneGestureKind.MOVE -> {
                 val delta = world - gesture.last
                 transformRig(gesture.boneId ?: return) { it + delta }
@@ -793,11 +809,28 @@ class CanvasState(
                 selectedBoneId = bone.id
                 onBonesChanged(bones.toList())
             }
-            BoneGestureKind.ROTATE, BoneGestureKind.MOVE -> {
+            BoneGestureKind.ROTATE, BoneGestureKind.MOVE, BoneGestureKind.REACH -> {
                 onBonesChanged(bones.toList())
                 strokesChanged()
             }
             BoneGestureKind.NONE -> {}
+        }
+    }
+
+    /** One move of an IK drag: turns the chain ending at [endId] so its tail nears [target]. */
+    private fun reachToward(endId: String, target: WorldPoint) {
+        val frame = currentAnimFrame
+        fun bone(id: String) = bones.firstOrNull { it.animFrame == frame && it.id == id }
+        val chain = generateSequence(bone(endId)) { b -> b.parentId?.let { bone(it) } }.take(IK_CHAIN_BONES).map { it.id }.toList()
+        repeat(IK_ITERATIONS) {
+            for (id in chain) {
+                val joint = bone(id) ?: return
+                val tip = bone(endId)?.tail ?: return
+                val turn = atan2(target.y - joint.head.y, target.x - joint.head.x) - atan2(tip.y - joint.head.y, tip.x - joint.head.x)
+                if (turn != 0.0) transformRig(id) { rotateAbout(it, joint.head, turn) }
+            }
+            val tip = bone(endId)?.tail ?: return
+            if (hypot(tip.x - target.x, tip.y - target.y) < IK_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)) return
         }
     }
 

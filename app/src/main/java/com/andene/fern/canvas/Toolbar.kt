@@ -485,6 +485,13 @@ fun Toolbar(
                                 tint = if (state.smoothJoints) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                             )
                         }
+                        IconButton(onClick = { state.inverseKinematics = !state.inverseKinematics }) {
+                            Icon(
+                                Icons.Filled.Timeline,
+                                contentDescription = if (state.inverseKinematics) stringResource(R.string.tb_ik_on) else stringResource(R.string.tb_ik_off),
+                                tint = if (state.inverseKinematics) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                            )
+                        }
                         IconButton(onClick = { state.bindStrokesToNearestBones() }, enabled = state.currentBones.isNotEmpty()) {
                             Icon(Icons.Filled.Link, contentDescription = stringResource(R.string.tb_bones_bind))
                         }

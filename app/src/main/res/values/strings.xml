@@ -337,4 +337,6 @@
     <string name="tb_bones_delete">Delete bone</string>
     <string name="tb_joints_smooth">Smooth joints: on (ink bends at joints)</string>
     <string name="tb_joints_rigid">Smooth joints: off (ink moves rigidly)</string>
+    <string name="tb_ik_on">Inverse kinematics: on (drag a limb\'s end to pull its chain)</string>
+    <string name="tb_ik_off">Inverse kinematics: off</string>
 </resources>

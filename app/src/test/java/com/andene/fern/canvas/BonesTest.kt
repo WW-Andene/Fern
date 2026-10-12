@@ -116,6 +116,25 @@ class BonesTest {
     }
 
     @Test
+    fun inverseKinematicsPullsTheChainSoTheHandReachesTheFinger() {
+        val state = arm()
+        state.posingBones = true
+        state.inverseKinematics = true
+        val target = WorldPoint(120.0, 80.0) // in reach (arm length 200), so the elbow must bend
+        state.beginBone(WorldPoint(200.0, 0.0))
+        state.continueBone(WorldPoint(170.0, 40.0))
+        state.continueBone(target)
+        state.endBone()
+        val (upper, fore) = state.bones
+        assertEquals(WorldPoint(0.0, 0.0), upper.head) // the shoulder stays put
+        assertEquals(0.0, kotlin.math.hypot(fore.head.x - upper.tail.x, fore.head.y - upper.tail.y), 1e-6) // still joined
+        assertEquals(100.0, upper.length, 1e-6)
+        assertTrue(kotlin.math.hypot(fore.tail.x - target.x, fore.tail.y - target.y) < 1.5)
+        // The forearm's ink went with the forearm.
+        assertTrue(distanceToBone(fore, state.strokes.single().points.last()) < 1e-6)
+    }
+
+    @Test
     fun deletingABoneTakesItsChildrenAndUnbindsTheirInk() {
         val state = arm()
         state.selectedBoneId = state.bones[0].id
