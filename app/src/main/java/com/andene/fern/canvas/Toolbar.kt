@@ -228,6 +228,19 @@ fun Toolbar(
     var showSearchDialog by remember { mutableStateOf(false) }
     var showSymmetryMenu by remember { mutableStateOf(false) }
     var showAlignMenu by remember { mutableStateOf(false) }
+    var showSignatureDialog by remember { mutableStateOf(false) }
+    if (showSignatureDialog) {
+        val context = LocalContext.current
+        SignatureDialog(
+            saved = remember { SignatureStore.load(context) },
+            onPlace = { signature ->
+                SignatureStore.save(context, signature)
+                state.placeSignature(signature)
+                showSignatureDialog = false
+            },
+            onDismiss = { showSignatureDialog = false },
+        )
+    }
     var showScriptDialog by remember { mutableStateOf(false) }
     if (showScriptDialog) {
         ScriptDialog(
@@ -1033,6 +1046,7 @@ fun Toolbar(
                             Triple(R.string.audio_title, Icons.Filled.Mic, onOpenAudioNotes),
                             Triple(R.string.versions_title, Icons.Filled.History, onOpenVersions),
                             Triple(R.string.symbols_title, Icons.Filled.Category) { openSymbols() },
+                            Triple(R.string.signature_title, Icons.Filled.Draw) { showSignatureDialog = true },
                             Triple(R.string.script_title, Icons.Filled.Code) { showScriptDialog = true },
                             Triple(R.string.settings_title, Icons.Filled.Settings, onOpenSettings),
                         )

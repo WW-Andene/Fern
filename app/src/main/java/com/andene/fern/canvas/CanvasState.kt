@@ -120,6 +120,7 @@ class CanvasState(
 
         // Holding the pen still this long before lifting turns a rough stroke into a clean shape.
         private const val SHAPE_HOLD_MILLIS = 500L
+        private const val SIGNATURE_FALLBACK_VIEW_PX = 1024.0 // before the view has a size
 
         // One second of motion at the default 12 fps.
         private const val MOTION_PATH_STEPS = 12
@@ -4225,6 +4226,15 @@ class CanvasState(
     }
 
     /** Pastes [copied] strokes centred on [at] (the view centre by default), on the active layer and frame, and selects them. */
+    /**
+     * Places [signature] (pad coordinates, see [SignatureStore]) at the centre of the view, a
+     * third of the view wide, selected so it can be moved into place (roadmap item 129).
+     */
+    fun placeSignature(signature: List<Stroke>) {
+        val viewWidth = if (viewportSize.width > 0f) viewportSize.width.toDouble() else SIGNATURE_FALLBACK_VIEW_PX
+        pasteStrokes(placedSignature(signature, viewWidth / 3 / scale.coerceAtLeast(1e-300)))
+    }
+
     fun pasteStrokes(copied: List<Stroke>, at: WorldPoint = panWorld) {
         if (copied.isEmpty() || !activeLayerEditable) return
         recordHistory()

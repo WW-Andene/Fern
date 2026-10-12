@@ -205,7 +205,7 @@ Concepts, GoodNotes, Notability, Infinite Painter, Aseprite, Spine and Affinity 
 | 126 | Snapshots; delete empty/hidden layers | Affinity, Clip Studio | 4 | done |
 | 127 | DXF export | Concepts | 6 | done: ASCII DXF R12 - layers, polylines with width, dashes, nearest basic and true colours; fills as closed outlines |
 | 128 | Slices, @2x/@3x, batch export | Affinity | 6 | done: every frame as PNG slices at 1x, @2x and @3x in one ZIP, from the frames panel |
-| 129 | Document signing, markup | Concepts | 6 | not started |
+| 129 | Document signing, markup | Concepts | 6 | done: a signature pad (⋮ > Sign) that saves the signature and places it as selected strokes; markup with the existing tools on imported PDF pages |
 | 130 | Audio recording with notes | GoodNotes, Notability | 8 | partly (voice notes; not synced to strokes) |
 | 131 | AI over notes | GoodNotes, Notability | 8 | ⏸ |
 | 132 | Usage statistics | Clip Studio | 8 | not started |
