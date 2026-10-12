@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.CleaningServices
+import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Colorize
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
@@ -401,6 +402,12 @@ fun Toolbar(
                     )
                 }
                 if (state.activeTool == Tool.SELECT) {
+                    IconButton(onClick = { state.selectAllOnActiveLayer() }) {
+                        Icon(Icons.Filled.SelectAll, contentDescription = "Select all on this layer")
+                    }
+                    IconButton(onClick = { state.selectSameColor() }) {
+                        Icon(Icons.Filled.ColorLens, contentDescription = "Select strokes of the same colour")
+                    }
                     IconButton(onClick = { state.lassoSelect = !state.lassoSelect }) {
                         Icon(
                             if (state.lassoSelect) Icons.Filled.Gesture else Icons.Filled.HighlightAlt,

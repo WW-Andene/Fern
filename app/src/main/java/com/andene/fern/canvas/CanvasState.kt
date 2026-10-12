@@ -1315,6 +1315,23 @@ class CanvasState(
         onChanged(strokes.toList())
     }
 
+    /** Selects every editable stroke on the active layer (in the current animation frame). */
+    fun selectAllOnActiveLayer() {
+        clearSelectionState()
+        selection.addAll(strokes.filter { it.layerId == activeLayerId && isEditable(it) })
+    }
+
+    /**
+     * Selects every editable stroke with the same colour as the first selected stroke, or as
+     * the current drawing colour when nothing is selected. Compared without alpha, so the
+     * opacity slider's effect doesn't split one colour into many.
+     */
+    fun selectSameColor() {
+        val target = (selection.firstOrNull()?.color ?: activeColor).copy(alpha = 1f)
+        clearSelectionState()
+        selection.addAll(strokes.filter { isEditable(it) && it.color.copy(alpha = 1f) == target })
+    }
+
     /** Smooths the selected strokes' wobble after the fact; repeatable for a stronger effect. Filled shapes are left alone. */
     fun smoothSelection() {
         if (selection.isEmpty()) return
