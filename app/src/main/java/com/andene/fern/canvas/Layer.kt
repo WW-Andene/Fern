@@ -61,6 +61,12 @@ data class Layer(
      * document, so it still shows if the file goes away.
      */
     val fileSource: String? = null,
+    /**
+     * A high-dynamic-range raster layer (roadmap item 139): holds light brighter than paper
+     * white (see [HDR_ENCODED_MAX]), painted with [CanvasState.hdrIntensity] and shown through
+     * [CanvasState.hdrView].
+     */
+    val hdr: Boolean = false,
 )
 
 /** Where layer [layerId]'s mask lives among [CanvasState.rasters] and on disk. */

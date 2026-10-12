@@ -5,6 +5,7 @@ import com.andene.fern.R
 import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -1500,9 +1501,11 @@ class CanvasState(
     private val dirtyRasterTiles = HashMap<String, MutableSet<Long>>()
 
     /** Adds a raster layer of [depth] bits above the others, its pixels the size of a screen pixel at the current zoom. */
-    fun addRasterLayer(depth: Int) {
-        val layer = Layer(UUID.randomUUID().toString(), "Raster ${layers.size + 1}", raster = true, depth = depth)
-        attachRaster(layer.id, RasterSurface(depth, 1.0 / scale.coerceAtLeast(1e-300)))
+    fun addRasterLayer(depth: Int, hdr: Boolean = false) {
+        // HDR needs the 16-bit range for its headroom.
+        val bits = if (hdr) 16 else depth
+        val layer = Layer(UUID.randomUUID().toString(), (if (hdr) "HDR " else "Raster ") + "${layers.size + 1}", raster = true, depth = bits, hdr = hdr)
+        attachRaster(layer.id, RasterSurface(bits, 1.0 / scale.coerceAtLeast(1e-300)).also { it.hdr = hdr; it.hdrView = hdrView })
         layers.add(layer)
         activeLayerId = layer.id
         onLayersChanged(layers.toList())
@@ -1517,6 +1520,7 @@ class CanvasState(
         // A raster layer saved before its first tile has no file yet; it starts empty.
         for (layer in layers) if (layer.raster && layer.id !in rasters) attachRaster(layer.id, RasterSurface(layer.depth, 1.0 / scale.coerceAtLeast(1e-300)))
         for (layer in layers) if (layer.masked && maskIdOf(layer.id) !in rasters) attachRaster(maskIdOf(layer.id), RasterSurface(8, 1.0 / scale.coerceAtLeast(1e-300)))
+        for (layer in layers) rasters[layer.id]?.let { it.hdr = layer.hdr; it.hdrView = hdrView }
         rasterSelection = null
         selectionMask = null
         paintingSelection = false
@@ -1873,7 +1877,15 @@ class CanvasState(
     private fun rasterDabs(surface: RasterSurface, to: WorldPoint, pressure: Float) {
         val (radius, opacity, hardness) = if (rasterErasing) Triple(eraserRadiusWorld, 1f, 0.9f) else rasterBrush(pressure)
         // A mask is painted in coverage alone: the pen hides fully, whatever the colour.
-        val color = if (editingMask || paintingSelection) floatArrayOf(0f, 0f, 0f, 1f) else activeColor.let { floatArrayOf(it.red, it.green, it.blue, it.alpha * activeOpacity.toFloat()) }
+        val color = when {
+            editingMask || paintingSelection -> floatArrayOf(0f, 0f, 0f, 1f)
+            // HDR: the colour's light times the intensity, in the layer's scaled-down storage.
+            surface.hdr -> activeColor.let { c ->
+                fun light(v: Float) = (linearToSrgb(srgbToLinear(v) * hdrIntensity) / HDR_ENCODED_MAX).coerceIn(0f, 1f)
+                floatArrayOf(light(c.red), light(c.green), light(c.blue), c.alpha * activeOpacity.toFloat())
+            }
+            else -> activeColor.let { floatArrayOf(it.red, it.green, it.blue, it.alpha * activeOpacity.toFloat()) }
+        }
         val spacing = (radius * RASTER_DAB_SPACING).coerceAtLeast(surface.pixelWorld * 0.5)
         val from = rasterLast ?: to
         val dabs = dabsAlong(from, to, spacing, rasterCarry)
@@ -1937,8 +1949,9 @@ class CanvasState(
             val layer = Layer(
                 UUID.randomUUID().toString(), imported.name.ifBlank { "Layer ${layers.size + 1}" },
                 visible = imported.visible, opacity = imported.opacity, blend = imported.blend, raster = true, depth = document.depth,
+                hdr = document.hdr,
             )
-            val surface = RasterSurface(document.depth, pixelWorld, originX, originY)
+            val surface = RasterSurface(document.depth, pixelWorld, originX, originY).also { it.hdr = document.hdr; it.hdrView = hdrView }
             attachRaster(layer.id, surface)
             surface.forEachPixelIn(imported.left.toDouble(), imported.top.toDouble(), (imported.left + imported.width - 1).toDouble(), (imported.top + imported.height - 1).toDouble()) { tile, index, px, py ->
                 val x = px - imported.left
@@ -2008,6 +2021,22 @@ class CanvasState(
         }
         surface.tiles.entries.removeAll { it.value.isEmpty() }
     }
+
+    /**
+     * How HDR layers (roadmap item 139) are shown: exposure and tone mapping, standing in for an
+     * OpenColorIO display transform. A view setting: it changes what's on screen, never pixels.
+     */
+    var hdrView by mutableStateOf(HdrView())
+        private set
+
+    fun setHdrView(view: HdrView) {
+        hdrView = view
+        for (layer in layers) if (layer.hdr) rasters[layer.id]?.hdrView = view
+        rasterRevision++
+    }
+
+    /** How many times brighter than its colour the pen paints on an HDR layer: 1 is the colour as picked. */
+    var hdrIntensity by mutableFloatStateOf(1f)
 
     /** Adds an adjustment layer applying [adjustment] to everything beneath it (roadmap item 93). */
     fun addAdjustmentLayer(adjustment: Adjustment) {

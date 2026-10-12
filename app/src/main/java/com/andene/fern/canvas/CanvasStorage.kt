@@ -683,6 +683,7 @@ object CanvasStorage {
                 if (layer.blend != LayerBlend.NORMAL) put("blend", layer.blend.name)
                 layer.adjustment?.let { put("adjustment", adjustmentToJson(it)) }
                 layer.fileSource?.let { put("file", it) }
+                if (layer.hdr) put("hdr", true)
             })
         }
         writeStored(layersFile(context, documentId), root)
@@ -770,6 +771,7 @@ object CanvasStorage {
                 blend = LayerBlend.entries.firstOrNull { it.name == entry.optString("blend") } ?: LayerBlend.NORMAL,
                 adjustment = entry.optJSONObject("adjustment")?.let(::adjustmentFromJson),
                 fileSource = entry.optString("file").ifEmpty { null },
+                hdr = entry.optBoolean("hdr", false),
             )
         }
     }

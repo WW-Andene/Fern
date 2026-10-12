@@ -79,6 +79,12 @@
     <string name="brush_delete_preset">Supprimer le préréglage %1$s</string>
     <string name="layers_title">Calques</string>
     <string name="layers_skins">Skins</string>
+    <string name="layers_new_hdr">Calque HDR</string>
+    <string name="hdr_title">HDR</string>
+    <string name="hdr_exposure">Exposition : %1$s IL</string>
+    <string name="hdr_clip">Écrêter</string>
+    <string name="hdr_filmic">Filmique</string>
+    <string name="hdr_intensity">Luminosité du stylo sur les calques HDR : ×%1$s</string>
     <string name="layers_add_file">Ajouter un calque fichier</string>
     <string name="layers_reload_file">Recharger depuis le fichier</string>
     <string name="layers_file_unreadable">Cette image n\'a pas pu être lue.</string>

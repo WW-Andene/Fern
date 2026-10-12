@@ -134,6 +134,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                 }
                 TextButton(onClick = { pickFile.launch(arrayOf("image/*")) }) { Text(stringResource(R.string.layers_add_file)) }
                 LayerCompsSection(state)
+                if (state.layers.any { it.hdr }) HdrSection(state)
                 for (layer in state.layers.reversed()) {
                     val active = layer.id == state.activeLayerId
                     Row(
@@ -295,6 +296,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                 // Raster layers hold pixels; 16 bits per channel for smooth gradients.
                 TextButton(onClick = { state.addRasterLayer(8) }) { Text(stringResource(R.string.layers_new_raster)) }
                 TextButton(onClick = { state.addRasterLayer(16) }) { Text(stringResource(R.string.layers_new_raster_16)) }
+                TextButton(onClick = { state.addRasterLayer(16, hdr = true) }) { Text(stringResource(R.string.layers_new_hdr)) }
                 TextButton(onClick = {
                     state.addAdjustmentLayer(Levels())
                     editingAdjustment = state.activeLayerId to Levels()
@@ -350,4 +352,24 @@ private fun LayerCompsSection(state: CanvasState) {
             Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.layers_comp_delete))
         }
     }
+}
+
+/**
+ * HDR layers (roadmap item 139): the view transform they're shown through - exposure in stops
+ * and how light past white is brought into the screen's range - and how bright the pen paints
+ * on them.
+ */
+@Composable
+private fun HdrSection(state: CanvasState) {
+    val view = state.hdrView
+    Text(stringResource(R.string.hdr_title), style = MaterialTheme.typography.labelLarge)
+    Text(stringResource(R.string.hdr_exposure, "%+.1f".format(view.exposureStops)))
+    Slider(value = view.exposureStops, onValueChange = { state.setHdrView(view.copy(exposureStops = it)) }, valueRange = -6f..6f)
+    Row {
+        for ((mode, label) in listOf(ToneMap.CLIP to R.string.hdr_clip, ToneMap.FILMIC to R.string.hdr_filmic)) {
+            FilterChip(selected = view.toneMap == mode, onClick = { state.setHdrView(view.copy(toneMap = mode)) }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = 4.dp))
+        }
+    }
+    Text(stringResource(R.string.hdr_intensity, "%.1f".format(state.hdrIntensity)))
+    Slider(value = state.hdrIntensity, onValueChange = { state.hdrIntensity = it }, valueRange = 1f..16f)
 }

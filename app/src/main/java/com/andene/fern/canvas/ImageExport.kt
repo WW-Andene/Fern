@@ -116,7 +116,10 @@ fun exportDocumentPng(
 /**
  * The whole document as OpenEXR (roadmap item 139): rendered like the PNG export, at
  * [EXPORT_MAX_EDGE_PX], and stored as linear-light half floats, the form compositing and
- * grading software expects. Null for an empty document.
+ * grading software expects. HDR layers keep their light past paper white: the layers are
+ * composited bottom to top in linear light, runs of ordinary layers rendered as the canvas
+ * draws them and each visible HDR layer laid over at its true values (normal blending, at its
+ * opacity; an HDR layer's mask and blend mode aren't applied here). Null for an empty document.
  */
 fun exportDocumentExr(
     source: CanvasState,
@@ -126,10 +129,63 @@ fun exportDocumentExr(
     transparent: Boolean = false,
 ): ByteArray? {
     val frame = frameForExport(source, EXPORT_MAX_EDGE_PX) ?: return null
-    val image = ImageBitmap(frame.widthPx, frame.heightPx)
-    frame.drawOn(Canvas(image), density, textMeasurer, imageFor, transparent)
-    val argb = IntArray(frame.widthPx * frame.heightPx).also { image.readPixels(it) }
-    return OpenExr.write(exrImageFromArgb(argb, frame.widthPx, frame.heightPx))
+    val w = frame.widthPx
+    val h = frame.heightPx
+    fun render(transparentPaper: Boolean): IntArray {
+        val image = ImageBitmap(w, h)
+        frame.drawOn(Canvas(image), density, textMeasurer, imageFor, transparentPaper)
+        return IntArray(w * h).also { image.readPixels(it) }
+    }
+    val camera = frame.camera
+    val allLayers = camera.layers.toList()
+    if (allLayers.none { it.hdr && it.visible }) return OpenExr.write(exrImageFromArgb(render(transparent), w, h))
+
+    val result = FloatArray(w * h * 4)
+    fun over(top: FloatArray) {
+        for (i in 0 until w * h) {
+            val a = top[i * 4 + 3]
+            for (c in 0 until 4) result[i * 4 + c] = top[i * 4 + c] + result[i * 4 + c] * (1 - a)
+        }
+    }
+    if (!transparent) {
+        val paper = camera.backgroundColor
+        for (i in 0 until w * h) {
+            result[i * 4] = srgbToLinear(paper.red); result[i * 4 + 1] = srgbToLinear(paper.green)
+            result[i * 4 + 2] = srgbToLinear(paper.blue); result[i * 4 + 3] = 1f
+        }
+    }
+    val images = camera.imageItems.toList()
+    val texts = camera.textItems.toList()
+    val hidden = allLayers.map { it.copy(visible = false) }
+    val center = Offset(w / 2f, h / 2f)
+    var start = 0
+    // Runs of ordinary layers between HDR ones, then each HDR layer.
+    while (start <= allLayers.size) {
+        val end = (start until allLayers.size).firstOrNull { allLayers[it].hdr && allLayers[it].visible } ?: allLayers.size
+        if (end > start || start == 0 || end == allLayers.size) {
+            camera.loadLayers(hidden.mapIndexed { i, layer -> if (i in start until end) allLayers[i] else layer })
+            camera.loadImageItems(if (start == 0) images else emptyList()) // images lie beneath every layer
+            camera.loadTextItems(if (end == allLayers.size) texts else emptyList()) // text above them all
+            over(exrImageFromArgb(render(transparentPaper = true), w, h).rgba)
+        }
+        if (end == allLayers.size) break
+        val layer = allLayers[end]
+        camera.rasters[layer.id]?.let { surface ->
+            val light = FloatArray(w * h * 4)
+            for (y in 0 until h) for (x in 0 until w) {
+                val (px, py) = surface.pixelOf(camera.screenToWorld(Offset(x + 0.5f, y + 0.5f), center))
+                val p = surface.pixel(px, py)
+                val a = p[3] * layer.opacity
+                if (a <= 0f) continue
+                for (c in 0 until 3) light[(y * w + x) * 4 + c] = srgbToLinear(p[c] / p[3] * HDR_ENCODED_MAX) * a
+                light[(y * w + x) * 4 + 3] = a
+            }
+            over(light)
+        }
+        start = end + 1
+    }
+    camera.loadLayers(allLayers)
+    return OpenExr.write(ExrImage(w, h, result))
 }
 
 // Each frame's cell in a sprite sheet; 512 px keeps a 24-frame sheet (5x5 grid) at 2560 px.

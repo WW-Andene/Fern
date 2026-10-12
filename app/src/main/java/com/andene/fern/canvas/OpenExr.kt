@@ -265,19 +265,26 @@ fun linearToSrgb(v: Float): Float = if (v <= 0.0031308f) v * 12.92f else (1.055 
 
 /**
  * An OpenEXR picture as one 16-bit layer to import (roadmap item 139): linear light turned to
- * the sRGB values Fern paints in, unpremultiplied; values past paper white are clipped to it.
+ * the sRGB values Fern paints in, unpremultiplied. A picture brighter than paper white anywhere
+ * becomes an HDR layer, keeping light up to [HDR_MAX_LINEAR]; otherwise an ordinary one.
  */
 fun ExrImage.toImportedDocument(name: String): ImportedDocument {
+    val hdr = (0 until width * height).any { i ->
+        val a = rgba[i * 4 + 3]
+        a > 0f && (0 until 3).any { c -> rgba[i * 4 + c] / a > 1f + 1e-3f }
+    }
+    val scale = if (hdr) HDR_ENCODED_MAX else 1f
+    val ceiling = if (hdr) HDR_MAX_LINEAR else 1f
     val rgba16 = ShortArray(width * height * 4)
     for (i in 0 until width * height) {
         val a = rgba[i * 4 + 3].coerceIn(0f, 1f)
         for (c in 0 until 3) {
             val linear = if (a > 0f) rgba[i * 4 + c] / a else 0f
-            rgba16[i * 4 + c] = (linearToSrgb(linear.coerceIn(0f, 1f)) * 65535 + 0.5f).toInt().toShort()
+            rgba16[i * 4 + c] = (linearToSrgb(linear.coerceIn(0f, ceiling)) / scale * 65535 + 0.5f).toInt().coerceIn(0, 65535).toShort()
         }
         rgba16[i * 4 + 3] = (a * 65535 + 0.5f).toInt().toShort()
     }
-    return ImportedDocument(width, height, 16, listOf(ImportedLayer(name, 0, 0, width, height, rgba16)))
+    return ImportedDocument(width, height, 16, listOf(ImportedLayer(name, 0, 0, width, height, rgba16)), hdr = hdr)
 }
 
 /** [argb] (non-premultiplied sRGB, as a rendered bitmap holds it) as linear premultiplied floats for OpenEXR. */

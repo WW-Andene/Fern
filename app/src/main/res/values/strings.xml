@@ -79,6 +79,12 @@
     <string name="brush_delete_preset">Delete preset %1$s</string>
     <string name="layers_title">Layers</string>
     <string name="layers_skins">Skins</string>
+    <string name="layers_new_hdr">HDR layer</string>
+    <string name="hdr_title">HDR</string>
+    <string name="hdr_exposure">Exposure: %1$s stops</string>
+    <string name="hdr_clip">Clip</string>
+    <string name="hdr_filmic">Filmic</string>
+    <string name="hdr_intensity">Pen brightness on HDR layers: ×%1$s</string>
     <string name="layers_add_file">Add file layer</string>
     <string name="layers_reload_file">Reload from file</string>
     <string name="layers_file_unreadable">That image couldn\'t be read.</string>
