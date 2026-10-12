@@ -554,6 +554,9 @@ class CanvasState(
         activeTool = Tool.PEN
     }
 
+    /** Fills are drawn as a comic screentone (dots) instead of solid. */
+    var activeScreentone by mutableStateOf(false)
+
     /** Fills fade from the colour to transparent (top to bottom) instead of being solid. */
     var activeFadeFill by mutableStateOf(false)
 
@@ -1036,7 +1039,7 @@ class CanvasState(
         }
         if (bestIndex == -1) return
         val boundary = strokes[bestIndex]
-        val fillStroke = Stroke(activeColor, 0.0, PenType.MARKER, filled = true, layerId = activeLayerId, animFrame = currentAnimFrame, fadeFill = activeFadeFill)
+        val fillStroke = Stroke(activeColor, 0.0, PenType.MARKER, filled = true, layerId = activeLayerId, animFrame = currentAnimFrame, fadeFill = activeFadeFill, screentone = activeScreentone)
         for (point in boundary.points) fillStroke.addPoint(point)
         strokes.add(bestIndex, fillStroke)
         onChanged(strokes.toList())
@@ -1575,7 +1578,7 @@ class CanvasState(
         recordHistory()
         val nudge = WorldPoint(20.0 / scale.coerceAtLeast(1e-300), 20.0 / scale.coerceAtLeast(1e-300))
         val duplicates = selection.map { original ->
-            val copy = Stroke(original.color, original.widthWorld, original.penType, original.filled, original.blendMode, original.layerId, original.animFrame, original.dashed, original.fadeFill)
+            val copy = Stroke(original.color, original.widthWorld, original.penType, original.filled, original.blendMode, original.layerId, original.animFrame, original.dashed, original.fadeFill, original.screentone)
             for (point in original.points) copy.addPoint(point + nudge)
             copy
         }

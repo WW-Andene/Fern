@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStyle
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -766,6 +767,32 @@ private fun DrawScope.drawPixelStroke(stroke: Stroke, state: CanvasState, screen
     }
 }
 
+/**
+ * Comic screentone: a dot grid clipped to the fill's outline, offset every other row like
+ * printed halftone. Laid out in screen space at a fixed 8 px pitch so the tone reads the same
+ * at any zoom (and the dot count stays bounded however large the fill is on screen).
+ */
+private fun DrawScope.drawScreentone(outline: Path, color: Color, screenPoints: List<Offset>) {
+    val pitch = 8f
+    val left = screenPoints.minOf { it.x }.coerceAtLeast(0f)
+    val right = screenPoints.maxOf { it.x }.coerceAtMost(size.width)
+    val top = screenPoints.minOf { it.y }.coerceAtLeast(0f)
+    val bottom = screenPoints.maxOf { it.y }.coerceAtMost(size.height)
+    clipPath(outline) {
+        var row = 0
+        var y = top
+        while (y <= bottom) {
+            var x = left + if (row % 2 == 0) 0f else pitch / 2f
+            while (x <= right) {
+                drawCircle(color = color, radius = 2f, center = Offset(x, y))
+                x += pitch
+            }
+            y += pitch
+            row++
+        }
+    }
+}
+
 /** A stable pseudo-random value in [0, 1) from two integers (integer hash, no state). */
 private fun hash01(a: Int, b: Int): Float {
     var h = a * 374761393 + b * 668265263
@@ -957,7 +984,9 @@ internal fun DrawScope.drawScene(
                     path.moveTo(screenPoints[0].x, screenPoints[0].y)
                     for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
                     path.close()
-                    if (stroke.fadeFill) {
+                    if (stroke.screentone) {
+                        drawScreentone(path, stroke.color, screenPoints)
+                    } else if (stroke.fadeFill) {
                         // Gradient spans the fill's own height on screen, so it zooms with the shape.
                         val top = screenPoints.minOf { it.y }
                         val bottom = screenPoints.maxOf { it.y }

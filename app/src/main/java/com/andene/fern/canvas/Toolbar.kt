@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AlignHorizontalLeft
 import androidx.compose.material.icons.filled.AutoFixNormal
+import androidx.compose.material.icons.filled.BlurLinear
 import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.CenterFocusStrong
@@ -408,6 +409,13 @@ fun Toolbar(
                     )
                 }
                 if (state.activeTool == Tool.FILL) {
+                    IconButton(onClick = { state.activeScreentone = !state.activeScreentone }) {
+                        Icon(
+                            Icons.Filled.BlurLinear,
+                            contentDescription = if (state.activeScreentone) "Screentone fill: on" else "Screentone fill: off",
+                            tint = if (state.activeScreentone) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
                     IconButton(onClick = { state.activeFadeFill = !state.activeFadeFill }) {
                         Icon(
                             Icons.Filled.Gradient,
