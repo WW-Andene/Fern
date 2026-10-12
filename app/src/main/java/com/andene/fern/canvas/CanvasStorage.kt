@@ -578,6 +578,30 @@ object CanvasStorage {
         folder = if (entry.has("folder")) entry.getString("folder") else null,
     )
 
+    /**
+     * A document's portable files by kind (the key is the file name used inside a `.fern`
+     * bundle; see DocumentBundle). Excludes what can be regenerated or is device-local:
+     * thumbnail, undo history and version snapshots.
+     */
+    internal fun portableFiles(context: Context, documentId: String): Map<String, File> = mapOf(
+        "canvas.json" to strokesFile(context, documentId),
+        "pins.json" to pinsFile(context, documentId),
+        "text.json" to textItemsFile(context, documentId),
+        "images.json" to imageItemsFile(context, documentId),
+        "background.json" to backgroundFile(context, documentId),
+        "layers.json" to layersFile(context, documentId),
+        "frames.json" to framesFile(context, documentId),
+    )
+
+    /** Adds an index entry for files already written under [id] (used by bundle import). */
+    internal fun registerDocument(context: Context, id: String, name: String): DocumentMeta {
+        val meta = DocumentMeta(id, name, System.currentTimeMillis())
+        val index = readIndex(context)
+        index.put(metaToJson(meta))
+        writeIndex(context, index)
+        return meta
+    }
+
     private fun strokesFile(context: Context, documentId: String) = File(context.filesDir, "canvas_$documentId.json")
 
     private fun pinsFile(context: Context, documentId: String) = File(context.filesDir, "pins_$documentId.json")

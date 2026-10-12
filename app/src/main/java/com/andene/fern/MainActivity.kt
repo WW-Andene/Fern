@@ -62,9 +62,11 @@ import com.andene.fern.canvas.Toolbar
 import com.andene.fern.canvas.VersionsDialog
 import com.andene.fern.canvas.WelcomeDialog
 import com.andene.fern.canvas.WorldPoint
+import com.andene.fern.canvas.exportDocumentBundle
 import com.andene.fern.canvas.exportDocumentPdf
 import com.andene.fern.canvas.exportDocumentPng
 import com.andene.fern.canvas.exportDocumentSvg
+import com.andene.fern.canvas.importDocumentBundle
 import com.andene.fern.canvas.importPdfPages
 import com.andene.fern.canvas.markWelcomeSeen
 import com.andene.fern.canvas.shouldShowWelcome
@@ -170,6 +172,8 @@ class MainActivity : ComponentActivity() {
                         BitmapFactory.decodeFile(CanvasStorage.imageFile(context, fileName).absolutePath)?.asImageBitmap()
                     }
 
+                    fun currentDocumentName() = documents.firstOrNull { it.id == currentDocumentId }?.name ?: "Fern"
+
                     // Renders off the main thread, then writes to the picked location; null bytes = empty document.
                     fun writeExport(uri: Uri, render: () -> ByteArray?) {
                         coroutineScope.launch {
@@ -210,6 +214,18 @@ class MainActivity : ComponentActivity() {
                         if (uri != null && frame != null) {
                             writeExport(uri) { exportDocumentPng(canvasState, textMeasurer, density, imageForExport, frame) }
                         }
+                    }
+                    val bundleExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/octet-stream"),
+                    ) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        // Save first so the bundle holds exactly what's on screen.
+                        CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList())
+                        CanvasStorage.saveTextItems(context, currentDocumentId, canvasState.textItems.toList())
+                        CanvasStorage.saveImageItems(context, currentDocumentId, canvasState.imageItems.toList())
+                        val id = currentDocumentId
+                        val name = currentDocumentName()
+                        writeExport(uri) { exportDocumentBundle(context, id, name) }
                     }
                     val pdfExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("application/pdf"),
@@ -278,8 +294,6 @@ class MainActivity : ComponentActivity() {
                             canvasState.addImage(fileName, position, widthWorld, heightWorld)
                         }
                     }
-
-                    fun currentDocumentName() = documents.firstOrNull { it.id == currentDocumentId }?.name ?: "Fern"
 
                     suspend fun refreshDocuments() {
                         documents = withContext(Dispatchers.IO) { CanvasStorage.listDocuments(context) }
@@ -382,6 +396,7 @@ class MainActivity : ComponentActivity() {
                                 onExportPng = { pngExportLauncher.launch("${currentDocumentName()}.png") },
                                 onExportPdf = { pdfExportLauncher.launch("${currentDocumentName()}.pdf") },
                                 onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
+                            onExportBundle = { bundleExportLauncher.launch("${currentDocumentName()}.fern") },
                                 onShare = {
                                     coroutineScope.launch {
                                         val png = withContext(Dispatchers.Default) {
@@ -421,6 +436,28 @@ class MainActivity : ComponentActivity() {
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(12.dp),
                             )
+                        }
+                    }
+
+                    // .fern files have no registered MIME type, so the picker accepts any file and
+                    // import rejects anything that isn't a valid bundle.
+                    val bundleImportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocument(),
+                    ) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val imported = withContext(Dispatchers.IO) {
+                                runCatching {
+                                    context.contentResolver.openInputStream(uri)?.use { importDocumentBundle(context, it) }
+                                }.getOrNull()
+                            }
+                            if (imported == null) {
+                                Toast.makeText(context, "That isn't a Fern backup", Toast.LENGTH_SHORT).show()
+                                return@launch
+                            }
+                            refreshDocuments()
+                            switchToDocument(imported.id)
+                            showDocumentsDialog = false
                         }
                     }
 
@@ -476,6 +513,7 @@ class MainActivity : ComponentActivity() {
                                     showDocumentsDialog = false
                                 }
                             },
+                            onImport = { bundleImportLauncher.launch(arrayOf("*/*")) },
                             onDismiss = { showDocumentsDialog = false },
                             loadThumbnail = { doc -> CanvasStorage.loadThumbnail(context, doc.id)?.asImageBitmap() },
                         )

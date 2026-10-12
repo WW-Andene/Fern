@@ -109,6 +109,7 @@ fun Toolbar(
     onExportPdf: () -> Unit = {},
     onExportSvg: () -> Unit = {},
     onShare: () -> Unit = {},
+    onExportBundle: () -> Unit = {},
     onImportPdf: () -> Unit = {},
     onOpenFrames: () -> Unit = {},
 ) {
@@ -487,6 +488,13 @@ fun Toolbar(
                             onClick = {
                                 showExportMenu = false
                                 onExportSvg()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Fern backup (.fern)") },
+                            onClick = {
+                                showExportMenu = false
+                                onExportBundle()
                             },
                         )
                     }

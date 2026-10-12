@@ -70,6 +70,7 @@ fun DocumentsDialog(
     onRestore: (DocumentMeta) -> Unit,
     onDeleteForever: (DocumentMeta) -> Unit,
     onCreateNew: () -> Unit,
+    onImport: () -> Unit,
     onDismiss: () -> Unit,
     loadThumbnail: (DocumentMeta) -> ImageBitmap?,
 ) {
@@ -244,7 +245,10 @@ fun DocumentsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onCreateNew) { Text("New document") }
+            Row {
+                TextButton(onClick = onImport) { Text("Import .fern") }
+                TextButton(onClick = onCreateNew) { Text("New document") }
+            }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Close") }
