@@ -141,6 +141,7 @@ import com.andene.fern.canvas.exportDocumentBundle
 import com.andene.fern.canvas.exportDocumentPdf
 import com.andene.fern.canvas.exportDocumentPng
 import com.andene.fern.canvas.exportDocumentSvg
+import com.andene.fern.canvas.exportSpriteAtlas
 import com.andene.fern.canvas.exportSpriteSheetPng
 import com.andene.fern.canvas.importDocumentBundle
 import com.andene.fern.canvas.importPdfPages
@@ -393,6 +394,15 @@ class MainActivity : ComponentActivity() {
                         val id = currentDocumentId
                         val name = currentDocumentName()
                         writeExport(uri) { exportDocumentBundle(context, id, name) }
+                    }
+                    val spriteAtlasExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/zip"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) {
+                            // File-safe: the name goes inside the ZIP and the JSON.
+                            val name = currentDocumentName().replace(Regex("[\\\\/:*?\"<>|]"), "_")
+                            exportSpriteAtlas(canvasState, name, textMeasurer, density, imageForExport)
+                        }
                     }
                     val spriteSheetExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("image/png"),
@@ -1018,6 +1028,7 @@ class MainActivity : ComponentActivity() {
                                 onExportMp4 = { mp4ExportLauncher.launch("${currentDocumentName()}.mp4") },
                                 onExportWebm = { webmExportLauncher.launch("${currentDocumentName()}.webm") },
                                 onExportSpriteSheet = { spriteSheetExportLauncher.launch(context.getString(R.string.name_sprites, currentDocumentName()) + ".png") },
+                                onExportSpriteAtlas = { spriteAtlasExportLauncher.launch(context.getString(R.string.name_sprites, currentDocumentName()) + ".zip") },
                                 onExportBundle = { bundleExportLauncher.launch("${currentDocumentName()}.fern") },
                                 onShare = {
                                     coroutineScope.launch {

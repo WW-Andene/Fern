@@ -190,6 +190,7 @@ fun Toolbar(
     onShare: () -> Unit = {},
     onExportBundle: () -> Unit = {},
     onExportSpriteSheet: () -> Unit = {},
+    onExportSpriteAtlas: () -> Unit = {},
     onExportGif: () -> Unit = {},
     onExportApng: () -> Unit = {},
     onExportLottie: () -> Unit = {},
@@ -1223,6 +1224,13 @@ fun Toolbar(
                                 onClick = {
                                     showExportMenu = false
                                     onExportSpriteSheet()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.tb_export_sprite_atlas)) },
+                                onClick = {
+                                    showExportMenu = false
+                                    onExportSpriteAtlas()
                                 },
                             )
                         }

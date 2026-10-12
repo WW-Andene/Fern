@@ -98,7 +98,7 @@ fun exportDocumentPng(
 }
 
 // Each frame's cell in a sprite sheet; 512 px keeps a 24-frame sheet (5x5 grid) at 2560 px.
-private const val SPRITE_FRAME_EDGE_PX = 512
+internal const val SPRITE_FRAME_EDGE_PX = 512
 
 /**
  * Every animation frame as a sprite sheet: a near-square grid, left to right then top to

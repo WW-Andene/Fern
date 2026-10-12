@@ -385,6 +385,7 @@
     <string name="tb_export_mp4">Animation video (MP4)</string>
     <string name="tb_export_webm">Animation video (WebM)</string>
     <string name="tb_export_sprites">Animation sprite sheet (PNG)</string>
+    <string name="tb_export_sprite_atlas">Packed sprite atlas for game engines (PNG + JSON)</string>
     <string name="tb_export_fern">Fern backup (.fern)</string>
     <string name="tb_background_color">Background color…</string>
     <string name="tb_ruler">Ruler guide</string>
