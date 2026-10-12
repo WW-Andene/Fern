@@ -341,4 +341,5 @@
     <string name="tb_joints_rigid">Articulations souples : désactivées (l\'encre bouge d\'un bloc)</string>
     <string name="tb_ik_on">Cinématique inverse : activée (tirez le bout d\'un membre pour entraîner la chaîne)</string>
     <string name="tb_ik_off">Cinématique inverse : désactivée</string>
+    <string name="tb_export_lottie">Animation Lottie (JSON)</string>
 </resources>

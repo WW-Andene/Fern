@@ -108,6 +108,7 @@ import com.andene.fern.canvas.WelcomeDialog
 import com.andene.fern.canvas.WorldPoint
 import com.andene.fern.canvas.exportAnimatedGif
 import com.andene.fern.canvas.exportAnimatedPng
+import com.andene.fern.canvas.exportLottie
 import com.andene.fern.canvas.exportReplayGif
 import com.andene.fern.canvas.exportDocumentBundle
 import com.andene.fern.canvas.exportDocumentPdf
@@ -323,6 +324,11 @@ class MainActivity : ComponentActivity() {
                         contract = ActivityResultContracts.CreateDocument("image/apng"),
                     ) { uri ->
                         if (uri != null) writeExport(uri) { exportAnimatedPng(canvasState, textMeasurer, density, imageForExport) }
+                    }
+                    val lottieExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/json"),
+                    ) { uri ->
+                        if (uri != null) writeExport(uri) { exportLottie(canvasState)?.toByteArray() }
                     }
                     val replayGifExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("image/gif"),
@@ -750,6 +756,7 @@ class MainActivity : ComponentActivity() {
                                 onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },
                                 onExportGif = { gifExportLauncher.launch("${currentDocumentName()}.gif") },
                                 onExportApng = { apngExportLauncher.launch("${currentDocumentName()}.png") },
+                                onExportLottie = { lottieExportLauncher.launch("${currentDocumentName()}.json") },
                                 onExportReplayGif = { replayGifExportLauncher.launch(context.getString(R.string.name_timelapse, currentDocumentName()) + ".gif") },
                                 onExportSpriteSheet = { spriteSheetExportLauncher.launch(context.getString(R.string.name_sprites, currentDocumentName()) + ".png") },
                                 onExportBundle = { bundleExportLauncher.launch("${currentDocumentName()}.fern") },

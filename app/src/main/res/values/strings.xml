@@ -339,4 +339,5 @@
     <string name="tb_joints_rigid">Smooth joints: off (ink moves rigidly)</string>
     <string name="tb_ik_on">Inverse kinematics: on (drag a limb\'s end to pull its chain)</string>
     <string name="tb_ik_off">Inverse kinematics: off</string>
+    <string name="tb_export_lottie">Lottie animation (JSON)</string>
 </resources>

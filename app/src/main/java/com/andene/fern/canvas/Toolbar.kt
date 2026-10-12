@@ -163,6 +163,7 @@ fun Toolbar(
     onExportSpriteSheet: () -> Unit = {},
     onExportGif: () -> Unit = {},
     onExportApng: () -> Unit = {},
+    onExportLottie: () -> Unit = {},
     onExportReplayGif: () -> Unit = {},
     onImportPdf: () -> Unit = {},
     onOpenFrames: () -> Unit = {},
@@ -808,6 +809,13 @@ fun Toolbar(
                                 onClick = {
                                     showExportMenu = false
                                     onExportApng()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.tb_export_lottie)) },
+                                onClick = {
+                                    showExportMenu = false
+                                    onExportLottie()
                                 },
                             )
                             DropdownMenuItem(

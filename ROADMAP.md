@@ -143,7 +143,7 @@ All deferred: they need a server or cloud platform.
 - [~] 84. Weighted deformation: smooth joints bend bound ink around a turned bone's joint by inverse-distance weights (rotation-blended); weights are automatic, not paintable, and there's no free-form mesh
 - [~] 85. Inverse kinematics: dragging a limb's end pulls its chain (up to four bones, CCD solver) so the tip follows the finger; no joint-angle constraints or physics yet
 - [ ] 86. Skins and animation blending
-- [ ] 87. Spine / Lottie / DragonBones export and import
+- [~] 87. Lottie export (frame by frame, vector, checked by rendering with an independent Lottie library); no Spine or DragonBones skeletal formats, no import
 - [ ] 88. Audio track with lip-sync and an X-sheet
 
 ## Phase 10 — Raster painting
