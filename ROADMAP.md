@@ -124,7 +124,7 @@ All deferred: they need a server or cloud platform.
 - [x] 68. Smart diagramming: connectors between labels and sticky notes (follow moves, undoable, saved, exported); "Tidy diagram" lays connected labels out as a layered flowchart
 - [x] 69. Accessibility — button descriptions, canvas screen-reader description, left-handed layout, high-contrast theme (light and dark, every pair 7:1 or better)
 - [x] 70. Localisation: every UI string in res/values, full French translation (checked key-for-key by a test); right-to-left supported, with hand-side controls kept on physical sides. Names generated inside documents ("Layer 2", "Page 3") stay English
-- [~] 71. Two-finger tap undo, three-finger tap redo, toolbar top or bottom; toolbar not yet customisable
+- [x] 71. Two-finger tap undo, three-finger tap redo, toolbar top or bottom; customisable toolbar (Settings → Customise toolbar hides optional button groups; core tools always stay)
 - [~] 72. Gesture guide on first launch, templates (graph, dot, lined, comic, storyboard); no planner or mind-map templates
 - [~] 73. Dark mode for the UI; no dark paper preset
 - [~] 74. Keyboard shortcuts, mouse wheel and trackpad; no dedicated large-screen layout

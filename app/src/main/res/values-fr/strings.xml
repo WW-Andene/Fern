@@ -301,4 +301,17 @@
     <string name="crash_text">Un rapport de plantage a été enregistré sur cet appareil. Le partager pour aider à corriger le problème ? Il ne contient que des détails techniques, aucun dessin.</string>
     <string name="crash_share">Partager le rapport</string>
     <string name="action_dismiss">Ignorer</string>
+    <string name="group_favourites">Stylos favoris</string>
+    <string name="group_palette">Palette de couleurs</string>
+    <string name="group_stroke_options">Pointillés, épaisseur selon la vitesse et stabilisation</string>
+    <string name="group_guides">Symétrie, perspective et règle</string>
+    <string name="group_animation">Animation</string>
+    <string name="group_layers">Calques et mode de fusion</string>
+    <string name="group_fill">Remplissage</string>
+    <string name="group_text">Texte et liens</string>
+    <string name="group_view">Tout effacer, réinitialiser la vue et tout afficher</string>
+    <string name="group_replay">Relecture</string>
+    <string name="group_background">Fond du papier</string>
+    <string name="settings_customize_toolbar">Personnaliser la barre d\'outils</string>
+    <string name="toolbar_show_all">Tout afficher</string>
 </resources>

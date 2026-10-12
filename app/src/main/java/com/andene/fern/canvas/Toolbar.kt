@@ -135,6 +135,8 @@ private const val MIN_OPACITY = 0.1f
 fun Toolbar(
     state: CanvasState,
     modifier: Modifier = Modifier,
+    /** Button groups the user turned off in Settings (roadmap item 71); see [ToolbarGroup]. */
+    hiddenGroups: Set<ToolbarGroup> = emptySet(),
     onOpenDocuments: () -> Unit = {},
     onOpenPins: () -> Unit = {},
     onOpenVersions: () -> Unit = {},
@@ -233,23 +235,27 @@ fun Toolbar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
             ) {
-                for (index in 0 until TOOL_SLOT_COUNT) ToolSlotButton(state, index)
-                for (color in palette) {
-                    val selected = state.activeTool == Tool.PEN && state.activeColor == color
-                    Surface(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clickable {
-                                state.activeColor = color
-                                state.activeTool = Tool.PEN // picking a color implies "draw", per §6 baseline expectations
-                            }
-                            .then(
-                                if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                                else Modifier
-                            ),
-                        shape = CircleShape,
-                        color = color,
-                    ) {}
+                if (ToolbarGroup.FAVOURITES !in hiddenGroups) {
+                    for (index in 0 until TOOL_SLOT_COUNT) ToolSlotButton(state, index)
+                }
+                if (ToolbarGroup.PALETTE !in hiddenGroups) {
+                    for (color in palette) {
+                        val selected = state.activeTool == Tool.PEN && state.activeColor == color
+                        Surface(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clickable {
+                                    state.activeColor = color
+                                    state.activeTool = Tool.PEN // picking a color implies "draw", per §6 baseline expectations
+                                }
+                                .then(
+                                    if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                                    else Modifier
+                                ),
+                            shape = CircleShape,
+                            color = color,
+                        ) {}
+                    }
                 }
                 IconButton(onClick = { showColorPicker = true }) {
                     Icon(Icons.Filled.Palette, contentDescription = stringResource(R.string.tb_custom_color))
@@ -364,158 +370,170 @@ fun Toolbar(
                         tint = if (showOpacitySlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
                 }
-                IconButton(onClick = { state.activeDashed = !state.activeDashed }) {
-                    Icon(
-                        Icons.Filled.LineStyle,
-                        contentDescription = if (state.activeDashed) stringResource(R.string.tb_dashed_on) else stringResource(R.string.tb_dashed_off),
-                        tint = if (state.activeDashed) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                    )
-                }
-                IconButton(onClick = { state.velocityDynamics = !state.velocityDynamics }) {
-                    Icon(
-                        Icons.Filled.Speed,
-                        contentDescription = if (state.velocityDynamics) stringResource(R.string.tb_speed_on) else stringResource(R.string.tb_speed_off),
-                        tint = if (state.velocityDynamics) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                    )
-                }
-                IconButton(onClick = { showStabilizationSlider = !showStabilizationSlider }) {
-                    Icon(
-                        Icons.Filled.Timeline,
-                        contentDescription = stringResource(R.string.tb_stabilisation),
-                        tint = if (showStabilizationSlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                    )
-                }
-                Box {
-                    IconButton(onClick = { showSymmetryMenu = true }) {
+                if (ToolbarGroup.STROKE_OPTIONS !in hiddenGroups) {
+                    IconButton(onClick = { state.activeDashed = !state.activeDashed }) {
                         Icon(
-                            Icons.Filled.Flare,
-                            contentDescription = stringResource(R.string.tb_symmetry, stringResource(state.symmetryMode.label)),
-                            tint = if (state.symmetryMode != SymmetryMode.OFF) MaterialTheme.colorScheme.primary
+                            Icons.Filled.LineStyle,
+                            contentDescription = if (state.activeDashed) stringResource(R.string.tb_dashed_on) else stringResource(R.string.tb_dashed_off),
+                            tint = if (state.activeDashed) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
+                    IconButton(onClick = { state.velocityDynamics = !state.velocityDynamics }) {
+                        Icon(
+                            Icons.Filled.Speed,
+                            contentDescription = if (state.velocityDynamics) stringResource(R.string.tb_speed_on) else stringResource(R.string.tb_speed_off),
+                            tint = if (state.velocityDynamics) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
+                    IconButton(onClick = { showStabilizationSlider = !showStabilizationSlider }) {
+                        Icon(
+                            Icons.Filled.Timeline,
+                            contentDescription = stringResource(R.string.tb_stabilisation),
+                            tint = if (showStabilizationSlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
+                }
+                if (ToolbarGroup.GUIDES !in hiddenGroups) {
+                    Box {
+                        IconButton(onClick = { showSymmetryMenu = true }) {
+                            Icon(
+                                Icons.Filled.Flare,
+                                contentDescription = stringResource(R.string.tb_symmetry, stringResource(state.symmetryMode.label)),
+                                tint = if (state.symmetryMode != SymmetryMode.OFF) MaterialTheme.colorScheme.primary
+                                else LocalContentColor.current,
+                            )
+                        }
+                        DropdownMenu(expanded = showSymmetryMenu, onDismissRequest = { showSymmetryMenu = false }) {
+                            for (mode in SymmetryMode.entries) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(mode.label)) },
+                                    onClick = {
+                                        state.setSymmetry(mode)
+                                        showSymmetryMenu = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    Box {
+                        IconButton(onClick = { showPerspectiveMenu = true }) {
+                            Icon(
+                                Icons.Filled.ViewInAr,
+                                contentDescription = stringResource(R.string.tb_perspective, stringResource(state.perspectiveMode.label)),
+                                tint = if (state.perspectiveMode != PerspectiveMode.OFF) MaterialTheme.colorScheme.primary
+                                else LocalContentColor.current,
+                            )
+                        }
+                        DropdownMenu(expanded = showPerspectiveMenu, onDismissRequest = { showPerspectiveMenu = false }) {
+                            for (mode in PerspectiveMode.entries) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(mode.label)) },
+                                    onClick = {
+                                        state.setPerspective(mode)
+                                        showPerspectiveMenu = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+                if (ToolbarGroup.ANIMATION !in hiddenGroups) {
+                    IconButton(onClick = {
+                        state.animationMode = !state.animationMode
+                        state.playing = false
+                    }) {
+                        Icon(
+                            Icons.Filled.Movie,
+                            contentDescription = if (state.animationMode) stringResource(R.string.tb_anim_on) else stringResource(R.string.tb_anim_off),
+                            tint = if (state.animationMode) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
+                }
+                if (ToolbarGroup.LAYERS !in hiddenGroups) {
+                    IconButton(onClick = { showLayersDialog = true }) {
+                        Icon(Icons.Filled.Layers, contentDescription = stringResource(R.string.layers_title))
+                    }
+                    Box {
+                        IconButton(onClick = { showBlendModeMenu = true }) {
+                            Icon(
+                                // Was the Layers icon before layers existed; that icon now opens the layer panel.
+                                Icons.Filled.Tonality,
+                                contentDescription = stringResource(R.string.tb_blend, stringResource(blendModeLabel(state.activeBlendMode))),
+                                tint = if (state.activeBlendMode != StrokeBlendMode.NORMAL) MaterialTheme.colorScheme.primary
+                                else LocalContentColor.current,
+                            )
+                        }
+                        DropdownMenu(expanded = showBlendModeMenu, onDismissRequest = { showBlendModeMenu = false }) {
+                            for (mode in StrokeBlendMode.entries) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(blendModeLabel(mode))) },
+                                    onClick = {
+                                        state.activeBlendMode = mode
+                                        showBlendModeMenu = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+                if (ToolbarGroup.FILL !in hiddenGroups) {
+                    IconButton(onClick = {
+                        state.activeTool = if (state.activeTool == Tool.FILL) Tool.PEN else Tool.FILL
+                    }) {
+                        Icon(
+                            Icons.Filled.FormatColorFill,
+                            contentDescription = stringResource(R.string.tb_fill),
+                            tint = if (state.activeTool == Tool.FILL) MaterialTheme.colorScheme.primary
                             else LocalContentColor.current,
                         )
                     }
-                    DropdownMenu(expanded = showSymmetryMenu, onDismissRequest = { showSymmetryMenu = false }) {
-                        for (mode in SymmetryMode.entries) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(mode.label)) },
-                                onClick = {
-                                    state.setSymmetry(mode)
-                                    showSymmetryMenu = false
+                    if (state.activeTool == Tool.FILL) {
+                        IconButton(onClick = { state.activeScreentone = !state.activeScreentone }) {
+                            Icon(
+                                Icons.Filled.BlurLinear,
+                                contentDescription = if (state.activeScreentone) stringResource(R.string.tb_screentone_on) else stringResource(R.string.tb_screentone_off),
+                                tint = if (state.activeScreentone) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                            )
+                        }
+                        val gradientOn = state.activeFadeFill || state.activeGradient != null
+                        IconButton(onClick = { showGradientDialog = true }) {
+                            Icon(
+                                Icons.Filled.Gradient,
+                                contentDescription = when {
+                                    state.activeGradient != null -> stringResource(R.string.tb_gradient_two)
+                                    state.activeFadeFill -> stringResource(R.string.tb_gradient_fade)
+                                    else -> stringResource(R.string.tb_gradient_off)
                                 },
+                                tint = if (gradientOn) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                             )
                         }
                     }
                 }
-                Box {
-                    IconButton(onClick = { showPerspectiveMenu = true }) {
+                if (ToolbarGroup.TEXT !in hiddenGroups) {
+                    IconButton(onClick = {
+                        state.activeTool = if (state.activeTool == Tool.TEXT) Tool.PEN else Tool.TEXT
+                    }) {
                         Icon(
-                            Icons.Filled.ViewInAr,
-                            contentDescription = stringResource(R.string.tb_perspective, stringResource(state.perspectiveMode.label)),
-                            tint = if (state.perspectiveMode != PerspectiveMode.OFF) MaterialTheme.colorScheme.primary
+                            Icons.Filled.TextFields,
+                            contentDescription = stringResource(R.string.text_label),
+                            tint = if (state.activeTool == Tool.TEXT) MaterialTheme.colorScheme.primary
                             else LocalContentColor.current,
                         )
                     }
-                    DropdownMenu(expanded = showPerspectiveMenu, onDismissRequest = { showPerspectiveMenu = false }) {
-                        for (mode in PerspectiveMode.entries) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(mode.label)) },
-                                onClick = {
-                                    state.setPerspective(mode)
-                                    showPerspectiveMenu = false
-                                },
-                            )
-                        }
-                    }
-                }
-                IconButton(onClick = {
-                    state.animationMode = !state.animationMode
-                    state.playing = false
-                }) {
-                    Icon(
-                        Icons.Filled.Movie,
-                        contentDescription = if (state.animationMode) stringResource(R.string.tb_anim_on) else stringResource(R.string.tb_anim_off),
-                        tint = if (state.animationMode) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                    )
-                }
-                IconButton(onClick = { showLayersDialog = true }) {
-                    Icon(Icons.Filled.Layers, contentDescription = stringResource(R.string.layers_title))
-                }
-                Box {
-                    IconButton(onClick = { showBlendModeMenu = true }) {
+                    IconButton(onClick = {
+                        state.activeTool = if (state.activeTool == Tool.CONNECT) Tool.PEN else Tool.CONNECT
+                    }) {
                         Icon(
-                            // Was the Layers icon before layers existed; that icon now opens the layer panel.
-                            Icons.Filled.Tonality,
-                            contentDescription = stringResource(R.string.tb_blend, stringResource(blendModeLabel(state.activeBlendMode))),
-                            tint = if (state.activeBlendMode != StrokeBlendMode.NORMAL) MaterialTheme.colorScheme.primary
+                            Icons.Filled.AccountTree,
+                            contentDescription = stringResource(R.string.tb_connect),
+                            tint = if (state.activeTool == Tool.CONNECT) MaterialTheme.colorScheme.primary
                             else LocalContentColor.current,
                         )
                     }
-                    DropdownMenu(expanded = showBlendModeMenu, onDismissRequest = { showBlendModeMenu = false }) {
-                        for (mode in StrokeBlendMode.entries) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(blendModeLabel(mode))) },
-                                onClick = {
-                                    state.activeBlendMode = mode
-                                    showBlendModeMenu = false
-                                },
-                            )
+                    if (state.activeTool == Tool.CONNECT) {
+                        IconButton(onClick = { state.tidyDiagram() }, enabled = state.connectors.isNotEmpty()) {
+                            Icon(Icons.Filled.Schema, contentDescription = stringResource(R.string.tb_tidy))
                         }
-                    }
-                }
-                IconButton(onClick = {
-                    state.activeTool = if (state.activeTool == Tool.FILL) Tool.PEN else Tool.FILL
-                }) {
-                    Icon(
-                        Icons.Filled.FormatColorFill,
-                        contentDescription = stringResource(R.string.tb_fill),
-                        tint = if (state.activeTool == Tool.FILL) MaterialTheme.colorScheme.primary
-                        else LocalContentColor.current,
-                    )
-                }
-                if (state.activeTool == Tool.FILL) {
-                    IconButton(onClick = { state.activeScreentone = !state.activeScreentone }) {
-                        Icon(
-                            Icons.Filled.BlurLinear,
-                            contentDescription = if (state.activeScreentone) stringResource(R.string.tb_screentone_on) else stringResource(R.string.tb_screentone_off),
-                            tint = if (state.activeScreentone) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                        )
-                    }
-                    val gradientOn = state.activeFadeFill || state.activeGradient != null
-                    IconButton(onClick = { showGradientDialog = true }) {
-                        Icon(
-                            Icons.Filled.Gradient,
-                            contentDescription = when {
-                                state.activeGradient != null -> stringResource(R.string.tb_gradient_two)
-                                state.activeFadeFill -> stringResource(R.string.tb_gradient_fade)
-                                else -> stringResource(R.string.tb_gradient_off)
-                            },
-                            tint = if (gradientOn) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                        )
-                    }
-                }
-                IconButton(onClick = {
-                    state.activeTool = if (state.activeTool == Tool.TEXT) Tool.PEN else Tool.TEXT
-                }) {
-                    Icon(
-                        Icons.Filled.TextFields,
-                        contentDescription = stringResource(R.string.text_label),
-                        tint = if (state.activeTool == Tool.TEXT) MaterialTheme.colorScheme.primary
-                        else LocalContentColor.current,
-                    )
-                }
-                IconButton(onClick = {
-                    state.activeTool = if (state.activeTool == Tool.CONNECT) Tool.PEN else Tool.CONNECT
-                }) {
-                    Icon(
-                        Icons.Filled.AccountTree,
-                        contentDescription = stringResource(R.string.tb_connect),
-                        tint = if (state.activeTool == Tool.CONNECT) MaterialTheme.colorScheme.primary
-                        else LocalContentColor.current,
-                    )
-                }
-                if (state.activeTool == Tool.CONNECT) {
-                    IconButton(onClick = { state.tidyDiagram() }, enabled = state.connectors.isNotEmpty()) {
-                        Icon(Icons.Filled.Schema, contentDescription = stringResource(R.string.tb_tidy))
                     }
                 }
                 if (state.activeTool == Tool.SELECT) {
@@ -607,14 +625,16 @@ fun Toolbar(
                 IconButton(onClick = { state.redo() }) {
                     Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = stringResource(R.string.action_redo))
                 }
-                IconButton(onClick = { state.clear() }) {
-                    Icon(Icons.Filled.DeleteSweep, contentDescription = stringResource(R.string.tb_clear_all))
-                }
-                IconButton(onClick = { state.resetView() }) {
-                    Icon(Icons.Filled.ZoomOutMap, contentDescription = stringResource(R.string.tb_reset_view))
-                }
-                IconButton(onClick = { state.zoomToFit() }) {
-                    Icon(Icons.Filled.CenterFocusStrong, contentDescription = stringResource(R.string.tb_fit))
+                if (ToolbarGroup.VIEW !in hiddenGroups) {
+                    IconButton(onClick = { state.clear() }) {
+                        Icon(Icons.Filled.DeleteSweep, contentDescription = stringResource(R.string.tb_clear_all))
+                    }
+                    IconButton(onClick = { state.resetView() }) {
+                        Icon(Icons.Filled.ZoomOutMap, contentDescription = stringResource(R.string.tb_reset_view))
+                    }
+                    IconButton(onClick = { state.zoomToFit() }) {
+                        Icon(Icons.Filled.CenterFocusStrong, contentDescription = stringResource(R.string.tb_fit))
+                    }
                 }
                 IconButton(onClick = onOpenDocuments) {
                     Icon(Icons.Filled.Description, contentDescription = stringResource(R.string.documents_title))
@@ -648,12 +668,14 @@ fun Toolbar(
                         }
                     }
                 }
-                IconButton(onClick = { state.replayCount = if (state.replayCount == null) 0 else null }) {
-                    Icon(
-                        Icons.Filled.Replay,
-                        contentDescription = if (state.replayCount == null) stringResource(R.string.tb_replay) else stringResource(R.string.tb_stop_replay),
-                        tint = if (state.replayCount != null) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                    )
+                if (ToolbarGroup.REPLAY !in hiddenGroups) {
+                    IconButton(onClick = { state.replayCount = if (state.replayCount == null) 0 else null }) {
+                        Icon(
+                            Icons.Filled.Replay,
+                            contentDescription = if (state.replayCount == null) stringResource(R.string.tb_replay) else stringResource(R.string.tb_stop_replay),
+                            tint = if (state.replayCount != null) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
                 }
                 Box {
                     IconButton(onClick = { showExportMenu = true }) {
@@ -736,39 +758,43 @@ fun Toolbar(
                         )
                     }
                 }
-                Box {
-                    IconButton(onClick = { showBackgroundStyleMenu = true }) {
-                        Icon(Icons.Filled.GridOn, contentDescription = stringResource(R.string.tb_background, stringResource(backgroundStyleLabel(state.backgroundStyle))))
-                    }
-                    DropdownMenu(expanded = showBackgroundStyleMenu, onDismissRequest = { showBackgroundStyleMenu = false }) {
-                        for (style in BackgroundStyle.entries) {
+                if (ToolbarGroup.BACKGROUND !in hiddenGroups) {
+                    Box {
+                        IconButton(onClick = { showBackgroundStyleMenu = true }) {
+                            Icon(Icons.Filled.GridOn, contentDescription = stringResource(R.string.tb_background, stringResource(backgroundStyleLabel(state.backgroundStyle))))
+                        }
+                        DropdownMenu(expanded = showBackgroundStyleMenu, onDismissRequest = { showBackgroundStyleMenu = false }) {
+                            for (style in BackgroundStyle.entries) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(backgroundStyleLabel(style))) },
+                                    onClick = {
+                                        state.setBackground(state.backgroundColor, style)
+                                        showBackgroundStyleMenu = false
+                                    },
+                                )
+                            }
                             DropdownMenuItem(
-                                text = { Text(stringResource(backgroundStyleLabel(style))) },
+                                text = { Text(stringResource(R.string.tb_background_color)) },
                                 onClick = {
-                                    state.setBackground(state.backgroundColor, style)
                                     showBackgroundStyleMenu = false
+                                    showBackgroundColorPicker = true
                                 },
                             )
                         }
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tb_background_color)) },
-                            onClick = {
-                                showBackgroundStyleMenu = false
-                                showBackgroundColorPicker = true
-                            },
-                        )
                     }
                 }
-                IconButton(onClick = {
-                    state.toggleRuler()
-                    state.activeTool = if (state.rulerActive) Tool.RULER
-                    else if (state.activeTool == Tool.RULER) Tool.PEN else state.activeTool
-                }) {
-                    Icon(
-                        Icons.Filled.Straighten,
-                        contentDescription = stringResource(R.string.tb_ruler),
-                        tint = if (state.rulerActive) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                    )
+                if (ToolbarGroup.GUIDES !in hiddenGroups) {
+                    IconButton(onClick = {
+                        state.toggleRuler()
+                        state.activeTool = if (state.rulerActive) Tool.RULER
+                        else if (state.activeTool == Tool.RULER) Tool.PEN else state.activeTool
+                    }) {
+                        Icon(
+                            Icons.Filled.Straighten,
+                            contentDescription = stringResource(R.string.tb_ruler),
+                            tint = if (state.rulerActive) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
                 }
             }
             if (showWidthSlider) {

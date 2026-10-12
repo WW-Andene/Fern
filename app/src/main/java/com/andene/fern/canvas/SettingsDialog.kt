@@ -29,6 +29,7 @@ private const val KEY_TOOL_SLOTS = "tool_slots"
 private const val KEY_SNAP_TO_OBJECTS = "snap_to_objects"
 private const val KEY_BRUSH_PRESETS = "brush_presets"
 private const val KEY_HIGH_CONTRAST = "high_contrast"
+private const val KEY_HIDDEN_TOOLBAR_GROUPS = "hidden_toolbar_groups"
 
 /** App preferences, stored in SharedPreferences so they apply to every document and survive restarts. */
 object AppSettings {
@@ -51,6 +52,15 @@ object AppSettings {
 
     fun setHighContrast(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_HIGH_CONTRAST, value).apply()
+    }
+
+    /** Toolbar groups the user hid; names no longer in [ToolbarGroup] (from an older version) are ignored. */
+    fun hiddenToolbarGroups(context: Context): Set<ToolbarGroup> =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getStringSet(KEY_HIDDEN_TOOLBAR_GROUPS, emptySet()).orEmpty()
+            .mapNotNullTo(HashSet()) { name -> ToolbarGroup.entries.firstOrNull { it.name == name } }
+
+    fun setHiddenToolbarGroups(context: Context, value: Set<ToolbarGroup>) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putStringSet(KEY_HIDDEN_TOOLBAR_GROUPS, value.mapTo(HashSet()) { it.name }).apply()
     }
 
     fun snapToObjects(context: Context): Boolean =
@@ -169,6 +179,7 @@ fun SettingsDialog(
     snapToObjects: Boolean,
     onSnapToObjectsChange: (Boolean) -> Unit,
     onShowGuide: () -> Unit,
+    onCustomizeToolbar: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -204,6 +215,7 @@ fun SettingsDialog(
                     Text(stringResource(R.string.settings_snap_objects), modifier = Modifier.weight(1f))
                     Switch(checked = snapToObjects, onCheckedChange = onSnapToObjectsChange)
                 }
+                TextButton(onClick = onCustomizeToolbar) { Text(stringResource(R.string.settings_customize_toolbar)) }
                 TextButton(onClick = onShowGuide) { Text(stringResource(R.string.settings_show_guide)) }
             }
         },

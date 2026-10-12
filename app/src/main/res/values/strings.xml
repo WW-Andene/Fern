@@ -301,4 +301,17 @@
     <string name="crash_text">A crash report was saved on this device. Share it to help fix the problem? It contains technical details only, no drawings.</string>
     <string name="crash_share">Share report</string>
     <string name="action_dismiss">Dismiss</string>
+    <string name="group_favourites">Favourite pens</string>
+    <string name="group_palette">Colour palette</string>
+    <string name="group_stroke_options">Dashes, speed width and stabilisation</string>
+    <string name="group_guides">Symmetry, perspective and ruler</string>
+    <string name="group_animation">Animation</string>
+    <string name="group_layers">Layers and blend mode</string>
+    <string name="group_fill">Fill</string>
+    <string name="group_text">Text and connectors</string>
+    <string name="group_view">Clear all, reset view and zoom to fit</string>
+    <string name="group_replay">Replay</string>
+    <string name="group_background">Paper background</string>
+    <string name="settings_customize_toolbar">Customise toolbar</string>
+    <string name="toolbar_show_all">Show all</string>
 </resources>

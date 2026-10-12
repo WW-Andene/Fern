@@ -96,6 +96,7 @@ import com.andene.fern.canvas.PresentationControls
 import com.andene.fern.canvas.SettingsDialog
 import com.andene.fern.canvas.Tool
 import com.andene.fern.canvas.Toolbar
+import com.andene.fern.canvas.ToolbarCustomizeDialog
 import com.andene.fern.canvas.VersionsDialog
 import com.andene.fern.canvas.WelcomeDialog
 import com.andene.fern.canvas.WorldPoint
@@ -189,6 +190,8 @@ class MainActivity : ComponentActivity() {
                     }
                     var leftHanded by remember { mutableStateOf(AppSettings.leftHanded(context)) }
                     var toolbarAtBottom by remember { mutableStateOf(AppSettings.toolbarAtBottom(context)) }
+                    var hiddenToolbarGroups by remember { mutableStateOf(AppSettings.hiddenToolbarGroups(context)) }
+                    var showToolbarCustomize by remember { mutableStateOf(false) }
                     var crashReport by remember { mutableStateOf(CrashReporter.pendingReport(context)) }
                     var presentingIndex by remember { mutableStateOf<Int?>(null) } // non-null = presenting that frame
                     var frameToExport by remember { mutableStateOf<Frame?>(null) }
@@ -672,6 +675,7 @@ class MainActivity : ComponentActivity() {
                         } else {
                             Toolbar(
                                 state = canvasState,
+                                hiddenGroups = hiddenToolbarGroups,
                                 modifier = Modifier
                                     .align(if (toolbarAtBottom) Alignment.BottomCenter else Alignment.TopCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
@@ -933,7 +937,22 @@ class MainActivity : ComponentActivity() {
                                 showSettings = false
                                 showWelcome = true
                             },
+                            onCustomizeToolbar = {
+                                showSettings = false
+                                showToolbarCustomize = true
+                            },
                             onDismiss = { showSettings = false },
+                        )
+                    }
+
+                    if (showToolbarCustomize) {
+                        ToolbarCustomizeDialog(
+                            hidden = hiddenToolbarGroups,
+                            onHiddenChange = { value ->
+                                hiddenToolbarGroups = value
+                                AppSettings.setHiddenToolbarGroups(context, value)
+                            },
+                            onDismiss = { showToolbarCustomize = false },
                         )
                     }
 
