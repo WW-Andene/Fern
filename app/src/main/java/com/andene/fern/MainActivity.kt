@@ -539,7 +539,8 @@ class MainActivity : ComponentActivity() {
                             Minimap(
                                 state = canvasState,
                                 modifier = Modifier
-                                    .align(if (leftHanded) Alignment.BottomStart else Alignment.BottomEnd)
+                                    // Opposite the drawing hand, whose palm rests below and beside the pen.
+                                    .align(if (leftHanded) Alignment.BottomEnd else Alignment.BottomStart)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(12.dp),
                             )

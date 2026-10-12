@@ -28,8 +28,9 @@ object AppSettings {
 }
 
 /**
- * Settings panel. Left-handed mode moves the floating minimap to the left edge, so a left
- * hand drawing on the right doesn't rest on it. "Show the gesture guide" reopens the
+ * Settings panel. Floating controls (the minimap) sit on the side opposite the drawing hand,
+ * whose palm rests below and beside the pen: bottom-left by default, bottom-right in
+ * left-handed mode - the Procreate convention. "Show the gesture guide" reopens the
  * first-launch guide.
  */
 @Composable
