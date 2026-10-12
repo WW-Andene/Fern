@@ -29,7 +29,7 @@ object CrashReporter {
                     append(trace)
                 }
                 crashFile(appContext).writeText(report)
-            } catch (_: Throwable) {
+            } catch (ignored: Throwable) {
                 // Never let reporting itself mask the original crash.
             }
             previous?.uncaughtException(thread, throwable)
