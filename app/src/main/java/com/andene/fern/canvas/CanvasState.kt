@@ -102,6 +102,9 @@ class CanvasState(
         // Holding the pen still this long before lifting turns a rough stroke into a clean shape.
         private const val SHAPE_HOLD_MILLIS = 500L
 
+        // Movement under this many screen px still counts as a tap; on the §7 scale.
+        private const val TAP_SLOP_SCREEN = 8.0
+
         // Velocity dynamics tuning: at 2 screen px/ms (a brisk stroke) the line is at its
         // thinnest; 30% blending per point keeps width changes smooth.
         private const val VELOCITY_THINNING = 0.3
@@ -985,7 +988,29 @@ class CanvasState(
      * inside its combined bounds, otherwise starts a new marquee drag (replacing any
      * existing selection once the marquee is released).
      */
+    /**
+     * The image picked with the SELECT tool, or null. Images are picked by a tap (not a
+     * marquee, so a marquee can still start on top of an imported PDF page to select the ink
+     * on it); dragging inside the picked image moves it, and Delete removes it.
+     */
+    var selectedImageId by mutableStateOf<String?>(null)
+        private set
+
+    private var isMovingImage = false
+
+    private fun imageContains(image: ImageItem, point: WorldPoint) =
+        point.x >= image.position.x && point.x <= image.position.x + image.widthWorld &&
+            point.y >= image.position.y && point.y <= image.position.y + image.heightWorld
+
     fun beginSelectGesture(worldPoint: WorldPoint) {
+        val pickedImage = imageItems.firstOrNull { it.id == selectedImageId }
+        if (pickedImage != null && imageContains(pickedImage, worldPoint)) {
+            recordHistory()
+            isMovingImage = true
+            lastDragPoint = worldPoint
+            return
+        }
+        selectedImageId = null
         if (selection.isNotEmpty() && pointInsideSelectionBounds(worldPoint)) {
             // Recorded only for a move: selecting changes no strokes, so recording it too left
             // undo steps that appeared to do nothing.
@@ -1000,6 +1025,13 @@ class CanvasState(
     }
 
     fun continueSelectGesture(worldPoint: WorldPoint) {
+        if (isMovingImage) {
+            val last = lastDragPoint ?: return
+            val index = imageItems.indexOfFirst { it.id == selectedImageId }
+            if (index != -1) imageItems[index] = imageItems[index].copy(position = imageItems[index].position + (worldPoint - last))
+            lastDragPoint = worldPoint
+            return
+        }
         if (isMovingSelection) {
             val last = lastDragPoint ?: return
             val delta = worldPoint - last
@@ -1014,6 +1046,12 @@ class CanvasState(
     }
 
     fun endSelectGesture() {
+        if (isMovingImage) {
+            isMovingImage = false
+            lastDragPoint = null
+            onImageChanged(imageItems.toList())
+            return
+        }
         if (isMovingSelection) {
             isMovingSelection = false
             lastDragPoint = null
@@ -1042,6 +1080,12 @@ class CanvasState(
         val top = minOf(start.y, end.y)
         val bottom = maxOf(start.y, end.y)
         selection.addAll(strokes.filter { isEditable(it) && it.intersects(left, top, right, bottom) })
+        // A tap (a marquee that never grew past a few pixels) that caught no strokes picks the
+        // topmost image under it instead.
+        val tapSlopWorld = TAP_SLOP_SCREEN / scale.coerceAtLeast(1e-300)
+        if (selection.isEmpty() && right - left <= tapSlopWorld && bottom - top <= tapSlopWorld) {
+            selectedImageId = imageItems.lastOrNull { imageContains(it, start) }?.id
+        }
     }
 
     /** The current selection's combined bounding box, or null if nothing is selected. */
@@ -1243,6 +1287,14 @@ class CanvasState(
     }
 
     fun deleteSelection() {
+        val imageId = selectedImageId
+        if (imageId != null) {
+            recordHistory()
+            imageItems.removeAll { it.id == imageId }
+            selectedImageId = null
+            onImageChanged(imageItems.toList())
+            return
+        }
         if (selection.isEmpty()) return
         recordHistory()
         strokes.removeAll(selection.toSet())
@@ -1269,6 +1321,7 @@ class CanvasState(
     /** Clears the selection and any in-progress scale/rotate snapshot together, so neither can outlive the strokes it references. */
     private fun clearSelectionState() {
         selection.clear()
+        selectedImageId = null
         gestureSnapshot = emptyMap()
         gestureSnapshotWidths = emptyMap()
     }

@@ -310,6 +310,20 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                         ?.also { imageBitmapCache[fileName] = it }
             }
 
+            state.imageItems.firstOrNull { it.id == state.selectedImageId }?.let { image ->
+                val topLeft = state.worldToScreen(image.position, screenCenter)
+                val bottomRight = state.worldToScreen(
+                    WorldPoint(image.position.x + image.widthWorld, image.position.y + image.heightWorld),
+                    screenCenter,
+                )
+                drawRect(
+                    color = SELECTION_HIGHLIGHT_COLOR,
+                    topLeft = topLeft,
+                    size = Size(bottomRight.x - topLeft.x, bottomRight.y - topLeft.y),
+                    style = DrawStyle(width = 4f),
+                )
+            }
+
             for (stroke in state.selection) {
                 stroke.revision // subscribe so a moved selection redraws its highlight live
                 val topLeft = state.worldToScreen(WorldPoint(stroke.minX, stroke.minY), screenCenter)
