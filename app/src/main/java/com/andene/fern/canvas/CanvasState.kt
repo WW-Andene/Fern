@@ -725,6 +725,9 @@ class CanvasState(
 
     fun beginStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
         if (!activeLayerEditable) return
+        strokeStartDepth = undoStack.size
+        strokeStartMillis = System.currentTimeMillis()
+        strokeMovedAway = false
         recordHistory()
         clearSelectionState() // avoid a stale selection referencing strokes another tool is about to change
         val stroke = Stroke(
@@ -787,6 +790,8 @@ class CanvasState(
         val effectivePressure = speedPressure(stroke, worldPoint, pressure, now)
         lastPointMillis = now
         lastRawPoint = worldPoint
+        val first = stroke.points.first()
+        if (hypot(worldPoint.x - first.x, worldPoint.y - first.y) * scale > HOLD_JITTER_SCREEN * 2) strokeMovedAway = true
         val previous = stroke.points.lastOrNull()
         // Exponential smoothing: move only part of the way from the last point toward the pen.
         val smoothed = if (previous == null || activeStabilization <= 0.0) worldPoint
@@ -819,6 +824,11 @@ class CanvasState(
 
     /** Style of the stroke in progress, for drawing its predicted extension the same way. */
     val strokeInProgress: Stroke? get() = currentStroke
+
+    // For touch-and-hold eyedropper: history depth and time when the current stroke began.
+    private var strokeStartDepth = 0
+    private var strokeStartMillis = 0L
+    private var strokeMovedAway = false
 
     // When the pen last moved; a pause before lifting triggers shape recognition in endStroke.
     private var lastStrokeMoveMillis = 0L
@@ -854,6 +864,19 @@ class CanvasState(
 
     fun endStroke() {
         val stroke = currentStroke
+        // Touch and hold without moving = eyedropper (the Procreate gesture): the stroke never
+        // left the jitter radius around where it started, so it was a press, not a mark.
+        // Its dot is discarded (without becoming redoable) and the colour under it picked.
+        if (stroke != null && !strokeMovedAway &&
+            System.currentTimeMillis() - strokeStartMillis >= SHAPE_HOLD_MILLIS
+        ) {
+            val pressedAt = stroke.points.first()
+            lastRawPoint = null
+            currentStroke = null
+            discardActionsSince(strokeStartDepth)
+            pickColorAt(pressedAt)
+            return
+        }
         val raw = lastRawPoint
         if (stroke != null && raw != null && activeStabilization > 0.0) {
             // Smoothing trails behind the pen; close the gap so the stroke ends at the lift point.
