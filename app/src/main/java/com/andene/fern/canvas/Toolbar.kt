@@ -69,6 +69,7 @@ import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Settings
@@ -475,6 +476,9 @@ fun Toolbar(
                                 )
                             }
                         }
+                    }
+                    IconButton(onClick = { state.animateAlongPath() }) {
+                        Icon(Icons.Filled.Route, contentDescription = "Animate selection along the last drawn path")
                     }
                     IconButton(onClick = { state.straightenSelection() }) {
                         // LinearScale, not Straighten: that icon (a ruler) already means the ruler guide.

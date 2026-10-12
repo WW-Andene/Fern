@@ -102,6 +102,9 @@ class CanvasState(
         // Holding the pen still this long before lifting turns a rough stroke into a clean shape.
         private const val SHAPE_HOLD_MILLIS = 500L
 
+        // One second of motion at the default 12 fps.
+        private const val MOTION_PATH_STEPS = 12
+
         // Comic panel borders, in screen px at the zoom they're inserted at; on the §7 scale.
         private const val PANEL_BORDER_SCREEN = 3.0
 
@@ -278,6 +281,37 @@ class CanvasState(
             }
         }
         animFrameCount += count
+        onChanged(strokes.toList())
+    }
+
+    /**
+     * Motion path: with two or more strokes selected, the most recently drawn one is a path
+     * and the rest move along it. Creates [steps] frames from the current one onward (adding
+     * frames as needed); in each, a copy of the moving strokes is offset by how far along the
+     * path that frame is, evenly by arc length. The path itself is a guide and is removed.
+     * Moving strokes already on later frames are left as they are. One undo step.
+     */
+    fun animateAlongPath(steps: Int = MOTION_PATH_STEPS) {
+        if (selection.size < 2 || steps < 2) return
+        val path = selection.maxBy { strokes.indexOf(it) }
+        val movers = selection.filter { it !== path }
+        if (path.points.size < 2) return
+        recordHistory()
+        val route = resamplePolyline(path.points, steps)
+        val start = route.first()
+        strokes.remove(path)
+        for (step in 1 until steps) {
+            val offset = route[step] - start
+            val frame = currentAnimFrame + step
+            for (mover in movers) {
+                val copy = mover.onAnimFrame(frame)
+                copy.shiftBy(WorldPoint(-offset.x, -offset.y)) // shiftBy subtracts
+                strokes.add(copy)
+            }
+        }
+        animFrameCount = maxOf(animFrameCount, currentAnimFrame + steps)
+        animationMode = true
+        clearSelectionState()
         onChanged(strokes.toList())
     }
 
