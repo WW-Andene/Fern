@@ -13,8 +13,9 @@ import kotlin.math.hypot
  *   strokes blend into what they cross, like wet oil or gouache.
  * - [SMUDGE]: drags the pixels under the brush along the stroke, like a finger in wet paint.
  * - [BLUR]: softens the pixels under the brush.
+ * - [LIQUIFY]: pushes the picture along the stroke, bending it like soft clay (roadmap item 92).
  */
-enum class RasterBrushMode { PAINT, WET, SMUDGE, BLUR }
+enum class RasterBrushMode { PAINT, WET, SMUDGE, BLUR, LIQUIFY }
 
 /**
  * The raster brush's settings: its [mode], tip ([tip], a picture as for stamp brushes, or a

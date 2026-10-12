@@ -1541,6 +1541,44 @@ class CanvasState(
         markRasterDirty(layer.id, copy.tiles.keys.toSet())
     }
 
+    // An adjustment being previewed: the history depth before it, and its open entry, whose
+    // raster log holds each tile as it was before the adjustment.
+    private var adjustStartDepth = -1
+    private var adjustingEntry: HistoryEntry? = null
+
+    /** Starts previewing adjustments on the active raster layer (within the raster selection, if any). */
+    fun beginAdjusting(): Boolean {
+        if (activeRaster == null) return false
+        adjustStartDepth = undoStack.size
+        recordHistory()
+        adjustingEntry = openEntry
+        return true
+    }
+
+    /** Shows [adjustment] applied to the layer as it was when adjusting began. */
+    fun previewAdjustment(adjustment: Adjustment) {
+        val surface = activeRaster ?: return
+        val entry = adjustingEntry ?: return
+        for ((ref, tile) in entry.rasterLog) if (rasters[ref.first] === surface) surface.setTile(ref.second, tile?.copy())
+        surface.clip = if (rasterSelection != null) { x, y -> inRasterSelection(surface, x, y) } else null
+        surface.adjust(adjustment)
+        surface.clip = null
+        rasterRevision++
+    }
+
+    /** Keeps the previewed adjustment as one undo step. */
+    fun commitAdjustment() {
+        adjustingEntry = null
+        markRasterDirty(activeLayerId, emptySet())
+    }
+
+    /** Drops the previewed adjustment, leaving the layer as it was. */
+    fun cancelAdjustment() {
+        if (adjustingEntry == null) return
+        adjustingEntry = null
+        discardActionsSince(adjustStartDepth)
+    }
+
     // Moving selected pixels: what was lifted (premultiplied, by pixel), and each tile as it was
     // after the lift, so every move step repaints from the same start.
     private var floatingPixels: Map<Pair<Int, Int>, FloatArray>? = null
@@ -1641,6 +1679,7 @@ class CanvasState(
                 rasterErasing -> surface.dab(p, radius, color, opacity, hardness, erase = true, tip = brush.tip)
                 brush.mode == RasterBrushMode.SMUDGE -> surface.smudge(previous, p, radius, brush.strength, brush.tip)
                 brush.mode == RasterBrushMode.BLUR -> surface.blur(p, radius, brush.strength, brush.tip)
+                brush.mode == RasterBrushMode.LIQUIFY -> surface.liquify(previous, p, radius, brush.strength, brush.tip)
                 brush.mode == RasterBrushMode.WET -> {
                     // Pick up some of what's underneath, then lay the mixture down.
                     val carried = wetColor ?: color.copyOf().also { wetColor = it }
@@ -3334,7 +3373,19 @@ class CanvasState(
     private var meshOriginals: List<Pair<Stroke, List<WorldPoint>>> = emptyList()
     private var meshDragIndex: Int? = null
 
+    // Raster warp (roadmap item 92): the picture being bent, lifted on the first drag (pixels,
+    // non-premultiplied ARGB, and their box), and each tile as it was after the lift, so every
+    // step repaints from the same start.
+    private var warpSurface: RasterSurface? = null
+    private var warpSource: IntArray? = null
+    private var warpBox = IntArray(4)
+    private var warpBase = HashMap<Long, RasterTile?>()
+
     fun toggleMeshWarp() {
+        if (!meshWarping && activeLayerIsRaster) {
+            startRasterWarp()
+            return
+        }
         if (meshWarping || selection.isEmpty()) {
             endMeshWarp()
             return
@@ -3350,7 +3401,81 @@ class CanvasState(
         meshWarping = true
     }
 
+    /** Lays the lattice over the raster selection, or over all the active raster layer's paint. */
+    private fun startRasterWarp() {
+        val surface = activeRaster ?: return
+        val box = selectionPixelBox(surface) ?: paintedPixelBox(surface) ?: return
+        meshMin = surface.worldOf(box[0].toDouble(), box[1].toDouble())
+        meshMax = surface.worldOf(box[2] + 1.0, box[3] + 1.0)
+        meshNodes.clear()
+        meshNodes.addAll(meshGrid(meshMin, meshMax))
+        meshOriginals = emptyList()
+        warpSurface = surface
+        warpSource = null
+        warpBox = box
+        warpBase = HashMap()
+        meshWarping = true
+    }
+
+    private fun paintedPixelBox(surface: RasterSurface): IntArray? {
+        if (surface.tiles.isEmpty()) return null
+        val xs = surface.tiles.keys.map { RasterSurface.tileX(it) }
+        val ys = surface.tiles.keys.map { RasterSurface.tileY(it) }
+        return intArrayOf(xs.min() * RASTER_TILE, ys.min() * RASTER_TILE, (xs.max() + 1) * RASTER_TILE - 1, (ys.max() + 1) * RASTER_TILE - 1)
+    }
+
+    /** Redraws the lifted picture bent by the lattice as it is now. */
+    private fun applyRasterWarp() {
+        val surface = warpSurface ?: return
+        val box = warpBox
+        val width = box[2] - box[0] + 1
+        val height = box[3] - box[1] + 1
+        val before = surface.beforeTileChange
+        surface.beforeTileChange = { key ->
+            before(key)
+            if (key !in warpBase) warpBase[key] = surface.tileAt(key)?.copy()
+        }
+        // Back to the lifted state (logging each tile for undo first).
+        for ((key, tile) in warpBase) {
+            before(key)
+            surface.setTile(key, tile?.copy())
+        }
+        val source = warpSource ?: IntArray(width * height).also { pixels ->
+            // Lift: copy the picture (inside the selection, if any) and clear it from the layer.
+            surface.clip = if (rasterSelection != null) { x, y -> inRasterSelection(surface, x, y) } else null
+            surface.forEachPixelIn(box[0].toDouble(), box[1].toDouble(), box[2].toDouble(), box[3].toDouble()) { tile, index, px, py ->
+                val a = RasterSurface.u16(tile.data[index + 3])
+                if (a > 0) {
+                    fun channel(c: Int) = (RasterSurface.u16(tile.data[index + c]).toLong() * 255 / a).toInt().coerceIn(0, 255)
+                    pixels[(py - box[1]) * width + (px - box[0])] = ((a * 255 / 65535) shl 24) or (channel(0) shl 16) or (channel(1) shl 8) or channel(2)
+                }
+                for (c in 0 until 4) tile.data[index + c] = 0
+            }
+            surface.clip = null
+            warpSource = pixels
+        }
+        val warped = warpPixels(surface, source, width, height, box[0], box[1], meshMin, meshMax, meshNodes.toList())
+        if (warped != null) {
+            surface.forEachPixelIn(warped.left.toDouble(), warped.top.toDouble(), (warped.left + warped.width - 1).toDouble(), (warped.top + warped.height - 1).toDouble()) { tile, index, px, py ->
+                val x = px - warped.left
+                val y = py - warped.top
+                if (x !in 0 until warped.width || y !in 0 until warped.height) return@forEachPixelIn
+                val argb = warped.pixels[y * warped.width + x]
+                val a = (argb ushr 24) / 255.0
+                if (a == 0.0) return@forEachPixelIn
+                val src = doubleArrayOf(((argb shr 16) and 0xFF) / 255.0 * a, ((argb shr 8) and 0xFF) / 255.0 * a, (argb and 0xFF) / 255.0 * a, a)
+                for (c in 0 until 4) tile.data[index + c] = (src[c] * 65535 + RasterSurface.u16(tile.data[index + c]) * (1 - a)).toInt().coerceIn(0, 65535).toShort()
+            }
+        }
+        surface.beforeTileChange = before
+        rasterRevision++
+    }
+
     private fun endMeshWarp() {
+        if (warpSurface != null) markRasterDirty(activeLayerId, emptySet())
+        warpSurface = null
+        warpSource = null
+        warpBase = HashMap()
         meshWarping = false
         meshNodes.clear()
         meshOriginals = emptyList()
@@ -3361,7 +3486,7 @@ class CanvasState(
         // On a raster layer, a drag inside the raster selection moves its pixels.
         if (activeLayerIsRaster && beginMovingSelectedPixels(worldPoint)) return
         // The lattice belongs to the selection it was laid over; a changed selection ends it.
-        if (meshWarping && (meshOriginals.size != selection.size || meshOriginals.any { (stroke, _) -> selection.none { it === stroke } })) endMeshWarp()
+        if (meshWarping && warpSurface == null && (meshOriginals.size != selection.size || meshOriginals.any { (stroke, _) -> selection.none { it === stroke } })) endMeshWarp()
         if (meshWarping) {
             val hit = meshNodes.indices.minByOrNull { k -> hypot(meshNodes[k].x - worldPoint.x, meshNodes[k].y - worldPoint.y) }
                 ?.takeIf { k -> hypot(meshNodes[k].x - worldPoint.x, meshNodes[k].y - worldPoint.y) * scale <= NODE_HANDLE_SCREEN }
@@ -3426,6 +3551,10 @@ class CanvasState(
         }
         meshDragIndex?.let { k ->
             meshNodes[k] = worldPoint
+            if (warpSurface != null) {
+                applyRasterWarp()
+                return
+            }
             val nodes = meshNodes.toList()
             for ((stroke, original) in meshOriginals) {
                 if (stroke.points.size == original.size) stroke.setPoints(original.map { meshWarp(it, meshMin, meshMax, nodes) })

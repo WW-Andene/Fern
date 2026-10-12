@@ -183,6 +183,60 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
         }
     }
 
+    /**
+     * Liquify push: under a dab at [to], the picture moves by the stroke's step ([from] to [to])
+     * times [strength] and the brush's coverage - each pixel takes the colour from that far
+     * behind it, bilinearly sampled from a copy, so the image bends instead of smearing.
+     */
+    fun liquify(from: WorldPoint, to: WorldPoint, radius: Double, strength: Float, tip: TipMask? = null) {
+        val cx = (to.x - originX) / pixelWorld
+        val cy = (to.y - originY) / pixelWorld
+        val dx = (to.x - from.x) / pixelWorld
+        val dy = (to.y - from.y) / pixelWorld
+        val r = (radius / pixelWorld).coerceAtLeast(0.5)
+        val reach = r + hypot(dx, dy) + 2
+        // Copy of the neighbourhood, read while writing.
+        val copy = HashMap<Long, FloatArray>()
+        for (py in floor(cy - reach).toInt()..ceil(cy + reach).toInt()) for (px in floor(cx - reach).toInt()..ceil(cx + reach).toInt()) copy[tileKey(px, py)] = pixel(px, py)
+        fun sample(x: Double, y: Double): FloatArray {
+            val x0 = floor(x).toInt()
+            val y0 = floor(y).toInt()
+            val fx = (x - x0).toFloat()
+            val fy = (y - y0).toFloat()
+            fun at(px: Int, py: Int) = copy[tileKey(px, py)] ?: pixel(px, py)
+            val a = at(x0, y0); val b = at(x0 + 1, y0); val c = at(x0, y0 + 1); val d = at(x0 + 1, y0 + 1)
+            return FloatArray(4) { i -> (a[i] * (1 - fx) + b[i] * fx) * (1 - fy) + (c[i] * (1 - fx) + d[i] * fx) * fy }
+        }
+        forEachPixelIn(cx - r, cy - r, cx + r, cy + r) { tile, index, px, py ->
+            val w = strength * coverage(px, py, cx, cy, r, 0.3f, tip)
+            if (w <= 0.0) return@forEachPixelIn
+            val s = sample(px - dx * w, py - dy * w)
+            mixToward(tile, index, s, 1.0)
+        }
+    }
+
+    /** Applies [adjustment] to every painted pixel (within [clip] when set); coverage is kept. */
+    fun adjust(adjustment: Adjustment) {
+        val rgb = FloatArray(3)
+        for ((key, tile) in tiles.toList()) {
+            beforeTileChange(key)
+            val baseX = tileX(key) * RASTER_TILE
+            val baseY = tileY(key) * RASTER_TILE
+            for (i in 0 until RASTER_TILE * RASTER_TILE) {
+                val index = i * 4
+                val a = u16(tile.data[index + 3])
+                if (a == 0) continue
+                if (clip?.invoke(baseX + i % RASTER_TILE, baseY + i / RASTER_TILE) == false) continue
+                for (c in 0 until 3) rgb[c] = u16(tile.data[index + c]).toFloat() / a
+                adjustment.apply(rgb)
+                for (c in 0 until 3) tile.data[index + c] = (rgb[c].coerceIn(0f, 1f) * a).toInt().toShort()
+            }
+            tile.revision++
+            afterTileChange(key)
+        }
+        revision++
+    }
+
     /** Moves a pixel toward premultiplied colour [s] by [a]; under alpha lock its coverage stays and colour is rescaled to it. */
     private fun mixToward(tile: RasterTile, index: Int, s: FloatArray, a: Double) {
         if (!alphaLock) {

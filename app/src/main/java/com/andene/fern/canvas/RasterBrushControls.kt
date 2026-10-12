@@ -36,6 +36,8 @@ fun RasterBrushControls(state: CanvasState) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var open by remember { mutableStateOf(false) }
+    var adjusting by remember { mutableStateOf(false) }
+    if (adjusting) AdjustmentsDialog(state, onDismiss = { adjusting = false })
     val importTip = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
@@ -52,6 +54,7 @@ fun RasterBrushControls(state: CanvasState) {
         RasterBrushMode.WET to R.string.raster_brush_wet,
         RasterBrushMode.SMUDGE to R.string.raster_brush_smudge,
         RasterBrushMode.BLUR to R.string.raster_brush_blur,
+        RasterBrushMode.LIQUIFY to R.string.raster_brush_liquify,
     )
     Box {
         IconButton(onClick = { open = true }) {
@@ -68,6 +71,14 @@ fun RasterBrushControls(state: CanvasState) {
                     },
                 )
             }
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.adjust_title)) },
+                onClick = {
+                    open = false
+                    adjusting = state.beginAdjusting()
+                },
+            )
             HorizontalDivider()
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.raster_brush_round)) },
