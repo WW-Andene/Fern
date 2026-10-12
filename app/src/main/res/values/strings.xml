@@ -404,7 +404,6 @@
     <string name="tb_clear_all">Clear all</string>
     <string name="tb_reset_view">Reset view</string>
     <string name="tb_fit">Zoom to fit content</string>
-    <string name="tb_more">More</string>
     <string name="tb_replay">Replay how this drawing was made</string>
     <string name="tb_stop_replay">Stop replay</string>
     <string name="tb_export">Export</string>
@@ -949,4 +948,8 @@
     <string name="workspace_update">Save layout into %1$s</string>
     <string name="workspace_save_new">Save layout as a workspace</string>
     <string name="workspace_name">Workspace name</string>
+    <string name="menu_group_insert">Insert</string>
+    <string name="menu_group_import">Import</string>
+    <string name="menu_group_document">Document</string>
+    <string name="menu_group_app">App</string>
 </resources>

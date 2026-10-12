@@ -129,6 +129,8 @@ import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.HighlightAlt
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.AddBox
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.LineStyle
@@ -455,7 +457,6 @@ fun Toolbar(
     var showConstraintsDialog by remember { mutableStateOf(false) }
     if (showConstraintsDialog) ConstraintsDialog(state, onDismiss = { showConstraintsDialog = false })
     if (showContourDialog) ContourDialog(state, onDismiss = { showContourDialog = false })
-    var showMoreMenu by remember { mutableStateOf(false) }
     var showBlendModeMenu by remember { mutableStateOf(false) }
     var showBackgroundStyleMenu by remember { mutableStateOf(false) }
     var showBackgroundColorPicker by remember { mutableStateOf(false) }
@@ -1261,50 +1262,38 @@ fun Toolbar(
                 IconButton(onClick = onOpenDocuments) {
                     Icon(Icons.Filled.Description, contentDescription = stringResource(R.string.documents_title))
                 }
-                // Occasional, dialog-opening actions live in an overflow menu so the toolbar row
-                // keeps the tools used while drawing within reach.
-                Box {
-                    IconButton(onClick = { showMoreMenu = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.tb_more))
-                    }
-                    DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
-                        val moreItems = listOf(
-                            Triple(R.string.menu_insert_image, Icons.Filled.Image, onInsertImage),
-                            Triple(R.string.menu_insert_video, Icons.Filled.VideoFile, onInsertVideo),
-                            Triple(R.string.model_insert_title, Icons.Filled._3dRotation) { showInsert3d = true },
-                            Triple(R.string.menu_import_pdf, Icons.Filled.PictureAsPdf, onImportPdf),
-                            Triple(R.string.menu_import_spine, Icons.Filled.AccessibilityNew, onImportSpine),
-                            Triple(R.string.menu_import_layered, Icons.Filled.Layers, onImportLayered),
-                            Triple(R.string.menu_import_vectors, Icons.Filled.Polyline, onImportVectors),
-                            Triple(R.string.search_title, Icons.Filled.Search) { showSearchDialog = true },
-                            Triple(R.string.pins_title, Icons.Filled.PushPin, onOpenPins),
-                            Triple(R.string.frames_title, Icons.Filled.CropFree, onOpenFrames),
-                            Triple(R.string.second_view_title, Icons.Filled.VerticalSplit) { state.secondViewOpen = !state.secondViewOpen },
-                            Triple(if (state.showRulers) R.string.rulers_hide else R.string.rulers_show, Icons.Filled.SquareFoot) { state.showRulers = !state.showRulers },
-                            Triple(if (state.wrapFrameId == null) R.string.wrap_on else R.string.wrap_off, Icons.Filled.Texture) { state.toggleWrapAround() },
-                            Triple(R.string.audio_title, Icons.Filled.Mic, onOpenAudioNotes),
-                            Triple(R.string.versions_title, Icons.Filled.History, onOpenVersions),
-                            Triple(R.string.stats_title, Icons.Filled.QueryStats) { showStatsDialog = true },
-                            Triple(R.string.symbols_title, Icons.Filled.Category) { openSymbols() },
-                            Triple(R.string.signature_title, Icons.Filled.Draw) { showSignatureDialog = true },
-                            Triple(R.string.qr_title, Icons.Filled.QrCode2) { showQrDialog = true },
-                            Triple(R.string.comic_title, Icons.Filled.AutoStories) { showComicDialog = true },
-                            Triple(R.string.script_title, Icons.Filled.Code) { showScriptDialog = true },
-                            Triple(R.string.plugins_title, Icons.Filled.Extension) { showPlugins = true },
-                            Triple(R.string.settings_title, Icons.Filled.Settings, onOpenSettings),
-                        )
-                        for ((label, icon, action) in moreItems) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(label)) },
-                                leadingIcon = { Icon(icon, contentDescription = null) },
-                                onClick = {
-                                    showMoreMenu = false
-                                    action()
-                                },
-                            )
-                        }
-                    }
-                }
+                // Occasional actions, grouped by purpose behind labelled menus, each one level deep (design roadmap D12).
+                MenuButton(R.string.menu_group_insert, Icons.Filled.AddBox, listOf(
+                    Triple(R.string.menu_insert_image, Icons.Filled.Image, onInsertImage),
+                    Triple(R.string.menu_insert_video, Icons.Filled.VideoFile, onInsertVideo),
+                    Triple(R.string.model_insert_title, Icons.Filled._3dRotation) { showInsert3d = true },
+                    Triple(R.string.symbols_title, Icons.Filled.Category) { openSymbols() },
+                    Triple(R.string.signature_title, Icons.Filled.Draw) { showSignatureDialog = true },
+                    Triple(R.string.qr_title, Icons.Filled.QrCode2) { showQrDialog = true },
+                    Triple(R.string.comic_title, Icons.Filled.AutoStories) { showComicDialog = true },
+                ))
+                MenuButton(R.string.menu_group_import, Icons.Filled.FileOpen, listOf(
+                    Triple(R.string.menu_import_pdf, Icons.Filled.PictureAsPdf, onImportPdf),
+                    Triple(R.string.menu_import_vectors, Icons.Filled.Polyline, onImportVectors),
+                    Triple(R.string.menu_import_layered, Icons.Filled.Layers, onImportLayered),
+                    Triple(R.string.menu_import_spine, Icons.Filled.AccessibilityNew, onImportSpine),
+                ))
+                MenuButton(R.string.menu_group_document, Icons.Filled.Description, listOf(
+                    Triple(R.string.search_title, Icons.Filled.Search) { showSearchDialog = true },
+                    Triple(R.string.frames_title, Icons.Filled.CropFree, onOpenFrames),
+                    Triple(R.string.pins_title, Icons.Filled.PushPin, onOpenPins),
+                    Triple(R.string.versions_title, Icons.Filled.History, onOpenVersions),
+                    Triple(R.string.audio_title, Icons.Filled.Mic, onOpenAudioNotes),
+                    Triple(R.string.stats_title, Icons.Filled.QueryStats) { showStatsDialog = true },
+                    Triple(R.string.script_title, Icons.Filled.Code) { showScriptDialog = true },
+                    Triple(R.string.second_view_title, Icons.Filled.VerticalSplit) { state.secondViewOpen = !state.secondViewOpen },
+                    Triple(if (state.showRulers) R.string.rulers_hide else R.string.rulers_show, Icons.Filled.SquareFoot) { state.showRulers = !state.showRulers },
+                    Triple(if (state.wrapFrameId == null) R.string.wrap_on else R.string.wrap_off, Icons.Filled.Texture) { state.toggleWrapAround() },
+                ))
+                MenuButton(R.string.menu_group_app, Icons.Filled.Settings, listOf(
+                    Triple(R.string.settings_title, Icons.Filled.Settings, onOpenSettings),
+                    Triple(R.string.plugins_title, Icons.Filled.Extension) { showPlugins = true },
+                ))
                 if (ToolbarGroup.REPLAY !in hiddenGroups) {
                     IconButton(onClick = { state.replayCount = if (state.replayCount == null) 0 else null }) {
                         Icon(
@@ -1814,3 +1803,30 @@ internal fun Modifier.toolSelected(active: Boolean): Modifier = semantics { sele
 
 /** Tools that draw strokes, whose width, opacity and line options the properties bar shows. */
 private val STROKE_TOOLS = setOf(Tool.PEN, Tool.SHAPE, Tool.BEZIER, Tool.ERASER)
+
+/**
+ * A labelled menu of one purpose (design roadmap D12): an icon with its name beneath, opening
+ * the actions it groups - one level, nothing nested.
+ */
+@Composable
+private fun MenuButton(@androidx.annotation.StringRes label: Int, icon: androidx.compose.ui.graphics.vector.ImageVector, items: List<Triple<Int, androidx.compose.ui.graphics.vector.ImageVector, () -> Unit>>) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { open = true }) {
+            Icon(icon, contentDescription = null, modifier = Modifier.padding(end = FernScale.s4))
+            Text(stringResource(label))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            for ((itemLabel, itemIcon, action) in items) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(itemLabel)) },
+                    leadingIcon = { Icon(itemIcon, contentDescription = null) },
+                    onClick = {
+                        open = false
+                        action()
+                    },
+                )
+            }
+        }
+    }
+}

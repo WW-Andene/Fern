@@ -191,9 +191,10 @@ Goal: the screen layout that replaces the single scrolling toolbar and the ⋮ j
   (PDF and audio). Each one shows the tools and panels its work needs. The user can edit
   workspaces or create new ones. Animation, replay and guides stop crowding a drawing session.
   Done: `Workspaces.kt`. A switcher first in the toolbar offers Draw, Paint, Design, Animate, Game and Notes, each setting the toolbar groups shown and the rail's pinned tools; the current layout saves as a new named workspace or into one of the user's, which can be deleted. Panels per workspace come with D83.
-- [ ] D12. **The ⋮ menu split by purpose**: Insert (image, video, 3D, symbol, QR, signature),
+- [x] D12. **The ⋮ menu split by purpose**: Insert (image, video, 3D, symbol, QR, signature),
   Import, Export, Document (versions, statistics, search, frames) and App (settings, plugins,
   help). Each is one level deep and opens from a labelled entry, not hidden in an overflow.
+  Done: the ⋮ overflow is gone. Labelled Insert, Import, Document (search, frames, pins, versions, audio, statistics, script, second view, rulers, wrap-around) and App (settings, plugins) menus, each one level; Export stays its own menu until D13. Help joins App with D64.
 - [ ] D13. **Export by purpose.** First choose Share, Print, Image, Vector, Layered (for another
   app), Animation or Game engine; then the format, with a recommended default. The last used
   export is a single tap.

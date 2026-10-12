@@ -404,7 +404,6 @@
     <string name="tb_clear_all">Tout effacer</string>
     <string name="tb_reset_view">Réinitialiser la vue</string>
     <string name="tb_fit">Zoomer pour tout afficher</string>
-    <string name="tb_more">Plus</string>
     <string name="tb_replay">Rejouer la création de ce dessin</string>
     <string name="tb_stop_replay">Arrêter la relecture</string>
     <string name="tb_export">Exporter</string>
@@ -952,4 +951,8 @@
     <string name="workspace_update">Enregistrer la disposition dans %1$s</string>
     <string name="workspace_save_new">Enregistrer la disposition comme espace</string>
     <string name="workspace_name">Nom de l’espace</string>
+    <string name="menu_group_insert">Insérer</string>
+    <string name="menu_group_import">Importer</string>
+    <string name="menu_group_document">Document</string>
+    <string name="menu_group_app">Appli</string>
 </resources>
