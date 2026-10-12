@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled._3dRotation
 import android.content.Context
 
@@ -407,6 +408,8 @@ fun Toolbar(
     var showLineStyleMenu by remember { mutableStateOf(false) }
     var showCombineMenu by remember { mutableStateOf(false) }
     var showContourDialog by remember { mutableStateOf(false) }
+    var showRotatePixels by remember { mutableStateOf(false) }
+    if (showRotatePixels) RotatePixelsDialog(state, onDismiss = { showRotatePixels = false })
     var showDrawingScaleDialog by remember { mutableStateOf(false) }
     if (showDrawingScaleDialog) DrawingScaleDialog(state, onDismiss = { showDrawingScaleDialog = false })
     var showPlaceOnPlaneMenu by remember { mutableStateOf(false) }
@@ -998,6 +1001,12 @@ fun Toolbar(
                     }
                     IconButton(onClick = { state.clearRasterSelection() }) {
                         Icon(Icons.Filled.Deselect, contentDescription = stringResource(R.string.raster_sel_deselect))
+                    }
+                }
+                if (state.activeTool == Tool.SELECT && state.activeLayerIsRaster) {
+                    // RotSprite (roadmap item 145): turn the selection's pixels, or the layer's.
+                    IconButton(onClick = { showRotatePixels = true }) {
+                        Icon(Icons.Filled.RotateRight, contentDescription = stringResource(R.string.rotate_pixels_title))
                     }
                 }
                 if (state.activeTool == Tool.SELECT) {

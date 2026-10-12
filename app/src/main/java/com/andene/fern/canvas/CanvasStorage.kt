@@ -406,7 +406,14 @@ object CanvasStorage {
         for ((frame, mouth) in settings.mouths) mouths.put(frame.toString(), mouth.name)
         writeStored(
             animationFile(context, documentId),
-            JSONObject().put("fps", settings.fps).put("holds", holds).put("mouths", mouths).apply { settings.soundtrack?.let { put("soundtrack", it) } },
+            JSONObject().put("fps", settings.fps).put("holds", holds).put("mouths", mouths).apply {
+                settings.soundtrack?.let { put("soundtrack", it) }
+                if (settings.tags.isNotEmpty()) {
+                    put("tags", JSONArray().apply {
+                        for (tag in settings.tags) put(JSONObject().put("name", tag.name).put("from", tag.from).put("to", tag.to).put("color", tag.color).put("direction", tag.direction.name))
+                    })
+                }
+            },
         )
     }
 
@@ -423,6 +430,15 @@ object CanvasStorage {
                 MouthShape.entries.firstOrNull { it.name == mouths.optString(key) }?.let { frame to it }
             }?.toMap().orEmpty(),
             root.optString("soundtrack").ifEmpty { null }?.takeIf { soundtrackFile(context, it).exists() },
+            root.optJSONArray("tags")?.let { tags ->
+                (0 until tags.length()).mapNotNull { i ->
+                    val t = tags.optJSONObject(i) ?: return@mapNotNull null
+                    val from = t.optInt("from", -1)
+                    val to = t.optInt("to", -1)
+                    if (from < 0 || to < from) return@mapNotNull null
+                    FrameTag(t.optString("name"), from, to, t.optInt("color", TAG_COLORS[0]), enumOrDefault(t.optString("direction"), TagDirection.FORWARD))
+                }
+            }.orEmpty(),
         )
     }
 

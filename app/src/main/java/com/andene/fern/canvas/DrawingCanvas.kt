@@ -23,6 +23,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.ImageBitmap
@@ -1423,6 +1424,9 @@ private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
 private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
+// Aseprite's onion skin colours (roadmap item 145): earlier frames red, later ones blue.
+private val ONION_BEFORE_TINT = Color(0xFFE53935)
+private val ONION_AFTER_TINT = Color(0xFF1E88E5)
 // The play badge on an embedded video (roadmap item 107).
 private val VIDEO_BADGE_COLOR = Color(0x99000000)
 private const val VIDEO_BADGE_RADIUS_PX = 24f
@@ -1626,8 +1630,14 @@ internal fun DrawScope.drawScene(
     // no longer exists is drawn with the bottom layer rather than disappearing.
     val layerIndex = state.layers.withIndex().associate { (index, layer) -> layer.id to index }
     // Only the current animation frame is drawn (outside animation everything is frame 0), plus
-    // the previous frame as a faint onion skin while editing an animation.
-    val onionFrame = if (state.animationMode && state.onionSkin && !state.playing && state.currentAnimFrame > 0) state.currentAnimFrame - 1 else null
+    // neighbouring frames as a faint onion skin while editing an animation: [onionBefore] before
+    // and [onionAfter] after, fainter the further they are, tinted red and blue when asked
+    // (roadmap item 145).
+    val onionFrames = if (state.animationMode && state.onionSkin && !state.playing) {
+        (1..state.onionBefore).map { state.currentAnimFrame - it to it } + (1..state.onionAfter).map { state.currentAnimFrame + it to it }
+    } else {
+        emptyList()
+    }.filter { (frame, _) -> frame in 0 until state.animFrameCount }
     // Only strokes near the view, from the spatial index - not a pass over the whole document.
     val nearby = state.strokesNear(topLeftWorld.x, topLeftWorld.y, bottomRightWorld.x, bottomRightWorld.y)
     // Replay draws the first replayCount strokes of the document, in drawing order.
@@ -1642,8 +1652,17 @@ internal fun DrawScope.drawScene(
     // the screen at any canvas rotation.
     val halfDiagonal = hypot(size.width, size.height) / 2f
     val layerBounds = Rect(screenCenter - Offset(halfDiagonal, halfDiagonal), screenCenter + Offset(halfDiagonal, halfDiagonal))
-    if (onionFrame != null) {
-        drawContext.canvas.saveLayer(layerBounds, Paint().apply { alpha = ONION_SKIN_ALPHA })
+    // Furthest first, so nearer frames show over them.
+    for ((onionFrame, distance) in onionFrames.sortedByDescending { it.second }) {
+        val tint = when {
+            !state.onionTinted -> null
+            onionFrame < state.currentAnimFrame -> ONION_BEFORE_TINT
+            else -> ONION_AFTER_TINT
+        }
+        drawContext.canvas.saveLayer(layerBounds, Paint().apply {
+            alpha = ONION_SKIN_ALPHA / distance
+            if (tint != null) colorFilter = ColorFilter.tint(tint, BlendMode.SrcIn)
+        })
         for (stroke in nearby) {
             if (stroke.animFrame != onionFrame || stroke.points.isEmpty()) continue
             if (state.layers.firstOrNull { it.id == stroke.layerId }?.visible == false) continue

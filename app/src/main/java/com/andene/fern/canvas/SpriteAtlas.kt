@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.unit.Density
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.util.Locale
@@ -112,7 +113,14 @@ fun exportSpriteAtlas(source: CanvasState, name: String, textMeasurer: TextMeasu
                 .put("image", "$name.png")
                 .put("format", "RGBA8888")
                 .put("size", JSONObject().put("w", sheet.width).put("h", sheet.height))
-                .put("scale", "1"),
+                .put("scale", "1")
+                // Frame tags (roadmap item 145) in Aseprite's JSON form, which engines' importers read.
+                .put("frameTags", JSONArray().apply {
+                    for (tag in source.frameTags) {
+                        val direction = when (tag.direction) { TagDirection.FORWARD -> "forward"; TagDirection.REVERSE -> "reverse"; TagDirection.PING_PONG -> "pingpong" }
+                        put(JSONObject().put("name", tag.name).put("from", tag.from).put("to", tag.to).put("direction", direction))
+                    }
+                }),
         )
     val zip = ByteArrayOutputStream()
     ZipOutputStream(zip).use { out ->

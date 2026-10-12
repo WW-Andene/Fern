@@ -465,7 +465,48 @@ class CanvasState(
     /** When frame [frame] starts, in milliseconds from the first frame, following the X-sheet holds. */
     fun frameStartMillis(frame: Int): Long = (0 until frame).sumOf { holdOf(it).toLong() } * 1000L / animFps
 
-    fun animationSettings() = AnimationSettings(animFps, frameHolds.toMap(), frameMouths.toMap(), soundtrack)
+    fun animationSettings() = AnimationSettings(animFps, frameHolds.toMap(), frameMouths.toMap(), soundtrack, frameTags.toList())
+
+    /** Named frame ranges (roadmap item 145); see [FrameTag]. Saved with the animation settings; not part of undo. */
+    val frameTags = mutableStateListOf<FrameTag>()
+
+    /** Adds [tag], or replaces the tag of the same name. */
+    fun putFrameTag(tag: FrameTag) {
+        val clamped = tag.copy(from = tag.from.coerceIn(0, animFrameCount - 1), to = tag.to.coerceIn(tag.from.coerceIn(0, animFrameCount - 1), animFrameCount - 1))
+        val index = frameTags.indexOfFirst { it.name == tag.name }
+        if (index == -1) frameTags.add(clamped) else frameTags[index] = clamped
+        onAnimationSettingsChanged(animationSettings())
+    }
+
+    fun removeFrameTag(name: String) {
+        if (frameTags.removeWhere { it.name == name }) onAnimationSettingsChanged(animationSettings())
+        if (playingTag == name) playingTag = null
+    }
+
+    /**
+     * The tag playback is confined to (roadmap item 145): playback loops over its frames in its
+     * direction instead of the whole animation. Null plays everything.
+     */
+    var playingTag by mutableStateOf<String?>(null)
+
+    /** Plays only tag [name]'s frames, from its start. */
+    fun playTag(name: String) {
+        val tag = frameTags.firstOrNull { it.name == name } ?: return
+        playingTag = name
+        currentAnimFrame = if (tag.direction == TagDirection.REVERSE) tag.to else tag.from
+        playingBackwards = tag.direction == TagDirection.REVERSE
+        heldTicks = 0
+        playing = true
+    }
+
+    /**
+     * Onion skin settings (roadmap item 145): how many frames before and after the current one
+     * show, and whether they're tinted red (before) and blue (after), as in Aseprite, instead of
+     * shown in their own colours. View settings, not saved.
+     */
+    var onionBefore by mutableIntStateOf(1)
+    var onionAfter by mutableIntStateOf(0)
+    var onionTinted by mutableStateOf(false)
 
     /** Applies settings read from storage, without reporting them back. */
     fun loadAnimationSettings(settings: AnimationSettings) {
@@ -475,6 +516,9 @@ class CanvasState(
         frameMouths.clear()
         frameMouths.putAll(settings.mouths)
         soundtrack = settings.soundtrack
+        frameTags.clear()
+        frameTags.addAll(settings.tags)
+        playingTag = null
     }
 
     private fun shiftHolds(from: Int, by: Int) {
@@ -486,6 +530,14 @@ class CanvasState(
         val mouths = frameMouths.entries.associate { (frame, mouth) -> (if (frame >= from) frame + by else frame) to mouth }
         frameMouths.clear()
         frameMouths.putAll(mouths)
+        onAnimationSettingsChanged(animationSettings())
+    }
+
+    private fun shiftTags(moved: List<FrameTag>) {
+        if (moved == frameTags.toList()) return
+        frameTags.clear()
+        frameTags.addAll(moved)
+        if (frameTags.none { it.name == playingTag }) playingTag = null
         onAnimationSettingsChanged(animationSettings())
     }
 
@@ -519,6 +571,26 @@ class CanvasState(
         if (animFrameCount <= 1) return
         if (++heldTicks < holdOf(currentAnimFrame)) return
         heldTicks = 0
+        // A played tag (roadmap item 145) loops its own frames in its own direction.
+        frameTags.firstOrNull { it.name == playingTag }?.let { tag ->
+            val from = tag.from.coerceAtMost(animFrameCount - 1)
+            val to = tag.to.coerceAtMost(animFrameCount - 1)
+            if (currentAnimFrame !in from..to) {
+                currentAnimFrame = if (tag.direction == TagDirection.REVERSE) to else from
+                return
+            }
+            when (tag.direction) {
+                TagDirection.FORWARD -> currentAnimFrame = if (currentAnimFrame >= to) from else currentAnimFrame + 1
+                TagDirection.REVERSE -> currentAnimFrame = if (currentAnimFrame <= from) to else currentAnimFrame - 1
+                TagDirection.PING_PONG -> {
+                    if (from == to) return
+                    if (currentAnimFrame >= to) playingBackwards = true
+                    if (currentAnimFrame <= from) playingBackwards = false
+                    currentAnimFrame += if (playingBackwards) -1 else 1
+                }
+            }
+            return
+        }
         if (!pingPong) {
             playingBackwards = false
             currentAnimFrame = (currentAnimFrame + 1) % animFrameCount
@@ -546,6 +618,7 @@ class CanvasState(
         }
         shiftBoneFrames(from = insertAt, by = 1)
         shiftHolds(from = insertAt, by = 1)
+        shiftTags(tagsAfterInsert(frameTags, insertAt))
         if (copyCurrent) bones.addAll(bones.filter { it.animFrame == currentAnimFrame }.map { it.copy(animFrame = insertAt) })
         if (bones.isNotEmpty()) onBonesChanged(bones.toList())
         animFrameCount++
@@ -657,6 +730,7 @@ class CanvasState(
         val hadHold = frameHolds.remove(removed) != null
         if (frameMouths.remove(removed) != null || hadHold) onAnimationSettingsChanged(animationSettings())
         shiftHolds(from = removed + 1, by = -1)
+        shiftTags(tagsAfterDelete(frameTags, removed))
         animFrameCount--
         currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
         strokesChanged()
@@ -1851,6 +1925,59 @@ class CanvasState(
         surface.forEachPixelIn(box[0].toDouble(), box[1].toDouble(), box[2].toDouble(), box[3].toDouble()) { tile, index, _, _ -> edit(tile, index) }
         surface.clip = null
         markRasterDirty(activeLayerId, emptySet())
+    }
+
+    /**
+     * Turns the raster selection's pixels - or, with no selection, all the active raster layer's
+     * paint - [degrees] clockwise about their centre (roadmap item 145), with RotSprite for pixel
+     * art ([rotSprite]) or plain nearest-neighbour sampling. The selection outline turns with
+     * them. Works at 8 bits per channel (as the raster warp does). One undo step.
+     */
+    fun rotateRasterPixels(degrees: Double, rotSprite: Boolean) {
+        val surface = activeRaster ?: return
+        val box = selectionPixelBox(surface) ?: paintedPixelBox(surface) ?: return
+        val width = box[2] - box[0] + 1
+        val height = box[3] - box[1] + 1
+        if (width <= 0 || height <= 0) return
+        recordHistory()
+        // Lift: the picture (inside the selection, if any) as straight 8-bit ARGB, cleared from the layer.
+        val lifted = IntArray(width * height)
+        surface.clip = if (hasRasterSelection) { x, y -> inRasterSelection(surface, x, y) } else null
+        surface.forEachPixelIn(box[0].toDouble(), box[1].toDouble(), box[2].toDouble(), box[3].toDouble()) { tile, index, px, py ->
+            val a = RasterSurface.u16(tile.data[index + 3])
+            if (a > 0) {
+                fun channel(c: Int) = (RasterSurface.u16(tile.data[index + c]).toLong() * 255 / a).toInt().coerceIn(0, 255)
+                lifted[(py - box[1]) * width + (px - box[0])] = ((a * 255 / 65535) shl 24) or (channel(0) shl 16) or (channel(1) shl 8) or channel(2)
+            }
+            for (c in 0 until 4) tile.data[index + c] = 0
+        }
+        surface.clip = null
+        val turned = rotatePixels(PixelImage(width, height, lifted), degrees, rotSprite)
+        // Centred where the source was centred.
+        val left = box[0] + (width - turned.width) / 2
+        val top = box[1] + (height - turned.height) / 2
+        surface.forEachPixelIn(left.toDouble(), top.toDouble(), (left + turned.width - 1).toDouble(), (top + turned.height - 1).toDouble()) { tile, index, px, py ->
+            val x = px - left
+            val y = py - top
+            if (x !in 0 until turned.width || y !in 0 until turned.height) return@forEachPixelIn
+            val argb = turned.at(x, y)
+            val a = (argb ushr 24) / 255.0
+            if (a == 0.0) return@forEachPixelIn
+            val src = doubleArrayOf(((argb shr 16) and 0xFF) / 255.0 * a, ((argb shr 8) and 0xFF) / 255.0 * a, (argb and 0xFF) / 255.0 * a, a)
+            for (c in 0 until 4) tile.data[index + c] = (src[c] * 65535 + RasterSurface.u16(tile.data[index + c]) * (1 - a)).toInt().coerceIn(0, 65535).toShort()
+        }
+        // The selection outline follows the pixels.
+        rasterSelection?.let { outline ->
+            val centre = surface.worldOf(box[0] + width / 2.0, box[1] + height / 2.0)
+            val radians = Math.toRadians(degrees)
+            rasterSelection = outline.map { p ->
+                val dx = p.x - centre.x
+                val dy = p.y - centre.y
+                WorldPoint(centre.x + dx * cos(radians) - dy * sin(radians), centre.y + dx * sin(radians) + dy * cos(radians))
+            }
+        }
+        markRasterDirty(activeLayerId, emptySet())
+        rasterRevision++
     }
 
     /** Copies the selected pixels of the active raster layer onto a new raster layer above it. */
@@ -5685,6 +5812,8 @@ data class AnimationSettings(
     val holds: Map<Int, Int> = emptyMap(),
     val mouths: Map<Int, MouthShape> = emptyMap(),
     val soundtrack: String? = null,
+    /** Named frame ranges (roadmap item 145). */
+    val tags: List<FrameTag> = emptyList(),
 )
 
 // Changed strokes tested directly before [CanvasState.strokesNear] rebuilds its index instead.
