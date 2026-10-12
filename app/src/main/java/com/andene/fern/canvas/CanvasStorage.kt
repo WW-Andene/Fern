@@ -308,7 +308,7 @@ object CanvasStorage {
         val file = backgroundFile(context, documentId)
         val root = readStored(file) { it as JSONObject } ?: return DEFAULT_BACKGROUND_COLOR to BackgroundStyle.PLAIN
         val color = Color(root.getInt("color"))
-        val style = BackgroundStyle.valueOf(root.optString("style", BackgroundStyle.PLAIN.name))
+        val style = enumOrDefault(root.optString("style"), BackgroundStyle.PLAIN)
         return color to style
     }
 
@@ -653,6 +653,9 @@ object CanvasStorage {
         return root
     }
 
+    private inline fun <reified T : Enum<T>> enumOrDefault(name: String, default: T): T =
+        enumValues<T>().firstOrNull { it.name == name } ?: default
+
     private fun parseStrokes(root: JSONArray): List<Stroke> {
         val strokes = mutableListOf<Stroke>()
         for (i in 0 until root.length()) {
@@ -661,11 +664,13 @@ object CanvasStorage {
             val width = strokeJson.getDouble("width")
             // Older saved documents predate PenType and have no "penType" key - default to
             // MARKER (the type those strokes were always rendered as before this existed).
-            val penType = PenType.valueOf(strokeJson.optString("penType", PenType.MARKER.name))
+            // An unknown name (written by a newer Fern) falls back too, rather than failing the
+            // whole file and quarantining every stroke in it.
+            val penType = enumOrDefault(strokeJson.optString("penType"), PenType.MARKER)
             val filled = strokeJson.optBoolean("filled", false)
             // Older saved documents predate blend modes - default to NORMAL (how every
             // stroke was always composited before this existed).
-            val blendMode = StrokeBlendMode.valueOf(strokeJson.optString("blendMode", StrokeBlendMode.NORMAL.name))
+            val blendMode = enumOrDefault(strokeJson.optString("blendMode"), StrokeBlendMode.NORMAL)
             // Strokes saved before layers existed belong to the default layer.
             val layerId = strokeJson.optString("layer", DEFAULT_LAYER_ID)
             val stroke = Stroke(color, width, penType, filled, blendMode, layerId)
