@@ -121,6 +121,8 @@ class CanvasState(
 
         // Holding the pen still this long before lifting turns a rough stroke into a clean shape.
         private const val SHAPE_HOLD_MILLIS = 500L
+        /** Where [selectionMask] lives among [rasters]; not a layer id, so it's never drawn or saved as one. */
+        const val SELECTION_MASK_ID = "selection-mask"
         private const val WRAP_NEW_TILE_FILL = 0.8 // a new tile fills 80% of the view's short side
         private const val SIGNATURE_FALLBACK_VIEW_PX = 1024.0 // before the view has a size
 
@@ -1516,6 +1518,8 @@ class CanvasState(
         for (layer in layers) if (layer.raster && layer.id !in rasters) attachRaster(layer.id, RasterSurface(layer.depth, 1.0 / scale.coerceAtLeast(1e-300)))
         for (layer in layers) if (layer.masked && maskIdOf(layer.id) !in rasters) attachRaster(maskIdOf(layer.id), RasterSurface(8, 1.0 / scale.coerceAtLeast(1e-300)))
         rasterSelection = null
+        selectionMask = null
+        paintingSelection = false
         editingMask = false
         rasterRevision++
     }
@@ -1556,7 +1560,9 @@ class CanvasState(
         get() {
             val layer = layers.firstOrNull { it.id == activeLayerId } ?: return null
             if (editingMask && layer.masked) return rasters[maskIdOf(layer.id)]
-            return if (layer.raster) rasters[layer.id] else null
+            if (!layer.raster) return null
+            if (paintingSelection) return selectionMask
+            return rasters[layer.id]
         }
 
     /**
@@ -1592,15 +1598,89 @@ class CanvasState(
 
     fun clearRasterSelection() {
         rasterSelection = null
+        dropSelectionMask()
+    }
+
+    /**
+     * The global selection mask (roadmap item 138, Krita's): the raster selection as coverage
+     * painted with the pen (adding) and eraser (taking away) while [paintingSelection] is on, in
+     * place of an outline. Pixels count as selected where it's at least half covered. Kept in
+     * [rasters] under [SELECTION_MASK_ID] so its painting undoes like any raster edit, but never
+     * saved: a selection is a working state, not part of the drawing.
+     */
+    var selectionMask: RasterSurface? by mutableStateOf(null)
+        private set
+
+    /** While on (with a raster layer active), the pen and eraser paint [selectionMask] instead of the layer. */
+    var paintingSelection by mutableStateOf(false)
+        private set
+
+    /** Some pixels are selected, by outline or mask. */
+    val hasRasterSelection: Boolean get() = rasterSelection != null || selectionMask != null
+
+    /**
+     * Starts or stops painting the selection. Starting turns an outline selection into the mask
+     * (so it can be painted on); stopping keeps the mask as the selection.
+     */
+    fun togglePaintingSelection() {
+        if (paintingSelection) {
+            paintingSelection = false
+            return
+        }
+        val layer = layers.firstOrNull { it.id == activeLayerId }?.takeIf { it.raster } ?: return
+        val surface = rasters[layer.id] ?: return
+        if (selectionMask == null) {
+            val mask = RasterSurface(8, surface.pixelWorld, surface.originX, surface.originY)
+            attachRaster(SELECTION_MASK_ID, mask)
+            // Not saved: only undo needs to know about its tiles.
+            mask.afterTileChange = {}
+            rasterSelection?.let { outline ->
+                selectionPixelBox(mask)?.let { box ->
+                    mask.forEachPixelIn(box[0].toDouble(), box[1].toDouble(), box[2].toDouble(), box[3].toDouble()) { tile, index, px, py ->
+                        if (polygonContains(outline, mask.worldOf(px + 0.5, py + 0.5))) tile.data[index + 3] = 65535.toShort()
+                    }
+                    mask.tiles.entries.removeAll { it.value.isEmpty() }
+                }
+            }
+            rasterSelection = null
+            selectionMask = mask
+        }
+        paintingSelection = true
+        rasterRevision++
+    }
+
+    private fun dropSelectionMask() {
+        if (selectionMask == null) return
+        rasters.remove(SELECTION_MASK_ID)
+        selectionMask = null
+        paintingSelection = false
+        rasterRevision++
     }
 
     /** Whether pixel ([px], [py])'s centre is inside the raster selection on [surface]. */
     private fun inRasterSelection(surface: RasterSurface, px: Int, py: Int): Boolean {
+        val world = surface.worldOf(px + 0.5, py + 0.5)
+        selectionMask?.let { mask ->
+            val mx = kotlin.math.floor((world.x - mask.originX) / mask.pixelWorld).toInt()
+            val my = kotlin.math.floor((world.y - mask.originY) / mask.pixelWorld).toInt()
+            return mask.pixel(mx, my)[3] >= 0.5f
+        }
         val outline = rasterSelection ?: return true
-        return polygonContains(outline, surface.worldOf(px + 0.5, py + 0.5))
+        return polygonContains(outline, world)
     }
 
     private fun selectionPixelBox(surface: RasterSurface): IntArray? {
+        selectionMask?.let { mask ->
+            if (mask.tiles.isEmpty()) return null
+            val xs = mask.tiles.keys.map { RasterSurface.tileX(it) }
+            val ys = mask.tiles.keys.map { RasterSurface.tileY(it) }
+            val min = mask.worldOf((xs.min() * RASTER_TILE).toDouble(), (ys.min() * RASTER_TILE).toDouble())
+            val max = mask.worldOf(((xs.max() + 1) * RASTER_TILE).toDouble(), ((ys.max() + 1) * RASTER_TILE).toDouble())
+            return intArrayOf(
+                kotlin.math.floor((min.x - surface.originX) / surface.pixelWorld).toInt(), kotlin.math.floor((min.y - surface.originY) / surface.pixelWorld).toInt(),
+                kotlin.math.ceil((max.x - surface.originX) / surface.pixelWorld).toInt(), kotlin.math.ceil((max.y - surface.originY) / surface.pixelWorld).toInt(),
+            )
+        }
         val outline = rasterSelection ?: return null
         fun px(x: Double) = (x - surface.originX) / surface.pixelWorld
         fun py(y: Double) = (y - surface.originY) / surface.pixelWorld
@@ -1673,7 +1753,7 @@ class CanvasState(
         val surface = activeRaster ?: return
         val entry = adjustingEntry ?: return
         for ((ref, tile) in entry.rasterLog) if (rasters[ref.first] === surface) surface.setTile(ref.second, tile?.copy())
-        surface.clip = if (rasterSelection != null) { x, y -> inRasterSelection(surface, x, y) } else null
+        surface.clip = if (hasRasterSelection) { x, y -> inRasterSelection(surface, x, y) } else null
         surface.adjust(adjustment)
         surface.clip = null
         rasterRevision++
@@ -1698,11 +1778,14 @@ class CanvasState(
     private var floatingBase = HashMap<Long, RasterTile?>()
     private var floatingOutline: List<WorldPoint> = emptyList()
     private var floatingStart = WorldPoint.Zero
+    private var floatingMaskOrigin: WorldPoint? = null
 
     private fun beginMovingSelectedPixels(at: WorldPoint): Boolean {
         val surface = activeRaster ?: return false
-        val outline = rasterSelection ?: return false
-        if (!polygonContains(outline, at)) return false
+        if (!hasRasterSelection || paintingSelection) return false
+        val outline = rasterSelection
+        val atPixel = surface.pixelOf(at)
+        if (if (outline != null) !polygonContains(outline, at) else !inRasterSelection(surface, atPixel.first, atPixel.second)) return false
         val box = selectionPixelBox(surface) ?: return false
         recordHistory()
         val lifted = HashMap<Pair<Int, Int>, FloatArray>()
@@ -1715,7 +1798,8 @@ class CanvasState(
         surface.clip = null
         floatingPixels = lifted
         floatingBase = HashMap()
-        floatingOutline = outline
+        floatingOutline = outline ?: emptyList()
+        floatingMaskOrigin = selectionMask?.let { WorldPoint(it.originX, it.originY) }
         floatingStart = at
         return true
     }
@@ -1741,7 +1825,15 @@ class CanvasState(
             }
         }
         surface.beforeTileChange = before
-        rasterSelection = floatingOutline.map { WorldPoint(it.x + dx * surface.pixelWorld, it.y + dy * surface.pixelWorld) }
+        val mask = selectionMask
+        val maskOrigin = floatingMaskOrigin
+        if (mask != null && maskOrigin != null) {
+            // The painted selection moves with its pixels.
+            mask.originX = maskOrigin.x + dx * surface.pixelWorld
+            mask.originY = maskOrigin.y + dy * surface.pixelWorld
+        } else {
+            rasterSelection = floatingOutline.map { WorldPoint(it.x + dx * surface.pixelWorld, it.y + dy * surface.pixelWorld) }
+        }
         rasterRevision++
     }
 
@@ -1781,11 +1873,11 @@ class CanvasState(
     private fun rasterDabs(surface: RasterSurface, to: WorldPoint, pressure: Float) {
         val (radius, opacity, hardness) = if (rasterErasing) Triple(eraserRadiusWorld, 1f, 0.9f) else rasterBrush(pressure)
         // A mask is painted in coverage alone: the pen hides fully, whatever the colour.
-        val color = if (editingMask) floatArrayOf(0f, 0f, 0f, 1f) else activeColor.let { floatArrayOf(it.red, it.green, it.blue, it.alpha * activeOpacity.toFloat()) }
+        val color = if (editingMask || paintingSelection) floatArrayOf(0f, 0f, 0f, 1f) else activeColor.let { floatArrayOf(it.red, it.green, it.blue, it.alpha * activeOpacity.toFloat()) }
         val spacing = (radius * RASTER_DAB_SPACING).coerceAtLeast(surface.pixelWorld * 0.5)
         val from = rasterLast ?: to
         val dabs = dabsAlong(from, to, spacing, rasterCarry)
-        val brush = if (editingMask) RasterBrush(tip = rasterBrush.tip) else rasterBrush
+        val brush = if (editingMask || paintingSelection) RasterBrush(tip = rasterBrush.tip) else rasterBrush
         var previous = rasterLastDab ?: from
         for (p in dabs) {
             when {
@@ -1815,8 +1907,9 @@ class CanvasState(
     private fun beginRasterStroke(surface: RasterSurface, at: WorldPoint, pressure: Float, erasing: Boolean) {
         rasterErasing = erasing
         // The selection limits painting; alpha lock keeps coverage (not on a mask, which is all coverage).
-        surface.clip = if (rasterSelection != null) { x, y -> inRasterSelection(surface, x, y) } else null
-        surface.alphaLock = !editingMask && layers.firstOrNull { it.id == activeLayerId }?.alphaLocked == true
+        // Painting the selection itself isn't limited by it.
+        surface.clip = if (hasRasterSelection && !paintingSelection) { x, y -> inRasterSelection(surface, x, y) } else null
+        surface.alphaLock = !editingMask && !paintingSelection && layers.firstOrNull { it.id == activeLayerId }?.alphaLocked == true
         rasterLast = null
         rasterLastDab = null
         wetColor = null
@@ -3843,7 +3936,7 @@ class CanvasState(
         }
         val source = warpSource ?: IntArray(width * height).also { pixels ->
             // Lift: copy the picture (inside the selection, if any) and clear it from the layer.
-            surface.clip = if (rasterSelection != null) { x, y -> inRasterSelection(surface, x, y) } else null
+            surface.clip = if (hasRasterSelection) { x, y -> inRasterSelection(surface, x, y) } else null
             surface.forEachPixelIn(box[0].toDouble(), box[1].toDouble(), box[2].toDouble(), box[3].toDouble()) { tile, index, px, py ->
                 val a = RasterSurface.u16(tile.data[index + 3])
                 if (a > 0) {
@@ -4042,6 +4135,8 @@ class CanvasState(
             lassoPath.clear()
             val rect = marqueeRect
             marqueeRect = null
+            if (paintingSelection) return // the pen and eraser make this selection
+            dropSelectionMask() // a new outline replaces a painted selection
             rasterSelection = when {
                 lasso.size >= 3 -> lasso
                 rect != null && hypot(rect.second.x - rect.first.x, rect.second.y - rect.first.y) * scale > TAP_SLOP_SCREEN ->

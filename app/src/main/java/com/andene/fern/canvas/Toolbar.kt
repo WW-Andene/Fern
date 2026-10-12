@@ -80,6 +80,7 @@ import androidx.compose.material.icons.filled.FlipToBack
 import androidx.compose.material.icons.filled.FlipToFront
 import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.FormatPaint
+import androidx.compose.material.icons.filled.BorderColor
 import androidx.compose.material.icons.filled.Texture
 import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.VerticalSplit
@@ -850,7 +851,17 @@ fun Toolbar(
                         }
                     }
                 }
-                if (state.activeTool == Tool.SELECT && state.rasterSelection != null) {
+                if (state.activeLayerIsRaster && (state.activeTool == Tool.SELECT || state.paintingSelection)) {
+                    // Global selection mask (roadmap item 138): paint the selection with the pen and eraser.
+                    IconButton(onClick = { state.togglePaintingSelection() }) {
+                        Icon(
+                            Icons.Filled.BorderColor,
+                            contentDescription = stringResource(if (state.paintingSelection) R.string.raster_sel_paint_stop else R.string.raster_sel_paint),
+                            tint = if (state.paintingSelection) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
+                }
+                if (state.activeTool == Tool.SELECT && state.hasRasterSelection) {
                     // Raster selection actions (roadmap item 91).
                     IconButton(onClick = { state.deleteRasterSelectionPixels() }) {
                         Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.raster_sel_clear))

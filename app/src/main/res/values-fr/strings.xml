@@ -109,6 +109,8 @@
     <string name="layers_new_raster">Matriciel</string>
     <string name="layers_new_raster_16">Matriciel 16 bits</string>
     <string name="raster_sel_clear">Effacer les pixels sélectionnés</string>
+    <string name="raster_sel_paint">Peindre la sélection (le stylo ajoute, la gomme retire)</string>
+    <string name="raster_sel_paint_stop">Arrêter de peindre la sélection</string>
     <string name="raster_sel_fill">Remplir la sélection</string>
     <string name="raster_sel_copy_layer">Copier la sélection dans un nouveau calque</string>
     <string name="raster_sel_deselect">Désélectionner</string>

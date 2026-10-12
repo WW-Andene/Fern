@@ -109,6 +109,8 @@
     <string name="layers_new_raster">Raster</string>
     <string name="layers_new_raster_16">Raster 16-bit</string>
     <string name="raster_sel_clear">Clear selected pixels</string>
+    <string name="raster_sel_paint">Paint the selection (pen adds, eraser removes)</string>
+    <string name="raster_sel_paint_stop">Stop painting the selection</string>
     <string name="raster_sel_fill">Fill selection</string>
     <string name="raster_sel_copy_layer">Copy selection to a new layer</string>
     <string name="raster_sel_deselect">Deselect</string>

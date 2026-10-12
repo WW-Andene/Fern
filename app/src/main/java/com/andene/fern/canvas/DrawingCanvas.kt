@@ -533,6 +533,17 @@ fun DrawingCanvas(
                 )
             }
 
+            // A painted selection (roadmap item 138): its coverage tinted, the way Krita shows a selection mask.
+            state.selectionMask?.let { mask ->
+                state.rasterRevision // repaint as it's painted
+                val half = hypot(size.width, size.height) / 2f
+                val bounds = Rect(screenCenter - Offset(half, half), screenCenter + Offset(half, half))
+                drawContext.canvas.saveLayer(bounds, Paint().apply { alpha = SELECTION_MASK_ALPHA })
+                drawRaster(mask, state, screenCenter, topLeftWorld, bottomRightWorld)
+                drawRect(SELECTION_MASK_TINT, topLeft = bounds.topLeft, size = bounds.size, blendMode = BlendMode.SrcIn)
+                drawContext.canvas.restore()
+            }
+
             // Raster selection outline: dashed, so it reads over any paint.
             state.rasterSelection?.let { outline ->
                 val path = Path()
@@ -1364,6 +1375,8 @@ private val STICKY_NOTE_COLOR = Color(0xFFFFF59D)
 // Faint enough to read as "the previous drawing" without competing with the current one.
 private const val ONION_SKIN_ALPHA = 0.25f
 private const val AUDIO_AHEAD_ALPHA = 0.2f
+private const val SELECTION_MASK_ALPHA = 0.35f
+private val SELECTION_MASK_TINT = Color(0xFFE53935)
 private const val MAX_SCREEN_FILTER_PX = 256 // a filter layer's reach on screen, zoomed in far
 
 private fun premultiply(c: Int): Int {

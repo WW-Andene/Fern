@@ -80,6 +80,10 @@ class RasterSurface(val depth: Int, val pixelWorld: Double, var originX: Double 
         afterTileChange(key)
     }
 
+    /** The pixel world point [world] falls in. */
+    fun pixelOf(world: WorldPoint): Pair<Int, Int> =
+        floor((world.x - originX) / pixelWorld).toInt() to floor((world.y - originY) / pixelWorld).toInt()
+
     /** A copy sharing tile data but with its own origin, for an export camera that may rebase. */
     fun view(): RasterSurface = RasterSurface(depth, pixelWorld, originX, originY).also { it.tiles.putAll(tiles) }
 
