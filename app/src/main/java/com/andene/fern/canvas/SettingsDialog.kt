@@ -30,6 +30,7 @@ private const val KEY_SNAP_TO_OBJECTS = "snap_to_objects"
 private const val KEY_BRUSH_PRESETS = "brush_presets"
 private const val KEY_HIGH_CONTRAST = "high_contrast"
 private const val KEY_HIDDEN_TOOLBAR_GROUPS = "hidden_toolbar_groups"
+private const val KEY_QUICK_MENU = "quick_menu_actions"
 
 /** App preferences, stored in SharedPreferences so they apply to every document and survive restarts. */
 object AppSettings {
@@ -58,6 +59,18 @@ object AppSettings {
     fun hiddenToolbarGroups(context: Context): Set<ToolbarGroup> =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getStringSet(KEY_HIDDEN_TOOLBAR_GROUPS, emptySet()).orEmpty()
             .mapNotNullTo(HashSet()) { name -> ToolbarGroup.entries.firstOrNull { it.name == name } }
+
+    /** The quick menu's actions (roadmap item 133), in ring order; [DEFAULT_QUICK_MENU] until changed. */
+    fun quickMenuActions(context: Context): List<QuickMenuAction> {
+        val saved = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_QUICK_MENU, null) ?: return DEFAULT_QUICK_MENU
+        // Names no longer in QuickMenuAction (from another version) are dropped.
+        val names = saved.split(',').toSet()
+        return QuickMenuAction.entries.filter { it.name in names }.ifEmpty { DEFAULT_QUICK_MENU }
+    }
+
+    fun setQuickMenuActions(context: Context, value: List<QuickMenuAction>) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString(KEY_QUICK_MENU, value.joinToString(",") { it.name }).apply()
+    }
 
     fun setHiddenToolbarGroups(context: Context, value: Set<ToolbarGroup>) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putStringSet(KEY_HIDDEN_TOOLBAR_GROUPS, value.mapTo(HashSet()) { it.name }).apply()
@@ -182,6 +195,7 @@ fun SettingsDialog(
     onSnapToObjectsChange: (Boolean) -> Unit,
     onShowGuide: () -> Unit,
     onCustomizeToolbar: () -> Unit,
+    onCustomizeQuickMenu: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -218,6 +232,7 @@ fun SettingsDialog(
                     Switch(checked = snapToObjects, onCheckedChange = onSnapToObjectsChange)
                 }
                 TextButton(onClick = onCustomizeToolbar) { Text(stringResource(R.string.settings_customize_toolbar)) }
+                TextButton(onClick = onCustomizeQuickMenu) { Text(stringResource(R.string.quick_menu_customize)) }
                 TextButton(onClick = onShowGuide) { Text(stringResource(R.string.settings_show_guide)) }
             }
         },

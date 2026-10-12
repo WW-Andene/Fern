@@ -209,7 +209,7 @@ Concepts, GoodNotes, Notability, Infinite Painter, Aseprite, Spine and Affinity 
 | 130 | Audio recording with notes | GoodNotes, Notability | 8 | done: recording carries on while drawing; playback fades ink not yet reached and a tap on ink jumps to when it was drawn |
 | 131 | AI over notes | GoodNotes, Notability | 8 | ⏸ |
 | 132 | Usage statistics | Clip Studio | 8 | done: per-document time drawing (idle gaps capped at a minute), strokes drawn, erasures, first and last worked on, and what the document holds; ⋮ > Statistics |
-| 133 | Customisable panels and QuickMenu | Krita, Procreate | 8 | partly (More menu) |
+| 133 | Customisable panels and QuickMenu | Krita, Procreate | 8 | done: toolbar groups shown or hidden (item 71); the quick menu ring holds the actions the user picks (up to 12 of 14) |
 | 134 | Dopesheet and curve editor | Spine | 9 | not started |
 | 135 | Free-form deformation, procedural animation | Spine | 9 | not started |
 | 136 | Game-engine runtimes, texture packer | Spine | 9 | partly (sprite sheet) |

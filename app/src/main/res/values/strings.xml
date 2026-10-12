@@ -396,6 +396,9 @@
     <string name="brush_preview">Brush preview</string>
     <string name="brush_slider_value">%1$s: %2$.2f</string>
     <string name="quick_menu">Quick menu</string>
+    <string name="quick_menu_customize">Customise quick menu</string>
+    <string name="quick_menu_customize_hint">Pick what the quick menu ring holds (up to %1$d).</string>
+    <string name="quick_menu_reset">Reset</string>
     <string name="quick_menu_close">Close quick menu</string>
     <string name="pen_title">Pen</string>
     <string name="quick_shapes">Shapes</string>

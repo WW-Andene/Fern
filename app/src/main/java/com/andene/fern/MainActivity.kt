@@ -107,6 +107,7 @@ import com.andene.fern.canvas.startSelectionDrag
 import com.andene.fern.canvas.QuickMenuButton
 import com.andene.fern.canvas.QuickMenuOverlay
 import com.andene.fern.canvas.PinMeta
+import com.andene.fern.canvas.QuickMenuCustomizeDialog
 import com.andene.fern.canvas.SecondView
 import com.andene.fern.canvas.PinsDialog
 import com.andene.fern.canvas.PresentationControls
@@ -254,6 +255,8 @@ class MainActivity : ComponentActivity() {
                     var leftHanded by remember { mutableStateOf(AppSettings.leftHanded(context)) }
                     var toolbarAtBottom by remember { mutableStateOf(AppSettings.toolbarAtBottom(context)) }
                     var hiddenToolbarGroups by remember { mutableStateOf(AppSettings.hiddenToolbarGroups(context)) }
+                    var quickMenuActions by remember { mutableStateOf(AppSettings.quickMenuActions(context)) }
+                    var showQuickMenuCustomize by remember { mutableStateOf(false) }
                     var showToolbarCustomize by remember { mutableStateOf(false) }
                     var crashReport by remember { mutableStateOf(CrashReporter.pendingReport(context)) }
                     var presentingIndex by remember { mutableStateOf<Int?>(null) } // non-null = presenting that frame
@@ -1104,7 +1107,7 @@ class MainActivity : ComponentActivity() {
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(12.dp),
                             )
-                            if (showQuickMenu) QuickMenuOverlay(state = canvasState, onDismiss = { showQuickMenu = false })
+                            if (showQuickMenu) QuickMenuOverlay(state = canvasState, onDismiss = { showQuickMenu = false }, actions = quickMenuActions)
                             if (loadingDocument) DocumentLoadingOverlay()
                         }
                     }
@@ -1288,7 +1291,23 @@ class MainActivity : ComponentActivity() {
                                 showSettings = false
                                 showToolbarCustomize = true
                             },
+                            onCustomizeQuickMenu = {
+                                showSettings = false
+                                showQuickMenuCustomize = true
+                            },
                             onDismiss = { showSettings = false },
+                        )
+                    }
+
+                    if (showQuickMenuCustomize) {
+                        QuickMenuCustomizeDialog(
+                            chosen = quickMenuActions,
+                            onChange = { value ->
+                                quickMenuActions = value
+                                AppSettings.setQuickMenuActions(context, value)
+                            },
+                            state = canvasState,
+                            onDismiss = { showQuickMenuCustomize = false },
                         )
                     }
 
