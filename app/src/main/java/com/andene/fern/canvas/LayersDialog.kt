@@ -128,7 +128,11 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(onClick = { state.addLayer() }) { Text("New layer") }
+            Row {
+                TextButton(onClick = { state.deleteEmptyLayers() }) { Text("Remove empty") }
+                TextButton(onClick = { state.deleteHiddenLayers() }) { Text("Delete hidden") }
+                TextButton(onClick = { state.addLayer() }) { Text("New layer") }
+            }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Close") }

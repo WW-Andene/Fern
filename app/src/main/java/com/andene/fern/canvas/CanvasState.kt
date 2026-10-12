@@ -442,6 +442,29 @@ class CanvasState(
         onLayersChanged(layers.toList())
     }
 
+    /** Removes layers with no strokes in any animation frame, keeping at least one layer. */
+    fun deleteEmptyLayers() {
+        val used = strokes.map { it.layerId }.toSet()
+        val keep = layers.filter { it.id in used }.ifEmpty { listOf(layers.first()) }
+        if (keep.size == layers.size) return
+        layers.retainAll(keep.toSet())
+        if (layers.none { it.id == activeLayerId }) activeLayerId = layers.last().id
+        onLayersChanged(layers.toList())
+    }
+
+    /** Deletes every hidden layer and its strokes (undoable for the strokes), keeping at least one layer. */
+    fun deleteHiddenLayers() {
+        val hidden = layers.filter { !it.visible }.map { it.id }.toSet()
+        if (hidden.isEmpty() || hidden.size == layers.size) return
+        recordHistory()
+        clearSelectionState()
+        strokes.removeAll { it.layerId in hidden }
+        layers.removeAll { it.id in hidden }
+        if (activeLayerId in hidden) activeLayerId = layers.last().id
+        onChanged(strokes.toList())
+        onLayersChanged(layers.toList())
+    }
+
     /** Moves every stroke of a layer onto the layer below it, then removes the emptied layer. */
     fun mergeLayerDown(id: String) {
         val index = layers.indexOfFirst { it.id == id }
