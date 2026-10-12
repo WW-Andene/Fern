@@ -372,6 +372,11 @@
     <string name="tb_ik_off">Cinématique inverse : désactivée</string>
     <string name="tb_export_lottie">Animation Lottie (JSON)</string>
     <string name="xsheet_title">Feuille d\'exposition (durée des images)</string>
+    <string name="xsheet_add_soundtrack">Ajouter une bande son</string>
+    <string name="xsheet_replace_soundtrack">Remplacer la bande son</string>
+    <string name="xsheet_remove_soundtrack">Retirer la bande son</string>
+    <string name="xsheet_auto_lipsync">Synchro labiale du son</string>
+    <string name="xsheet_mouth">Bouche de l\'image %1$d</string>
     <string name="xsheet_frame">Image %1$d</string>
     <string name="xsheet_hold">×%1$d</string>
     <string name="xsheet_shorter">Tenue plus courte, image %1$d</string>

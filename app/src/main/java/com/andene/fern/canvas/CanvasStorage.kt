@@ -178,6 +178,7 @@ object CanvasStorage {
         textItemsFile(context, id).delete()
         connectorsFile(context, id).delete()
         bonesFile(context, id).delete()
+        loadAnimationSettings(context, id).soundtrack?.let { deleteSoundtrack(context, it) }
         animationFile(context, id).delete()
         imageItemsFile(context, id).delete()
         backgroundFile(context, id).delete()
@@ -210,7 +211,11 @@ object CanvasStorage {
         saveTextItems(context, meta.id, textItems)
         saveConnectors(context, meta.id, connectors)
         saveBones(context, meta.id, bones)
-        saveAnimationSettings(context, meta.id, animation)
+        // The copy gets its own soundtrack file, so deleting either document leaves the other's.
+        val soundtrack = animation.soundtrack?.let { name ->
+            soundtrackFile(context, name).inputStream().use { importSoundtrack(context, it, name.substringAfterLast('.', ""), replacing = null) }
+        }
+        saveAnimationSettings(context, meta.id, animation.copy(soundtrack = soundtrack))
         saveImageItems(context, meta.id, imageItems)
         saveBackground(context, meta.id, backgroundColor, backgroundStyle)
         if (layers.isNotEmpty()) saveLayers(context, meta.id, layers)
@@ -351,20 +356,56 @@ object CanvasStorage {
         }
     }
 
-    /** Saves the playback speed and X-sheet holds (roadmap item 88). */
+    /**
+     * Copies an audio file into app storage as a soundtrack (roadmap item 88) and returns the
+     * stored file's name, or null if it couldn't be read. The previous soundtrack [replacing], if
+     * any, is deleted.
+     */
+    fun importSoundtrack(context: Context, input: java.io.InputStream, extension: String, replacing: String?): String? {
+        val name = "soundtrack_${java.util.UUID.randomUUID()}.${extension.filter { it.isLetterOrDigit() }.take(8).ifEmpty { "audio" }}"
+        val file = soundtrackFile(context, name)
+        return runCatching {
+            file.outputStream().use { input.copyTo(it) }
+            replacing?.let { deleteSoundtrack(context, it) }
+            name
+        }.getOrElse {
+            file.delete()
+            null
+        }
+    }
+
+    fun deleteSoundtrack(context: Context, name: String) {
+        soundtrackFile(context, name).delete()
+    }
+
+    /** Where soundtrack [name] is stored; names are only ever ones [importSoundtrack] made. */
+    fun soundtrackFile(context: Context, name: String): File = File(File(context.filesDir, "soundtracks").apply { mkdirs() }, File(name).name)
+
+    /** Saves the playback speed, X-sheet holds, mouth chart and soundtrack (roadmap item 88). */
     fun saveAnimationSettings(context: Context, documentId: String, settings: AnimationSettings) {
         val holds = JSONObject()
         for ((frame, hold) in settings.holds) holds.put(frame.toString(), hold)
-        writeStored(animationFile(context, documentId), JSONObject().put("fps", settings.fps).put("holds", holds))
+        val mouths = JSONObject()
+        for ((frame, mouth) in settings.mouths) mouths.put(frame.toString(), mouth.name)
+        writeStored(
+            animationFile(context, documentId),
+            JSONObject().put("fps", settings.fps).put("holds", holds).put("mouths", mouths).apply { settings.soundtrack?.let { put("soundtrack", it) } },
+        )
     }
 
     /** The saved timing, or the defaults (12 fps, no holds) for a document from before it was saved. */
     fun loadAnimationSettings(context: Context, documentId: String): AnimationSettings {
         val root = readStored(animationFile(context, documentId)) { it as JSONObject } ?: return AnimationSettings()
         val holds = root.optJSONObject("holds")
+        val mouths = root.optJSONObject("mouths")
         return AnimationSettings(
             root.optInt("fps", 12).coerceIn(1, 60),
             holds?.keys()?.asSequence()?.mapNotNull { key -> key.toIntOrNull()?.let { it to holds.optInt(key, 1).coerceIn(1, CanvasState.MAX_FRAME_HOLD) } }?.toMap().orEmpty(),
+            mouths?.keys()?.asSequence()?.mapNotNull { key ->
+                val frame = key.toIntOrNull() ?: return@mapNotNull null
+                MouthShape.entries.firstOrNull { it.name == mouths.optString(key) }?.let { frame to it }
+            }?.toMap().orEmpty(),
+            root.optString("soundtrack").ifEmpty { null }?.takeIf { soundtrackFile(context, it).exists() },
         )
     }
 

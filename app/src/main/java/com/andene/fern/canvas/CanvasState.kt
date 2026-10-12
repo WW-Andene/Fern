@@ -392,20 +392,61 @@ class CanvasState(
         onAnimationSettingsChanged(animationSettings())
     }
 
-    fun animationSettings() = AnimationSettings(animFps, frameHolds.toMap())
+    /**
+     * The X-sheet's mouth chart (roadmap item 88): the mouth shape each frame shows for lip-sync,
+     * filled by hand or from the soundtrack ([LipSync]). Frames without one aren't listed.
+     */
+    val frameMouths = mutableStateMapOf<Int, MouthShape>()
+
+    /** Sets (or with null clears) frame [frame]'s mouth shape. */
+    fun setMouth(frame: Int, mouth: MouthShape?) {
+        if (mouth == null) frameMouths.remove(frame) else frameMouths[frame] = mouth
+        onAnimationSettingsChanged(animationSettings())
+    }
+
+    /** Replaces the whole mouth chart, e.g. with one worked out from the soundtrack. */
+    fun setMouths(mouths: Map<Int, MouthShape>) {
+        frameMouths.clear()
+        frameMouths.putAll(mouths)
+        onAnimationSettingsChanged(animationSettings())
+    }
+
+    /**
+     * The animation's soundtrack: an audio file in app storage (see [CanvasStorage.importSoundtrack])
+     * played in step with playback from the frame it starts on; null when there's none.
+     */
+    var soundtrack by mutableStateOf<String?>(null)
+        private set
+
+    fun setSoundtrackFile(fileName: String?) {
+        soundtrack = fileName
+        onAnimationSettingsChanged(animationSettings())
+    }
+
+    /** When frame [frame] starts, in milliseconds from the first frame, following the X-sheet holds. */
+    fun frameStartMillis(frame: Int): Long = (0 until frame).sumOf { holdOf(it).toLong() } * 1000L / animFps
+
+    fun animationSettings() = AnimationSettings(animFps, frameHolds.toMap(), frameMouths.toMap(), soundtrack)
 
     /** Applies settings read from storage, without reporting them back. */
     fun loadAnimationSettings(settings: AnimationSettings) {
         animFpsState = settings.fps
         frameHolds.clear()
         frameHolds.putAll(settings.holds.filterValues { it > 1 })
+        frameMouths.clear()
+        frameMouths.putAll(settings.mouths)
+        soundtrack = settings.soundtrack
     }
 
     private fun shiftHolds(from: Int, by: Int) {
-        if (frameHolds.isEmpty()) return
+        if (frameHolds.isEmpty() && frameMouths.isEmpty()) return
         val moved = frameHolds.entries.associate { (frame, hold) -> (if (frame >= from) frame + by else frame) to hold }
         frameHolds.clear()
         frameHolds.putAll(moved)
+        // The mouth chart moves with its frames too.
+        val mouths = frameMouths.entries.associate { (frame, mouth) -> (if (frame >= from) frame + by else frame) to mouth }
+        frameMouths.clear()
+        frameMouths.putAll(mouths)
         onAnimationSettingsChanged(animationSettings())
     }
 
@@ -574,7 +615,8 @@ class CanvasState(
             shiftBoneFrames(from = removed + 1, by = -1)
             onBonesChanged(bones.toList())
         }
-        if (frameHolds.remove(removed) != null) onAnimationSettingsChanged(animationSettings())
+        val hadHold = frameHolds.remove(removed) != null
+        if (frameMouths.remove(removed) != null || hadHold) onAnimationSettingsChanged(animationSettings())
         shiftHolds(from = removed + 1, by = -1)
         animFrameCount--
         currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
@@ -3827,7 +3869,12 @@ class CanvasState(
 }
 
 /** A document's animation timing (saved per document): playback speed and the X-sheet's holds. */
-data class AnimationSettings(val fps: Int = 12, val holds: Map<Int, Int> = emptyMap())
+data class AnimationSettings(
+    val fps: Int = 12,
+    val holds: Map<Int, Int> = emptyMap(),
+    val mouths: Map<Int, MouthShape> = emptyMap(),
+    val soundtrack: String? = null,
+)
 
 // Changed strokes tested directly before [CanvasState.strokesNear] rebuilds its index instead.
 private const val MAX_INDEX_PATCH = 4096

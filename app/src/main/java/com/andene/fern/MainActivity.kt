@@ -42,6 +42,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.DisposableEffect
+import kotlinx.coroutines.flow.drop
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -746,6 +749,32 @@ class MainActivity : ComponentActivity() {
                         while (canvasState.playing) {
                             delay(1000L / PowerMonitor.playbackFps(canvasState.animFps, powerMonitor.constrained))
                             canvasState.advanceAnimFrame()
+                        }
+                    }
+                    // The soundtrack plays along from the frame playback starts on, and starts over
+                    // whenever the animation loops back to its first frame (roadmap item 88).
+                    val soundtrackName = canvasState.soundtrack
+                    var soundtrackRestart by remember { mutableIntStateOf(0) }
+                    DisposableEffect(canvasState.playing, soundtrackName, soundtrackRestart) {
+                        val player = if (canvasState.playing && soundtrackName != null) {
+                            runCatching {
+                                android.media.MediaPlayer().apply {
+                                    setDataSource(CanvasStorage.soundtrackFile(context, soundtrackName).path)
+                                    prepare()
+                                    seekTo(canvasState.frameStartMillis(canvasState.currentAnimFrame).toInt())
+                                    start()
+                                }
+                            }.getOrNull()
+                        } else {
+                            null
+                        }
+                        onDispose { player?.release() }
+                    }
+                    LaunchedEffect(canvasState.playing, soundtrackName) {
+                        if (!canvasState.playing || soundtrackName == null) return@LaunchedEffect
+                        // drop(1): the frame playback started on is already where the player began.
+                        snapshotFlow { canvasState.currentAnimFrame }.drop(1).collect { frame ->
+                            if (frame == 0) soundtrackRestart++
                         }
                     }
 

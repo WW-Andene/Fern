@@ -144,7 +144,7 @@ All deferred: they need a server or cloud platform.
 - [x] 85. Inverse kinematics: dragging a limb's end pulls its chain (up to four bones, CCD solver) so the tip follows the finger; per-joint angle limits (kept by IK and by hand-turning); dynamic bones simulated as damped springs across the animation for follow-through (lag, overshoot, settle)
 - [x] 86. Skins and animation blending — layers can belong to a named skin (an alternative look on the same rig), chosen in the layers panel; a frame's pose can be blended with another frame's at any weight, its ink following each bone
 - [x] 87. Lottie export (frame by frame, vector, checked by rendering with an independent Lottie library); Spine export (skeleton JSON + an image per bone, animation keyed per frame) and import (bones and their animation, posed frame by frame); DragonBones export (armature, texture atlas, animation). Imported skeletons bring bones only: attachments are images, which can't bind to bones
-- [~] 88. X-sheet: per-frame holds (playback, GIF, APNG and Lottie follow them; saved with the fps, undoable); no audio track or lip-sync yet
+- [x] 88. X-sheet: per-frame holds (playback, GIF, APNG and Lottie follow them; saved with the fps, undoable); a soundtrack played in step with playback; a mouth chart (Preston Blair shapes) per frame for lip-sync, by hand or filled from the soundtrack's loudness (decoding needs a device; videos are still exported silent)
 
 ## Phase 10 — Raster painting
 

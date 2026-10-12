@@ -370,6 +370,11 @@
     <string name="tb_ik_off">Inverse kinematics: off</string>
     <string name="tb_export_lottie">Lottie animation (JSON)</string>
     <string name="xsheet_title">Exposure sheet (frame timing)</string>
+    <string name="xsheet_add_soundtrack">Add soundtrack</string>
+    <string name="xsheet_replace_soundtrack">Replace soundtrack</string>
+    <string name="xsheet_remove_soundtrack">Remove soundtrack</string>
+    <string name="xsheet_auto_lipsync">Lip-sync from sound</string>
+    <string name="xsheet_mouth">Mouth for frame %1$d</string>
     <string name="xsheet_frame">Frame %1$d</string>
     <string name="xsheet_hold">×%1$d</string>
     <string name="xsheet_shorter">Shorter hold, frame %1$d</string>
