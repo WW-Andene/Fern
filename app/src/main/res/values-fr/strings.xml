@@ -384,4 +384,6 @@
     <string name="symbols_delete">Supprimer le symbole %1$s</string>
     <string name="symbols_name">Nom de la sélection</string>
     <string name="symbols_default_name">Symbole %1$d</string>
+    <string name="tb_trace_image">Vectoriser l\'image en formes</string>
+    <string name="toast_trace_nothing">Aucune forme sombre à vectoriser</string>
 </resources>

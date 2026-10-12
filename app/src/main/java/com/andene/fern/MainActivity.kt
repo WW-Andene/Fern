@@ -2,6 +2,8 @@
 
 package com.andene.fern
 
+import com.andene.fern.canvas.traceImage
+import com.andene.fern.canvas.TRACE_MAX_EDGE_PX
 import java.time.format.TextStyle as JavaTextStyle
 import java.time.temporal.WeekFields
 import java.util.Locale
@@ -460,6 +462,26 @@ class MainActivity : ComponentActivity() {
 
                     // Drag and drop to other windows (roadmap item 75): the same clip as a copy,
                     // started once the picture is rendered if the finger is still down by then.
+                    // Image trace (roadmap item 101): decoded at most TRACE_MAX_EDGE_PX on its long edge, traced off the main thread.
+                    fun traceSelectedImage() {
+                        val image = canvasState.imageItems.firstOrNull { it.id == canvasState.selectedImageId } ?: return
+                        coroutineScope.launch {
+                            val traced = withContext(Dispatchers.Default) {
+                                val file = CanvasStorage.imageFile(context, image.fileName).absolutePath
+                                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }.also { BitmapFactory.decodeFile(file, it) }
+                                var sample = 1
+                                while (maxOf(bounds.outWidth, bounds.outHeight) / sample > TRACE_MAX_EDGE_PX * 2) sample *= 2
+                                val decoded = BitmapFactory.decodeFile(file, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return@withContext null
+                                val scale = minOf(1f, TRACE_MAX_EDGE_PX.toFloat() / maxOf(decoded.width, decoded.height))
+                                val bitmap = Bitmap.createScaledBitmap(decoded, maxOf(1, (decoded.width * scale).toInt()), maxOf(1, (decoded.height * scale).toInt()), true)
+                                val pixels = IntArray(bitmap.width * bitmap.height).also { bitmap.getPixels(it, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height) }
+                                Triple(traceImage(pixels, bitmap.width, bitmap.height), bitmap.width, bitmap.height)
+                            } ?: return@launch
+                            if (traced.first.isEmpty()) Toast.makeText(context, context.getString(R.string.toast_trace_nothing), Toast.LENGTH_SHORT).show()
+                            else canvasState.addTracedImage(image, traced.first, traced.second, traced.third)
+                        }
+                    }
+
                     val view = LocalView.current
                     fun dragSelectionOut() {
                         val strokes = canvasState.selectionForClipboard()
@@ -741,6 +763,7 @@ class MainActivity : ComponentActivity() {
                                 onOpenSettings = { showSettings = true },
                                 onCopySelection = { copySelectionToClipboard() },
                                 onDragSelectionOut = { dragSelectionOut() },
+                                onTraceImage = { traceSelectedImage() },
                                 onPaste = { pasteFromClipboard() },
                                 onOpenAudioNotes = {
                                     val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED

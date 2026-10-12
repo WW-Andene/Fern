@@ -382,4 +382,6 @@
     <string name="symbols_delete">Delete symbol %1$s</string>
     <string name="symbols_name">Name for the selection</string>
     <string name="symbols_default_name">Symbol %1$d</string>
+    <string name="tb_trace_image">Trace the image into shapes</string>
+    <string name="toast_trace_nothing">No dark shapes found to trace</string>
 </resources>

@@ -3000,6 +3000,28 @@ class CanvasState(
         strokesChanged()
     }
 
+    /**
+     * Adds an image's traced shapes (roadmap item 101) as filled strokes in the active colour,
+     * laid over the image they came from: [outlines] are in the traced pixel grid of
+     * [pixelWidth] x [pixelHeight], stretched onto [image]'s place. They're selected, ready to
+     * move or recolour; the image stays (delete it to keep only the vector). One undo step.
+     */
+    fun addTracedImage(image: ImageItem, outlines: List<List<WorldPoint>>, pixelWidth: Int, pixelHeight: Int) {
+        if (outlines.isEmpty() || !activeLayerEditable || pixelWidth <= 0 || pixelHeight <= 0) return
+        recordHistory()
+        val sx = image.widthWorld / pixelWidth
+        val sy = image.heightWorld / pixelHeight
+        val traced = outlines.map { loop ->
+            Stroke(activeColor, 0.0, PenType.MARKER, filled = true, layerId = activeLayerId, animFrame = currentAnimFrame).apply {
+                for (p in loop) addPoint(WorldPoint(image.position.x + p.x * sx, image.position.y + p.y * sy))
+            }
+        }
+        strokes.addAll(traced)
+        clearSelectionState()
+        selection.addAll(traced)
+        strokesChanged()
+    }
+
     fun deleteSelection() {
         val textId = selectedTextId
         if (textId != null) {

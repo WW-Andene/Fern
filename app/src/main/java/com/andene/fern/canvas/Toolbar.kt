@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.AutoFixHigh
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -189,6 +190,8 @@ fun Toolbar(
     onPaste: () -> Unit = {},
     /** Start dragging the selection to another window; called as a drag begins on its handle. */
     onDragSelectionOut: () -> Unit = {},
+    /** Trace the selected image into vector shapes (roadmap item 101). */
+    onTraceImage: () -> Unit = {},
 ) {
     val dragOutLabel = stringResource(R.string.tb_drag_out)
     var showExportMenu by remember { mutableStateOf(false) }
@@ -739,6 +742,11 @@ fun Toolbar(
                     }
                 }
                 if (state.activeTool == Tool.SELECT) {
+                    if (state.selectedImageId != null) {
+                        IconButton(onClick = onTraceImage) {
+                            Icon(Icons.Filled.AutoFixHigh, contentDescription = stringResource(R.string.tb_trace_image))
+                        }
+                    }
                     IconButton(onClick = { state.selectAllOnActiveLayer() }) {
                         Icon(Icons.Filled.ViewModule, contentDescription = stringResource(R.string.tb_select_layer))
                     }
