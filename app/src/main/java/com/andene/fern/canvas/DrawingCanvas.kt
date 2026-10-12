@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import androidx.input.motionprediction.MotionEventPredictor
@@ -162,7 +163,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                             Tool.ERASER -> state.endErase()
                             Tool.SHAPE -> state.endShape()
                             Tool.FILL -> {} // one-shot on pointer-down, nothing to end
-                            Tool.TEXT -> {} // one-shot on pointer-down, nothing to end
+                            Tool.TEXT -> state.endTextGesture()
                             Tool.EYEDROPPER -> {} // one-shot on pointer-down, nothing to end
                             Tool.RULER -> state.endRulerGesture()
                             Tool.SELECT -> when (selectionGestureKind) {
@@ -221,7 +222,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                     Tool.ERASER -> state.beginErase(world)
                                     Tool.SHAPE -> state.beginShape(world)
                                     Tool.FILL -> state.fillAt(world)
-                                    Tool.TEXT -> state.beginTextEdit(world)
+                                    Tool.TEXT -> state.beginTextGesture(world)
                                     Tool.EYEDROPPER -> state.pickColorAt(world)
                                     Tool.RULER -> state.beginRulerGesture(world)
                                     Tool.SELECT -> {
@@ -252,7 +253,7 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                                         Tool.ERASER -> state.continueErase(world)
                                         Tool.SHAPE -> state.continueShape(world)
                                         Tool.FILL -> {} // one-shot; ignore drag
-                                        Tool.TEXT -> {} // one-shot; ignore drag
+                                        Tool.TEXT -> state.continueTextGesture(world)
                                         Tool.EYEDROPPER -> {} // one-shot; ignore drag
                                         Tool.RULER -> state.continueRulerGesture(world)
                                         Tool.SELECT -> when (selectionGestureKind) {
@@ -265,7 +266,9 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                             }
                             pointers[0].consume()
                         } else {
-                            if (mode == Mode.DRAW) endActiveDrawAction()
+                            // A second finger turns a text tap into a pinch: don't open the text dialog for it.
+                            if (mode == Mode.DRAW && state.activeTool == Tool.TEXT) state.cancelTextGesture()
+                            else if (mode == Mode.DRAW) endActiveDrawAction()
                             val centroid = pointers.fold(Offset.Zero) { acc, c -> acc + c.position } / count.toFloat()
                             val span = pointers.fold(0f) { acc, c -> acc + hypot((c.position.x - centroid.x), (c.position.y - centroid.y)) } / count.toFloat()
                             // Angle of the first two fingers; its change frame to frame rotates the canvas.
@@ -444,6 +447,17 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                 drawPath(lasso, color = MARQUEE_BORDER_COLOR, style = DrawStyle(width = 2f))
             }
 
+            state.textBoxDraft?.let { (start, end) ->
+                val a = state.worldToScreen(start, screenCenter)
+                val b = state.worldToScreen(end, screenCenter)
+                drawRect(
+                    color = MARQUEE_BORDER_COLOR,
+                    topLeft = Offset(minOf(a.x, b.x), minOf(a.y, b.y)),
+                    size = Size(abs(b.x - a.x), abs(b.y - a.y)),
+                    style = DrawStyle(width = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))),
+                )
+            }
+
             state.shapePreview?.let { (start, end) ->
                 val screenPoints = generateShapePoints(state.activeShapeKind, start, end).map { state.worldToScreen(it, screenCenter) }
                 val rawWidthScreen = state.activeWidthWorld
@@ -482,12 +496,8 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
 
     state.pendingTextEdit?.let { pending ->
         TextEditDialog(
-            initialText = pending.initialText,
-            initialBold = pending.initialBold,
-            initialItalic = pending.initialItalic,
-            initialSticky = pending.initialSticky,
-            initialSizePx = pending.initialSizePx,
-            onConfirm = { text, bold, italic, sticky, sizePx -> state.confirmTextEdit(text, bold, italic, sticky, sizePx) },
+            pending = pending,
+            onConfirm = { r -> state.confirmTextEdit(r.text, r.bold, r.italic, r.sticky, r.sizePx, r.font, r.alignment, r.keepBox) },
             onDismiss = { state.cancelTextEdit() },
         )
     }
@@ -945,6 +955,9 @@ private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
 private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
 private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
+// Widest a text box is laid out on screen; beyond this (deep zoom) the box is cropped to it.
+private const val MAX_TEXT_BOX_PX = 65536.0
+
 // Classic sticky-note yellow.
 private val STICKY_NOTE_COLOR = Color(0xFFFFF59D)
 
@@ -1104,12 +1117,21 @@ internal fun DrawScope.drawScene(
         val fontSizePx = (item.fontSizeWorld * state.scale)
         if (!fontSizePx.isFinite() || fontSizePx <= 0.0) continue
         val fontSizeSp = fontSizePx.toFloat().toSp() // DrawScope is a Density
-        val layout = textMeasurer.measure(text = item.text, style = TextStyle(
+        // A boxed label lays out at exactly its box width (so wrapping and alignment are within the
+        // box); capped because layout constraints can't hold an arbitrarily large zoomed-in width.
+        val boxPx = item.boxWidthWorld?.let { (it * state.scale).coerceIn(1.0, MAX_TEXT_BOX_PX).toInt() }
+        val layout = textMeasurer.measure(
+            text = item.text,
+            style = TextStyle(
                 color = item.color,
                 fontSize = fontSizeSp,
                 fontWeight = if (item.bold) FontWeight.Bold else FontWeight.Normal,
                 fontStyle = if (item.italic) FontStyle.Italic else FontStyle.Normal,
-            ))
+                fontFamily = item.font.fontFamily,
+                textAlign = item.alignment.textAlign,
+            ),
+            constraints = if (boxPx != null) Constraints.fixedWidth(boxPx) else Constraints(),
+        )
         if (item.sticky) {
             // The note extends half a line around the text, like paper around handwriting.
             val pad = layout.size.height / 2f

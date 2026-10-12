@@ -296,6 +296,10 @@ object CanvasStorage {
                     bold = entry.optBoolean("bold", false),
                     italic = entry.optBoolean("italic", false),
                     sticky = entry.optBoolean("sticky", false),
+                    // Labels saved before fonts, alignment and text boxes: sans, left, no box.
+                    font = enumOrDefault(entry.optString("font"), TextFont.SANS),
+                    alignment = enumOrDefault(entry.optString("align"), TextAlignment.START),
+                    boxWidthWorld = if (entry.has("boxWidth")) entry.getDouble("boxWidth") else null,
                 )
             )
         }
@@ -316,6 +320,9 @@ object CanvasStorage {
                     put("bold", item.bold)
                     put("italic", item.italic)
                     put("sticky", item.sticky)
+                    put("font", item.font.name)
+                    put("align", item.alignment.name)
+                    item.boxWidthWorld?.let { put("boxWidth", it) }
                 }
             )
         }

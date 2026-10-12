@@ -60,13 +60,30 @@ fun exportDocumentSvg(source: CanvasState, imageBytesFor: (String) -> ByteArray?
     }
 
     for (item in camera.textItems) {
-        // SVG text is positioned by its baseline; the canvas anchors text at its top-left.
+        // SVG text is positioned by its baseline; the canvas anchors text at its top-left. Each
+        // line is its own tspan at 1.3 em spacing (the canvas's approximate line height).
+        // Alignment anchors to the box's edges or centre when there is a box, otherwise to the
+        // label's left edge. SVG 1.1 has no automatic wrapping, so a boxed label's text keeps
+        // only its own line breaks here - the one way this export differs from the canvas.
         val baseline = item.position.y + item.fontSizeWorld
-        svg.append("""<text x="${n(item.position.x)}" y="${n(baseline)}" font-size="${n(item.fontSizeWorld)}" """)
-        svg.append("""fill="${hex(item.color)}" font-family="sans-serif"""")
+        val box = item.boxWidthWorld
+        val x = when {
+            box == null -> item.position.x
+            item.alignment == TextAlignment.CENTER -> item.position.x + box / 2
+            item.alignment == TextAlignment.END -> item.position.x + box
+            else -> item.position.x
+        }
+        svg.append("""<text x="${n(x)}" y="${n(baseline)}" font-size="${n(item.fontSizeWorld)}" """)
+        svg.append("""fill="${hex(item.color)}" font-family="${item.font.svgFamily}"""")
+        if (box != null) svg.append(""" text-anchor="${item.alignment.svgAnchor}"""")
         if (item.bold) svg.append(""" font-weight="bold"""")
         if (item.italic) svg.append(""" font-style="italic"""")
-        svg.append(""">${escapeXml(item.text)}</text>""").append('\n')
+        svg.append(">")
+        item.text.split('\n').forEachIndexed { i, line ->
+            val dy = if (i == 0) "0" else n(item.fontSizeWorld * 1.3)
+            svg.append("""<tspan x="${n(x)}" dy="$dy">${escapeXml(line)}</tspan>""")
+        }
+        svg.append("</text>").append('\n')
     }
     svg.append("</svg>\n")
     return svg.toString()

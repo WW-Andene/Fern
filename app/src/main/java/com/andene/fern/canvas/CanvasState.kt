@@ -668,7 +668,17 @@ class CanvasState(
         val initialSticky: Boolean = false,
         /** On-screen text size in px at the current zoom. */
         val initialSizePx: Double = 24.0,
+        val initialFont: TextFont = TextFont.SANS,
+        val initialAlignment: TextAlignment = TextAlignment.START,
+        /** The text box width (world units) the label will get, or null for no box; see [TextItem.boxWidthWorld]. */
+        val boxWidthWorld: Double? = null,
     )
+
+    /** While dragging out a text box with the TEXT tool: its opposite corners, for the preview outline. */
+    var textBoxDraft: Pair<WorldPoint, WorldPoint>? by mutableStateOf(null)
+        private set
+
+    private var textGestureStart: WorldPoint? = null
 
     var pendingTextEdit: PendingTextEdit? by mutableStateOf(null)
         private set
@@ -1187,10 +1197,49 @@ class CanvasState(
      * editing whatever label already sits at [worldPoint] (per [findTextItemAt]), or a fresh
      * one to be placed there.
      */
+    /**
+     * TEXT tool gesture: a tap places (or edits) a label where it lands; a drag past the tap slop
+     * draws out a text box instead, whose width the new label's text wraps to - the text-box
+     * convention of drawing and whiteboard apps. The dialog opens when the finger lifts.
+     */
+    fun beginTextGesture(worldPoint: WorldPoint) {
+        textGestureStart = worldPoint
+        textBoxDraft = null
+    }
+
+    fun continueTextGesture(worldPoint: WorldPoint) {
+        val start = textGestureStart ?: return
+        val movedScreen = hypot(worldPoint.x - start.x, worldPoint.y - start.y) * scale
+        if (textBoxDraft != null || movedScreen > TAP_SLOP_SCREEN) textBoxDraft = start to worldPoint
+    }
+
+    fun endTextGesture() {
+        val start = textGestureStart ?: return
+        textGestureStart = null
+        val box = textBoxDraft
+        textBoxDraft = null
+        if (box == null) {
+            beginTextEdit(start)
+            return
+        }
+        val (a, b) = box
+        val topLeft = WorldPoint(minOf(a.x, b.x), minOf(a.y, b.y))
+        pendingTextEdit = PendingTextEdit(null, topLeft, "", initialSizePx = activeTextSizeWorld, boxWidthWorld = abs(b.x - a.x))
+    }
+
+    /** Abandons a TEXT gesture that turned into something else (e.g. a second finger landed to pinch). */
+    fun cancelTextGesture() {
+        textGestureStart = null
+        textBoxDraft = null
+    }
+
     fun beginTextEdit(worldPoint: WorldPoint) {
         val existing = findTextItemAt(worldPoint)
         pendingTextEdit = if (existing != null) {
-            PendingTextEdit(existing.id, existing.position, existing.text, existing.bold, existing.italic, existing.sticky, existing.fontSizeWorld * scale)
+            PendingTextEdit(
+                existing.id, existing.position, existing.text, existing.bold, existing.italic, existing.sticky,
+                existing.fontSizeWorld * scale, existing.font, existing.alignment, existing.boxWidthWorld,
+            )
         } else {
             PendingTextEdit(null, worldPoint, "", initialSizePx = activeTextSizeWorld)
         }
@@ -1201,7 +1250,17 @@ class CanvasState(
      * if this was a fresh placement), otherwise creates a new label or updates the edited
      * one's text in place.
      */
-    fun confirmTextEdit(text: String, bold: Boolean = false, italic: Boolean = false, sticky: Boolean = false, sizePx: Double = activeTextSizeWorld) {
+    fun confirmTextEdit(
+        text: String,
+        bold: Boolean = false,
+        italic: Boolean = false,
+        sticky: Boolean = false,
+        sizePx: Double = activeTextSizeWorld,
+        font: TextFont = TextFont.SANS,
+        alignment: TextAlignment = TextAlignment.START,
+        /** False drops the pending box, so the label becomes a plain one without wrapping. */
+        keepBox: Boolean = true,
+    ) {
         // The chosen size also becomes the default for the next new label.
         activeTextSizeWorld = sizePx
         val fontSizeWorld = sizePx / scale.coerceAtLeast(1e-300)
@@ -1214,9 +1273,13 @@ class CanvasState(
             }
             return
         }
+        val boxWidthWorld = if (keepBox) pending.boxWidthWorld else null
         val existingIndex = pending.id?.let { id -> textItems.indexOfFirst { it.id == id } } ?: -1
         if (existingIndex != -1) {
-            textItems[existingIndex] = textItems[existingIndex].copy(text = text, bold = bold, italic = italic, sticky = sticky, fontSizeWorld = fontSizeWorld)
+            textItems[existingIndex] = textItems[existingIndex].copy(
+                text = text, bold = bold, italic = italic, sticky = sticky, fontSizeWorld = fontSizeWorld,
+                font = font, alignment = alignment, boxWidthWorld = boxWidthWorld,
+            )
         } else {
             textItems.add(
                 TextItem(
@@ -1228,6 +1291,9 @@ class CanvasState(
                     bold = bold,
                     italic = italic,
                     sticky = sticky,
+                    font = font,
+                    alignment = alignment,
+                    boxWidthWorld = boxWidthWorld,
                 )
             )
         }
@@ -1247,11 +1313,20 @@ class CanvasState(
         return null
     }
 
-    /** Approximate world-space box of a text label (average glyph width), for hit-testing and the selection highlight. */
-    fun textBounds(item: TextItem): Pair<WorldPoint, WorldPoint> = item.position to WorldPoint(
-        item.position.x + item.text.length * item.fontSizeWorld * 0.55,
-        item.position.y + item.fontSizeWorld * 1.3,
-    )
+    /**
+     * Approximate world-space box of a text label (average glyph width 0.55 em, line height
+     * 1.3 em), for hit-testing and the selection highlight. Counts newlines, and for a boxed
+     * label, the extra lines its wrapping adds.
+     */
+    fun textBounds(item: TextItem): Pair<WorldPoint, WorldPoint> {
+        val glyph = item.fontSizeWorld * 0.55
+        val lineWidths = item.text.split('\n').map { it.length * glyph }
+        val box = item.boxWidthWorld
+        val width = box ?: (lineWidths.maxOrNull() ?: 0.0)
+        val lines = if (box == null || box <= 0.0) lineWidths.size
+        else lineWidths.sumOf { maxOf(1, kotlin.math.ceil(it / box).toInt()) }
+        return item.position to WorldPoint(item.position.x + width, item.position.y + item.fontSizeWorld * 1.3 * lines)
+    }
 
     /** Replaces every text item with [loaded] (e.g. from [CanvasStorage.loadTextItems] on document load/switch). */
     fun loadTextItems(loaded: List<TextItem>) {
