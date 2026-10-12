@@ -12,3 +12,10 @@ package com.andene.fern.canvas
  * content sitting on it, the way a real sheet of patterned paper would.
  */
 enum class BackgroundStyle { PLAIN, GRID, DOT, RULED }
+
+/**
+ * World-unit spacing between pattern lines/dots - the page pattern's own fixed "grain",
+ * independent of stroke width or any other scale-dependent value in this app. Shared with
+ * [CanvasState]'s origin rebase and grid snapping, which must stay aligned with the pattern.
+ */
+const val BACKGROUND_PATTERN_SPACING_WORLD = 40.0

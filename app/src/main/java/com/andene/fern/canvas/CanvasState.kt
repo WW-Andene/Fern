@@ -39,8 +39,9 @@ enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER, EYEDROPPER }
  * enough for "infinite". This state instead keeps [panWorld] and [scale] as Double
  * (~15-17 significant digits), and — critically — uses a **floating origin**: whenever the
  * camera has drifted far from world-space (0,0), [rebaseIfNeeded] re-anchors the origin to
- * the camera by subtracting [panWorld] from every stored point and resetting [panWorld] to
- * zero.
+ * the camera by subtracting [panWorld] (rounded to whole paper-pattern cells, so the pattern
+ * stays aligned with the content) from every stored point, leaving [panWorld] within one cell
+ * of zero.
  *
  * That matters because Double precision is *relative to magnitude*: a Double near
  * 10,000,000 has much coarser precision than one near 0. Without rebasing, panning far
@@ -1310,7 +1311,14 @@ class CanvasState(
      */
     private fun rebaseIfNeeded() {
         if (abs(panWorld.x) < REBASE_THRESHOLD && abs(panWorld.y) < REBASE_THRESHOLD) return
-        val offset = panWorld
+        // Rounded to whole pattern cells: the paper pattern is drawn at world multiples of its
+        // spacing, so an arbitrary offset made it jump relative to the content on every rebase.
+        // The leftover (under one cell) stays in panWorld, which is still near zero.
+        val spacing = BACKGROUND_PATTERN_SPACING_WORLD
+        val offset = WorldPoint(
+            kotlin.math.round(panWorld.x / spacing) * spacing,
+            kotlin.math.round(panWorld.y / spacing) * spacing,
+        )
         for (stroke in strokes) {
             stroke.shiftBy(offset)
         }
@@ -1338,6 +1346,6 @@ class CanvasState(
         symmetryCenter -= offset
         pendingTextEdit = pendingTextEdit?.let { it.copy(worldPoint = it.worldPoint - offset) }
         onRebased(offset)
-        panWorld = WorldPoint.Zero
+        panWorld -= offset
     }
 }

@@ -461,9 +461,6 @@ private fun DrawScope.drawBackgroundPattern(state: CanvasState, screenCenter: Of
     }
 }
 
-// World-unit spacing between pattern lines/dots - the page pattern's own fixed "grain",
-// independent of stroke width or any other scale-dependent value in this app.
-private const val BACKGROUND_PATTERN_SPACING_WORLD = 40.0
 private const val MAX_BACKGROUND_PATTERN_LINES = 500.0
 private val BACKGROUND_PATTERN_COLOR = Color(0xFFD8D3C8)
 
