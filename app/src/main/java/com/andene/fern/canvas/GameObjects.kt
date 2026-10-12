@@ -83,6 +83,8 @@ data class GameObject(
     val hitbox: List<WorldPoint>? = null,
     /** Its properties shown on screen while the game plays (roadmap item 161), e.g. a score. */
     val showInHud: Boolean = false,
+    /** Its animation states and what moves it between them (roadmap item 158); null: none. */
+    val stateMachine: StateMachine? = null,
 )
 
 /** How a link holds two objects together (roadmap item 157). */
@@ -162,6 +164,7 @@ object GameObjectsJson {
                 .apply {
                     o.hitbox?.let { h -> put("hitbox", JSONArray(h.map { JSONArray().put(it.x).put(it.y) })) }
                     if (o.showInHud) put("hud", true)
+                    o.stateMachine?.let { put("states", GameLogicJson.write(it)) }
                 },
         )
     }
@@ -192,6 +195,7 @@ object GameObjectsJson {
             } ?: PhysicsBody(),
             o.optJSONArray("hitbox")?.let { pts -> (0 until pts.length()).map { WorldPoint(pts.getJSONArray(it).getDouble(0), pts.getJSONArray(it).getDouble(1)) } }?.takeIf { it.size >= 3 },
             o.optBoolean("hud", false),
+            o.optJSONObject("states")?.let(GameLogicJson::read),
         )
     }
 }

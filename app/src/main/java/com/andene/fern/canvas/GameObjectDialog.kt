@@ -53,6 +53,7 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
     }
     var newProperty by remember { mutableStateOf("") }
     var showBehaviours by remember { mutableStateOf(false) }
+    var showStates by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.object_title)) },
@@ -117,6 +118,12 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                         onCheckedChange = { follow -> state.changeGameSettings(state.gameSettings.copy(cameraTarget = if (follow) current.id else null)) },
                     )
                 }
+                // Animation states (roadmap item 158).
+                TextButton(onClick = { showStates = true }) { Text(stringResource(R.string.states_title)) }
+                if (showStates) StateMachineDialog(state, current.id, onDismiss = {
+                    showStates = false
+                    state.gameObjects.firstOrNull { it.id == current.id }?.let { current = it }
+                })
                 PhysicsSection(state, current.body) { save(current.copy(body = it)) }
                 // Drawn hitbox and links (roadmap item 157).
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))

@@ -686,7 +686,7 @@ class CanvasState(
         val corners = listOf(Offset.Zero, Offset(viewportSize.width, 0f), Offset(0f, viewportSize.height), Offset(viewportSize.width, viewportSize.height)).map { screenToWorld(it, center) }
         val scene = frames.firstOrNull { it.id == gameSettings.sceneFrameId }?.let { WorldBox(it.min, it.max) }
             ?: WorldBox(WorldPoint(corners.minOf { it.x }, corners.minOf { it.y }), WorldPoint(corners.maxOf { it.x }, corners.maxOf { it.y }))
-        play = GameWorld(gameObjects.toList(), boxes, scene, gameSettings)
+        play = GameWorld(gameObjects.toList(), boxes, scene, gameSettings, AnimationInfo(animFps, frameHolds.toMap(), frameTags.toList(), animFrameCount))
         playRevision++
     }
 

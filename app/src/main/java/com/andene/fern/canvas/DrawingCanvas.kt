@@ -1671,7 +1671,11 @@ internal fun DrawScope.drawScene(
     val audio = state.audioReplay
     val ahead = if (audio == null) emptyList() else replayedOrAll.filter { audio.isAhead(it) }
     val replayed = if (ahead.isEmpty()) replayedOrAll else ahead.toHashSet().let { later -> replayedOrAll.filter { it !in later } }
-    val strokesByLayer = replayed.filter { it.animFrame == state.currentAnimFrame }.groupBy { layerIndex[it.layerId] ?: 0 }
+    // A playing object shows the frame its state's animation is on (roadmap item 158).
+    val strokesByLayer = replayed.filter { s ->
+        val shown = world?.instanceOf(s.groupId)?.frame ?: state.currentAnimFrame
+        s.animFrame == shown
+    }.groupBy { layerIndex[it.layerId] ?: 0 }
     // Offscreen bounds for a translucent layer: the square around the screen centre that covers
     // the screen at any canvas rotation.
     val halfDiagonal = hypot(size.width, size.height) / 2f

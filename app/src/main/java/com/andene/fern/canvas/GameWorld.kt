@@ -43,6 +43,15 @@ class GameInstance(val def: GameObject, val drawn: WorldBox) {
     var travelled = 0.0
     /** Standing on something this step (physics, roadmap item 159). */
     var grounded = false
+    /** Its state machine's current state and how long it's been in it (roadmap item 158). */
+    var state: String? = null
+    var stateTime = 0.0
+    /** The animation frame it shows, while a state plays a tag; null: the frame being edited. */
+    var frame: Int? = null
+    /** Whether the state's animation has reached its end (only for a state that doesn't loop). */
+    var animationDone = false
+    // Time spent on the current animation frame.
+    var frameClock = 0.0
 
     /** Where the drawn point [p] is shown now: turned and scaled about the pivot, then moved. */
     fun place(p: WorldPoint): WorldPoint {
@@ -73,7 +82,14 @@ class GameInstance(val def: GameObject, val drawn: WorldBox) {
  * once at the start, then each step moves, turns, follows paths, swings, bounces off and wraps
  * around the scene's edges, blinks and pulses.
  */
-class GameWorld(objects: List<GameObject>, drawnBoxes: Map<String, WorldBox>, val scene: WorldBox, val settings: GameSettings = GameSettings()) {
+class GameWorld(
+    objects: List<GameObject>,
+    drawnBoxes: Map<String, WorldBox>,
+    val scene: WorldBox,
+    val settings: GameSettings = GameSettings(),
+    /** The document's animation, for states that play its tags (roadmap item 158). */
+    private val animation: AnimationInfo? = null,
+) {
     val instances: List<GameInstance> = objects.mapNotNull { def -> drawnBoxes[def.id]?.let { GameInstance(def, it) } }
 
     init {
@@ -105,6 +121,57 @@ class GameWorld(objects: List<GameObject>, drawnBoxes: Map<String, WorldBox>, va
         }
         contacts = Physics2d.resolve(this, settings)
         holdLinks()
+        for (instance in instances) if (!instance.removed) runStateMachine(instance, dt)
+    }
+
+    /** The objects whose hitbox overlaps [o]'s, bodies or not (for touch conditions on objects without physics). */
+    fun overlapping(o: GameInstance): List<GameInstance> {
+        val box = o.hitBox
+        return instances.filter { it !== o && !it.removed && it.hitBox.overlaps(box) }
+    }
+
+    /**
+     * [o]'s state machine for one step (roadmap item 158): into its first state when it has
+     * none yet, then the first transition from this state (or from any state) whose conditions
+     * all hold, then the state's animation moves on at the document's frame rate, following the
+     * X-sheet holds, looping or stopping at its end.
+     */
+    private fun runStateMachine(o: GameInstance, dt: Double) {
+        val machine = o.def.stateMachine ?: return
+        if (machine.states.isEmpty()) return
+        if (o.state == null) enterState(o, machine.states.firstOrNull { it.name == machine.initial } ?: machine.states.first())
+        o.stateTime += dt
+        machine.transitions.firstOrNull { t ->
+            (t.from == null || t.from == o.state) && t.to != o.state && t.conditions.all { conditionHolds(it, o, this) }
+        }?.let { t -> machine.states.firstOrNull { it.name == t.to }?.let { enterState(o, it) } }
+        val state = machine.states.firstOrNull { it.name == o.state } ?: return
+        val anim = animation ?: return
+        val tag = anim.tags.firstOrNull { it.name == state.tag } ?: return
+        val frame = o.frame ?: return
+        o.frameClock += dt
+        val hold = (anim.holds[frame] ?: 1).toDouble() / anim.fps.coerceAtLeast(1)
+        if (o.frameClock < hold) return
+        o.frameClock -= hold
+        val last = tag.to.coerceAtMost(anim.frameCount - 1)
+        val first = tag.from.coerceAtMost(last)
+        val reverse = tag.direction == TagDirection.REVERSE
+        val next = if (reverse) frame - 1 else frame + 1
+        if (next in first..last) {
+            o.frame = next
+        } else if (state.loop) {
+            o.frame = if (reverse) last else first
+        } else {
+            o.animationDone = true
+        }
+    }
+
+    private fun enterState(o: GameInstance, state: AnimState) {
+        o.state = state.name
+        o.stateTime = 0.0
+        o.animationDone = false
+        o.frameClock = 0.0
+        val tag = animation?.tags?.firstOrNull { it.name == state.tag }
+        o.frame = tag?.let { if (it.direction == TagDirection.REVERSE) it.to else it.from }
     }
 
     /**
