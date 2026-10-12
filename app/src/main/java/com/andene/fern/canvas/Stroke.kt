@@ -89,6 +89,69 @@ class Stroke(
     private var orientationData = FloatArray(INITIAL_CAPACITY)
     private var size = 0
 
+    // Copy-on-write: true while the point arrays are also referenced by a [State] (an undo
+    // snapshot, or a copy made by [deepCopy]). Every mutation calls [ensureOwnData] first, so
+    // shared arrays are copied before they're written and a captured State never changes.
+    private var dataShared = false
+
+    // The State last captured, reused while nothing has changed since (same revision), so
+    // consecutive undo snapshots of an untouched stroke share one State object.
+    private var cachedState: State? = null
+
+    /**
+     * An immutable capture of a stroke's geometry - points, stylus data, width and bounds - taken
+     * in O(1) by sharing the stroke's arrays (see [dataShared]). Undo snapshots hold these instead
+     * of deep copies, so an undo step costs a reference per stroke, not a copy of the document.
+     */
+    class State internal constructor(
+        internal val xs: DoubleArray,
+        internal val ys: DoubleArray,
+        internal val pressures: FloatArray,
+        internal val tilts: FloatArray,
+        internal val orientations: FloatArray,
+        internal val size: Int,
+        internal val widthWorld: Double,
+        internal val minX: Double,
+        internal val minY: Double,
+        internal val maxX: Double,
+        internal val maxY: Double,
+        internal val revision: Int,
+    )
+
+    /** This stroke's current geometry as an immutable [State]; O(1). */
+    fun captureState(): State {
+        cachedState?.let { if (it.revision == revision) return it }
+        dataShared = true
+        return State(xs, ys, pressureData, tiltData, orientationData, size, widthWorld, minX, minY, maxX, maxY, revision).also { cachedState = it }
+    }
+
+    /** Sets this stroke's geometry back to [state] (an undo); O(1), the arrays stay shared until written. */
+    fun restoreState(state: State) {
+        xs = state.xs
+        ys = state.ys
+        pressureData = state.pressures
+        tiltData = state.tilts
+        orientationData = state.orientations
+        size = state.size
+        widthWorld = state.widthWorld
+        minX = state.minX
+        minY = state.minY
+        maxX = state.maxX
+        maxY = state.maxY
+        dataShared = true
+        revision++
+    }
+
+    private fun ensureOwnData() {
+        if (!dataShared) return
+        xs = xs.copyOf()
+        ys = ys.copyOf()
+        pressureData = pressureData.copyOf()
+        tiltData = tiltData.copyOf()
+        orientationData = orientationData.copyOf()
+        dataShared = false
+    }
+
     /** A live read-only view of the points; each element is created on access. */
     val points: List<WorldPoint> = object : AbstractList<WorldPoint>() {
         override val size: Int get() = this@Stroke.size
@@ -138,6 +201,7 @@ class Stroke(
     var maxY: Double = Double.NEGATIVE_INFINITY; private set
 
     fun addPoint(point: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
+        ensureOwnData()
         if (size == xs.size) grow()
         xs[size] = point.x
         ys[size] = point.y
@@ -161,6 +225,7 @@ class Stroke(
 
     /** Shifts every point (and the cached bounds) by [-offset], used when re-anchoring the world origin. */
     fun shiftBy(offset: WorldPoint) {
+        ensureOwnData()
         for (i in 0 until size) {
             xs[i] -= offset.x
             ys[i] -= offset.y
@@ -187,6 +252,8 @@ class Stroke(
             newXs[i] = newPoints[i].x
             newYs[i] = newPoints[i].y
         }
+        // The stylus arrays are kept, so they must be this stroke's own before it can write them later.
+        ensureOwnData()
         xs = newXs
         ys = newYs
         minX = Double.POSITIVE_INFINITY
@@ -218,12 +285,18 @@ class Stroke(
 
     private fun restyled(newColor: Color, newLayerId: String, newFrame: Int = animFrame, newGroupId: String? = groupId): Stroke {
         val copy = Stroke(newColor, widthWorld, penType, filled, blendMode, newLayerId, newFrame, dashed, fadeFill, screentone, brush, gradient, newGroupId)
-        for (i in 0 until size) copy.addPoint(WorldPoint(xs[i], ys[i]), pressureData[i], tiltData[i], orientationData[i])
+        // Shares the point arrays copy-on-write: O(1), and neither stroke sees the other's later edits.
+        copy.restoreState(captureState())
         return copy
     }
 
-    /** An independent copy (own point lists), so an undo snapshot isn't changed by later edits to this stroke. */
+    /** An independent copy: later edits to either stroke don't affect the other (copy-on-write, O(1)). */
     fun deepCopy(): Stroke = withColor(color)
+
+    /** A new stroke with this one's attributes and [state]'s geometry, e.g. to persist an undo snapshot. */
+    fun withState(state: State): Stroke =
+        Stroke(color, state.widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush, gradient, groupId)
+            .also { it.restoreState(state) }
 
     /** Sets this stroke's width directly, for a SELECT-tool scale gesture. */
     fun setWidth(newWidth: Double) {
@@ -287,7 +360,7 @@ class Stroke(
     }
 
     private fun grow() {
-        val capacity = xs.size * 2
+        val capacity = maxOf(xs.size * 2, INITIAL_CAPACITY)
         xs = xs.copyOf(capacity)
         ys = ys.copyOf(capacity)
         pressureData = pressureData.copyOf(capacity)

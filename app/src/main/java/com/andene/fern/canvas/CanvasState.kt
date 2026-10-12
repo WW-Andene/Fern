@@ -800,12 +800,35 @@ class CanvasState(
     // Images and text labels are recorded too, so removing or moving one is undoable. They're
     // immutable values, so the list itself is the copy. Null means "not recorded" (history
     // reloaded from disk, which stores strokes only) and leaves the current ones as they are.
-    private class HistoryEntry(val strokes: List<Stroke>, var images: List<ImageItem>?, var texts: List<TextItem>? = null)
+    //
+    // An entry holds each stroke by reference plus its immutable geometry ([Stroke.State],
+    // captured copy-on-write in O(1) and shared between entries while a stroke is untouched),
+    // not a deep copy: a deep copy per action cost O(document) time and up to 64 x the
+    // document in memory, which froze a 100k-stroke document for over a minute per erase
+    // (ScaleBenchmark). [shift] accumulates floating-origin rebases since capture, applied
+    // when the entry is restored instead of rewriting every snapshot on each rebase.
+    private class HistoryEntry(
+        val strokes: Array<Stroke>,
+        val states: Array<Stroke.State>,
+        var images: List<ImageItem>?,
+        var texts: List<TextItem>? = null,
+        var shift: WorldPoint = WorldPoint.Zero,
+    ) {
+        /** Independent strokes holding this entry's geometry (shift applied), e.g. for saving. */
+        fun materialize(): List<Stroke> = strokes.indices.map { i ->
+            strokes[i].withState(states[i]).also { if (shift != WorldPoint.Zero) it.shiftBy(shift) }
+        }
+
+        companion object {
+            fun of(strokes: List<Stroke>, images: List<ImageItem>?, texts: List<TextItem>? = null) =
+                HistoryEntry(strokes.toTypedArray(), Array(strokes.size) { strokes[it].captureState() }, images, texts)
+        }
+    }
 
     private val undoStack = ArrayDeque<HistoryEntry>()
     private val redoStack = ArrayDeque<HistoryEntry>()
 
-    private fun currentEntry() = HistoryEntry(strokes.map { it.deepCopy() }, imageItems.toList(), textItems.toList())
+    private fun currentEntry() = HistoryEntry.of(strokes, imageItems.toList(), textItems.toList())
 
     /** Called at the start of every stroke-changing action; also invalidates redo, standard editor semantics. */
     private fun recordHistory() {
@@ -815,18 +838,26 @@ class CanvasState(
     }
 
     /** Undo and redo stroke snapshots, oldest first, for [CanvasStorage.saveHistory]. */
-    fun historySnapshot(): Pair<List<List<Stroke>>, List<List<Stroke>>> =
-        undoStack.map { it.strokes } to redoStack.map { it.strokes }
+    fun historySnapshot(): Pair<List<List<Stroke>>, List<List<Stroke>>> {
+        // Materialized per step on access, so a caller keeping only the newest few steps (as
+        // CanvasStorage.saveHistory does) doesn't build strokes for the rest. Read it right away:
+        // it reflects the stacks as they are when each step is read.
+        fun lazySteps(entries: ArrayDeque<HistoryEntry>) = object : AbstractList<List<Stroke>>() {
+            override val size get() = entries.size
+            override fun get(index: Int) = entries[index].materialize()
+        }
+        return lazySteps(undoStack) to lazySteps(redoStack)
+    }
 
     /** Restores history saved by [CanvasStorage.saveHistory]; call after [loadStrokes], which clears it. */
     fun loadHistory(undo: List<List<Stroke>>, redo: List<List<Stroke>>) {
         undoStack.clear()
-        undoStack.addAll(undo.takeLast(MAX_UNDO_STEPS).map { HistoryEntry(it, null) })
+        undoStack.addAll(undo.takeLast(MAX_UNDO_STEPS).map { HistoryEntry.of(it, null) })
         redoStack.clear()
-        redoStack.addAll(redo.map { HistoryEntry(it, null) })
+        redoStack.addAll(redo.map { HistoryEntry.of(it, null) })
     }
 
-    private fun restore(snapshot: List<Stroke>) = restore(HistoryEntry(snapshot, null))
+    private fun restore(snapshot: List<Stroke>) = restore(HistoryEntry.of(snapshot, null))
 
     private fun restore(entry: HistoryEntry) {
         val texts = entry.texts
@@ -841,8 +872,14 @@ class CanvasState(
             imageItems.addAll(images)
             onImageChanged(imageItems.toList())
         }
+        // The entry's own stroke objects come back with its geometry: O(1) each unless a rebase
+        // happened since (then each is shifted, copying its arrays once).
+        for (i in entry.strokes.indices) {
+            entry.strokes[i].restoreState(entry.states[i])
+            if (entry.shift != WorldPoint.Zero) entry.strokes[i].shiftBy(entry.shift)
+        }
         strokes.clear()
-        strokes.addAll(entry.strokes.map { it.deepCopy() })
+        strokes.addAll(entry.strokes)
         // Undoing a frame insert/delete changes how many frames have strokes; keep the count in step.
         animFrameCount = (strokes.maxOfOrNull { it.animFrame } ?: 0) + 1
         currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
@@ -2289,7 +2326,7 @@ class CanvasState(
         // History snapshots are in the same world space, so they must move with it, or an
         // undo after a rebase would restore strokes at their pre-rebase coordinates.
         for (entry in undoStack + redoStack) {
-            for (stroke in entry.strokes) stroke.shiftBy(offset)
+            entry.shift += offset
             entry.images = entry.images?.map { it.copy(position = it.position - offset) }
             entry.texts = entry.texts?.map { it.copy(position = it.position - offset) }
         }
