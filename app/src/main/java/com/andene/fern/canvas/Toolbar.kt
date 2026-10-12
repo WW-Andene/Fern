@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.FormatPaint
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Gesture
+import androidx.compose.material.icons.filled.Gradient
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.HighlightAlt
@@ -405,6 +406,15 @@ fun Toolbar(
                         tint = if (state.activeTool == Tool.FILL) MaterialTheme.colorScheme.primary
                         else LocalContentColor.current,
                     )
+                }
+                if (state.activeTool == Tool.FILL) {
+                    IconButton(onClick = { state.activeFadeFill = !state.activeFadeFill }) {
+                        Icon(
+                            Icons.Filled.Gradient,
+                            contentDescription = if (state.activeFadeFill) "Fade fill: on" else "Fade fill: off",
+                            tint = if (state.activeFadeFill) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                    }
                 }
                 IconButton(onClick = {
                     state.activeTool = if (state.activeTool == Tool.TEXT) Tool.PEN else Tool.TEXT

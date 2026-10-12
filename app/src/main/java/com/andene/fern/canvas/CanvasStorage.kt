@@ -640,6 +640,7 @@ object CanvasStorage {
             strokeJson.put("layer", stroke.layerId)
             if (stroke.animFrame != 0) strokeJson.put("frame", stroke.animFrame)
             if (stroke.dashed) strokeJson.put("dashed", true)
+            if (stroke.fadeFill) strokeJson.put("fade", true)
             val pointsJson = JSONArray()
             for (index in stroke.points.indices) {
                 val point = stroke.points[index]
@@ -678,7 +679,7 @@ object CanvasStorage {
             // Strokes saved before layers existed belong to the default layer.
             val layerId = strokeJson.optString("layer", DEFAULT_LAYER_ID)
             // Strokes saved before animation belong to frame 0.
-            val stroke = Stroke(color, width, penType, filled, blendMode, layerId, strokeJson.optInt("frame", 0), strokeJson.optBoolean("dashed", false))
+            val stroke = Stroke(color, width, penType, filled, blendMode, layerId, strokeJson.optInt("frame", 0), strokeJson.optBoolean("dashed", false), strokeJson.optBoolean("fade", false))
             val pointsJson = strokeJson.getJSONArray("points")
             for (j in 0 until pointsJson.length()) {
                 val pointJson = pointsJson.getJSONObject(j)

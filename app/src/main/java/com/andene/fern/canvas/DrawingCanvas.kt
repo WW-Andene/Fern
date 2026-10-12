@@ -16,6 +16,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
@@ -956,7 +957,17 @@ internal fun DrawScope.drawScene(
                     path.moveTo(screenPoints[0].x, screenPoints[0].y)
                     for (i in 1 until screenPoints.size) path.lineTo(screenPoints[i].x, screenPoints[i].y)
                     path.close()
-                    drawPath(path = path, color = stroke.color)
+                    if (stroke.fadeFill) {
+                        // Gradient spans the fill's own height on screen, so it zooms with the shape.
+                        val top = screenPoints.minOf { it.y }
+                        val bottom = screenPoints.maxOf { it.y }
+                        drawPath(
+                            path = path,
+                            brush = Brush.verticalGradient(listOf(stroke.color, stroke.color.copy(alpha = 0f)), startY = top, endY = bottom),
+                        )
+                    } else {
+                        drawPath(path = path, color = stroke.color)
+                    }
                     continue
                 }
                 val rawWidthScreen = stroke.widthWorld * state.scale

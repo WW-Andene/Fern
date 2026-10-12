@@ -59,6 +59,8 @@ class Stroke(
     val animFrame: Int = 0,
     /** Drawn as a dashed line (dash 3x the width, gap 2x) - see DrawingCanvas.drawStroke. */
     val dashed: Boolean = false,
+    /** For a fill: fades from [color] at the top to transparent at the bottom instead of being solid. */
+    val fadeFill: Boolean = false,
 ) {
     /** Mutable so a SELECT-tool scale gesture can resize the stroke proportionally with its geometry. */
     var widthWorld: Double = widthWorld
@@ -160,7 +162,7 @@ class Stroke(
     fun onAnimFrame(frame: Int): Stroke = restyled(color, layerId, frame)
 
     private fun restyled(newColor: Color, newLayerId: String, newFrame: Int = animFrame): Stroke {
-        val copy = Stroke(newColor, widthWorld, penType, filled, blendMode, newLayerId, newFrame, dashed)
+        val copy = Stroke(newColor, widthWorld, penType, filled, blendMode, newLayerId, newFrame, dashed, fadeFill)
         for (i in _points.indices) copy.addPoint(_points[i], _pressures[i], _tilts[i], _orientations[i])
         return copy
     }
@@ -209,7 +211,7 @@ class Stroke(
         }
         if (!anyRemoved) return null
         return runs.filter { it.size >= 2 }.map { run ->
-            val piece = Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed)
+            val piece = Stroke(color, widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill)
             for (index in run) piece.addPoint(points[index], pressures[index], tilts[index], orientations[index])
             piece
         }
