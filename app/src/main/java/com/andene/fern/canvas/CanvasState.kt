@@ -121,6 +121,7 @@ class CanvasState(
 
         // Holding the pen still this long before lifting turns a rough stroke into a clean shape.
         private const val SHAPE_HOLD_MILLIS = 500L
+        private const val WRAP_NEW_TILE_FILL = 0.8 // a new tile fills 80% of the view's short side
         private const val SIGNATURE_FALLBACK_VIEW_PX = 1024.0 // before the view has a size
 
         // One second of motion at the default 12 fps.
@@ -675,6 +676,34 @@ class CanvasState(
     val frames = mutableStateListOf<Frame>()
 
     /** Adds a frame covering exactly what's on screen now (unrotated view). */
+    /** The frame wrap-around mode repeats (roadmap item 137), or null when the mode is off. View state; not saved. */
+    var wrapFrameId by mutableStateOf<String?>(null)
+        private set
+
+    val wrapTile: Frame? get() = wrapFrameId?.let { id -> frames.firstOrNull { it.id == id } }
+
+    /**
+     * Turns wrap-around mode on - tiling the frame named [WRAP_TILE_FRAME_NAME], made as the
+     * largest square in the middle of the view if there's none - or off.
+     */
+    fun toggleWrapAround() {
+        if (wrapFrameId != null) {
+            wrapFrameId = null
+            return
+        }
+        val existing = frames.firstOrNull { it.name == WRAP_TILE_FRAME_NAME }
+        if (existing != null) {
+            wrapFrameId = existing.id
+            return
+        }
+        if (viewportSize.width <= 0f || viewportSize.height <= 0f) return
+        val half = minOf(viewportSize.width, viewportSize.height) / 2.0 / scale.coerceAtLeast(1e-300) * WRAP_NEW_TILE_FILL
+        val tile = Frame(UUID.randomUUID().toString(), WRAP_TILE_FRAME_NAME, WorldPoint(panWorld.x - half, panWorld.y - half), WorldPoint(panWorld.x + half, panWorld.y + half))
+        frames.add(tile)
+        onFramesChanged(frames.toList())
+        wrapFrameId = tile.id
+    }
+
     fun addFrameFromView(name: String) {
         if (viewportSize.width <= 0f || viewportSize.height <= 0f) return
         val center = Offset(viewportSize.width / 2f, viewportSize.height / 2f)
@@ -3009,9 +3038,16 @@ class CanvasState(
         }
         if (stroke != null && liveShape == null && System.currentTimeMillis() - lastStrokeMoveMillis >= SHAPE_HOLD_MILLIS) {
             recognizeShape(stroke.points)?.let { clean ->
-                replaceWithShape(stroke, clean)
+                currentStroke = replaceWithShape(stroke, clean) ?: stroke
                 // Copies get the same clean shape, transformed, so symmetry still holds.
-                for ((copy, transform) in symmetryCopies) replaceWithShape(copy, clean.map(transform))
+                symmetryCopies = symmetryCopies.map { (copy, transform) -> (replaceWithShape(copy, clean.map(transform)) ?: copy) to transform }
+            }
+        }
+        // Wrap-around: ink drawn on a repeat belongs to the tile itself.
+        wrapTile?.let { tile ->
+            for (s in listOfNotNull(currentStroke) + symmetryCopies.map { it.first }) {
+                val shift = wrappedIntoTile(tile, s.points.firstOrNull() ?: continue)
+                if (shift != WorldPoint.Zero) s.shiftBy(shift)
             }
         }
         symmetryCopies = emptyList()

@@ -80,6 +80,8 @@
     <string name="layers_title">Layers</string>
     <string name="layers_skins">Skins</string>
     <string name="second_view_title">Second view</string>
+    <string name="wrap_on">Wrap-around tile mode</string>
+    <string name="wrap_off">Turn off wrap-around</string>
     <string name="second_view_fit">Fit the drawing in the second view</string>
     <string name="second_view_close">Close the second view</string>
     <string name="layers_comps">Layer comps</string>

@@ -394,10 +394,24 @@ fun DrawingCanvas(
                         ?.asImageBitmap()
                         ?.also { imageBitmapCache[fileName] = it }
             }
-            // Large documents pan and zoom from cached tiles when nothing is being edited live.
-            val fromTiles = state.tileCacheEligible &&
-                tileCache.draw(this, state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer, imageFor)
-            if (!fromTiles) drawScene(state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer, imageFor)
+            val wrapTile = state.wrapTile
+            if (wrapTile != null) {
+                // Wrap-around mode (roadmap item 137): the drawing again at every whole-tile
+                // offset the view reaches, the paper drawn once, and the tile outlined.
+                for (offset in wrapOffsets(wrapTile, topLeftWorld, bottomRightWorld)) {
+                    withTransform({ translate((offset.x * state.scale).toFloat(), (offset.y * state.scale).toFloat()) }) {
+                        drawScene(state, screenCenter, topLeftWorld - offset, bottomRightWorld - offset, textMeasurer, imageFor, drawPaper = offset == WorldPoint.Zero)
+                    }
+                }
+                val a = state.worldToScreen(wrapTile.min, screenCenter)
+                val b = state.worldToScreen(wrapTile.max, screenCenter)
+                drawRect(HANDLE_COLOR, topLeft = a, size = Size(b.x - a.x, b.y - a.y), style = DrawStyle(width = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))))
+            } else {
+                // Large documents pan and zoom from cached tiles when nothing is being edited live.
+                val fromTiles = state.tileCacheEligible &&
+                    tileCache.draw(this, state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer, imageFor)
+                if (!fromTiles) drawScene(state, screenCenter, topLeftWorld, bottomRightWorld, textMeasurer, imageFor)
+            }
 
             state.textItems.firstOrNull { it.id == state.selectedTextId }?.let { item ->
                 val (min, max) = state.textBounds(item)

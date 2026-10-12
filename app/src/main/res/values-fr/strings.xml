@@ -80,6 +80,8 @@
     <string name="layers_title">Calques</string>
     <string name="layers_skins">Skins</string>
     <string name="second_view_title">Seconde vue</string>
+    <string name="wrap_on">Mode tuile répétée</string>
+    <string name="wrap_off">Désactiver la tuile répétée</string>
     <string name="second_view_fit">Afficher tout le dessin dans la seconde vue</string>
     <string name="second_view_close">Fermer la seconde vue</string>
     <string name="layers_comps">Compositions de calques</string>

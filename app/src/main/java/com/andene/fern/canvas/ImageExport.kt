@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -32,20 +33,33 @@ private const val EXPORT_MARGIN_RATIO = 0.05
 class ExportFrame(val camera: CanvasState, val widthPx: Int, val heightPx: Int) {
     /** Draws the framed document with the same [drawScene] as the live canvas, so exports match the screen. */
     /** With [transparent], the paper colour and pattern are left out, leaving only the content on a clear background. */
-    fun drawOn(canvas: Canvas, density: Density, textMeasurer: TextMeasurer, imageFor: (String) -> ImageBitmap?, transparent: Boolean = false) {
+    /** With [wrap], the content one tile around [wrap] is drawn too, shifted onto it, so a wrap-around tile (roadmap item 137) exports seamless. */
+    fun drawOn(canvas: Canvas, density: Density, textMeasurer: TextMeasurer, imageFor: (String) -> ImageBitmap?, transparent: Boolean = false, wrap: Frame? = null) {
         val size = Size(widthPx.toFloat(), heightPx.toFloat())
         val center = Offset(size.width / 2f, size.height / 2f)
         CanvasDrawScope().draw(density, LayoutDirection.Ltr, canvas, size) {
             if (!transparent) drawRect(color = camera.backgroundColor, size = size)
-            drawScene(
-                camera,
-                center,
-                camera.screenToWorld(Offset.Zero, center),
-                camera.screenToWorld(Offset(size.width, size.height), center),
-                textMeasurer,
-                imageFor,
-                drawPaper = !transparent,
-            )
+            val min = camera.screenToWorld(Offset.Zero, center)
+            val max = camera.screenToWorld(Offset(size.width, size.height), center)
+            val offsets = if (wrap == null) listOf(WorldPoint.Zero) else {
+                val w = wrap.max.x - wrap.min.x
+                val h = wrap.max.y - wrap.min.y
+                (-1..1).flatMap { j -> (-1..1).map { i -> WorldPoint(i * w, j * h) } }
+            }
+            for (offset in offsets) {
+                // Content one tile to the right (+offset) shows here when moved back by the offset.
+                withTransform({ translate((-offset.x * camera.scale).toFloat(), (-offset.y * camera.scale).toFloat()) }) {
+                    drawScene(
+                        camera,
+                        center,
+                        min + offset,
+                        max + offset,
+                        textMeasurer,
+                        imageFor,
+                        drawPaper = !transparent && offset == WorldPoint.Zero,
+                    )
+                }
+            }
         }
     }
 }
@@ -88,10 +102,12 @@ fun exportDocumentPng(
     imageFor: (String) -> ImageBitmap?,
     region: Frame? = null,
     transparent: Boolean = false,
+    /** Export [region] as a seamless wrap-around tile (roadmap item 137). */
+    wrap: Boolean = false,
 ): ByteArray? {
     val frame = frameForExport(source, EXPORT_MAX_EDGE_PX, region) ?: return null
     val image = ImageBitmap(frame.widthPx, frame.heightPx)
-    frame.drawOn(Canvas(image), density, textMeasurer, imageFor, transparent)
+    frame.drawOn(Canvas(image), density, textMeasurer, imageFor, transparent, wrap = region?.takeIf { wrap })
     val out = ByteArrayOutputStream()
     image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
     return out.toByteArray()

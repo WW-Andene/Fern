@@ -380,7 +380,7 @@ class MainActivity : ComponentActivity() {
                         val frame = frameToExport
                         frameToExport = null
                         if (uri != null && frame != null) {
-                            writeExport(uri) { exportDocumentPng(canvasState, textMeasurer, density, imageForExport, frame) }
+                            writeExport(uri) { exportDocumentPng(canvasState, textMeasurer, density, imageForExport, frame, wrap = frame.id == canvasState.wrapFrameId) }
                         }
                     }
                     val bundleExportLauncher = rememberLauncherForActivityResult(
