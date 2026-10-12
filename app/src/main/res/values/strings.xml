@@ -702,6 +702,14 @@
     <string name="model_export_maps">Export texture maps</string>
     <string name="model_import_texture">Import colour texture</string>
     <string name="toast_export_failed">The export couldn\'t be written</string>
+    <string name="plugins_title">Plugins</string>
+    <string name="plugins_run">Run</string>
+    <string name="plugins_back">Back</string>
+    <string name="plugins_install">Install from file</string>
+    <string name="plugins_new">New plugin</string>
+    <string name="plugins_save">Save</string>
+    <string name="plugins_remove">Remove plugin</string>
+    <string name="plugins_install_failed">That plugin file couldn\'t be read</string>
     <string name="tb_line_style">Line style</string>
     <string name="cap_round">Round ends</string>
     <string name="cap_square">Square ends</string>

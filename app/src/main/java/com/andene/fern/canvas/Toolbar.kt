@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled._3dRotation
 import android.content.Context
@@ -262,6 +263,8 @@ fun Toolbar(
     if (showStatsDialog) StatsDialog(state, onDismiss = { showStatsDialog = false })
     var showSignatureDialog by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
+    var showPlugins by remember { mutableStateOf(false) }
+    if (showPlugins) PluginsDialog(state, onDismiss = { showPlugins = false })
     // 3D painting (roadmap item 108): adding a model, and the model open in the editor.
     var showInsert3d by remember { mutableStateOf(false) }
     var editingModel by remember { mutableStateOf<Pair<ImageItem, Model3d>?>(null) }
@@ -1288,6 +1291,7 @@ fun Toolbar(
                             Triple(R.string.qr_title, Icons.Filled.QrCode2) { showQrDialog = true },
                             Triple(R.string.comic_title, Icons.Filled.AutoStories) { showComicDialog = true },
                             Triple(R.string.script_title, Icons.Filled.Code) { showScriptDialog = true },
+                            Triple(R.string.plugins_title, Icons.Filled.Extension) { showPlugins = true },
                             Triple(R.string.settings_title, Icons.Filled.Settings, onOpenSettings),
                         )
                         for ((label, icon, action) in moreItems) {

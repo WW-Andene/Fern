@@ -704,6 +704,14 @@
     <string name="model_export_maps">Exporter les textures</string>
     <string name="model_import_texture">Importer une texture de couleur</string>
     <string name="toast_export_failed">L’export n’a pas pu être écrit</string>
+    <string name="plugins_title">Extensions</string>
+    <string name="plugins_run">Exécuter</string>
+    <string name="plugins_back">Retour</string>
+    <string name="plugins_install">Installer depuis un fichier</string>
+    <string name="plugins_new">Nouvelle extension</string>
+    <string name="plugins_save">Enregistrer</string>
+    <string name="plugins_remove">Supprimer l’extension</string>
+    <string name="plugins_install_failed">Impossible de lire ce fichier d’extension</string>
     <string name="tb_line_style">Style de trait</string>
     <string name="cap_round">Extrémités rondes</string>
     <string name="cap_square">Extrémités carrées</string>

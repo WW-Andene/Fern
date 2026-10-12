@@ -179,7 +179,7 @@ All deferred: they need a server or cloud platform.
 
 ## Phase 13 — Ecosystem
 
-- [~] 111. Scripting: sandboxed drawing scripts (see 164); no plugin API
+- [x] 111. Scripting: sandboxed drawing scripts (see 164); a plugin API: JavaScript plugins (Mozilla Rhino, interpreted, no Java access, instruction-limited) that read the selection, view and active pen and add, edit or remove strokes as one undo step, with declared number parameters; five built in, more installed from .js files or written in the app
 - [ ] 112. Marketplace ⏸ (hosted service)
 - [ ] 113. Community gallery and live-streaming ⏸ (hosted service)
 - [ ] 114. Team workspaces ⏸

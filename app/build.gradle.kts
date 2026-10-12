@@ -93,6 +93,8 @@ dependencies {
     // Hand landmark detection for the hand pose scanner (roadmap item 146): runs on the device,
     // no platform services; the model ships in assets/hand_landmarker.task.
     implementation("com.google.mediapipe:tasks-vision:0.10.14")
+    // JavaScript for plugins (roadmap item 111): Mozilla Rhino, interpreted, sandboxed in PluginEngine.
+    implementation("org.mozilla:rhino:1.7.15")
 
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)

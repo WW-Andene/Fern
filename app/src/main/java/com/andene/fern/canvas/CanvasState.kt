@@ -4964,6 +4964,64 @@ class CanvasState(
     }
 
     /**
+     * What a plugin (roadmap item 111) is given: the selected strokes in drawing order, the
+     * world area on screen, and the active pen (its width in world units at the current zoom).
+     */
+    fun pluginInput(): PluginInput {
+        val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
+        val chosen = selection.sortedBy { strokes.indexOf(it) }
+        val view = if (viewportSize.width > 0f) {
+            val center = Offset(viewportSize.width / 2f, viewportSize.height / 2f)
+            val corners = listOf(Offset.Zero, Offset(viewportSize.width, 0f), Offset(0f, viewportSize.height), Offset(viewportSize.width, viewportSize.height)).map { screenToWorld(it, center) }
+            WorldPoint(corners.minOf { it.x }, corners.minOf { it.y }) to WorldPoint(corners.maxOf { it.x }, corners.maxOf { it.y })
+        } else {
+            panWorld to panWorld
+        }
+        return PluginInput(
+            chosen.map { PluginStroke(it.points.toList(), it.color, it.widthWorld, it.filled, isClosedLoop(it.points, closeTolerance)) },
+            view,
+            activeColor,
+            activeWidthWorld / scale.coerceAtLeast(1e-300),
+        )
+    }
+
+    /**
+     * Applies a plugin's [changes] (roadmap item 111) to the selection [pluginInput] described:
+     * updates and removals by selection index, additions on the active layer and frame. One
+     * undo step; the strokes added or changed end up selected.
+     */
+    fun applyPluginChanges(changes: PluginResult.Changes) {
+        if (changes.add.isEmpty() && changes.update.isEmpty() && changes.remove.isEmpty()) return
+        if (changes.add.isNotEmpty() && !activeLayerEditable) return
+        recordHistory()
+        val chosen = selection.sortedBy { strokes.indexOf(it) }
+        val touched = ArrayList<Stroke>()
+        for (update in changes.update) {
+            val stroke = chosen.getOrNull(update.index) ?: continue
+            val at = strokes.indexOfFirst { it === stroke }
+            if (at == -1) continue
+            var edited = if (update.color != null) stroke.withColor(update.color) else stroke
+            update.points?.let { edited.setPoints(it) }
+            update.width?.let { edited.setWidth(it) }
+            if (edited !== stroke) strokes[at] = edited
+            touched.add(edited)
+        }
+        val removed = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Stroke, Boolean>()).apply { changes.remove.mapNotNullTo(this) { chosen.getOrNull(it) } }
+        strokes.removeWhere { it in removed }
+        touched.removeAll { it in removed }
+        val added = changes.add.map { s ->
+            Stroke(s.color, s.width, PenType.MARKER, filled = s.filled, layerId = activeLayerId, animFrame = currentAnimFrame).apply {
+                for (p in s.points) addPoint(p)
+                if (s.closed && s.points.size > 2 && s.points.first() != s.points.last()) addPoint(s.points.first())
+            }
+        }
+        strokes.addAll(added)
+        clearSelectionState()
+        selection.addAll(touched + added)
+        strokesChanged()
+    }
+
+    /**
      * Places a QR code (roadmap item 144) at the centre of the view as one selected group:
      * [qr]'s dark modules as filled outlines in the active colour, over a white square that
      * includes the quiet zone when [lightBackground] (so it reads on any paper). The code is
