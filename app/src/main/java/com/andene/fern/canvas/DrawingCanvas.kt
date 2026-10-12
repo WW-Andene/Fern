@@ -38,6 +38,8 @@ import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -93,6 +95,10 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
 
     Canvas(
         modifier = modifier
+            // Screen readers otherwise announce nothing for the drawing surface.
+            .semantics {
+                contentDescription = "Drawing canvas, ${state.strokes.size} strokes. One finger draws, two fingers pan and zoom."
+            }
             .pointerInteropFilter { event ->
                 if (event.pointerCount > 0) {
                     val isStylus = event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
