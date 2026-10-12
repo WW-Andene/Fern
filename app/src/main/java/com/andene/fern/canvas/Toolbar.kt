@@ -1,5 +1,8 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Pentagon
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.AddCircleOutline
@@ -370,6 +373,28 @@ fun Toolbar(
                                 },
                             )
                         }
+                    }
+                }
+                // Bézier pen (roadmap item 96): tap for corners, drag for curves, tap the first node to close.
+                IconButton(onClick = { state.activeTool = if (state.activeTool == Tool.BEZIER) Tool.PEN else Tool.BEZIER }) {
+                    Icon(
+                        Icons.Filled.Polyline,
+                        contentDescription = stringResource(R.string.tb_bezier),
+                        tint = if (state.activeTool == Tool.BEZIER) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                    )
+                }
+                if (state.activeTool == Tool.BEZIER && state.bezierNodes.isNotEmpty()) {
+                    IconButton(onClick = { state.finishBezierPath(closed = false) }, enabled = state.bezierNodes.size >= 2) {
+                        Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.tb_bezier_finish))
+                    }
+                    IconButton(onClick = { state.finishBezierPath(closed = true) }, enabled = state.bezierNodes.size >= 3) {
+                        Icon(Icons.Filled.Pentagon, contentDescription = stringResource(R.string.tb_bezier_close))
+                    }
+                    IconButton(onClick = { state.removeLastBezierNode() }) {
+                        Icon(Icons.AutoMirrored.Filled.Backspace, contentDescription = stringResource(R.string.tb_bezier_remove_node))
+                    }
+                    IconButton(onClick = { state.cancelBezierPath() }) {
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.tb_bezier_cancel))
                     }
                 }
                 IconButton(onClick = { showWidthSlider = !showWidthSlider }) {

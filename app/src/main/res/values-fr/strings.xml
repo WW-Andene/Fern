@@ -349,4 +349,9 @@
     <string name="xsheet_longer">Tenue plus longue, image %1$d</string>
     <string name="layers_reference_on">Calque de référence pour le remplissage : activé</string>
     <string name="layers_reference_off">Calque de référence pour le remplissage : désactivé</string>
+    <string name="tb_bezier">Outil plume (courbes de Bézier)</string>
+    <string name="tb_bezier_finish">Terminer le tracé</string>
+    <string name="tb_bezier_close">Fermer le tracé</string>
+    <string name="tb_bezier_remove_node">Retirer le dernier nœud</string>
+    <string name="tb_bezier_cancel">Annuler le tracé</string>
 </resources>

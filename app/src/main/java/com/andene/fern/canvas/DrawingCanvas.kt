@@ -178,6 +178,7 @@ fun DrawingCanvas(
                             Tool.EYEDROPPER -> {} // one-shot on pointer-down, nothing to end
                             Tool.CONNECT -> state.endConnect()
                             Tool.BONE -> state.endBone()
+                            Tool.BEZIER -> {} // a node is placed on press; nothing to end
                             Tool.RULER -> state.endRulerGesture()
                             Tool.SELECT -> when (selectionGestureKind) {
                                 SelectionGestureKind.SCALE -> state.endScaleSelection()
@@ -239,6 +240,7 @@ fun DrawingCanvas(
                                     Tool.EYEDROPPER -> state.pickColorAt(world)
                                     Tool.CONNECT -> state.beginConnect(world)
                                     Tool.BONE -> state.beginBone(world)
+                                    Tool.BEZIER -> state.beginBezierNode(world)
                                     Tool.RULER -> state.beginRulerGesture(world)
                                     Tool.SELECT -> {
                                         val handles = selectionHandles(state, screenCenter)
@@ -272,6 +274,7 @@ fun DrawingCanvas(
                                         Tool.EYEDROPPER -> {} // one-shot; ignore drag
                                         Tool.CONNECT -> state.continueConnect(world)
                                         Tool.BONE -> state.continueBone(world)
+                                        Tool.BEZIER -> state.dragBezierHandle(world)
                                         Tool.RULER -> state.continueRulerGesture(world)
                                         Tool.SELECT -> when (selectionGestureKind) {
                                             SelectionGestureKind.SCALE -> state.continueScaleSelection(world)
@@ -499,6 +502,27 @@ fun DrawingCanvas(
                     val p = state.worldToScreen(stroke.points[index], screenCenter)
                     drawRect(Color.White, topLeft = p - Offset(6f, 6f), size = Size(12f, 12f))
                     drawRect(HANDLE_COLOR, topLeft = p - Offset(6f, 6f), size = Size(12f, 12f), style = DrawStyle(width = 2f))
+                }
+            }
+
+            // The Bézier path being built: the curve so far, its nodes, and the last node's handles.
+            if (state.bezierNodes.isNotEmpty()) {
+                val nodes = state.bezierNodes.toList()
+                val preview = flattenBezier(nodes, closed = false, spacing = 4.0 / state.scale.coerceAtLeast(1e-300)).map { state.worldToScreen(it, screenCenter) }
+                for (i in 1 until preview.size) drawLine(MARQUEE_BORDER_COLOR, preview[i - 1], preview[i], strokeWidth = 2f)
+                val last = nodes.last()
+                if (!last.isCorner) {
+                    val p = state.worldToScreen(last.point, screenCenter)
+                    for (handle in listOf(last.handleIn, last.handleOut)) {
+                        val h = state.worldToScreen(handle, screenCenter)
+                        drawLine(HANDLE_COLOR, p, h, strokeWidth = 1f)
+                        drawCircle(HANDLE_COLOR, 4f, h)
+                    }
+                }
+                for ((i, node) in nodes.withIndex()) {
+                    val p = state.worldToScreen(node.point, screenCenter)
+                    // The first node is drawn larger: tapping it closes the path.
+                    drawRect(HANDLE_COLOR, topLeft = p - Offset(if (i == 0) 6f else 4f, if (i == 0) 6f else 4f), size = Size(if (i == 0) 12f else 8f, if (i == 0) 12f else 8f), style = DrawStyle(width = 2f))
                 }
             }
 

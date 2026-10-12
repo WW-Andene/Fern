@@ -347,4 +347,9 @@
     <string name="xsheet_longer">Longer hold, frame %1$d</string>
     <string name="layers_reference_on">Reference layer for fills: on</string>
     <string name="layers_reference_off">Reference layer for fills: off</string>
+    <string name="tb_bezier">Pen tool (Bézier curves)</string>
+    <string name="tb_bezier_finish">Finish the path</string>
+    <string name="tb_bezier_close">Close the path</string>
+    <string name="tb_bezier_remove_node">Remove the last node</string>
+    <string name="tb_bezier_cancel">Cancel the path</string>
 </resources>

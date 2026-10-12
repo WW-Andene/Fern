@@ -32,7 +32,7 @@ enum class StrokeAlignment(@StringRes val label: Int) {
     DISTRIBUTE_Y(R.string.align_distribute_y),
 }
 
-enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER, EYEDROPPER, CONNECT, BONE }
+enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER, EYEDROPPER, CONNECT, BONE, BEZIER }
 
 /**
  * Camera + document model for the infinite canvas.
@@ -127,6 +127,9 @@ class CanvasState(
         // Bone tool reach and the shortest bone an add drag makes, in screen px (§7 scale).
         private const val BONE_HIT_SCREEN = 24.0
         private const val BONE_MIN_SCREEN = 16.0
+        // Bézier pen: reach of the first node to close a path, and curve sampling (screen px).
+        private const val BEZIER_CLOSE_SCREEN = 24.0
+        private const val BEZIER_SAMPLE_SCREEN = 4.0
         // IK: chain length, solver passes per move, and close enough (screen px).
         private const val IK_CHAIN_BONES = 4
         /** Longest hold the X-sheet offers, in playback ticks. */
@@ -227,7 +230,15 @@ class CanvasState(
 
     var activeColor by mutableStateOf(Color(0xFF1B1B1B))
     var activeWidthWorld by mutableDoubleStateOf(4.0)
-    var activeTool by mutableStateOf(Tool.PEN)
+    private var activeToolState by mutableStateOf(Tool.PEN)
+
+    var activeTool: Tool
+        get() = activeToolState
+        set(value) {
+            // Leaving the Bézier pen keeps the path drawn so far, as an open path.
+            if (activeToolState == Tool.BEZIER && value != Tool.BEZIER && bezierNodes.isNotEmpty()) finishBezierPath(closed = false)
+            activeToolState = value
+        }
     var activePenType by mutableStateOf(PenType.MARKER)
 
     /** Brush settings new [PenType.STAMP] strokes are drawn with; edited in the brush editor. */
@@ -687,6 +698,68 @@ class CanvasState(
         for (branch in branches) connectors.add(Connector(UUID.randomUUID().toString(), central.id, branch.id))
         onTextChanged(textItems.toList())
         onConnectorsChanged(connectors.toList())
+    }
+
+    // ---- Bézier pen tool (roadmap item 96) ----
+
+    /** Nodes of the path being built with [Tool.BEZIER]; empty when none is in progress. */
+    val bezierNodes = mutableStateListOf<BezierNode>()
+
+    /**
+     * Bézier pen press: on the first node of a path of three or more nodes, closes and
+     * finishes it; otherwise adds a node here (a corner until dragged).
+     */
+    fun beginBezierNode(world: WorldPoint) {
+        val reach = BEZIER_CLOSE_SCREEN / scale.coerceAtLeast(1e-300)
+        val first = bezierNodes.firstOrNull()
+        if (first != null && bezierNodes.size >= 3 && hypot(first.point.x - world.x, first.point.y - world.y) <= reach) {
+            finishBezierPath(closed = true)
+            return
+        }
+        bezierNodes.add(BezierNode(world))
+    }
+
+    /** Dragging while placing a node pulls its handle out, making it smooth. */
+    fun dragBezierHandle(world: WorldPoint) {
+        val last = bezierNodes.lastOrNull() ?: return
+        // Within the tap slop it stays a corner, so a tap with a little wobble isn't curved.
+        val moved = hypot(world.x - last.point.x, world.y - last.point.y) * scale
+        bezierNodes[bezierNodes.lastIndex] = last.copy(handleOut = if (moved <= TAP_SLOP_SCREEN) last.point else world)
+    }
+
+    fun removeLastBezierNode() {
+        if (bezierNodes.isNotEmpty()) bezierNodes.removeAt(bezierNodes.lastIndex)
+    }
+
+    fun cancelBezierPath() {
+        bezierNodes.clear()
+    }
+
+    /**
+     * Commits the path as a stroke with the current pen settings (closed back to its first
+     * node when [closed], so the fill tool can fill it), sampled finely enough to look smooth
+     * at the current zoom. Undoable. A path of fewer than two nodes is discarded.
+     */
+    fun finishBezierPath(closed: Boolean) {
+        val nodes = bezierNodes.toList()
+        bezierNodes.clear()
+        if (nodes.size < 2 || !activeLayerEditable) return
+        recordHistory()
+        val s = scale.coerceAtLeast(1e-300)
+        val stroke = Stroke(
+            activeColor.copy(alpha = activeColor.alpha * activeOpacity.toFloat()),
+            activeWidthWorld / s,
+            activePenType,
+            blendMode = activeBlendMode,
+            layerId = activeLayerId,
+            animFrame = currentAnimFrame,
+            dashed = activeDashed,
+            brush = if (activePenType == PenType.STAMP) activeBrush else null,
+        )
+        for (point in flattenBezier(nodes, closed && nodes.size >= 3, BEZIER_SAMPLE_SCREEN / s)) stroke.addPoint(point)
+        strokes.add(stroke)
+        rememberActiveColor()
+        strokesChanged()
     }
 
     // ---- Skeleton (roadmap item 83) ----
@@ -3012,6 +3085,7 @@ class CanvasState(
             for (i in imageItems.indices) imageItems[i] = imageItems[i].copy(position = imageItems[i].position - offset)
             onImageChanged(imageItems.toList())
         }
+        if (bezierNodes.isNotEmpty()) for (i in bezierNodes.indices) bezierNodes[i] = bezierNodes[i].shiftedBy(offset)
         if (bones.isNotEmpty()) {
             for (i in bones.indices) bones[i] = bones[i].shiftedBy(offset)
             onBonesChanged(bones.toList())
