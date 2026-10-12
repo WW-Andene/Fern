@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
@@ -522,6 +523,22 @@ fun DrawingCanvas(
                     val p = state.worldToScreen(stroke.points[index], screenCenter)
                     drawRect(Color.White, topLeft = p - Offset(6f, 6f), size = Size(12f, 12f))
                     drawRect(HANDLE_COLOR, topLeft = p - Offset(6f, 6f), size = Size(12f, 12f), style = DrawStyle(width = 2f))
+                }
+            }
+
+            // Weight painting: each point of the selected bone's ink as a dot, red where it fully
+            // follows the bone, blue where it follows the parent, grey where it's automatic.
+            if (state.paintingWeights && state.activeTool == Tool.BONE) {
+                val boneId = state.selectedBoneId
+                for (stroke in state.strokes) {
+                    if (boneId == null || stroke.boneId != boneId || stroke.animFrame != state.currentAnimFrame) continue
+                    stroke.revision // redraw as weights are painted
+                    val weights = stroke.jointWeights
+                    for (i in stroke.points.indices) {
+                        val w = weights?.getOrNull(i)
+                        val color = if (w == null || w.isNaN()) WEIGHT_AUTO_COLOR else lerp(WEIGHT_PARENT_COLOR, WEIGHT_BONE_COLOR, w)
+                        drawCircle(color, radius = 4f, center = state.worldToScreen(stroke.points[i], screenCenter))
+                    }
                 }
             }
 
@@ -1481,3 +1498,9 @@ private fun DrawScope.drawTextOnPath(layout: TextLayoutResult, path: List<Offset
         }
     }
 }
+
+// Weight-painting overlay colours: automatic, following the parent (0), following the bone (1).
+private val WEIGHT_AUTO_COLOR = Color(0xFF9E9E9E)
+private val WEIGHT_PARENT_COLOR = Color(0xFF1E88E5)
+private val WEIGHT_BONE_COLOR = Color(0xFFE53935)
+

@@ -126,6 +126,8 @@ class CanvasState(
         private const val PANEL_BORDER_SCREEN = 3.0
         // Bone tool reach and the shortest bone an add drag makes, in screen px (§7 scale).
         private const val BONE_HIT_SCREEN = 24.0
+        // Weight-painting brush radius in screen pixels (on the §7 scale).
+        private const val WEIGHT_BRUSH_SCREEN = 24.0
         private const val BONE_MIN_SCREEN = 16.0
         // Smart guides: snap distance (screen px) and how many nearby objects offer guide lines.
         private const val GUIDE_SNAP_SCREEN = 8.0
@@ -822,7 +824,18 @@ class CanvasState(
     /** The bones of the frame on screen. */
     val currentBones: List<Bone> get() = bones.filter { it.animFrame == currentAnimFrame }
 
-    private enum class BoneGestureKind { ADD, ROTATE, MOVE, REACH, NONE }
+    /**
+     * Weight painting (roadmap item 84): with the bone tool, dragging over ink bound to the
+     * selected bone sets how much each point under the brush follows that bone rather than its
+     * parent ([Stroke.jointWeights]) to [weightPaintValue], overriding the automatic weights the
+     * next time a joint is turned. Each drag is one undo step.
+     */
+    var paintingWeights by mutableStateOf(false)
+
+    /** The weight painting applies, 0 (follow the parent) to 1 (follow the bone itself). */
+    var weightPaintValue by mutableDoubleStateOf(1.0)
+
+    private enum class BoneGestureKind { ADD, ROTATE, MOVE, REACH, PAINT, NONE }
 
     private data class BoneGesture(val kind: BoneGestureKind, val boneId: String?, val last: WorldPoint, val parentId: String? = null, val head: WorldPoint = last)
 
@@ -919,6 +932,14 @@ class CanvasState(
     fun beginBone(world: WorldPoint) {
         val reach = BONE_HIT_SCREEN / scale.coerceAtLeast(1e-300)
         val frameBones = currentBones
+        if (paintingWeights) {
+            if (selectedBoneId == null) selectedBoneId = boneAt(frameBones, world, reach)?.id
+            if (selectedBoneId == null) return
+            recordHistory()
+            boneGesture = BoneGesture(BoneGestureKind.PAINT, selectedBoneId, world)
+            paintWeightsAt(world)
+            return
+        }
         val hit = boneAt(frameBones, world, reach)
         selectedBoneId = hit?.id
         if (!posingBones) {
@@ -941,6 +962,24 @@ class CanvasState(
         boneTurn = if (gesture.kind == BoneGestureKind.ROTATE) startTurn(frameBones.first { it.id == gesture.boneId }, world) else null
     }
 
+    /** Sets [weightPaintValue] on the points of the selected bone's ink within the brush of [world]. */
+    private fun paintWeightsAt(world: WorldPoint) {
+        val boneId = selectedBoneId ?: return
+        val radius = WEIGHT_BRUSH_SCREEN / scale.coerceAtLeast(1e-300)
+        val value = weightPaintValue.toFloat().coerceIn(0f, 1f)
+        for (stroke in strokesNear(world.x - radius, world.y - radius, world.x + radius, world.y + radius)) {
+            if (stroke.boneId != boneId || stroke.animFrame != currentAnimFrame) continue
+            val points = stroke.points
+            var weights: FloatArray? = null
+            for (i in points.indices) {
+                if (hypot(points[i].x - world.x, points[i].y - world.y) > radius) continue
+                if (weights == null) weights = stroke.jointWeights?.copyOf() ?: FloatArray(points.size) { Float.NaN }
+                weights[i] = value
+            }
+            if (weights != null) stroke.setJointWeights(weights)
+        }
+    }
+
     private fun startTurn(bone: Bone, pointer: WorldPoint): BoneTurn {
         val frame = currentAnimFrame
         val frameBones = bones.filter { it.animFrame == frame }
@@ -956,10 +995,18 @@ class CanvasState(
                 val points = stroke.points.toList()
                 // Only ink on the turned bone itself or its parent blends; deeper bones move rigidly.
                 val weights = if (parent != null && (stroke.boneId == bone.id || stroke.boneId == parent.id)) {
+                    // A painted weight is the share of the stroke's own bone: for ink on the
+                    // turned bone that's how far it follows; for ink on the parent, the rest.
+                    val painted = stroke.jointWeights?.takeIf { it.size == points.size }
                     DoubleArray(points.size) { i ->
-                        val toBone = distanceToBone(bone, points[i])
-                        val toParent = distanceToBone(parent, points[i])
-                        if (toBone + toParent == 0.0) 0.5 else toParent / (toBone + toParent)
+                        val w = painted?.get(i)
+                        if (w != null && !w.isNaN()) {
+                            (if (stroke.boneId == bone.id) w.toDouble() else 1.0 - w).coerceIn(0.0, 1.0)
+                        } else {
+                            val toBone = distanceToBone(bone, points[i])
+                            val toParent = distanceToBone(parent, points[i])
+                            if (toBone + toParent == 0.0) 0.5 else toParent / (toBone + toParent)
+                        }
                     }
                 } else null
                 Triple(stroke, points, weights)
@@ -995,6 +1042,7 @@ class CanvasState(
                 geometryEpoch++
                 boneGesture = gesture.copy(last = world)
             }
+            BoneGestureKind.PAINT -> paintWeightsAt(world)
             BoneGestureKind.REACH -> {
                 reachToward(gesture.boneId ?: return, world)
                 boneGesture = gesture.copy(last = world)
@@ -1028,6 +1076,7 @@ class CanvasState(
                 onBonesChanged(bones.toList())
                 strokesChanged()
             }
+            BoneGestureKind.PAINT -> strokesChanged()
             BoneGestureKind.NONE -> {}
         }
     }

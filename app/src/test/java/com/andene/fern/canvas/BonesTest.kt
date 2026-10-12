@@ -104,6 +104,35 @@ class BonesTest {
     }
 
     @Test
+    fun paintedWeightsOverrideTheAutomaticOnesAndSurviveSaving() {
+        val state = arm()
+        val line = Stroke(Color.Black, 2.0).onBone(state.bones[1].id).apply {
+            addPoint(WorldPoint(0.0, 0.0)); addPoint(WorldPoint(100.0, 0.0)); addPoint(WorldPoint(200.0, 0.0))
+        }
+        state.loadStrokes(listOf(line))
+        state.selectedBoneId = state.bones[1].id
+        state.paintingWeights = true
+        state.weightPaintValue = 1.0
+        // Paint the far end of the upper arm: it now follows the forearm fully.
+        state.beginBone(WorldPoint(0.0, 0.0))
+        state.endBone()
+        assertEquals(1f, line.jointWeights!![0])
+        assertTrue(line.jointWeights!![2].isNaN())
+        // The weights travel through the stroke format.
+        val bytes = ByteArrayOutputStream().also { StrokeCodec.write(DataOutputStream(it), listOf(line)) }.toByteArray()
+        assertEquals(1f, StrokeCodec.read(DataInputStream(ByteArrayInputStream(bytes))).single().jointWeights!![0])
+        state.paintingWeights = false
+        state.posingBones = true
+        state.beginBone(WorldPoint(200.0, 0.0))
+        state.continueBone(WorldPoint(100.0, 100.0))
+        state.endBone()
+        val bent = state.strokes.single().points
+        assertEquals(100.0, bent[0].x, 1e-6) // painted 1: turned with the forearm about the elbow
+        assertEquals(-100.0, bent[0].y, 1e-6)
+        assertEquals(100.0, bent[2].y, 1e-6) // still automatic: the hand turns fully
+    }
+
+    @Test
     fun smoothJointsBendInkByDistanceWhileRigidMovesItWhole() {
         val smooth = bendElbow(smooth = true)
         assertEquals(WorldPoint(0.0, 0.0), smooth[0]) // far up the upper arm: weight 0, unmoved

@@ -120,6 +120,7 @@ class Stroke(
         internal val maxX: Double,
         internal val maxY: Double,
         internal val revision: Int,
+        internal val jointWeights: FloatArray? = null,
     )
 
     /** This stroke's current geometry as an immutable [State]; O(1). */
@@ -127,7 +128,7 @@ class Stroke(
         // Plain revision: undo snapshots capture every stroke, and a million snapshot-state reads per action add up.
         cachedState?.let { if (it.revision == plainRevision) return it }
         dataShared = true
-        return State(xs, ys, pressureData, tiltData, orientationData, size, widthWorld, minX, minY, maxX, maxY, plainRevision).also { cachedState = it }
+        return State(xs, ys, pressureData, tiltData, orientationData, size, widthWorld, minX, minY, maxX, maxY, plainRevision, jointWeights).also { cachedState = it }
     }
 
     /** Sets this stroke's geometry back to [state] (an undo); O(1), the arrays stay shared until written. */
@@ -147,6 +148,7 @@ class Stroke(
         minY = state.minY
         maxX = state.maxX
         maxY = state.maxY
+        jointWeights = state.jointWeights
         dataShared = true
         revision++
     }
@@ -232,6 +234,8 @@ class Stroke(
         tiltData[size] = tilt
         orientationData[size] = orientation
         size++
+        // A painted stroke that grows gets automatic weights for its new points.
+        jointWeights?.let { old -> jointWeights = old.copyOf(size).also { it[size - 1] = Float.NaN } }
         if (point.x < minX) minX = point.x
         if (point.y < minY) minY = point.y
         if (point.x > maxX) maxX = point.x
@@ -387,6 +391,22 @@ class Stroke(
     fun withState(state: State): Stroke =
         Stroke(color, state.widthWorld, penType, filled, blendMode, layerId, animFrame, dashed, fadeFill, screentone, brush, gradient, groupId, boneId, lineStyle)
             .also { it.restoreState(state) }
+
+    /**
+     * Painted joint weights (roadmap item 84), one per point: how much the point follows the
+     * bone this stroke is bound to rather than that bone's parent (1 = fully its own bone, 0 =
+     * fully the parent), or NaN where it's left automatic. Null when nothing was painted. The
+     * array is never written in place - painting replaces it - so undo snapshots can share it.
+     */
+    var jointWeights: FloatArray? = null
+        private set
+
+    fun setJointWeights(weights: FloatArray?) {
+        require(weights == null || weights.size == size) { "One weight per point" }
+        logBeforeChange()
+        jointWeights = weights
+        revision++
+    }
 
     /** Sets this stroke's width directly, for a SELECT-tool scale gesture. */
     fun setWidth(newWidth: Double) {

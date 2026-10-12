@@ -128,6 +128,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -672,6 +673,19 @@ fun Toolbar(
                                 contentDescription = if (state.inverseKinematics) stringResource(R.string.tb_ik_on) else stringResource(R.string.tb_ik_off),
                                 tint = if (state.inverseKinematics) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                             )
+                        }
+                        IconButton(onClick = { state.paintingWeights = !state.paintingWeights }) {
+                            Icon(
+                                Icons.Filled.FormatPaint,
+                                contentDescription = if (state.paintingWeights) stringResource(R.string.tb_weights_stop) else stringResource(R.string.tb_weights),
+                                tint = if (state.paintingWeights) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                            )
+                        }
+                        if (state.paintingWeights) {
+                            // Cycles the painted weight in quarters: how much ink follows the selected bone.
+                            TextButton(onClick = { state.weightPaintValue = ((state.weightPaintValue * 4 + 1) % 5) / 4 }) {
+                                Text(stringResource(R.string.tb_weight_value, (state.weightPaintValue * 100).toInt()))
+                            }
                         }
                         IconButton(onClick = { state.insertMannequin() }) {
                             Icon(Icons.Filled.EmojiPeople, contentDescription = stringResource(R.string.tb_mannequin))
