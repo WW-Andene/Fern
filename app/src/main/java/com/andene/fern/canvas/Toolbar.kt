@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AlignHorizontalLeft
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.AutoFixNormal
 import androidx.compose.material.icons.filled.BlurLinear
 import androidx.compose.material.icons.filled.BlurOn
@@ -39,6 +40,7 @@ import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flare
 import androidx.compose.material.icons.filled.FlipToBack
@@ -71,7 +73,9 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Tonality
+import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.material3.DropdownMenu
@@ -335,7 +339,7 @@ fun Toolbar(
                 }
                 IconButton(onClick = { showStabilizationSlider = !showStabilizationSlider }) {
                     Icon(
-                        Icons.Filled.Gesture,
+                        Icons.Filled.Timeline,
                         contentDescription = "Stroke stabilisation",
                         tint = if (showStabilizationSlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
@@ -437,7 +441,7 @@ fun Toolbar(
                 }
                 if (state.activeTool == Tool.SELECT) {
                     IconButton(onClick = { state.selectAllOnActiveLayer() }) {
-                        Icon(Icons.Filled.SelectAll, contentDescription = "Select all on this layer")
+                        Icon(Icons.Filled.ViewModule, contentDescription = "Select all on this layer")
                     }
                     IconButton(onClick = { state.selectSameColor() }) {
                         Icon(Icons.Filled.ColorLens, contentDescription = "Select strokes of the same colour")
@@ -721,10 +725,10 @@ private fun penTypeIcon(penType: PenType) = when (penType) {
     PenType.MARKER -> Icons.Filled.Brush
     PenType.PENCIL -> Icons.Filled.Edit
     PenType.HIGHLIGHTER -> Icons.Filled.Highlight
-    PenType.CALLIGRAPHY -> Icons.Filled.Gesture
+    PenType.CALLIGRAPHY -> Icons.Filled.Draw
     PenType.AIRBRUSH -> Icons.Filled.BlurOn
     PenType.CRAYON -> Icons.Filled.Create
-    PenType.PIXEL -> Icons.Filled.GridOn
+    PenType.PIXEL -> Icons.Filled.Apps
 }
 
 private fun penTypeLabel(penType: PenType) = when (penType) {
