@@ -52,6 +52,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.LineWeight
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.Palette
@@ -438,6 +439,9 @@ fun Toolbar(
                     }
                     IconButton(onClick = { state.smoothSelection() }) {
                         Icon(Icons.Filled.Waves, contentDescription = "Smooth selected strokes")
+                    }
+                    IconButton(onClick = { state.applyWidthToSelection() }) {
+                        Icon(Icons.Filled.LineWeight, contentDescription = "Apply current brush width to selection")
                     }
                     IconButton(onClick = { state.recolorSelection() }) {
                         Icon(Icons.Filled.FormatPaint, contentDescription = "Apply current colour to selection")

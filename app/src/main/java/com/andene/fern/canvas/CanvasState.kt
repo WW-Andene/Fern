@@ -1315,6 +1315,15 @@ class CanvasState(
         onChanged(strokes.toList())
     }
 
+    /** Sets every selected stroke's width to the current brush width (as it would draw at this zoom). Fills have no width. */
+    fun applyWidthToSelection() {
+        if (selection.isEmpty()) return
+        recordHistory()
+        val width = activeWidthWorld / scale.coerceAtLeast(1e-300)
+        for (stroke in selection) if (!stroke.filled) stroke.setWidth(width)
+        onChanged(strokes.toList())
+    }
+
     /** Selects every editable stroke on the active layer (in the current animation frame). */
     fun selectAllOnActiveLayer() {
         clearSelectionState()
