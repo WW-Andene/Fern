@@ -55,6 +55,10 @@ android {
         // not the code under test. Isolating classes removes the leak path.
         unitTests.all {
             it.forkEvery = 1
+            // The layered-format round trips (LayeredFormatsTest) export at the 4096 px edge: the
+            // image, a ~100 MB .psd and its 16-bit decoded layers together exceed Gradle's default
+            // 512 MB test heap.
+            it.maxHeapSize = "2g"
             // Scale benchmarks (ScaleBenchmark) only run when asked: ./gradlew testDebugUnitTest -Pbenchmark
             // --tests '*ScaleBenchmark'. A million strokes needs more heap than the default.
             if (project.hasProperty("benchmark")) {
