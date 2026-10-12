@@ -81,6 +81,7 @@ class CanvasState(
     private val onFramesChanged: (List<Frame>) -> Unit = {},
     private val onSavedColorsChanged: (List<Color>) -> Unit = {},
     private val onBrushChanged: (StampBrush) -> Unit = {},
+    private val onToolSlotsChanged: (List<ToolPreset?>) -> Unit = {},
 ) {
     companion object {
         // Effectively unbounded: leaves ~250 orders of magnitude of headroom on both sides
@@ -188,6 +189,38 @@ class CanvasState(
     /** Restores the persisted stamp brush without reporting it back. */
     fun loadBrush(brush: StampBrush) {
         activeBrush = brush.clamped()
+    }
+
+    /** Favourite pen setups, one per toolbar slot (null = empty); shared by every document. */
+    val toolSlots = mutableStateListOf<ToolPreset?>().apply { repeat(TOOL_SLOT_COUNT) { add(null) } }
+
+    /** Stores the current pen setup in slot [index]. */
+    fun saveToolSlot(index: Int) {
+        toolSlots[index] = ToolPreset(activePenType, activeColor, activeWidthWorld, activeOpacity, activeBlendMode, activeDashed, activeBrush)
+        onToolSlotsChanged(toolSlots.toList())
+    }
+
+    /** Switches to the pen setup in slot [index] (and to the pen tool); no-op for an empty slot. */
+    fun applyToolSlot(index: Int) {
+        val preset = toolSlots[index] ?: return
+        activePenType = preset.penType
+        activeColor = preset.color
+        activeWidthWorld = preset.width
+        activeOpacity = preset.opacity
+        activeBlendMode = preset.blendMode
+        activeDashed = preset.dashed
+        activeBrush = preset.brush.clamped()
+        activeTool = Tool.PEN
+    }
+
+    fun clearToolSlot(index: Int) {
+        toolSlots[index] = null
+        onToolSlotsChanged(toolSlots.toList())
+    }
+
+    /** Restores persisted slots without reporting them back; extra entries are ignored, missing ones stay empty. */
+    fun loadToolSlots(loaded: List<ToolPreset?>) {
+        for (i in 0 until TOOL_SLOT_COUNT) toolSlots[i] = loaded.getOrNull(i)
     }
     var activeShapeKind by mutableStateOf(ShapeKind.LINE)
     var activeTextSizeWorld by mutableDoubleStateOf(24.0)

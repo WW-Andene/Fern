@@ -193,6 +193,7 @@ class MainActivity : ComponentActivity() {
                             onBackgroundChanged = { color, style -> CanvasStorage.saveBackground(context, currentDocumentId, color, style) },
                             onSavedColorsChanged = { colors -> CanvasStorage.saveSavedColors(context, colors) },
                             onBrushChanged = { brush -> AppSettings.setStampBrush(context, brush) },
+                            onToolSlotsChanged = { slots -> AppSettings.setToolSlots(context, slots) },
                             onFramesChanged = { frames -> CanvasStorage.saveFrames(context, currentDocumentId, frames) },
                             onLayersChanged = { layers -> CanvasStorage.saveLayers(context, currentDocumentId, layers) },
                             onRebased = { offset ->
@@ -410,6 +411,7 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(Unit) {
                         canvasState.loadSavedColors(withContext(Dispatchers.IO) { CanvasStorage.loadSavedColors(context) })
                         canvasState.loadBrush(AppSettings.stampBrush(context))
+                        canvasState.loadToolSlots(AppSettings.toolSlots(context))
                         refreshDocuments()
                         var current = documents.firstOrNull { it.trashedAt == null }
                         if (current == null) {

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AlignHorizontalLeft
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Approval
 import androidx.compose.material.icons.filled.AutoFixNormal
@@ -101,6 +102,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 private val palette = listOf(
@@ -215,6 +218,7 @@ fun Toolbar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
             ) {
+                for (index in 0 until TOOL_SLOT_COUNT) ToolSlotButton(state, index)
                 for (color in palette) {
                     val selected = state.activeTool == Tool.PEN && state.activeColor == color
                     Surface(
@@ -765,6 +769,57 @@ fun Toolbar(
                 showBackgroundColorPicker = false
             },
         )
+    }
+}
+
+/**
+ * One favourite tool slot. Tap: recall the saved pen, or save the current one into an empty
+ * slot. Touch and hold: a menu to replace the slot with the current pen or clear it.
+ */
+@Composable
+private fun ToolSlotButton(state: CanvasState, index: Int) {
+    val preset = state.toolSlots[index]
+    var showMenu by remember { mutableStateOf(false) }
+    val description = if (preset == null) "Empty favourite ${index + 1}, tap to save the current pen"
+    else "Favourite ${index + 1}: ${penTypeLabel(preset.penType)}"
+    Box {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)) // §7.3: 0.24 × 32 = 7.7 → 8
+                .semantics { contentDescription = description }
+                .pointerInput(preset) {
+                    detectTapGestures(
+                        onTap = { if (preset == null) state.saveToolSlot(index) else state.applyToolSlot(index) },
+                        onLongPress = { showMenu = true },
+                    )
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            if (preset == null) {
+                Icon(Icons.Filled.Add, contentDescription = null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(16.dp))
+            } else {
+                Icon(penTypeIcon(preset.penType), contentDescription = null, tint = preset.color, modifier = Modifier.size(16.dp))
+            }
+        }
+        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+            DropdownMenuItem(
+                text = { Text("Save current pen here") },
+                onClick = {
+                    state.saveToolSlot(index)
+                    showMenu = false
+                },
+            )
+            if (preset != null) {
+                DropdownMenuItem(
+                    text = { Text("Clear") },
+                    onClick = {
+                        state.clearToolSlot(index)
+                        showMenu = false
+                    },
+                )
+            }
+        }
     }
 }
 

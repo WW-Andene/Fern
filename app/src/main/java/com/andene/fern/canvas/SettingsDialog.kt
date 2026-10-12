@@ -13,6 +13,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 
@@ -20,6 +23,7 @@ private const val PREFS_NAME = "settings"
 private const val KEY_LEFT_HANDED = "left_handed"
 private const val KEY_TOOLBAR_BOTTOM = "toolbar_bottom"
 private const val KEY_STAMP_BRUSH = "stamp_brush"
+private const val KEY_TOOL_SLOTS = "tool_slots"
 
 /** App preferences, stored in SharedPreferences so they apply to every document and survive restarts. */
 object AppSettings {
@@ -41,30 +45,75 @@ object AppSettings {
     fun stampBrush(context: Context): StampBrush {
         val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_STAMP_BRUSH, null) ?: return StampBrush()
         return try {
-            val json = JSONObject(raw)
-            StampBrush(
-                tip = StampTip.entries.firstOrNull { it.name == json.optString("tip") } ?: StampTip.CIRCLE,
-                spacing = json.optDouble("spacing", 0.5).toFloat(),
-                scatter = json.optDouble("scatter", 0.0).toFloat(),
-                sizeJitter = json.optDouble("sizeJitter", 0.0).toFloat(),
-                angleJitter = json.optDouble("angleJitter", 0.0).toFloat(),
-                followDirection = json.optBoolean("followDirection", false),
-            ).clamped()
+            brushFromJson(JSONObject(raw))
         } catch (e: JSONException) {
             StampBrush()
         }
     }
 
     fun setStampBrush(context: Context, brush: StampBrush) {
-        val json = JSONObject()
-            .put("tip", brush.tip.name)
-            .put("spacing", brush.spacing.toDouble())
-            .put("scatter", brush.scatter.toDouble())
-            .put("sizeJitter", brush.sizeJitter.toDouble())
-            .put("angleJitter", brush.angleJitter.toDouble())
-            .put("followDirection", brush.followDirection)
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString(KEY_STAMP_BRUSH, json.toString()).apply()
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString(KEY_STAMP_BRUSH, brushToJson(brush).toString()).apply()
     }
+
+    /** Favourite tool slots; a slot that can't be read (or was never set) comes back empty. */
+    fun toolSlots(context: Context): List<ToolPreset?> {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_TOOL_SLOTS, null) ?: return emptyList()
+        val array = try { JSONArray(raw) } catch (e: JSONException) { return emptyList() }
+        return (0 until array.length()).map { i ->
+            val json = array.optJSONObject(i) ?: return@map null
+            try {
+                ToolPreset(
+                    penType = PenType.entries.firstOrNull { it.name == json.getString("penType") } ?: PenType.MARKER,
+                    color = Color(json.getInt("color")),
+                    width = json.getDouble("width"),
+                    opacity = json.getDouble("opacity"),
+                    blendMode = StrokeBlendMode.entries.firstOrNull { it.name == json.optString("blendMode") } ?: StrokeBlendMode.NORMAL,
+                    dashed = json.optBoolean("dashed", false),
+                    brush = json.optJSONObject("brush")?.let(::brushFromJson) ?: StampBrush(),
+                )
+            } catch (e: JSONException) {
+                null
+            }
+        }
+    }
+
+    fun setToolSlots(context: Context, slots: List<ToolPreset?>) {
+        val array = JSONArray()
+        for (slot in slots) {
+            if (slot == null) {
+                array.put(JSONObject.NULL)
+                continue
+            }
+            array.put(
+                JSONObject()
+                    .put("penType", slot.penType.name)
+                    .put("color", slot.color.toArgb())
+                    .put("width", slot.width)
+                    .put("opacity", slot.opacity)
+                    .put("blendMode", slot.blendMode.name)
+                    .put("dashed", slot.dashed)
+                    .put("brush", brushToJson(slot.brush)),
+            )
+        }
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString(KEY_TOOL_SLOTS, array.toString()).apply()
+    }
+
+    private fun brushToJson(brush: StampBrush): JSONObject = JSONObject()
+        .put("tip", brush.tip.name)
+        .put("spacing", brush.spacing.toDouble())
+        .put("scatter", brush.scatter.toDouble())
+        .put("sizeJitter", brush.sizeJitter.toDouble())
+        .put("angleJitter", brush.angleJitter.toDouble())
+        .put("followDirection", brush.followDirection)
+
+    private fun brushFromJson(json: JSONObject): StampBrush = StampBrush(
+        tip = StampTip.entries.firstOrNull { it.name == json.optString("tip") } ?: StampTip.CIRCLE,
+        spacing = json.optDouble("spacing", 0.5).toFloat(),
+        scatter = json.optDouble("scatter", 0.0).toFloat(),
+        sizeJitter = json.optDouble("sizeJitter", 0.0).toFloat(),
+        angleJitter = json.optDouble("angleJitter", 0.0).toFloat(),
+        followDirection = json.optBoolean("followDirection", false),
+    ).clamped()
 }
 
 /**
