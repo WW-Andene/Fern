@@ -43,7 +43,7 @@ Goal: no drawing is ever lost.
 - [x] 15. Automated tests (unit + UI) — JVM unit tests, plus storage and Compose UI tests on Robolectric; run in CI
 - [x] 16. Crash-safe atomic writes, corrupt-file quarantine instead of a crash
 - [x] 17. Versioned file format with migration path
-- [~] 18. Storage that scales to 1M strokes — thumbnail no longer re-rendered on every autosave; strokes, history and versions in a compact binary format (16 bytes per finger point instead of ~90); drawing appends to a journal instead of rewriting the file; stroke points held in primitive arrays (~41 bytes per point in memory instead of ~106). Probe: 100k strokes x 32 points load in 0.5 s, autosave after a stroke 34 ms (JVM); not yet measured at 1M or on a device (item 48)
+- [x] 18. Storage that scales to 1M strokes — compact binary format (16 bytes per finger point); drawing appends to a journal instead of rewriting the file; stroke points in primitive arrays; undo history keeps each step's list plus only the strokes changed after it, not a copy of the document; the spatial index is patched, not rebuilt, after edits; persisted history capped by stroke count. Measured at 1M strokes x 16 points (JVM, ScaleBenchmark): load 3.9 s, autosave after a stroke 34 ms, object-eraser touch with undo 0.19 s, zoomed-in frame 1.6 ms; not yet measured on a device (item 48)
 - [x] 19. Undo history that survives restarts; version-history timeline with restore
 - [x] 20. Document library: thumbnails, folders, search, sort, favourites, 30-day trash with restore
 - [x] 21. Crash reporting — on-device reports of Java crashes, plus ANRs and native crashes from the system's exit records (API 30+), shared only by the user's choice; no analytics (by design)

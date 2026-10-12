@@ -1475,31 +1475,79 @@ class CanvasState(
     // immutable values, so the list itself is the copy. Null means "not recorded" (history
     // reloaded from disk, which stores strokes only) and leaves the current ones as they are.
     //
-    // An entry holds each stroke by reference plus its immutable geometry ([Stroke.State],
-    // captured copy-on-write in O(1) and shared between entries while a stroke is untouched),
-    // not a deep copy: a deep copy per action cost O(document) time and up to 64 x the
-    // document in memory, which froze a 100k-stroke document for over a minute per erase
-    // (ScaleBenchmark). [shift] accumulates floating-origin rebases since capture, applied
-    // when the entry is restored instead of rewriting every snapshot on each rebase.
+    // An entry holds the stroke list as it was (the snapshot list's immutable instance, O(1))
+    // plus a [Stroke.MutationLog] of the geometry strokes had before their first in-place change
+    // after the entry was made. Restoring an entry puts the list back and replays its log. This
+    // costs O(strokes changed) per action; capturing every stroke's geometry per entry cost
+    // ~0.3 s an action at a million strokes (ScaleBenchmark, roadmap item 18).
+    //
+    // Every entry opens a new log and makes it the active one ([openLog]), so the logs of the
+    // surviving entries, ordered by [seq], cover the whole time since the oldest; a stroke's
+    // geometry at an entry is its earliest record in that entry's or any later entry's log, or its
+    // current geometry if none has one.
     private class HistoryEntry(
-        val strokes: Array<Stroke>,
-        val states: Array<Stroke.State>,
+        val strokes: List<Stroke>,
         var images: List<ImageItem>?,
         var texts: List<TextItem>? = null,
-        var shift: WorldPoint = WorldPoint.Zero,
         val connectors: List<Connector>? = null,
         var bones: List<Bone>? = null,
         val holds: Map<Int, Int>? = null,
     ) {
-        /** Independent strokes holding this entry's geometry (shift applied), e.g. for saving. */
-        fun materialize(): List<Stroke> = strokes.indices.map { i ->
-            strokes[i].withState(states[i]).also { if (shift != WorldPoint.Zero) it.shiftBy(shift) }
-        }
+        val log = Stroke.MutationLog()
+        val seq = nextSeq++
 
         companion object {
+            private var nextSeq = 0L
+
             fun of(strokes: List<Stroke>, images: List<ImageItem>?, texts: List<TextItem>? = null, connectors: List<Connector>? = null, bones: List<Bone>? = null, holds: Map<Int, Int>? = null) =
-                HistoryEntry(strokes.toTypedArray(), Array(strokes.size) { strokes[it].captureState() }, images, texts, connectors = connectors, bones = bones, holds = holds)
+                HistoryEntry(strokes.toList(), images, texts, connectors = connectors, bones = bones, holds = holds)
         }
+    }
+
+    /**
+     * Moves strokes that undo or redo would bring back but that aren't on the canvas now (erased
+     * or cleared ones), so they come back in the rebased world space too. Found per entry as
+     * the run between its common prefix and suffix with the live list, so a typical history
+     * costs a reference scan, not a set of every stroke.
+     */
+    private fun shiftStrokesOnlyInHistory(offset: WorldPoint) {
+        val live = strokes.toList()
+        var liveSet: MutableSet<Stroke>? = null
+        val shifted = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Stroke, Boolean>())
+        for (entry in undoStack + redoStack) {
+            val list = entry.strokes
+            if (list === live) continue
+            val shorter = minOf(list.size, live.size)
+            var prefix = 0
+            while (prefix < shorter && list[prefix] === live[prefix]) prefix++
+            var suffix = 0
+            while (suffix < shorter - prefix && list[list.size - 1 - suffix] === live[live.size - 1 - suffix]) suffix++
+            if (prefix + suffix == list.size) continue
+            // A stroke in the entry's run that is live is in the live list's run too (a stroke
+            // appears once per list), so only that run needs checking.
+            val liveRun = if (live.size - prefix - suffix <= MAX_INDEX_PATCH) {
+                java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Stroke, Boolean>()).also { set -> for (j in prefix until live.size - suffix) set.add(live[j]) }
+            } else {
+                liveSet ?: java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Stroke, Boolean>()).also { set -> set.addAll(live); liveSet = set }
+            }
+            for (j in prefix until list.size - suffix) {
+                val stroke = list[j]
+                if (stroke !in liveRun && shifted.add(stroke)) stroke.shiftBy(offset)
+            }
+        }
+    }
+
+    /** Makes [entry]'s log the one in-place stroke changes are recorded in from now on. */
+    private fun openLog(entry: HistoryEntry?) {
+        Stroke.activeLog = entry?.log
+    }
+
+    /** Independent strokes holding [entry]'s geometry, e.g. for saving history. */
+    private fun materialize(entry: HistoryEntry): List<Stroke> = Stroke.withoutLogging {
+        val earliest = java.util.IdentityHashMap<Stroke, Stroke>()
+        // Latest log first, so each stroke ends with its earliest record at or after [entry].
+        for (later in (undoStack + redoStack).filter { it.seq >= entry.seq }.sortedByDescending { it.seq }) later.log.earliestInto(earliest)
+        entry.strokes.map { earliest[it] ?: it.deepCopy() }
     }
 
     /**
@@ -1580,7 +1628,12 @@ class CanvasState(
      * still test [Stroke.intersects].
      */
     fun strokesNear(left: Double, top: Double, right: Double, bottom: Double): List<Stroke> {
-        val list = strokes.toList() // the list's immutable snapshot: same instance until it changes
+        val list = strokes.toList()
+        return positionsNear(list, left, top, right, bottom).map { list[it] }
+    }
+
+    /** [strokesNear] as ascending positions in [list], which must be the current `strokes.toList()`. */
+    private fun positionsNear(list: List<Stroke>, left: Double, top: Double, right: Double, bottom: Double): IntArray {
         val index = validIndexFor(list)
         val found = if (patchDirty.isEmpty() && indexedStrokes === list) index.query(left, top, right, bottom) else {
             val baseSize = indexedStrokes!!.size
@@ -1603,7 +1656,7 @@ class CanvasState(
             symmetryCopies.forEach { add(it.first) }
             addAll(selection)
         }
-        if (live.isEmpty()) return found.map { list[it] }
+        if (live.isEmpty()) return found
         val positions = java.util.TreeSet<Int>()
         found.forEach(positions::add)
         // Searched from the end: the stroke being drawn and fresh pastes/duplicates are last.
@@ -1612,7 +1665,7 @@ class CanvasState(
             while (at >= 0 && list[at] !== stroke) at--
             if (at >= 0) positions.add(at)
         }
-        return positions.map { list[it] }
+        return positions.toIntArray()
     }
 
     /** What the rendered scene depends on, for [SceneTileCache]; comparing two is O(1). */
@@ -1725,13 +1778,15 @@ class CanvasState(
     private val undoStack = ArrayDeque<HistoryEntry>()
     private val redoStack = ArrayDeque<HistoryEntry>()
 
-    private fun currentEntry() = HistoryEntry.of(strokes, imageItems.toList(), textItems.toList(), connectors.toList(), bones.toList(), frameHolds.toMap())
+    private fun currentEntry() = HistoryEntry.of(strokes.toList(), imageItems.toList(), textItems.toList(), connectors.toList(), bones.toList(), frameHolds.toMap())
 
     /** Called at the start of every stroke-changing action; also invalidates redo, standard editor semantics. */
     private fun recordHistory() {
-        undoStack.addLast(currentEntry())
+        val entry = currentEntry()
+        undoStack.addLast(entry)
         while (undoStack.size > MAX_UNDO_STEPS) undoStack.removeFirst()
         redoStack.clear()
+        openLog(entry)
     }
 
     /** Undo and redo stroke snapshots, oldest first, for [CanvasStorage.saveHistory]. */
@@ -1741,7 +1796,15 @@ class CanvasState(
         // it reflects the stacks as they are when each step is read.
         fun lazySteps(entries: ArrayDeque<HistoryEntry>) = object : AbstractList<List<Stroke>>() {
             override val size get() = entries.size
-            override fun get(index: Int) = entries[index].materialize()
+            // Each step reports its size without building strokes; they're built on first read.
+            override fun get(index: Int): List<Stroke> {
+                val entry = entries[index]
+                return object : AbstractList<Stroke>() {
+                    private val built by lazy { materialize(entry) }
+                    override val size get() = entry.strokes.size
+                    override fun get(index: Int) = built[index]
+                }
+            }
         }
         return lazySteps(undoStack) to lazySteps(redoStack)
     }
@@ -1752,6 +1815,8 @@ class CanvasState(
         undoStack.addAll(undo.takeLast(MAX_UNDO_STEPS).map { HistoryEntry.of(it, null) })
         redoStack.clear()
         redoStack.addAll(redo.map { HistoryEntry.of(it, null) })
+        // Changes from here on belong after the newest step.
+        openLog(listOf(undoStack.lastOrNull(), redoStack.lastOrNull()).filterNotNull().maxByOrNull { it.seq })
     }
 
     private fun restore(snapshot: List<Stroke>) = restore(HistoryEntry.of(snapshot, null))
@@ -1788,14 +1853,13 @@ class CanvasState(
             selectedBoneId = selectedBoneId?.takeIf { id -> bones.any { it.id == id } }
             onBonesChanged(bones.toList())
         }
-        // The entry's own stroke objects come back with its geometry: O(1) each unless a rebase
-        // happened since (then each is shifted, copying its arrays once).
-        for (i in entry.strokes.indices) {
-            entry.strokes[i].restoreState(entry.states[i])
-            if (entry.shift != WorldPoint.Zero) entry.strokes[i].shiftBy(entry.shift)
+        // Strokes changed in place since the entry get their geometry back; the list itself is
+        // only rewritten when it differs (a SnapshotStateList rewrite is ~15 ms per million).
+        entry.log.restore()
+        if (strokes.toList() !== entry.strokes) {
+            strokes.clear()
+            strokes.addAll(entry.strokes)
         }
-        strokes.clear()
-        strokes.addAll(entry.strokes)
         // Undoing a frame insert/delete changes how many frames have strokes; keep the count in step.
         animFrameCount = (strokes.maxOfOrNull { it.animFrame } ?: 0) + 1
         currentAnimFrame = currentAnimFrame.coerceAtMost(animFrameCount - 1)
@@ -2164,25 +2228,27 @@ class CanvasState(
             }
             // Only strokes near the eraser are tested (spatial index); the list is rewritten only
             // when something was actually hit.
-            val hit = strokesNear(point.x - radius, point.y - radius, point.x + radius, point.y + radius).filterTo(
-                java.util.Collections.newSetFromMap(java.util.IdentityHashMap()),
-            ) { stroke ->
-                isEditable(stroke) && stroke.intersects(point.x - radius, point.y - radius, point.x + radius, point.y + radius) && (
+            val list = strokes.toList()
+            // Removed by position, last first so earlier positions stay valid: a filter over the
+            // whole list cost ~0.13 s per touch at a million strokes.
+            for (at in positionsNear(list, point.x - radius, point.y - radius, point.x + radius, point.y + radius).reversed()) {
+                val stroke = list[at]
+                val hit = isEditable(stroke) && stroke.intersects(point.x - radius, point.y - radius, point.x + radius, point.y + radius) && (
                     if (stroke.filled) polygonContains(stroke.points, point)
                     else distanceToPolyline(stroke.points, point) <= radius + stroke.widthWorld / 2
                 )
+                if (hit) strokes.removeAt(at)
             }
-            if (hit.isNotEmpty()) strokes.removeWhere { it in hit }
             return
         }
-        for (stroke in strokesNear(point.x - radius, point.y - radius, point.x + radius, point.y + radius)) {
+        val list = strokes.toList()
+        for (at in positionsNear(list, point.x - radius, point.y - radius, point.x + radius, point.y + radius).reversed()) {
+            val stroke = list[at]
             if (!isEditable(stroke)) continue
             if (!stroke.intersects(point.x - radius, point.y - radius, point.x + radius, point.y + radius)) continue
             val pieces = stroke.eraseNear(point, radius) ?: continue
-            val index = strokes.indexOf(stroke)
-            if (index == -1) continue
-            strokes.removeAt(index)
-            strokes.addAll(index, pieces)
+            strokes.removeAt(at)
+            strokes.addAll(at, pieces)
         }
     }
 
@@ -3264,19 +3330,22 @@ class CanvasState(
      */
     fun discardActionsSince(depth: Int) {
         if (undoStack.size <= depth) return
-        var snapshot: HistoryEntry? = null
-        while (undoStack.size > depth) snapshot = undoStack.removeLast()
         clearSelectionState()
         currentStroke = null
         symmetryCopies = emptyList()
-        snapshot?.let { restore(it) }
+        // Newest first: each entry's log takes strokes back to that entry, the oldest one last.
+        Stroke.withoutLogging {
+            while (undoStack.size > depth) restore(undoStack.removeLast())
+        }
+        openLog(listOf(undoStack.lastOrNull(), redoStack.lastOrNull()).filterNotNull().maxByOrNull { it.seq })
         strokesChanged()
     }
 
     fun undo() {
         val previous = undoStack.removeLastOrNull() ?: return
         clearSelectionState()
-        redoStack.addLast(currentEntry())
+        // The redo step's log records what restoring changes, so redo can put it back.
+        redoStack.addLast(currentEntry().also(::openLog))
         restore(previous)
         strokesChanged()
     }
@@ -3284,7 +3353,7 @@ class CanvasState(
     fun redo() {
         val next = redoStack.removeLastOrNull() ?: return
         clearSelectionState()
-        undoStack.addLast(currentEntry())
+        undoStack.addLast(currentEntry().also(::openLog))
         restore(next)
         strokesChanged()
     }
@@ -3307,6 +3376,7 @@ class CanvasState(
         strokes.clear()
         undoStack.clear()
         redoStack.clear()
+        openLog(null)
         clearSelectionState()
         strokes.addAll(loaded)
     }
@@ -3452,14 +3522,16 @@ class CanvasState(
             kotlin.math.round(panWorld.x / spacing) * spacing,
             kotlin.math.round(panWorld.y / spacing) * spacing,
         )
-        for (stroke in strokes) {
-            stroke.shiftBy(offset)
+        // Not logged: the logs and entries are moved below instead.
+        Stroke.withoutLogging {
+            for (stroke in strokes) stroke.shiftBy(offset)
+            shiftStrokesOnlyInHistory(offset)
         }
         // History snapshots are in the same world space, so they must move with it, or an
         // undo after a rebase would restore strokes at their pre-rebase coordinates.
         geometryEpoch++ // every stroke moved
         for (entry in undoStack + redoStack) {
-            entry.shift += offset
+            entry.log.shiftAll(offset)
             entry.images = entry.images?.map { it.copy(position = it.position - offset) }
             entry.texts = entry.texts?.map { it.copy(position = it.position - offset) }
             entry.bones = entry.bones?.map { it.shiftedBy(offset) }

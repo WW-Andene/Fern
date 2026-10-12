@@ -78,6 +78,9 @@ object CanvasStorage {
     // 16 is on the project size scale (CLAUDE.md §7); see saveHistory for why it's below the in-memory cap.
     private const val PERSISTED_HISTORY_STEPS = 16
 
+    // Strokes across all persisted undo (and, separately, redo) steps; see withinBudget.
+    private const val PERSISTED_HISTORY_STROKES = 262_144L
+
     private const val VERSION_INTERVAL_MILLIS = 10L * 60 * 1000
     // 32 versions at most 10 minutes apart covers 5+ hours of continuous drawing, and longer
     // across sessions since versions are only written while drawing. 32 is on the §7 scale.
@@ -470,12 +473,28 @@ object CanvasStorage {
     fun saveHistory(context: Context, documentId: String, undo: List<List<Stroke>>, redo: List<List<Stroke>>) {
         // Layout: int undo-step count, that many stroke blocks, then the same for redo.
         writeBinary(historyFile(context, documentId)) { out ->
-            for (steps in listOf(undo.takeLast(PERSISTED_HISTORY_STEPS), redo.takeLast(PERSISTED_HISTORY_STEPS))) {
+            for (steps in listOf(withinBudget(undo.takeLast(PERSISTED_HISTORY_STEPS)), withinBudget(redo.takeLast(PERSISTED_HISTORY_STEPS)))) {
                 out.writeInt(steps.size)
                 steps.forEach { StrokeCodec.write(out, it) }
             }
         }
         legacyHistoryFile(context, documentId).delete()
+    }
+
+    /**
+     * The newest [steps] whose strokes add up to at most [PERSISTED_HISTORY_STROKES]. Each step is
+     * a whole stroke list, so 16 steps of a million-stroke document would write gigabytes on
+     * every save; a big document keeps fewer steps across restarts (none past the budget)
+     * while its in-memory undo is unaffected. Sizes are read without materializing the steps.
+     */
+    private fun withinBudget(steps: List<List<Stroke>>): List<List<Stroke>> {
+        var total = 0L
+        var first = steps.size
+        while (first > 0 && total + steps[first - 1].size <= PERSISTED_HISTORY_STROKES) {
+            total += steps[first - 1].size
+            first--
+        }
+        return steps.subList(first, steps.size)
     }
 
     /** Undo and redo snapshots saved by [saveHistory], or empty lists if there are none. */

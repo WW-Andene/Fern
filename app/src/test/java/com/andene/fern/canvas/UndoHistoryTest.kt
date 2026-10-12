@@ -91,4 +91,52 @@ class UndoHistoryTest {
         assertEquals(live.x, saved.x, 1e-9)
         assertEquals(live.y, saved.y, 1e-9)
     }
+
+    private fun move(state: CanvasState, stroke: Stroke, from: WorldPoint, to: WorldPoint) {
+        state.selection.clear()
+        state.selection.add(stroke)
+        state.beginSelectGesture(from)
+        state.continueSelectGesture(to)
+        state.endSelectGesture()
+    }
+
+    @Test
+    fun severalMovesUndoAndRedoStepByStep() {
+        val state = CanvasState()
+        state.loadStrokes(listOf(line(0.0), line(100.0)))
+        val a = state.strokes.first()
+        move(state, a, WorldPoint(5.0, 0.0), WorldPoint(15.0, 0.0)) // a at 10
+        move(state, a, WorldPoint(15.0, 0.0), WorldPoint(35.0, 0.0)) // a at 30
+        state.undo()
+        assertEquals(10.0, a.points.first().x, 1e-9)
+        state.undo()
+        assertEquals(0.0, a.points.first().x, 1e-9)
+        state.redo()
+        assertEquals(10.0, a.points.first().x, 1e-9)
+        state.redo()
+        assertEquals(30.0, a.points.first().x, 1e-9)
+        // The saved history sees each step's own geometry.
+        val (undo, _) = state.historySnapshot()
+        assertEquals(listOf(0.0, 10.0), undo.map { step -> step.first().points.first().x })
+    }
+
+    @Test
+    fun anErasedStrokeComesBackInPlaceAfterARebase() {
+        val state = CanvasState()
+        val center = Offset(500f, 500f)
+        state.beginStroke(WorldPoint(0.0, 0.0)); state.extendStroke(WorldPoint(10.0, 5.0)); state.endStroke()
+        state.beginStroke(WorldPoint(0.0, 50.0)); state.extendStroke(WorldPoint(10.0, 55.0)); state.endStroke()
+        val erased = state.strokes.last()
+        val before = state.worldToScreen(erased.points.first(), center)
+        state.eraseWholeObjects = true
+        state.beginErase(WorldPoint(5.0, 52.5)); state.endErase()
+        assertEquals(1, state.strokes.size)
+        repeat(100) { state.panByScreenDelta(Offset(-1000f, 0f)) } // rebases while it's only in history
+        repeat(100) { state.panByScreenDelta(Offset(1000f, 0f)) } // and back, so both are in view
+        state.undo()
+        assertEquals(2, state.strokes.size)
+        val after = state.worldToScreen(state.strokes.last().points.first(), center)
+        assertEquals(before.x, after.x, 0.01f)
+        assertEquals(before.y, after.y, 0.01f)
+    }
 }

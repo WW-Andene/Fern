@@ -135,6 +135,7 @@ class Stroke(
         // Untouched since that capture: already this geometry. Skipping keeps the revision, so
         // the spatial index and incremental save still recognise the stroke as unchanged.
         if (state === cachedState && state.revision == plainRevision) return
+        logBeforeChange()
         xs = state.xs
         ys = state.ys
         pressureData = state.pressures
@@ -222,6 +223,7 @@ class Stroke(
     var maxY: Double = Double.NEGATIVE_INFINITY; private set
 
     fun addPoint(point: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
+        logBeforeChange()
         ensureOwnData()
         if (size == xs.size) grow()
         xs[size] = point.x
@@ -303,6 +305,7 @@ class Stroke(
 
     /** Shifts every point (and the cached bounds) by [-offset], used when re-anchoring the world origin. */
     fun shiftBy(offset: WorldPoint) {
+        logBeforeChange()
         ensureOwnData()
         for (i in 0 until size) {
             xs[i] -= offset.x
@@ -331,6 +334,7 @@ class Stroke(
             newYs[i] = newPoints[i].y
         }
         // The stylus arrays are kept, so they must be this stroke's own before it can write them later.
+        logBeforeChange()
         ensureOwnData()
         xs = newXs
         ys = newYs
@@ -386,6 +390,7 @@ class Stroke(
 
     /** Sets this stroke's width directly, for a SELECT-tool scale gesture. */
     fun setWidth(newWidth: Double) {
+        logBeforeChange()
         widthWorld = newWidth
         revision++
     }
@@ -454,8 +459,96 @@ class Stroke(
         orientationData = orientationData.copyOf(capacity)
     }
 
-    private companion object {
+    // The log this stroke last recorded its geometry into, so it records once per log.
+    private var loggedIn: MutationLog? = null
+
+    // When this stroke was made, on the same clock as [MutationLog.opened].
+    private val birth = clock.incrementAndGet()
+
+    /** Records this stroke's geometry in the active [MutationLog] before its first change there. */
+    private fun logBeforeChange() {
+        val log = activeLog ?: return
+        // A stroke made after the log opened (one being drawn, loaded, copied) can't be in the
+        // history step the log belongs to, so there's nothing to restore it to.
+        if (loggedIn === log || birth > log.opened) return
+        loggedIn = log
+        log.record(this, captureState())
+    }
+
+    /**
+     * Undo history without whole-document snapshots (roadmap item 18): each history step keeps
+     * the stroke list as it was (an immutable list, O(1) to keep) and a log of the geometry
+     * strokes had before their first in-place change after that step - O(strokes changed), not
+     * O(document). Copying every stroke's state per action cost ~0.3 s at a million strokes.
+     */
+    class MutationLog {
+        internal val opened = clock.incrementAndGet()
+        internal val strokes = ArrayList<Stroke>()
+        internal val states = ArrayList<State>()
+        // World offset to apply to each state on restore: floating-origin rebases since capture.
+        internal val shifts = ArrayList<WorldPoint>()
+
+        internal fun record(stroke: Stroke, state: State) {
+            strokes.add(stroke)
+            states.add(state)
+            shifts.add(WorldPoint.Zero)
+        }
+
+        /** A rebase moved every live stroke by -[offset]; the logged geometry has to follow. */
+        fun shiftAll(offset: WorldPoint) {
+            for (i in shifts.indices) shifts[i] = shifts[i] + offset
+        }
+
+        /**
+         * Puts every logged stroke back to its geometry from when this log was opened. Applied
+         * newest record first, so a stroke logged twice ends at its earliest state.
+         */
+        fun restore() {
+            for (i in strokes.indices.reversed()) {
+                strokes[i].restoreState(states[i])
+                if (shifts[i] != WorldPoint.Zero) strokes[i].shiftBy(shifts[i])
+            }
+        }
+
+        /** Each logged stroke's geometry from when this log was opened, as fresh strokes (earliest record wins). */
+        internal fun earliestInto(target: java.util.IdentityHashMap<Stroke, Stroke>) {
+            for (i in strokes.indices.reversed()) {
+                target[strokes[i]] = strokes[i].withState(states[i]).also { if (shifts[i] != WorldPoint.Zero) it.shiftBy(shifts[i]) }
+            }
+        }
+    }
+
+    companion object {
         // Most strokes are short; doubling from 8 keeps the slack small for them.
-        const val INITIAL_CAPACITY = 8
+        private const val INITIAL_CAPACITY = 8
+
+        // Orders stroke creation against log opening (see logBeforeChange).
+        private val clock = java.util.concurrent.atomic.AtomicLong()
+
+        /**
+         * Where in-place stroke changes are being logged, set by the undo history (CanvasState);
+         * null records nothing. Process-wide: the app edits one document at a time, from the
+         * main thread.
+         */
+        var activeLog: MutationLog?
+            get() = activeLogRef?.get()
+            set(value) {
+                activeLogRef = value?.let { java.lang.ref.WeakReference(it) }
+            }
+
+        // Weak: the history entry owning the log keeps it alive; a canvas that's gone (a closed
+        // document, a finished test) mustn't be kept in memory through this static.
+        private var activeLogRef: java.lang.ref.WeakReference<MutationLog>? = null
+
+        /** Runs [block] without logging, for changes the history accounts for itself (rebases). */
+        fun <T> withoutLogging(block: () -> T): T {
+            val saved = activeLog
+            activeLog = null
+            try {
+                return block()
+            } finally {
+                activeLog = saved
+            }
+        }
     }
 }

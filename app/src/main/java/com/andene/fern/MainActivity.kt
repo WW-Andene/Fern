@@ -630,7 +630,9 @@ class MainActivity : ComponentActivity() {
                     DisposableEffect(lifecycleOwner) {
                         val observer = LifecycleEventObserver { _, event ->
                             if (event == Lifecycle.Event.ON_STOP && currentDocumentId.isNotEmpty()) {
-                                CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList())
+                                // No thumbnail: rendering every stroke on the main thread here took seconds on
+                                // huge documents; the library refreshes it when it's next opened.
+                                CanvasStorage.save(context, currentDocumentId, canvasState.strokes.toList(), withThumbnail = false)
                                 CanvasStorage.saveTextItems(context, currentDocumentId, canvasState.textItems.toList())
                                 CanvasStorage.saveImageItems(context, currentDocumentId, canvasState.imageItems.toList())
                                 canvasState.historySnapshot().let { (undo, redo) -> CanvasStorage.saveHistory(context, currentDocumentId, undo, redo) }
