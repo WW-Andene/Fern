@@ -392,4 +392,8 @@
     <string name="tb_indexed_off">Palette indexée : désactivée</string>
     <string name="tb_reduce_palette">Ramener la sélection aux couleurs enregistrées</string>
     <string name="tb_mannequin">Insérer un mannequin articulé</string>
+    <string name="script_title">Script de dessin</string>
+    <string name="script_help">forward d, back d, turn degrés, move x y, home, penup, pendown, color #RRVVBB, width l, circle r, repeat n [ … ]. // commence un commentaire.</string>
+    <string name="script_run">Exécuter</string>
+    <string name="script_error">Ligne %1$d : %2$s</string>
 </resources>

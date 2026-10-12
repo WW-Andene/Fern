@@ -179,7 +179,7 @@ All deferred: they need a server or cloud platform.
 
 ## Phase 13 — Ecosystem
 
-- [ ] 111. Plugin and scripting API
+- [~] 111. Scripting: sandboxed drawing scripts (see 164); no plugin API
 - [ ] 112. Marketplace ⏸ (hosted service)
 - [ ] 113. Community gallery and live-streaming ⏸ (hosted service)
 - [ ] 114. Team workspaces ⏸
@@ -250,6 +250,6 @@ Shared, multiplayer parts need a server and are deferred ⏸; single-player part
 - [ ] 161. Play mode
 - [ ] 162. Online multiplayer play ⏸
 - [ ] 163. AI logic assistant ⏸
-- [ ] 164. Text scripting (sandboxed)
+- [~] 164. Text scripting (sandboxed): a turtle-graphics drawing language run from the ⋮ menu, step-limited, no file or network access; drawing only
 - [ ] 165. Publishing (link, gallery, Android/web export)
 - [ ] 166. Moderation and safety for shared content

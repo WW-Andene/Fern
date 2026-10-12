@@ -390,4 +390,8 @@
     <string name="tb_indexed_off">Indexed palette: off</string>
     <string name="tb_reduce_palette">Reduce the selection to the saved colours</string>
     <string name="tb_mannequin">Insert a posable mannequin</string>
+    <string name="script_title">Drawing script</string>
+    <string name="script_help">forward d, back d, turn degrees, move x y, home, penup, pendown, color #RRGGBB, width w, circle r, repeat n [ … ]. // starts a comment.</string>
+    <string name="script_run">Run</string>
+    <string name="script_error">Line %1$d: %2$s</string>
 </resources>
