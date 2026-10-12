@@ -41,6 +41,8 @@ fun ColorPickerDialog(
     initialColor: Color,
     onDismiss: () -> Unit,
     onColorSelected: (Color) -> Unit,
+    /** When set, a "Save to palette" button stores the current colour without closing. */
+    onSaveColor: ((Color) -> Unit)? = null,
 ) {
     var hue by remember { mutableFloatStateOf(0f) }
     var saturation by remember { mutableFloatStateOf(1f) }
@@ -151,8 +153,13 @@ fun ColorPickerDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
+            Row {
+                if (onSaveColor != null) {
+                    TextButton(onClick = { onSaveColor(currentColor()) }) { Text("Save to palette") }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel")
+                }
             }
         },
     )

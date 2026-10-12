@@ -65,12 +65,16 @@ class CanvasState(
     private val onRebased: (offset: WorldPoint) -> Unit = {},
     private val onLayersChanged: (List<Layer>) -> Unit = {},
     private val onFramesChanged: (List<Frame>) -> Unit = {},
+    private val onSavedColorsChanged: (List<Color>) -> Unit = {},
 ) {
     companion object {
         // Effectively unbounded: leaves ~250 orders of magnitude of headroom on both sides
         // of Double's range purely as a safety margin, not a meaningful practical limit.
         const val MIN_SCALE = 1e-250
         const val MAX_SCALE = 1e250
+
+        // A full row of small swatches on a phone; 16 is on the §7 scale.
+        private const val MAX_SAVED_COLORS = 16
 
         // 8 swatches fit beside the fixed palette without crowding the toolbar; on the §7 scale.
         private const val MAX_RECENT_COLORS = 8
@@ -260,6 +264,25 @@ class CanvasState(
         layers.clear()
         layers.addAll(loaded.ifEmpty { listOf(Layer(DEFAULT_LAYER_ID, "Layer 1")) })
         activeLayerId = layers.last().id
+    }
+
+    /** The user's saved palette (app-wide, not per document), oldest first. */
+    val savedColors = mutableStateListOf<Color>()
+
+    fun addSavedColor(color: Color) {
+        if (color in savedColors) return
+        savedColors.add(color)
+        while (savedColors.size > MAX_SAVED_COLORS) savedColors.removeAt(0)
+        onSavedColorsChanged(savedColors.toList())
+    }
+
+    fun removeSavedColor(color: Color) {
+        if (savedColors.remove(color)) onSavedColorsChanged(savedColors.toList())
+    }
+
+    fun loadSavedColors(loaded: List<Color>) {
+        savedColors.clear()
+        savedColors.addAll(loaded)
     }
 
     /** Colours most recently drawn with, newest first, for quick re-picking from the toolbar. */

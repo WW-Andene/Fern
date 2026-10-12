@@ -3,7 +3,7 @@ package com.andene.fern.canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,21 +11,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.Circle
@@ -45,25 +38,34 @@ import androidx.compose.material.icons.filled.FlipToFront
 import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.FormatPaint
 import androidx.compose.material.icons.filled.FormatSize
-import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Highlight
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.IosShare
-import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.HighlightAlt
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.IosShare
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Opacity
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Straighten
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Tonality
 import androidx.compose.material.icons.filled.ZoomOutMap
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -72,6 +74,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 
 private val palette = listOf(
@@ -127,13 +130,33 @@ fun Toolbar(
         shadowElevation = 4.dp,
     ) {
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-            // Recently used colours not already in the fixed palette, smaller than the palette swatches.
-            val recents = state.recentColors.filter { it !in palette }
-            if (recents.isNotEmpty()) {
+            // Saved palette colours (squares; long-press removes one), then recently used colours
+            // (circles) not already shown - both smaller than the fixed palette's swatches.
+            val recents = state.recentColors.filter { it !in palette && it !in state.savedColors }
+            if (state.savedColors.isNotEmpty() || recents.isNotEmpty()) {
                 Row(
-                    modifier = Modifier.padding(bottom = 8.dp),
+                    modifier = Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .padding(bottom = 8.dp),
                     horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
                 ) {
+                    for (color in state.savedColors) {
+                        Surface(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .pointerInput(color) {
+                                    detectTapGestures(
+                                        onTap = {
+                                            state.activeColor = color
+                                            state.activeTool = Tool.PEN
+                                        },
+                                        onLongPress = { state.removeSavedColor(color) },
+                                    )
+                                },
+                            shape = RoundedCornerShape(6.dp), // §7.3: 0.24 × 24 = 5.8, nearest scale value 6
+                            color = color,
+                        ) {}
+                    }
                     for (color in recents) {
                         Surface(
                             modifier = Modifier
@@ -530,6 +553,7 @@ fun Toolbar(
                 state.activeTool = Tool.PEN
                 showColorPicker = false
             },
+            onSaveColor = { color -> state.addSavedColor(color) },
         )
     }
 

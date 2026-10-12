@@ -120,6 +120,7 @@ class MainActivity : ComponentActivity() {
                             onTextChanged = { snapshot -> CanvasStorage.saveTextItems(context, currentDocumentId, snapshot) },
                             onImageChanged = { snapshot -> CanvasStorage.saveImageItems(context, currentDocumentId, snapshot) },
                             onBackgroundChanged = { color, style -> CanvasStorage.saveBackground(context, currentDocumentId, color, style) },
+                            onSavedColorsChanged = { colors -> CanvasStorage.saveSavedColors(context, colors) },
                             onFramesChanged = { frames -> CanvasStorage.saveFrames(context, currentDocumentId, frames) },
                             onLayersChanged = { layers -> CanvasStorage.saveLayers(context, currentDocumentId, layers) },
                             onRebased = { offset ->
@@ -277,6 +278,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     LaunchedEffect(Unit) {
+                        canvasState.loadSavedColors(withContext(Dispatchers.IO) { CanvasStorage.loadSavedColors(context) })
                         refreshDocuments()
                         var current = documents.firstOrNull { it.trashedAt == null }
                         if (current == null) {

@@ -47,6 +47,7 @@ private const val IMAGES_DIR_NAME = "images"
  */
 object CanvasStorage {
     private const val INDEX_FILE_NAME = "documents.json"
+    private const val PALETTE_FILE_NAME = "palette.json"
     private const val LEGACY_FILE_NAME = "canvas.json" // pre-multi-document single canvas file
     private const val DEFAULT_DOCUMENT_NAME = "My Canvas"
 
@@ -378,6 +379,16 @@ object CanvasStorage {
         val dir = versionsDir(context, documentId).apply { mkdirs() }
         writeStored(File(dir, "$now.json"), strokesToJson(strokes))
         for (old in existing.drop(MAX_VERSIONS - 1)) File(dir, "$old.json").delete()
+    }
+
+    /** The user's saved colour palette, shared by all documents. */
+    fun loadSavedColors(context: Context): List<Color> {
+        val root = readStored(File(context.filesDir, PALETTE_FILE_NAME)) { it as JSONArray } ?: return emptyList()
+        return (0 until root.length()).map { Color(root.getInt(it)) }
+    }
+
+    fun saveSavedColors(context: Context, colors: List<Color>) {
+        writeStored(File(context.filesDir, PALETTE_FILE_NAME), JSONArray().apply { colors.forEach { put(it.toArgb()) } })
     }
 
     fun saveFrames(context: Context, documentId: String, frames: List<Frame>) {
