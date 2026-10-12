@@ -27,7 +27,6 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -271,7 +270,7 @@ class MainActivity : ComponentActivity() {
                         contract = ActivityResultContracts.RequestPermission(),
                     ) { granted ->
                         if (granted) showAudioNotes = true
-                        else Toast.makeText(context, context.getString(R.string.toast_mic), Toast.LENGTH_SHORT).show()
+                        else FernMessages.show(context.getString(R.string.toast_mic))
                     }
                     var leftHanded by remember { mutableStateOf(AppSettings.leftHanded(context)) }
                     var toolbarAtBottom by remember { mutableStateOf(AppSettings.toolbarAtBottom(context)) }
@@ -375,7 +374,7 @@ class MainActivity : ComponentActivity() {
                                 }
                                 context.getString(R.string.toast_exported)
                             }
-                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                            FernMessages.show(message)
                         }
                     }
 
@@ -551,7 +550,7 @@ class MainActivity : ComponentActivity() {
                                 }.getOrNull()
                             }
                             val added = if (pages == null) 0 else canvasState.importVectorPages(pages)
-                            if (added == 0) Toast.makeText(context, context.getString(R.string.toast_bad_vectors), Toast.LENGTH_SHORT).show()
+                            if (added == 0) FernMessages.show(context.getString(R.string.toast_bad_vectors))
                         }
                     }
                     // PSD, Krita or Procreate, told apart by their contents (roadmap item 95).
@@ -567,7 +566,7 @@ class MainActivity : ComponentActivity() {
                                 }.getOrNull()
                             }
                             if (document == null || document.layers.isEmpty()) {
-                                Toast.makeText(context, context.getString(R.string.toast_bad_layered), Toast.LENGTH_SHORT).show()
+                                FernMessages.show(context.getString(R.string.toast_bad_layered))
                             } else {
                                 canvasState.importLayers(document)
                             }
@@ -585,7 +584,7 @@ class MainActivity : ComponentActivity() {
                                 }.getOrNull()
                             }
                             if (poses.isNullOrEmpty()) {
-                                Toast.makeText(context, context.getString(R.string.toast_bad_spine), Toast.LENGTH_SHORT).show()
+                                FernMessages.show(context.getString(R.string.toast_bad_spine))
                             } else {
                                 canvasState.importSkeleton(poses)
                             }
@@ -598,7 +597,7 @@ class MainActivity : ComponentActivity() {
                         coroutineScope.launch {
                             val pages = withContext(Dispatchers.IO) { importPdfPages(context, uri) }
                             if (pages.isEmpty()) {
-                                Toast.makeText(context, context.getString(R.string.toast_bad_pdf), Toast.LENGTH_SHORT).show()
+                                FernMessages.show(context.getString(R.string.toast_bad_pdf))
                                 return@launch
                             }
                             // Pages stacked top to bottom like a scrolling document, each 512
@@ -638,11 +637,7 @@ class MainActivity : ComponentActivity() {
                                 }.getOrNull().orEmpty()
                             }
                             colors.forEach { canvasState.addSavedColor(it) }
-                            Toast.makeText(
-                                context,
-                                if (colors.isEmpty()) context.getString(R.string.toast_bad_palette) else context.resources.getQuantityString(R.plurals.toast_imported_colours, colors.size, colors.size),
-                                Toast.LENGTH_SHORT,
-                            ).show()
+                            FernMessages.show(if (colors.isEmpty()) context.getString(R.string.toast_bad_palette) else context.resources.getQuantityString(R.plurals.toast_imported_colours, colors.size, colors.size))
                         }
                     }
 
@@ -683,7 +678,7 @@ class MainActivity : ComponentActivity() {
                                     text?.let(::readObj)?.let { mesh -> storeModel(context, newModel(mesh)) }
                                 }.getOrNull()
                             }
-                            if (stored == null) Toast.makeText(context, context.getString(R.string.toast_bad_obj), Toast.LENGTH_SHORT).show()
+                            if (stored == null) FernMessages.show(context.getString(R.string.toast_bad_obj))
                             else canvasState.placeModel(stored)
                         }
                     }
@@ -696,7 +691,7 @@ class MainActivity : ComponentActivity() {
                         coroutineScope.launch {
                             val video = withContext(Dispatchers.IO) { embedVideo(context, uri, MAX_IMAGE_EDGE_PX) }
                             if (video == null) {
-                                Toast.makeText(context, context.getString(R.string.toast_bad_video), Toast.LENGTH_SHORT).show()
+                                FernMessages.show(context.getString(R.string.toast_bad_video))
                                 return@launch
                             }
                             // Placed like a picked image: 300 screen px wide, centred on the view.
@@ -726,7 +721,7 @@ class MainActivity : ComponentActivity() {
                             withContext(Dispatchers.IO) { SystemClipboard.copy(context, strokes, png) }
                             // Android 13+ confirms clipboard writes itself; earlier versions get a toast.
                             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                                Toast.makeText(context, context.getString(R.string.toast_copied), Toast.LENGTH_SHORT).show()
+                                FernMessages.show(context.getString(R.string.toast_copied))
                             }
                         }
                     }
@@ -748,7 +743,7 @@ class MainActivity : ComponentActivity() {
                                 val pixels = IntArray(bitmap.width * bitmap.height).also { bitmap.getPixels(it, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height) }
                                 Triple(traceImage(pixels, bitmap.width, bitmap.height), bitmap.width, bitmap.height)
                             } ?: return@launch
-                            if (traced.first.isEmpty()) Toast.makeText(context, context.getString(R.string.toast_trace_nothing), Toast.LENGTH_SHORT).show()
+                            if (traced.first.isEmpty()) FernMessages.show(context.getString(R.string.toast_trace_nothing))
                             else canvasState.addTracedImage(image, traced.first, traced.second, traced.third)
                         }
                     }
@@ -799,7 +794,7 @@ class MainActivity : ComponentActivity() {
                                 is ClipboardContent.FernStrokes -> canvasState.pasteStrokes(content.strokes)
                                 is ClipboardContent.Text -> canvasState.pasteText(content.text)
                                 is ClipboardContent.Image -> insertImage(content.uri)
-                                ClipboardContent.Nothing -> Toast.makeText(context, context.getString(R.string.toast_nothing_paste), Toast.LENGTH_SHORT).show()
+                                ClipboardContent.Nothing -> FernMessages.show(context.getString(R.string.toast_nothing_paste))
                             }
                         }
                     }
@@ -1034,7 +1029,10 @@ class MainActivity : ComponentActivity() {
                                     ctrl && event.key == Key.C -> copySelectionToClipboard()
                                     ctrl && event.key == Key.V -> pasteFromClipboard()
                                     ctrl && event.key == Key.D -> canvasState.duplicateSelection()
-                                    event.key == Key.Delete || event.key == Key.Backspace -> canvasState.deleteSelection()
+                                    event.key == Key.Delete || event.key == Key.Backspace -> {
+                                        canvasState.deleteSelection()
+                                        FernMessages.show(context.getString(R.string.msg_deleted), context.getString(R.string.action_undo)) { canvasState.undo() }
+                                    }
                                     event.key == Key.P -> canvasState.activeTool = Tool.PEN
                                     event.key == Key.E -> canvasState.activeTool = Tool.ERASER
                                     event.key == Key.V -> canvasState.activeTool = Tool.SELECT
@@ -1069,12 +1067,12 @@ class MainActivity : ComponentActivity() {
                                     is LinkTarget.Pin -> {
                                         val pin = pins.firstOrNull { it.id == target.pinId }
                                         if (pin != null) canvasState.jumpTo(WorldPoint(pin.x, pin.y), pin.scale)
-                                        else Toast.makeText(context, context.getString(R.string.toast_pin_gone), Toast.LENGTH_SHORT).show()
+                                        else FernMessages.show(context.getString(R.string.toast_pin_gone))
                                     }
                                     is LinkTarget.Document -> {
                                         val document = documents.firstOrNull { it.id == target.documentId && it.trashedAt == null }
                                         if (document != null) coroutineScope.launch { switchToDocument(document.id) }
-                                        else Toast.makeText(context, context.getString(R.string.toast_document_gone), Toast.LENGTH_SHORT).show()
+                                        else FernMessages.show(context.getString(R.string.toast_document_gone))
                                     }
                                 }
                             },
@@ -1177,7 +1175,7 @@ class MainActivity : ComponentActivity() {
                                             exportDocumentPng(canvasState, textMeasurer, density, imageForExport)
                                         }
                                         if (png == null) {
-                                            Toast.makeText(context, context.getString(R.string.toast_nothing_share), Toast.LENGTH_SHORT).show()
+                                            FernMessages.show(context.getString(R.string.toast_nothing_share))
                                             return@launch
                                         }
                                         // Overwrites the previous share each time, so the cache never accumulates exports.
@@ -1241,6 +1239,18 @@ class MainActivity : ComponentActivity() {
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(FernScale.s12),
                             )
+                            // Messages (design roadmap D6), opposite the toolbar and out from under the drawing hand.
+                            FernMessageHost(
+                                Modifier
+                                    .align(
+                                        when {
+                                            toolbarAtBottom -> if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft
+                                            else -> if (leftHanded) AbsoluteAlignment.BottomRight else AbsoluteAlignment.BottomLeft
+                                        },
+                                    )
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(vertical = FernScale.s64),
+                            )
                             AudioBar(
                                 audio = audioNotes,
                                 state = canvasState,
@@ -1278,7 +1288,7 @@ class MainActivity : ComponentActivity() {
                                 }.getOrNull()
                             }
                             if (imported == null) {
-                                Toast.makeText(context, context.getString(R.string.toast_bad_backup), Toast.LENGTH_SHORT).show()
+                                FernMessages.show(context.getString(R.string.toast_bad_backup))
                                 return@launch
                             }
                             refreshDocuments()

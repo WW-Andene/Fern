@@ -1,9 +1,10 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernMessages
+
 import com.andene.fern.FernScale
 
 import android.graphics.Bitmap
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -301,7 +302,7 @@ private fun HandPoseControls(pose: HandPose, onChange: (HandPose) -> Unit) {
         scope.launch {
             val scanned = withContext(Dispatchers.Default) { scanHandPose(context, bitmap) }
             scanning = false
-            if (scanned == null) Toast.makeText(context, context.getString(R.string.toast_no_hand), Toast.LENGTH_SHORT).show()
+            if (scanned == null) FernMessages.show(context.getString(R.string.toast_no_hand))
             else onChange(scanned)
         }
     }
@@ -358,7 +359,7 @@ private fun ModelFileActions(current: () -> Model3d, onTextureImported: (IntArra
                 val ok = withContext(Dispatchers.IO) {
                     runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(make(model)) } != null }.getOrDefault(false)
                 }
-                Toast.makeText(context, context.getString(if (ok) R.string.toast_exported else R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
+                FernMessages.show(context.getString(if (ok) R.string.toast_exported else R.string.toast_export_failed))
             }
         }
     }

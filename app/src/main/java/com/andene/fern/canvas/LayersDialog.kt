@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernMessages
+
 import com.andene.fern.FernScale
 
 import androidx.compose.material3.MaterialTheme
@@ -12,7 +14,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
-import android.widget.Toast
 import android.net.Uri
 import android.content.Intent
 import androidx.compose.material3.LocalContentColor
@@ -92,7 +93,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
         scope.launch {
             val image = withContext(Dispatchers.IO) { readFileLayerImage(context, uri) }
             if (image == null) {
-                Toast.makeText(context, context.getString(R.string.layers_file_unreadable), Toast.LENGTH_SHORT).show()
+                FernMessages.show(context.getString(R.string.layers_file_unreadable))
                 return@launch
             }
             val name = runCatching {
@@ -105,7 +106,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
         val source = layer.fileSource ?: return
         scope.launch {
             val image = withContext(Dispatchers.IO) { readFileLayerImage(context, Uri.parse(source)) }
-            if (image == null) Toast.makeText(context, context.getString(R.string.layers_file_unreadable), Toast.LENGTH_SHORT).show()
+            if (image == null) FernMessages.show(context.getString(R.string.layers_file_unreadable))
             else state.reloadFileLayer(layer.id, image.argb, image.width, image.height)
         }
     }

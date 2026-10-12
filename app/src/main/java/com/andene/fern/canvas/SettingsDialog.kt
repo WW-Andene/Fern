@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernMessages
+
 import com.andene.fern.FernScale
 
 import com.andene.fern.R
@@ -275,7 +277,7 @@ private fun CmykProfileRow() {
             val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("unreadable")
             ColorManagement.installProfile(context, bytes)
         }.isSuccess
-        if (!ok) android.widget.Toast.makeText(context, context.getString(R.string.settings_cmyk_bad), android.widget.Toast.LENGTH_SHORT).show()
+        if (!ok) FernMessages.show(context.getString(R.string.settings_cmyk_bad))
     }
     val profile = ColorManagement.cmykProfile
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8), verticalAlignment = Alignment.CenterVertically) {

@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernMessages
 import com.andene.fern.FernScale
 
 import androidx.compose.material.icons.filled.Gamepad
@@ -345,6 +346,10 @@ fun Toolbar(
             onDismiss = { showSignatureDialog = false },
         )
     }
+    // Destructive actions say what they did and offer the way back (design roadmap D6).
+    val deletedMessage = stringResource(R.string.msg_deleted)
+    val clearedMessage = stringResource(R.string.msg_cleared)
+    val undoLabel = stringResource(R.string.action_undo)
     var showScriptDialog by remember { mutableStateOf(false) }
     if (showScriptDialog) {
         ScriptDialog(
@@ -1276,7 +1281,10 @@ fun Toolbar(
                             tint = if (grouped) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
-                    IconButton(onClick = { state.deleteSelection() }) {
+                    IconButton(onClick = {
+                        state.deleteSelection()
+                        FernMessages.show(deletedMessage, undoLabel) { state.undo() }
+                    }) {
                         Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.tb_delete))
                     }
                 }
@@ -1298,7 +1306,10 @@ fun Toolbar(
                     Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = stringResource(R.string.action_redo))
                 }
                 if (ToolbarGroup.VIEW !in hiddenGroups) {
-                    IconButton(onClick = { state.clear() }) {
+                    IconButton(onClick = {
+                        state.clear()
+                        FernMessages.show(clearedMessage, undoLabel) { state.undo() }
+                    }) {
                         Icon(Icons.Filled.DeleteSweep, contentDescription = stringResource(R.string.tb_clear_all))
                     }
                     IconButton(onClick = { state.resetView() }) {

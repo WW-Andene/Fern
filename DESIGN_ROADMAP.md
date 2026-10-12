@@ -161,8 +161,9 @@ Goal: a design system everything else is built from, accessible by default.
 - [x] D5. **Font scale and reduced motion.** Layouts hold up to 200 % font scale. Nothing is
   under 12 sp. Animations respect the system's "remove animations" setting.
   Done: nothing is under 12 sp (`FernType.caption`, enforced with D1's check); no text sits in a fixed-height box, so text wraps instead of clipping. The app has no custom UI animations yet, and Compose animations follow the system animation scale (off when animations are removed); new ones must use `FernMotion`. Checked by reading the layouts, not yet on a device at 200 %.
-- [ ] D6. **Snackbars replace toasts.** Messages can be acted on ("Layer deleted — Undo"),
+- [x] D6. **Snackbars replace toasts.** Messages can be acted on ("Layer deleted — Undo"),
   TalkBack announces them, and they're placed away from the drawing hand.
+  Done: `FernMessages` and `FernMessageHost`; all 22 toasts replaced. Messages sit opposite the toolbar, on the free hand's side. Deleting a selection (button or key) and clearing the canvas offer Undo.
 - [ ] D7. **Haptics vocabulary.** Light ticks on snaps, guide hits, the zoom at 100 %, tool
   switches and long-press menus. Each one can be switched off.
 

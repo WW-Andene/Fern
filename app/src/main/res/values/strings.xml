@@ -929,4 +929,6 @@
     <string name="tool_name_bone">Bone</string>
     <string name="tool_name_bezier">Bézier path</string>
     <string name="tool_name_measure">Measure</string>
+    <string name="msg_deleted">Deleted</string>
+    <string name="msg_cleared">Canvas cleared</string>
 </resources>

@@ -932,4 +932,6 @@
     <string name="tool_name_bone">Os</string>
     <string name="tool_name_bezier">Tracé de Bézier</string>
     <string name="tool_name_measure">Mesure</string>
+    <string name="msg_deleted">Supprimé</string>
+    <string name="msg_cleared">Canevas effacé</string>
 </resources>
