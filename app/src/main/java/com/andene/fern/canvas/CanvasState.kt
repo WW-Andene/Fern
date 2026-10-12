@@ -16,6 +16,18 @@ import kotlin.math.hypot
 import kotlin.math.sin
 import java.util.UUID
 
+/** How [CanvasState.alignSelection] lines selected strokes up, by their bounding boxes. */
+enum class StrokeAlignment(val label: String) {
+    LEFT("Align left"),
+    CENTER_X("Align centres horizontally"),
+    RIGHT("Align right"),
+    TOP("Align top"),
+    CENTER_Y("Align centres vertically"),
+    BOTTOM("Align bottom"),
+    DISTRIBUTE_X("Distribute horizontally"),
+    DISTRIBUTE_Y("Distribute vertically"),
+}
+
 enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER, EYEDROPPER }
 
 /**
@@ -1021,6 +1033,49 @@ class CanvasState(
         strokes.addAll(pasted)
         clearSelectionState()
         selection.addAll(pasted)
+        onChanged(strokes.toList())
+    }
+
+    /**
+     * Aligns each selected stroke's bounding box to the selection's combined bounds, or spaces
+     * their centres evenly between the outermost two (distribute; needs at least 3 strokes).
+     */
+    fun alignSelection(alignment: StrokeAlignment) {
+        if (selection.size < 2) return
+        if ((alignment == StrokeAlignment.DISTRIBUTE_X || alignment == StrokeAlignment.DISTRIBUTE_Y) && selection.size < 3) return
+        val (min, max) = selectionBounds() ?: return
+        recordHistory()
+        fun centerX(s: Stroke) = (s.minX + s.maxX) / 2.0
+        fun centerY(s: Stroke) = (s.minY + s.maxY) / 2.0
+        when (alignment) {
+            StrokeAlignment.DISTRIBUTE_X, StrokeAlignment.DISTRIBUTE_Y -> {
+                val horizontal = alignment == StrokeAlignment.DISTRIBUTE_X
+                val ordered = selection.sortedBy { if (horizontal) centerX(it) else centerY(it) }
+                val first = if (horizontal) centerX(ordered.first()) else centerY(ordered.first())
+                val last = if (horizontal) centerX(ordered.last()) else centerY(ordered.last())
+                val step = (last - first) / (ordered.size - 1)
+                ordered.forEachIndexed { i, s ->
+                    val delta = first + step * i - (if (horizontal) centerX(s) else centerY(s))
+                    // shiftBy subtracts its offset.
+                    s.shiftBy(if (horizontal) WorldPoint(-delta, 0.0) else WorldPoint(0.0, -delta))
+                }
+            }
+            else -> for (s in selection) {
+                val dx = when (alignment) {
+                    StrokeAlignment.LEFT -> min.x - s.minX
+                    StrokeAlignment.CENTER_X -> (min.x + max.x) / 2.0 - centerX(s)
+                    StrokeAlignment.RIGHT -> max.x - s.maxX
+                    else -> 0.0
+                }
+                val dy = when (alignment) {
+                    StrokeAlignment.TOP -> min.y - s.minY
+                    StrokeAlignment.CENTER_Y -> (min.y + max.y) / 2.0 - centerY(s)
+                    StrokeAlignment.BOTTOM -> max.y - s.maxY
+                    else -> 0.0
+                }
+                s.shiftBy(WorldPoint(-dx, -dy))
+            }
+        }
         onChanged(strokes.toList())
     }
 

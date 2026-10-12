@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.AlignHorizontalLeft
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.Circle
@@ -120,6 +121,7 @@ fun Toolbar(
     var showLayersDialog by remember { mutableStateOf(false) }
     var showSearchDialog by remember { mutableStateOf(false) }
     var showSymmetryMenu by remember { mutableStateOf(false) }
+    var showAlignMenu by remember { mutableStateOf(false) }
     var showBlendModeMenu by remember { mutableStateOf(false) }
     var showBackgroundStyleMenu by remember { mutableStateOf(false) }
     var showBackgroundColorPicker by remember { mutableStateOf(false) }
@@ -376,6 +378,22 @@ fun Toolbar(
                     }
                     IconButton(onClick = { state.reorderSelection(toFront = false) }) {
                         Icon(Icons.Filled.FlipToBack, contentDescription = "Send selection to back")
+                    }
+                    Box {
+                        IconButton(onClick = { showAlignMenu = true }) {
+                            Icon(Icons.Filled.AlignHorizontalLeft, contentDescription = "Align and distribute")
+                        }
+                        DropdownMenu(expanded = showAlignMenu, onDismissRequest = { showAlignMenu = false }) {
+                            for (alignment in StrokeAlignment.entries) {
+                                DropdownMenuItem(
+                                    text = { Text(alignment.label) },
+                                    onClick = {
+                                        state.alignSelection(alignment)
+                                        showAlignMenu = false
+                                    },
+                                )
+                            }
+                        }
                     }
                     IconButton(onClick = { state.smoothSelection() }) {
                         Icon(Icons.Filled.Waves, contentDescription = "Smooth selected strokes")
