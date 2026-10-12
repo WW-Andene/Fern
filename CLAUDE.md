@@ -305,4 +305,4 @@ Use this section to record any reference proportions, component precedents, or e
 
 ### 8.1 No external platforms (standing decision by the project owner)
 
-Fern stays fully on-device for now. Do not add anything that depends on an external platform or service: Firebase, Google Play Services, ML Kit, cloud backends, accounts, analytics or telemetry, or any library that pulls these in transitively. Features that need them (handwriting recognition via ML Kit, sync, collaboration, cloud backup, generative AI) are deferred until the owner says otherwise. Plain AndroidX/Jetpack libraries that run entirely on the device are fine.
+Fern does not depend on external platforms or services for now: no Firebase, no Google Play Services / Google platform services, no cloud backends, accounts or hosted APIs. Features that need one (e.g. ML Kit handwriting recognition, sync, collaboration, cloud backup, hosted generative AI) are deferred until the owner says otherwise. Libraries in general are fine and encouraged where useful; the restriction is on depending on an external platform, not on using third-party code.
