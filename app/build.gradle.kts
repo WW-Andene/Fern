@@ -44,6 +44,12 @@ android {
         // Robolectric runs the Android-dependent tests (storage, Compose UI) on the JVM and needs
         // the merged resources and manifest to do so.
         unitTests.isIncludeAndroidResources = true
+        // One JVM per test class. Sharing one JVM, the Compose UI tests intermittently never went
+        // idle (AppNotIdleException) once enough Robolectric classes had run before them -
+        // reproducible only in a full run, never with the class alone or after any single other
+        // class, and with the toolbar code unchanged - so state leaking between test classes,
+        // not the code under test. Isolating classes removes the leak path.
+        unitTests.all { it.forkEvery = 1 }
     }
 
     packaging {
