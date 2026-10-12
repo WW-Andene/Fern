@@ -263,6 +263,14 @@ class MainActivity : ComponentActivity() {
                     ) { uri ->
                         if (uri != null) writeExport(uri) { exportDocumentPng(canvasState, textMeasurer, density, imageForExport, transparent = true) }
                     }
+                    val selectionExportLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("image/png"),
+                    ) { uri ->
+                        val region = canvasState.selectionExportRegion()
+                        if (uri != null && region != null) {
+                            writeExport(uri) { exportDocumentPng(canvasState, textMeasurer, density, imageForExport, region) }
+                        }
+                    }
                     val pdfExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("application/pdf"),
                     ) { uri ->
@@ -507,6 +515,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onExportPng = { pngExportLauncher.launch("${currentDocumentName()}.png") },
+                                onExportSelection = { selectionExportLauncher.launch("${currentDocumentName()} selection.png") },
                                 onExportTransparentPng = { transparentPngExportLauncher.launch("${currentDocumentName()}.png") },
                                 onExportPdf = { pdfExportLauncher.launch("${currentDocumentName()}.pdf") },
                                 onExportSvg = { svgExportLauncher.launch("${currentDocumentName()}.svg") },

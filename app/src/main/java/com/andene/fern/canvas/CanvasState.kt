@@ -1324,6 +1324,13 @@ class CanvasState(
         }
     }
 
+    /** The selection's area, padded by the widest selected stroke, as an export region; null if nothing is selected. */
+    fun selectionExportRegion(): Frame? {
+        val (min, max) = selectionBounds() ?: return null
+        val pad = selection.maxOf { it.widthWorld }.coerceAtLeast(1e-9)
+        return Frame("selection", "Selection", WorldPoint(min.x - pad, min.y - pad), WorldPoint(max.x + pad, max.y + pad))
+    }
+
     /** The current selection's combined bounding box, or null if nothing is selected. */
     fun selectionBounds(): Pair<WorldPoint, WorldPoint>? {
         if (selection.isEmpty()) return null

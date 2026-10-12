@@ -127,6 +127,7 @@ fun Toolbar(
     onExportPng: () -> Unit = {},
     onExportPdf: () -> Unit = {},
     onExportTransparentPng: () -> Unit = {},
+    onExportSelection: () -> Unit = {},
     onExportSvg: () -> Unit = {},
     onShare: () -> Unit = {},
     onExportBundle: () -> Unit = {},
@@ -572,6 +573,15 @@ fun Toolbar(
                                 onExportPng()
                             },
                         )
+                        if (state.selection.isNotEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("Selected area (PNG)") },
+                                onClick = {
+                                    showExportMenu = false
+                                    onExportSelection()
+                                },
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text("Image, transparent (PNG)") },
                             onClick = {
