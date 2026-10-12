@@ -965,4 +965,10 @@
     <string name="export_again">À nouveau : %1$s</string>
     <string name="export_recommended">Recommandé</string>
     <string name="export_unavailable">Nécessite des images d’animation (ou des os)</string>
+    <string name="palette_title">Trouver une commande</string>
+    <string name="palette_hint">Outil, action, réglage, document…</string>
+    <string name="palette_nothing">Aucun résultat</string>
+    <string name="palette_location_rail">Rail d’outils</string>
+    <string name="palette_location_toolbar">Barre d’outils</string>
+    <string name="palette_location_documents">Documents</string>
 </resources>

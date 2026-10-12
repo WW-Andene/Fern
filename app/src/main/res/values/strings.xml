@@ -962,4 +962,10 @@
     <string name="export_again">Again: %1$s</string>
     <string name="export_recommended">Recommended</string>
     <string name="export_unavailable">Needs animation frames (or bones)</string>
+    <string name="palette_title">Find a command</string>
+    <string name="palette_hint">Tool, action, setting, document…</string>
+    <string name="palette_nothing">Nothing matches</string>
+    <string name="palette_location_rail">Tool rail</string>
+    <string name="palette_location_toolbar">Toolbar</string>
+    <string name="palette_location_documents">Documents</string>
 </resources>

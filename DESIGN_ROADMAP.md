@@ -199,9 +199,10 @@ Goal: the screen layout that replaces the single scrolling toolbar and the ⋮ j
   app), Animation or Game engine; then the format, with a recommended default. The last used
   export is a single tap.
   Done: `ExportPanel.kt`. The export button opens a panel: "Again: <last export>" first, then Share, Image, Print, Vector, For another app, Animation and Game engine; each lists its formats with the recommended one first (starred), and formats that need frames or bones say so instead of disappearing.
-- [ ] D14. **Command palette.** Search every action, tool, setting and recent document by name
+- [x] D14. **Command palette.** Search every action, tool, setting and recent document by name
   or synonym, in English and French, with the shortcut and location shown beside each. It opens
   from a button, a gesture or Ctrl/⌘ K.
+  Done: `CommandPalette.kt`. Opens from the search button at the toolbar's start or Ctrl/⌘ K; finds tools, undo/redo, layers, documents, colour, every Insert/Import/Document/App item, every available export and the 8 most recent documents, by name in English or French, case- and accent-insensitive, showing where each lives and its shortcut; Enter runs the first. Opening it by gesture comes with D15. Synonyms beyond the two languages are not added.
 - [ ] D78. **Full-screen canvas on demand.** One gesture or tap hides every bar and panel; a
   second brings them back exactly as they were. Edge-to-edge drawing under the system bars, with
   the gesture navigation area protected from stray strokes.

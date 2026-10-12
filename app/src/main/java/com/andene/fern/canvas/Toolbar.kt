@@ -261,6 +261,8 @@ fun Toolbar(
     onInsertVideo: () -> Unit = {},
     /** Imports an OBJ model to paint in 3D (roadmap item 108). */
     onImportObj: () -> Unit = {},
+    /** Commands the palette offers beside the toolbar's own, e.g. recent documents (design roadmap D14). */
+    extraCommands: List<PaletteCommand> = emptyList(),
     /** Called when a workspace (design roadmap D11) changes which groups show. */
     onHiddenGroupsChange: (Set<ToolbarGroup>) -> Unit = {},
     /** Where the contextual properties bar goes (design roadmap D9). */
@@ -464,6 +466,83 @@ fun Toolbar(
     var showGradientDialog by remember { mutableStateOf(false) }
     var showPerspectiveMenu by remember { mutableStateOf(false) }
 
+    val insertItems = listOf<Triple<Int, androidx.compose.ui.graphics.vector.ImageVector, () -> Unit>>(
+        Triple(R.string.menu_insert_image, Icons.Filled.Image, onInsertImage),
+        Triple(R.string.menu_insert_video, Icons.Filled.VideoFile, onInsertVideo),
+        Triple(R.string.model_insert_title, Icons.Filled._3dRotation) { showInsert3d = true },
+        Triple(R.string.symbols_title, Icons.Filled.Category) { openSymbols() },
+        Triple(R.string.signature_title, Icons.Filled.Draw) { showSignatureDialog = true },
+        Triple(R.string.qr_title, Icons.Filled.QrCode2) { showQrDialog = true },
+        Triple(R.string.comic_title, Icons.Filled.AutoStories) { showComicDialog = true },
+    )
+    val importItems = listOf<Triple<Int, androidx.compose.ui.graphics.vector.ImageVector, () -> Unit>>(
+        Triple(R.string.menu_import_pdf, Icons.Filled.PictureAsPdf, onImportPdf),
+        Triple(R.string.menu_import_vectors, Icons.Filled.Polyline, onImportVectors),
+        Triple(R.string.menu_import_layered, Icons.Filled.Layers, onImportLayered),
+        Triple(R.string.menu_import_spine, Icons.Filled.AccessibilityNew, onImportSpine),
+    )
+    val documentItems = listOf<Triple<Int, androidx.compose.ui.graphics.vector.ImageVector, () -> Unit>>(
+        Triple(R.string.search_title, Icons.Filled.Search) { showSearchDialog = true },
+        Triple(R.string.frames_title, Icons.Filled.CropFree, onOpenFrames),
+        Triple(R.string.pins_title, Icons.Filled.PushPin, onOpenPins),
+        Triple(R.string.versions_title, Icons.Filled.History, onOpenVersions),
+        Triple(R.string.audio_title, Icons.Filled.Mic, onOpenAudioNotes),
+        Triple(R.string.stats_title, Icons.Filled.QueryStats) { showStatsDialog = true },
+        Triple(R.string.script_title, Icons.Filled.Code) { showScriptDialog = true },
+        Triple(R.string.second_view_title, Icons.Filled.VerticalSplit) { state.secondViewOpen = !state.secondViewOpen },
+        Triple(if (state.showRulers) R.string.rulers_hide else R.string.rulers_show, Icons.Filled.SquareFoot) { state.showRulers = !state.showRulers },
+        Triple(if (state.wrapFrameId == null) R.string.wrap_on else R.string.wrap_off, Icons.Filled.Texture) { state.toggleWrapAround() },
+    )
+    val appItems = listOf<Triple<Int, androidx.compose.ui.graphics.vector.ImageVector, () -> Unit>>(
+        Triple(R.string.settings_title, Icons.Filled.Settings, onOpenSettings),
+        Triple(R.string.plugins_title, Icons.Filled.Extension) { showPlugins = true },
+    )
+    val runExport: (ExportFormat) -> Unit = { format ->
+        when (format) {
+            ExportFormat.SHARE -> onShare()
+            ExportFormat.PNG -> onExportPng()
+            ExportFormat.TRANSPARENT_PNG -> onExportTransparentPng()
+            ExportFormat.SELECTION_PNG -> onExportSelection()
+            ExportFormat.EXR -> onExportExr()
+            ExportFormat.PDF -> onExportPdf()
+            ExportFormat.CMYK_PDF -> onExportCmykPdf()
+            ExportFormat.SVG -> onExportSvg()
+            ExportFormat.EPS -> onExportEps()
+            ExportFormat.AI -> onExportAi()
+            ExportFormat.DXF -> onExportDxf()
+            ExportFormat.PSD -> onExportPsd()
+            ExportFormat.KRA -> onExportKra()
+            ExportFormat.FERN -> onExportBundle()
+            ExportFormat.GIF -> onExportGif()
+            ExportFormat.MP4 -> onExportMp4()
+            ExportFormat.WEBM -> onExportWebm()
+            ExportFormat.APNG -> onExportApng()
+            ExportFormat.LOTTIE -> onExportLottie()
+            ExportFormat.REPLAY_GIF -> onExportReplayGif()
+            ExportFormat.REPLAY_MP4 -> onExportReplayMp4()
+            ExportFormat.SPRITE_SHEET -> onExportSpriteSheet()
+            ExportFormat.SPRITE_ATLAS -> onExportSpriteAtlas()
+            ExportFormat.SPINE -> onExportSpine()
+            ExportFormat.DRAGON_BONES -> onExportDragonBones()
+        }
+    }
+    // Every action by name, in either language (design roadmap D14).
+    val labels = rememberCommandLabels()
+    val paletteCommands = buildList {
+        val toolShortcuts = mapOf(Tool.PEN to "P", Tool.ERASER to "E", Tool.SELECT to "V")
+        for (tool in Tool.entries - Tool.RULER) add(labels.command(toolName(tool), R.string.palette_location_rail, toolShortcuts[tool]) { state.activeTool = tool })
+        add(labels.command(R.string.action_undo, R.string.palette_location_toolbar, "Ctrl+Z") { state.undo() })
+        add(labels.command(R.string.action_redo, R.string.palette_location_toolbar, "Ctrl+Y") { state.redo() })
+        add(labels.command(R.string.layers_title, R.string.palette_location_toolbar) { showLayersDialog = true })
+        add(labels.command(R.string.documents_title, R.string.palette_location_toolbar, run = onOpenDocuments))
+        add(labels.command(R.string.tb_custom_color, R.string.palette_location_toolbar) { showColorPicker = true })
+        for ((group, items) in listOf(R.string.menu_group_insert to insertItems, R.string.menu_group_import to importItems, R.string.menu_group_document to documentItems, R.string.menu_group_app to appItems)) {
+            for ((label, _, action) in items) add(labels.command(label, group, run = action))
+        }
+        for (format in ExportFormat.entries) if (format.available(state)) add(labels.command(format.label, R.string.tb_export) { runExport(format) })
+        addAll(extraCommands)
+    }
+    if (CommandPaletteState.open) CommandPalette(paletteCommands, onDismiss = { CommandPaletteState.open = false })
     // Contextual properties (design roadmap D9): only the active tool's settings and the
     // selection's actions, in their own bar beside the rail instead of mixed into the toolbar.
     val properties: @Composable () -> Unit = {
@@ -1118,6 +1197,9 @@ fun Toolbar(
             // On a wide window (roadmap item 74) they wrap onto further rows instead, all in view.
             val tools: @Composable () -> Unit = {
                 WorkspaceSwitcher(hiddenGroups, onHiddenGroupsChange)
+                IconButton(onClick = { CommandPaletteState.open = true }) {
+                    Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.palette_title))
+                }
                 if (ToolbarGroup.FAVOURITES !in hiddenGroups) {
                     for (index in 0 until TOOL_SLOT_COUNT) ToolSlotButton(state, index)
                 }
@@ -1263,37 +1345,10 @@ fun Toolbar(
                     Icon(Icons.Filled.Description, contentDescription = stringResource(R.string.documents_title))
                 }
                 // Occasional actions, grouped by purpose behind labelled menus, each one level deep (design roadmap D12).
-                MenuButton(R.string.menu_group_insert, Icons.Filled.AddBox, listOf(
-                    Triple(R.string.menu_insert_image, Icons.Filled.Image, onInsertImage),
-                    Triple(R.string.menu_insert_video, Icons.Filled.VideoFile, onInsertVideo),
-                    Triple(R.string.model_insert_title, Icons.Filled._3dRotation) { showInsert3d = true },
-                    Triple(R.string.symbols_title, Icons.Filled.Category) { openSymbols() },
-                    Triple(R.string.signature_title, Icons.Filled.Draw) { showSignatureDialog = true },
-                    Triple(R.string.qr_title, Icons.Filled.QrCode2) { showQrDialog = true },
-                    Triple(R.string.comic_title, Icons.Filled.AutoStories) { showComicDialog = true },
-                ))
-                MenuButton(R.string.menu_group_import, Icons.Filled.FileOpen, listOf(
-                    Triple(R.string.menu_import_pdf, Icons.Filled.PictureAsPdf, onImportPdf),
-                    Triple(R.string.menu_import_vectors, Icons.Filled.Polyline, onImportVectors),
-                    Triple(R.string.menu_import_layered, Icons.Filled.Layers, onImportLayered),
-                    Triple(R.string.menu_import_spine, Icons.Filled.AccessibilityNew, onImportSpine),
-                ))
-                MenuButton(R.string.menu_group_document, Icons.Filled.Description, listOf(
-                    Triple(R.string.search_title, Icons.Filled.Search) { showSearchDialog = true },
-                    Triple(R.string.frames_title, Icons.Filled.CropFree, onOpenFrames),
-                    Triple(R.string.pins_title, Icons.Filled.PushPin, onOpenPins),
-                    Triple(R.string.versions_title, Icons.Filled.History, onOpenVersions),
-                    Triple(R.string.audio_title, Icons.Filled.Mic, onOpenAudioNotes),
-                    Triple(R.string.stats_title, Icons.Filled.QueryStats) { showStatsDialog = true },
-                    Triple(R.string.script_title, Icons.Filled.Code) { showScriptDialog = true },
-                    Triple(R.string.second_view_title, Icons.Filled.VerticalSplit) { state.secondViewOpen = !state.secondViewOpen },
-                    Triple(if (state.showRulers) R.string.rulers_hide else R.string.rulers_show, Icons.Filled.SquareFoot) { state.showRulers = !state.showRulers },
-                    Triple(if (state.wrapFrameId == null) R.string.wrap_on else R.string.wrap_off, Icons.Filled.Texture) { state.toggleWrapAround() },
-                ))
-                MenuButton(R.string.menu_group_app, Icons.Filled.Settings, listOf(
-                    Triple(R.string.settings_title, Icons.Filled.Settings, onOpenSettings),
-                    Triple(R.string.plugins_title, Icons.Filled.Extension) { showPlugins = true },
-                ))
+                MenuButton(R.string.menu_group_insert, Icons.Filled.AddBox, insertItems)
+                MenuButton(R.string.menu_group_import, Icons.Filled.FileOpen, importItems)
+                MenuButton(R.string.menu_group_document, Icons.Filled.Description, documentItems)
+                MenuButton(R.string.menu_group_app, Icons.Filled.Settings, appItems)
                 if (ToolbarGroup.REPLAY !in hiddenGroups) {
                     IconButton(onClick = { state.replayCount = if (state.replayCount == null) 0 else null }) {
                         Icon(
@@ -1308,35 +1363,7 @@ fun Toolbar(
                     Icon(Icons.Filled.IosShare, contentDescription = stringResource(R.string.tb_export))
                 }
                 if (showExportMenu) {
-                    ExportPanel(state, onDismiss = { showExportMenu = false }, run = { format ->
-                        when (format) {
-                            ExportFormat.SHARE -> onShare()
-                            ExportFormat.PNG -> onExportPng()
-                            ExportFormat.TRANSPARENT_PNG -> onExportTransparentPng()
-                            ExportFormat.SELECTION_PNG -> onExportSelection()
-                            ExportFormat.EXR -> onExportExr()
-                            ExportFormat.PDF -> onExportPdf()
-                            ExportFormat.CMYK_PDF -> onExportCmykPdf()
-                            ExportFormat.SVG -> onExportSvg()
-                            ExportFormat.EPS -> onExportEps()
-                            ExportFormat.AI -> onExportAi()
-                            ExportFormat.DXF -> onExportDxf()
-                            ExportFormat.PSD -> onExportPsd()
-                            ExportFormat.KRA -> onExportKra()
-                            ExportFormat.FERN -> onExportBundle()
-                            ExportFormat.GIF -> onExportGif()
-                            ExportFormat.MP4 -> onExportMp4()
-                            ExportFormat.WEBM -> onExportWebm()
-                            ExportFormat.APNG -> onExportApng()
-                            ExportFormat.LOTTIE -> onExportLottie()
-                            ExportFormat.REPLAY_GIF -> onExportReplayGif()
-                            ExportFormat.REPLAY_MP4 -> onExportReplayMp4()
-                            ExportFormat.SPRITE_SHEET -> onExportSpriteSheet()
-                            ExportFormat.SPRITE_ATLAS -> onExportSpriteAtlas()
-                            ExportFormat.SPINE -> onExportSpine()
-                            ExportFormat.DRAGON_BONES -> onExportDragonBones()
-                        }
-                    })
+                    ExportPanel(state, onDismiss = { showExportMenu = false }, run = runExport)
                 }
                 if (ToolbarGroup.BACKGROUND !in hiddenGroups) {
                     Box {

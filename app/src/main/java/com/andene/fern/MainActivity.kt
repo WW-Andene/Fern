@@ -93,6 +93,8 @@ import com.andene.fern.canvas.AudioSeekOverlay
 import com.andene.fern.canvas.AudioBar
 import com.andene.fern.canvas.CanvasHaptics
 import com.andene.fern.canvas.ToolRail
+import com.andene.fern.canvas.CommandPaletteState
+import com.andene.fern.canvas.PaletteCommand
 import com.andene.fern.canvas.BackgroundStyle
 import com.andene.fern.canvas.CanvasState
 import com.andene.fern.canvas.CanvasStorage
@@ -1026,6 +1028,7 @@ class MainActivity : ComponentActivity() {
                                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                                 val ctrl = event.isCtrlPressed || event.isMetaPressed
                                 when {
+                                    ctrl && event.key == Key.K -> CommandPaletteState.open = true
                                     ctrl && event.key == Key.Z && event.isShiftPressed -> canvasState.redo()
                                     ctrl && event.key == Key.Z -> canvasState.undo()
                                     ctrl && event.key == Key.Y -> canvasState.redo()
@@ -1124,6 +1127,10 @@ class MainActivity : ComponentActivity() {
                                 state = canvasState,
                                 hiddenGroups = hiddenToolbarGroups,
                                 onHiddenGroupsChange = { hiddenToolbarGroups = it },
+                                // Recent documents in the command palette (design roadmap D14).
+                                extraCommands = documents.filter { it.trashedAt == null && it.id != currentDocumentId }.sortedByDescending { it.lastModified }.take(RECENT_IN_PALETTE).map { doc ->
+                                    PaletteCommand(doc.name, doc.name, context.getString(R.string.palette_location_documents)) { coroutineScope.launch { switchToDocument(doc.id) } }
+                                },
                                 propertiesModifier = Modifier
                                     .align(Alignment.BottomCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
@@ -1616,3 +1623,6 @@ private val STYLUS_BUTTON_KEYCODES = setOf(308, 309, 310, 311)
 
 // Room the rulers leave for the toolbar when it's along the top (its 48 dp buttons and padding).
 private const val TOOLBAR_CLEARANCE_DP = 64
+
+/** How many recent documents the command palette offers (design roadmap D14). */
+private const val RECENT_IN_PALETTE = 8
