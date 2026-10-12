@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.Cable
 import androidx.compose.material.icons.filled.Fence
 import androidx.compose.material.icons.filled.SportsEsports
@@ -432,6 +433,8 @@ fun Toolbar(
     if (showDrawingScaleDialog) DrawingScaleDialog(state, onDismiss = { showDrawingScaleDialog = false })
     var showPlaceOnPlaneMenu by remember { mutableStateOf(false) }
     var showLinkMenu by remember { mutableStateOf(false) }
+    var showControls by remember { mutableStateOf(false) }
+    if (showControls) InputMappingDialog(state, onDismiss = { showControls = false })
     var showConstraintsDialog by remember { mutableStateOf(false) }
     if (showConstraintsDialog) ConstraintsDialog(state, onDismiss = { showConstraintsDialog = false })
     if (showContourDialog) ContourDialog(state, onDismiss = { showContourDialog = false })
@@ -1280,6 +1283,10 @@ fun Toolbar(
                 if (state.gameObjects.isNotEmpty()) {
                     IconButton(onClick = { state.startPlay() }) {
                         Icon(Icons.Filled.SportsEsports, contentDescription = stringResource(R.string.play_start))
+                    }
+                    // The game's controls (roadmap item 160).
+                    IconButton(onClick = { showControls = true }) {
+                        Icon(Icons.Filled.Gamepad, contentDescription = stringResource(R.string.controls_title))
                     }
                 }
                 IconButton(onClick = { state.undo() }) {

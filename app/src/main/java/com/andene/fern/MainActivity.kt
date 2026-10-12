@@ -2,6 +2,10 @@
 
 package com.andene.fern
 
+import com.andene.fern.canvas.GameInputState
+import android.view.MotionEvent
+import android.view.KeyEvent
+import android.view.InputDevice
 import com.andene.fern.canvas.traceImage
 import com.andene.fern.canvas.TRACE_MAX_EDGE_PX
 import java.time.format.TextStyle as JavaTextStyle
@@ -186,6 +190,27 @@ private const val WIDE_WINDOW_DP = 768
 
 class MainActivity : ComponentActivity() {
     private val powerMonitor by lazy { PowerMonitor(applicationContext) }
+
+    // The playing game's input, for gamepad sticks, which reach only the activity (roadmap item 160).
+    private var playInput: GameInputState? = null
+
+    /**
+     * Gamepad sticks and hats while a game plays: the sticks' axes feed the input mapping; a hat
+     * (d-pad reported as axes) presses the d-pad keys, as most games expect.
+     */
+    override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+        val input = playInput
+        if (input == null || !event.isFromSource(InputDevice.SOURCE_JOYSTICK) || event.action != MotionEvent.ACTION_MOVE) return super.dispatchGenericMotionEvent(event)
+        input.axis(MotionEvent.AXIS_X, event.getAxisValue(MotionEvent.AXIS_X))
+        input.axis(MotionEvent.AXIS_Y, event.getAxisValue(MotionEvent.AXIS_Y))
+        val hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X)
+        val hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y)
+        input.key(KeyEvent.KEYCODE_DPAD_LEFT, hatX < -0.5f)
+        input.key(KeyEvent.KEYCODE_DPAD_RIGHT, hatX > 0.5f)
+        input.key(KeyEvent.KEYCODE_DPAD_UP, hatY < -0.5f)
+        input.key(KeyEvent.KEYCODE_DPAD_DOWN, hatY > 0.5f)
+        return true
+    }
 
     override fun onStart() {
         super.onStart()
@@ -1080,8 +1105,13 @@ class MainActivity : ComponentActivity() {
                                     .padding(16.dp),
                             )
                         } else if (canvasState.play != null) {
+                            val playing = canvasState.play
+                            DisposableEffect(playing) {
+                                playInput = playing?.input
+                                onDispose { playInput = null }
+                            }
                             // The game playing (roadmap item 155): editing chrome hidden.
-                            PlayOverlay(canvasState, Modifier.padding(WindowInsets.systemBars.asPaddingValues()))
+                            PlayOverlay(canvasState)
                         } else {
                             Toolbar(
                                 state = canvasState,

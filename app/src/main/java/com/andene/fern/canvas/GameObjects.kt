@@ -33,6 +33,10 @@ enum class BehaviourKind(@StringRes val label: Int, val params: List<BehaviourPa
     BLINK(R.string.behaviour_blink, listOf(BehaviourParam("period", 1.0, R.string.param_period))),
     /** Grows and shrinks by a share of its size, once per period. */
     PULSE(R.string.behaviour_pulse, listOf(BehaviourParam("amount", 0.2, R.string.param_amount), BehaviourParam("period", 1.0, R.string.param_period))),
+    /** Runs left and right with the left/right actions and jumps with jump when standing (roadmap item 160). */
+    PLATFORMER(R.string.behaviour_platformer, listOf(BehaviourParam("speed", 200.0, R.string.param_speed), BehaviourParam("jump", 500.0, R.string.param_jump))),
+    /** Moves in any direction with the left/right/up/down actions, seen from above (roadmap item 160). */
+    TOP_DOWN(R.string.behaviour_top_down, listOf(BehaviourParam("speed", 200.0, R.string.param_speed))),
 }
 
 /** One behaviour on an object: its [kind], its settings, and for [BehaviourKind.FOLLOW_PATH] the [path] (world points). */
@@ -92,7 +96,14 @@ data class ObjectLink(val id: String, val from: String, val to: String, val kind
  * The game's world settings (roadmap item 159): gravity (world units a second squared, y down)
  * and whether the scene's edges are walls physics bodies collide with.
  */
-data class GameSettings(val gravityX: Double = 0.0, val gravityY: Double = 900.0, val walls: Boolean = true, val links: List<ObjectLink> = emptyList())
+data class GameSettings(
+    val gravityX: Double = 0.0,
+    val gravityY: Double = 900.0,
+    val walls: Boolean = true,
+    val links: List<ObjectLink> = emptyList(),
+    /** The game's actions and their inputs (roadmap item 160). */
+    val actions: List<InputAction> = DEFAULT_ACTIONS,
+)
 
 /** Reading and writing the objects (objects_<document>.json). */
 object GameObjectsJson {
@@ -102,7 +113,8 @@ object GameObjectsJson {
         .put("settings", JSONObject().put("gravityX", settings.gravityX).put("gravityY", settings.gravityY).put("walls", settings.walls)
             .put("links", JSONArray().apply {
                 for (l in settings.links) put(JSONObject().put("id", l.id).put("from", l.from).put("to", l.to).put("kind", l.kind.name).put("length", l.length))
-            }))
+            })
+            .put("actions", InputActionsJson.write(settings.actions)))
 
     /** Objects and settings from [writeGame]'s form, or from the plain object list saved before settings existed. */
     fun readGame(stored: Any): Pair<List<GameObject>, GameSettings> = when (stored) {
@@ -118,6 +130,7 @@ object GameObjectsJson {
                         ObjectLink(l.optString("id"), l.optString("from"), l.optString("to"), kind, l.optDouble("length", 0.0))
                     }
                 }.orEmpty(),
+                s?.optJSONArray("actions")?.let(InputActionsJson::read) ?: DEFAULT_ACTIONS,
             )
         }
         else -> emptyList<GameObject>() to GameSettings()

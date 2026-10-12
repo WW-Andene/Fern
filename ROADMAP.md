@@ -246,7 +246,7 @@ Shared, multiplayer parts need a server and are deferred ⏸; single-player part
 - [x] 157. Drawn behaviours — a drawn path becomes motion (animate along path; an object's follow-path behaviour, item 155); a closed line drawn over an object becomes its hitbox; a line drawn between two objects becomes a link (rod, rope or attachment) held while the game plays; hitboxes and links shown dashed while editing
 - [ ] 158. State machines linking rig animations to logic
 - [x] 159. 2D physics — arcade physics for game objects: fixed (solid) or dynamic bodies as boxes or circles, with mass, bounce, friction and gravity scale; world gravity in any direction and scene edges as walls; contacts and standing-on-something reported for rules and scripts. Bodies are axis-aligned (an object's turn doesn't tilt its body)
-- [ ] 160. Input mapping (touch, stylus, gamepad, keyboard)
+- [x] 160. Input mapping (touch, stylus, gamepad, keyboard) — named actions bound to keys, gamepad buttons and stick directions (and the d-pad hat), on-screen buttons (a d-pad and A/B shown while playing), a finger or the stylus on the game (with its world position); defaults for arrows/WASD, the d-pad, A/B, space and enter; keys bound by pressing them; platformer and top-down controls use them. Real gamepads are untested here (no device)
 - [ ] 161. Play mode
 - [ ] 162. Online multiplayer play ⏸
 - [ ] 163. AI logic assistant ⏸

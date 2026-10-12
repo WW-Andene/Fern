@@ -85,12 +85,16 @@ class GameWorld(objects: List<GameObject>, drawnBoxes: Map<String, WorldBox>, va
         }
     }
 
+    /** What the player is doing (roadmap item 160), fed by the play screen. */
+    val input = GameInputState(settings.actions)
+
     /** The bodies that touched in the last step (roadmap item 159). */
     var contacts: List<Contact> = emptyList()
         private set
 
     /** Advances the world by [dt] seconds: gravity, movement and behaviours, then collisions. */
     fun step(dt: Double) {
+        input.beginStep()
         Physics2d.applyGravity(this, settings, dt)
         for (instance in instances) {
             if (instance.removed) continue
@@ -189,6 +193,18 @@ class GameWorld(objects: List<GameObject>, drawnBoxes: Map<String, WorldBox>, va
             BehaviourKind.PULSE -> {
                 val period = b.param("period").coerceAtLeast(0.01)
                 o.scale = 1 + b.param("amount") * sin(2 * PI * o.time / period)
+            }
+            BehaviourKind.PLATFORMER -> {
+                val direction = (if (input.isDown("right")) 1 else 0) - (if (input.isDown("left")) 1 else 0)
+                o.vx = direction * b.param("speed")
+                if (input.justPressed("jump") && o.grounded) o.vy = -b.param("jump")
+            }
+            BehaviourKind.TOP_DOWN -> {
+                val dx = ((if (input.isDown("right")) 1 else 0) - (if (input.isDown("left")) 1 else 0)).toDouble()
+                val dy = ((if (input.isDown("down")) 1 else 0) - (if (input.isDown("up")) 1 else 0)).toDouble()
+                val length = hypot(dx, dy)
+                o.vx = if (length > 0) dx / length * b.param("speed") else 0.0
+                o.vy = if (length > 0) dy / length * b.param("speed") else 0.0
             }
         }
     }
