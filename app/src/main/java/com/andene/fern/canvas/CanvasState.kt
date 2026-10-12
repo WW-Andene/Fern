@@ -120,6 +120,9 @@ class CanvasState(
 
         // How close (screen px) a shape point must come to an object anchor to snap; on the §7 scale.
         private const val OBJECT_SNAP_RADIUS_SCREEN = 12.0
+
+        // Touch radius of a node handle in node editing; on the §7 scale.
+        private const val NODE_HANDLE_SCREEN = 16.0
         private const val PERSPECTIVE_DECIDE_SCREEN = 16.0
 
         // Assumed view width before the first layout pass reports the real one.
@@ -1564,7 +1567,43 @@ class CanvasState(
         point.x >= image.position.x && point.x <= image.position.x + image.widthWorld &&
             point.y >= image.position.y && point.y <= image.position.y + image.heightWorld
 
+    /**
+     * Node editing: with exactly one stroke selected, its nodes ([editNodeIndices]) are shown as
+     * handles and dragging one reshapes the stroke ([dragNode]); each drag is one undo step.
+     * Ends when the selection changes.
+     */
+    var nodeEditing by mutableStateOf(false)
+        private set
+
+    /** The stroke whose nodes are being edited, or null when node editing isn't active. */
+    val nodeEditStroke: Stroke? get() = if (nodeEditing) selection.singleOrNull() else null
+
+    fun toggleNodeEditing() {
+        nodeEditing = !nodeEditing && selection.size == 1
+    }
+
+    private var nodeDragIndex: Int? = null
+    private var nodeDragOriginal: List<WorldPoint> = emptyList()
+    private var nodeDragStart = WorldPoint.Zero
+
     fun beginSelectGesture(worldPoint: WorldPoint) {
+        nodeEditStroke?.let { stroke ->
+            val nodes = editNodeIndices(stroke.points.size)
+            val hit = nodes.indices.minByOrNull { k ->
+                val p = stroke.points[nodes[k]]
+                hypot(p.x - worldPoint.x, p.y - worldPoint.y)
+            }?.takeIf { k ->
+                val p = stroke.points[nodes[k]]
+                hypot(p.x - worldPoint.x, p.y - worldPoint.y) * scale <= NODE_HANDLE_SCREEN
+            }
+            if (hit != null) {
+                recordHistory()
+                nodeDragIndex = hit
+                nodeDragOriginal = stroke.points.toList()
+                nodeDragStart = worldPoint
+                return
+            }
+        }
         val pickedText = textItems.firstOrNull { it.id == selectedTextId }
         if (pickedText != null && findTextItemAt(worldPoint)?.id == pickedText.id) {
             recordHistory()
@@ -1590,11 +1629,19 @@ class CanvasState(
         } else {
             isMovingSelection = false
             selection.clear()
+            nodeEditing = false
             if (lassoSelect) lassoPath.add(worldPoint) else marqueeRect = worldPoint to worldPoint
         }
     }
 
     fun continueSelectGesture(worldPoint: WorldPoint) {
+        val dragged = nodeDragIndex
+        val editing = nodeEditStroke
+        if (dragged != null && editing != null) {
+            val nodes = editNodeIndices(nodeDragOriginal.size)
+            editing.setPoints(dragNode(nodeDragOriginal, nodes, dragged, worldPoint - nodeDragStart))
+            return
+        }
         if (isMovingText) {
             val last = lastDragPoint ?: return
             val index = textItems.indexOfFirst { it.id == selectedTextId }
@@ -1623,6 +1670,12 @@ class CanvasState(
     }
 
     fun endSelectGesture() {
+        if (nodeDragIndex != null) {
+            nodeDragIndex = null
+            nodeDragOriginal = emptyList()
+            onChanged(strokes.toList())
+            return
+        }
         if (isMovingText) {
             isMovingText = false
             lastDragPoint = null
@@ -2023,6 +2076,7 @@ class CanvasState(
     /** Clears the selection and any in-progress scale/rotate snapshot together, so neither can outlive the strokes it references. */
     private fun clearSelectionState() {
         selection.clear()
+        nodeEditing = false
         selectedImageId = null
         selectedTextId = null
         gestureSnapshot = emptyMap()

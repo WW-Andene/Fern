@@ -69,6 +69,7 @@ import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Polyline
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Replay
@@ -555,6 +556,13 @@ fun Toolbar(
                     }
                     IconButton(onClick = { state.duplicateSelection() }) {
                         Icon(Icons.Filled.ContentCopy, contentDescription = "Duplicate selection")
+                    }
+                    IconButton(onClick = { state.toggleNodeEditing() }, enabled = state.selection.size == 1) {
+                        Icon(
+                            Icons.Filled.Polyline,
+                            contentDescription = if (state.nodeEditing) "Stop editing nodes" else "Edit nodes",
+                            tint = if (state.nodeEditing) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
                     }
                     val grouped = state.selectionHasGroup
                     IconButton(

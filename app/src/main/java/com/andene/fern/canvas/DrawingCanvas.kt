@@ -471,6 +471,16 @@ fun DrawingCanvas(state: CanvasState, modifier: Modifier = Modifier) {
                 drawPath(lasso, color = MARQUEE_BORDER_COLOR, style = DrawStyle(width = 2f))
             }
 
+            // Node editing: a square handle on each node of the stroke being edited.
+            state.nodeEditStroke?.let { stroke ->
+                stroke.revision // redraw as nodes are dragged
+                for (index in editNodeIndices(stroke.points.size)) {
+                    val p = state.worldToScreen(stroke.points[index], screenCenter)
+                    drawRect(Color.White, topLeft = p - Offset(6f, 6f), size = Size(12f, 12f))
+                    drawRect(HANDLE_COLOR, topLeft = p - Offset(6f, 6f), size = Size(12f, 12f), style = DrawStyle(width = 2f))
+                }
+            }
+
             // Ring on the object point the shape being drawn is snapped to.
             state.snapIndicator?.let { anchor ->
                 drawCircle(color = MARQUEE_BORDER_COLOR, radius = 12f, center = state.worldToScreen(anchor, screenCenter), style = DrawStyle(width = 2f))
@@ -970,6 +980,8 @@ private const val CALLIGRAPHY_NIB_ANGLE = (Math.PI / 4).toFloat() // 45°, a sta
 private data class SelectionHandles(val scaleHandle: Offset, val rotateHandle: Offset, val topCenter: Offset)
 
 private fun selectionHandles(state: CanvasState, screenCenter: Offset): SelectionHandles? {
+    // While editing nodes, a node on the bounds' corner must be draggable, not the scale handle.
+    if (state.nodeEditStroke != null) return null
     val bounds = state.selectionBounds() ?: return null
     val (min, max) = bounds
     val scaleHandle = state.worldToScreen(max, screenCenter)
