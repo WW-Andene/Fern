@@ -37,7 +37,7 @@
     <string name="documents_search">Search</string>
     <string name="documents_all">All</string>
     <string name="documents_trash_empty">Trash is empty</string>
-    <string name="documents_none">No documents found</string>
+    <string name="documents_none">No documents yet. Tap New document to start one.</string>
     <string name="documents_restore">Restore</string>
     <string name="documents_delete_forever">Delete forever</string>
     <string name="documents_folder_name">Folder name</string>
@@ -1025,4 +1025,7 @@
     <string name="ui_size_largest">Largest</string>
     <string name="confirm_dont_ask">Don’t ask again</string>
     <string name="confirm_raster_delete">Delete this painted layer? Undo brings the layer back but not its pixels.</string>
+    <string name="pins_empty">No pins yet. A pin remembers this view (place and zoom) so you can jump back to it: name one below.</string>
+    <string name="states_empty">No states yet. Add one per animation (idle, run, jump), then transitions between them.</string>
+    <string name="rules_empty">No rules yet. Add one, pick when it fires, then what it does.</string>
 </resources>

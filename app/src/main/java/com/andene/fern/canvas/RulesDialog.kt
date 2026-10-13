@@ -43,6 +43,7 @@ fun RulesDialog(state: CanvasState, objectId: String, onDismiss: () -> Unit) {
         text = {
             Column(Modifier.heightIn(max = FernScale.s512).verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.rules_help), style = MaterialTheme.typography.bodySmall)
+                if (rules.isEmpty()) Text(stringResource(R.string.rules_empty), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = FernScale.s8))
                 for ((i, rule) in rules.withIndex()) {
                     fun update(change: Rule) = save(rules.mapIndexed { k, r -> if (k == i) change else r })
                     Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(top = FernScale.s8)) {

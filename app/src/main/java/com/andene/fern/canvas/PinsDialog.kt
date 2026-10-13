@@ -47,6 +47,8 @@ fun PinsDialog(
         title = { Text(stringResource(R.string.pins_title)) },
         text = {
             Column {
+                // Empty states say what the panel is for and how to fill it (design roadmap D28).
+                if (pins.isEmpty()) Text(stringResource(R.string.pins_empty), style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
                 for (pin in pins) {
                     Row(
                         modifier = Modifier

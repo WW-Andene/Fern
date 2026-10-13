@@ -37,7 +37,7 @@
     <string name="documents_search">Rechercher</string>
     <string name="documents_all">Tous</string>
     <string name="documents_trash_empty">La corbeille est vide</string>
-    <string name="documents_none">Aucun document trouvé</string>
+    <string name="documents_none">Aucun document. Touchez « Nouveau document » pour en commencer un.</string>
     <string name="documents_restore">Restaurer</string>
     <string name="documents_delete_forever">Supprimer définitivement</string>
     <string name="documents_folder_name">Nom du dossier</string>
@@ -1028,4 +1028,7 @@
     <string name="ui_size_largest">Très grande</string>
     <string name="confirm_dont_ask">Ne plus demander</string>
     <string name="confirm_raster_delete">Supprimer ce calque peint ? Annuler ramène le calque mais pas ses pixels.</string>
+    <string name="pins_empty">Aucun repère. Un repère retient cette vue (endroit et zoom) pour y revenir : nommez-en un ci-dessous.</string>
+    <string name="states_empty">Aucun état. Ajoutez-en un par animation (repos, course, saut), puis les transitions entre eux.</string>
+    <string name="rules_empty">Aucune règle. Ajoutez-en une, choisissez quand elle s’applique, puis ce qu’elle fait.</string>
 </resources>

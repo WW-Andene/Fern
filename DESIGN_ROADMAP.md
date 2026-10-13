@@ -282,8 +282,9 @@ Goal: nothing lost, nothing blocking, nothing to hunt for.
 - [~] D27. **Live preview** for every adjustment (blend, filters, fill, brush edits, transforms)
   on the canvas itself, with Apply and Cancel inline.
   Written, not yet compiled or tested: adjustments (already previewed live on the layer), the gradient fill, the brush editor and the numeric transform now open as non-blocking panels with Apply/Cancel at their foot, so the canvas stays in view; the transform outlines where the selection will go as values are typed. Blend modes already apply at once. Gradient and brush previews stay inside their panel (they describe the next stroke, not existing ones).
-- [ ] D28. **Empty states and inline hints.** An empty layers panel or object list explains
+- [~] D28. **Empty states and inline hints.** An empty layers panel or object list explains
   itself in one line with the action to take. No dead ends.
+  Written, not yet compiled or tested: frames, symbols, versions and search already explained themselves; pins, animation states, rules and the document list now do too, each naming what to do next. Layers is never empty (one always remains).
 - [ ] D29. **Learn in context.** Replace the first-run tip dialog with short coach marks that
   appear the first time a tool or gesture is relevant, can be skipped, and can be found again
   in Help. Add an optional interactive practice canvas.

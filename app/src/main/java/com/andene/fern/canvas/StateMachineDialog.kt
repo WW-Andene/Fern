@@ -50,6 +50,7 @@ fun StateMachineDialog(state: CanvasState, objectId: String, onDismiss: () -> Un
         title = { Text(stringResource(R.string.states_title)) },
         text = {
             Column(Modifier.heightIn(max = FernScale.s512).verticalScroll(rememberScrollState())) {
+                if (machine.states.isEmpty()) Text(stringResource(R.string.states_empty), style = MaterialTheme.typography.bodySmall)
                 for ((i, s) in machine.states.withIndex()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(selected = machine.initial == s.name, onClick = { save(machine.copy(initial = s.name)) })
