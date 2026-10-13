@@ -1,6 +1,18 @@
 package com.andene.fern
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.RangeSlider
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -201,6 +213,150 @@ fun FernTextField(
             )
         },
     )
+}
+
+/**
+ * Material's `RangeSlider` with 16 dp thumbs, for the same reason as [FernSlider].
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FernRangeSlider(
+    value: ClosedFloatingPointRange<Float>,
+    onValueChange: (ClosedFloatingPointRange<Float>) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
+    steps: Int = 0,
+    onValueChangeFinished: (() -> Unit)? = null,
+) {
+    val startInteraction = remember { MutableInteractionSource() }
+    val endInteraction = remember { MutableInteractionSource() }
+    RangeSlider(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        enabled = enabled,
+        valueRange = valueRange,
+        steps = steps,
+        onValueChangeFinished = onValueChangeFinished,
+        startInteractionSource = startInteraction,
+        endInteractionSource = endInteraction,
+        startThumb = { SliderDefaults.Thumb(interactionSource = startInteraction, enabled = enabled, thumbSize = DpSize(FernScale.s16, FernScale.s16)) },
+        endThumb = { SliderDefaults.Thumb(interactionSource = endInteraction, enabled = enabled, thumbSize = DpSize(FernScale.s16, FernScale.s16)) },
+    )
+}
+
+/**
+ * A menu row for Material's `DropdownMenu`, replacing `DropdownMenuItem`: 48 dp tall and at
+ * least 128 dp wide (Material's minimum is 112, off the scale), 12 dp side padding, Material's
+ * menu text style and colours. The leading and trailing slots hold 24 dp icons.
+ */
+@Composable
+fun FernMenuItem(
+    text: @Composable () -> Unit,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    leadingIcon: @Composable (() -> Unit)? = null,
+    trailingIcon: @Composable (() -> Unit)? = null,
+    enabled: Boolean = true,
+) {
+    val color = MaterialTheme.colorScheme.onSurface.let { if (enabled) it else it.copy(alpha = DISABLED_ALPHA) }
+    Row(
+        modifier = modifier
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .sizeIn(minWidth = FernScale.s128, minHeight = FernSize.touchTarget)
+            .padding(horizontal = FernSpace.md),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(FernSpace.md),
+    ) {
+        CompositionLocalProvider(LocalContentColor provides color, LocalTextStyle provides MaterialTheme.typography.labelLarge) {
+            leadingIcon?.invoke()
+            Box(Modifier.weight(1f, fill = false)) { text() }
+            trailingIcon?.invoke()
+        }
+    }
+}
+
+/**
+ * A list row, replacing Material's `ListItem`: 48 dp tall with one line, 64 with a supporting
+ * line (Material's are 56 and 72, off the scale), 16 dp side and 8 dp vertical padding. Callers
+ * add `clickable` through [modifier], as with `ListItem`.
+ */
+@Composable
+fun FernListItem(
+    headlineContent: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    supportingContent: @Composable (() -> Unit)? = null,
+    leadingContent: @Composable (() -> Unit)? = null,
+    trailingContent: @Composable (() -> Unit)? = null,
+) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = if (supportingContent == null) FernSize.touchTarget else FernScale.s64)
+            .padding(horizontal = FernSpace.lg, vertical = FernSpace.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(FernSpace.lg),
+    ) {
+        leadingContent?.invoke()
+        Column(Modifier.weight(1f)) {
+            CompositionLocalProvider(LocalContentColor provides colors.onSurface, LocalTextStyle provides MaterialTheme.typography.bodyLarge) {
+                headlineContent()
+            }
+            if (supportingContent != null) {
+                CompositionLocalProvider(LocalContentColor provides colors.onSurfaceVariant, LocalTextStyle provides MaterialTheme.typography.bodyMedium) {
+                    supportingContent()
+                }
+            }
+        }
+        if (trailingContent != null) {
+            CompositionLocalProvider(LocalContentColor provides colors.onSurfaceVariant, LocalTextStyle provides MaterialTheme.typography.labelSmall) {
+                trailingContent()
+            }
+        }
+    }
+}
+
+/**
+ * Material's `AlertDialog` on the scale: 272 to 544 dp wide (Material's 280 and 560 are off it;
+ * §7.2 gives 256 + 16 or 256 + 32 for 280 and 512 + 32 or 512 + 64 for 560, ties broken toward
+ * the narrower so a phone in portrait keeps its margins), 24 dp padding, 16 dp between title,
+ * text and buttons. Same slots and order as Material's.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FernAlertDialog(
+    onDismissRequest: () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    dismissButton: @Composable (() -> Unit)? = null,
+    title: @Composable (() -> Unit)? = null,
+    text: @Composable (() -> Unit)? = null,
+) {
+    BasicAlertDialog(onDismissRequest = onDismissRequest, modifier = modifier) {
+        Surface(
+            modifier = Modifier.widthIn(min = FernScale.s256 + FernScale.s16, max = FernScale.s512 + FernScale.s32),
+            shape = MaterialTheme.shapes.extraLarge,
+            tonalElevation = FernScale.s6,
+        ) {
+            Column(Modifier.padding(FernSpace.xl), verticalArrangement = Arrangement.spacedBy(FernSpace.lg)) {
+                if (title != null) {
+                    CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.headlineSmall) { title() }
+                }
+                if (text != null) {
+                    CompositionLocalProvider(
+                        LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant,
+                        LocalTextStyle provides MaterialTheme.typography.bodyMedium,
+                    ) { text() }
+                }
+                Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(FernSpace.sm)) {
+                    dismissButton?.invoke()
+                    confirmButton()
+                }
+            }
+        }
+    }
 }
 
 /** Material's alpha for disabled content. */

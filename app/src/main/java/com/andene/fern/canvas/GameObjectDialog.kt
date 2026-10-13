@@ -23,7 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.andene.fern.FernMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -163,7 +163,7 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                     FernTextButton(onClick = { showBehaviours = true }) { Text(stringResource(R.string.object_add_behaviour)) }
                     DropdownMenu(expanded = showBehaviours, onDismissRequest = { showBehaviours = false }) {
                         for (kind in BehaviourKind.entries) {
-                            DropdownMenuItem(text = { Text(stringResource(kind.label)) }, onClick = {
+                            FernMenuItem(text = { Text(stringResource(kind.label)) }, onClick = {
                                 showBehaviours = false
                                 save(current.copy(behaviours = current.behaviours + Behaviour(kind, path = if (kind == BehaviourKind.FOLLOW_PATH) path else null)))
                             })

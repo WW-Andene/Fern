@@ -13,7 +13,7 @@ import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
+import com.andene.fern.FernListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -122,7 +122,7 @@ fun ExportPanel(state: CanvasState, run: (ExportFormat) -> Unit, onDismiss: () -
                 val formats = ExportFormat.entries.filter { it.purpose == purpose }
                 for (format in formats.sortedByDescending { it.recommended }) {
                     val enabled = format.available(state)
-                    ListItem(
+                    FernListItem(
                         headlineContent = { Text(stringResource(format.label)) },
                         supportingContent = when {
                             !enabled -> { { Text(stringResource(R.string.export_unavailable)) } }

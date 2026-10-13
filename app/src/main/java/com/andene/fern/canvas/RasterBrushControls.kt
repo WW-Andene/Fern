@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.andene.fern.FernMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -65,7 +65,7 @@ fun RasterBrushControls(state: CanvasState) {
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             for ((mode, label) in labels) {
-                DropdownMenuItem(
+                FernMenuItem(
                     text = { Text(stringResource(label)) },
                     leadingIcon = { RadioButton(selected = state.rasterBrush.mode == mode, onClick = null) },
                     onClick = {
@@ -75,7 +75,7 @@ fun RasterBrushControls(state: CanvasState) {
                 )
             }
             HorizontalDivider()
-            DropdownMenuItem(
+            FernMenuItem(
                 text = { Text(stringResource(R.string.adjust_title)) },
                 onClick = {
                     open = false
@@ -83,7 +83,7 @@ fun RasterBrushControls(state: CanvasState) {
                 },
             )
             HorizontalDivider()
-            DropdownMenuItem(
+            FernMenuItem(
                 text = { Text(stringResource(R.string.raster_brush_round)) },
                 leadingIcon = { RadioButton(selected = state.rasterBrush.tip == null, onClick = null) },
                 onClick = {
@@ -91,7 +91,7 @@ fun RasterBrushControls(state: CanvasState) {
                     open = false
                 },
             )
-            DropdownMenuItem(
+            FernMenuItem(
                 text = { Text(stringResource(R.string.raster_brush_import)) },
                 leadingIcon = { RadioButton(selected = state.rasterBrush.tip != null, onClick = null) },
                 onClick = {

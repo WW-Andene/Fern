@@ -3,7 +3,6 @@ package com.andene.fern
 import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,7 +27,7 @@ fun confirmationSkipped(context: Context, key: String): Boolean = context.getSha
 fun ConfirmIrreversible(key: String, message: String, actionLabel: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
     var dontAsk by remember { mutableStateOf(false) }
-    AlertDialog(
+    FernAlertDialog(
         onDismissRequest = onDismiss,
         text = {
             Column {

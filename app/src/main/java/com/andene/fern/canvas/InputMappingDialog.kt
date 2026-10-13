@@ -20,7 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.andene.fern.FernMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -110,7 +110,7 @@ fun InputMappingDialog(state: CanvasState, onDismiss: () -> Unit) {
                                 val others = TouchButton.entries.map { InputBinding.Touch(it) } +
                                     listOf(InputBinding.Axis(AXIS_X, false), InputBinding.Axis(AXIS_X, true), InputBinding.Axis(AXIS_Y, false), InputBinding.Axis(AXIS_Y, true), InputBinding.Screen, InputBinding.Stylus)
                                 for (other in others) {
-                                    DropdownMenuItem(text = { Text(bindingLabel(other)) }, onClick = {
+                                    FernMenuItem(text = { Text(bindingLabel(other)) }, onClick = {
                                         adding = false
                                         bindingsOf(index) { it + other }
                                     })

@@ -180,7 +180,7 @@ import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.andene.fern.FernMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -676,7 +676,7 @@ fun Toolbar(
                     }
                     DropdownMenu(expanded = showShapeKindMenu, onDismissRequest = { showShapeKindMenu = false }) {
                         for (kind in ShapeKind.entries) {
-                            DropdownMenuItem(
+                            FernMenuItem(
                                 text = { Text(stringResource(shapeKindLabel(kind))) },
                                 leadingIcon = { Icon(shapeKindIcon(kind), contentDescription = null) },
                                 onClick = {
@@ -689,7 +689,7 @@ fun Toolbar(
                         // Isometric plane (roadmap item 142) the shapes are drawn on.
                         HorizontalDivider()
                         for (plane in listOf(null) + IsometricPlane.entries) {
-                            DropdownMenuItem(
+                            FernMenuItem(
                                 text = { Text(stringResource(isometricPlaneLabel(plane))) },
                                 leadingIcon = { if (state.isometricPlane == plane) Icon(Icons.Filled.Check, contentDescription = null) },
                                 onClick = {
@@ -767,7 +767,7 @@ fun Toolbar(
                         DropdownMenu(expanded = showLineStyleMenu, onDismissRequest = { showLineStyleMenu = false }) {
                             val current = state.activeLineStyle
                             for (profile in WidthProfile.entries) {
-                                DropdownMenuItem(
+                                FernMenuItem(
                                     text = { Text(stringResource(profile.label)) },
                                     leadingIcon = { if (current.profile == profile) Icon(Icons.Filled.Check, contentDescription = null) },
                                     onClick = { state.activeLineStyle = current.copy(profile = profile) },
@@ -775,7 +775,7 @@ fun Toolbar(
                             }
                             HorizontalDivider()
                             for (cap in LineCap.entries) {
-                                DropdownMenuItem(
+                                FernMenuItem(
                                     text = { Text(stringResource(cap.label)) },
                                     leadingIcon = { if (current.cap == cap) Icon(Icons.Filled.Check, contentDescription = null) },
                                     onClick = { state.activeLineStyle = current.copy(cap = cap) },
@@ -783,7 +783,7 @@ fun Toolbar(
                             }
                             HorizontalDivider()
                             for (join in LineJoin.entries) {
-                                DropdownMenuItem(
+                                FernMenuItem(
                                     text = { Text(stringResource(join.label)) },
                                     leadingIcon = { if (current.join == join) Icon(Icons.Filled.Check, contentDescription = null) },
                                     onClick = { state.activeLineStyle = current.copy(join = join) },
@@ -852,12 +852,12 @@ fun Toolbar(
                             }
                             DropdownMenu(expanded = showAnimations, onDismissRequest = { showAnimations = false }) {
                                 for (anim in rig.rig.animations) {
-                                    DropdownMenuItem(text = { Text(anim.name) }, onClick = {
+                                    FernMenuItem(text = { Text(anim.name) }, onClick = {
                                         rig.animationId = anim.id
                                         showAnimations = false
                                     })
                                 }
-                                DropdownMenuItem(text = { Text(stringResource(R.string.rig_new_animation)) }, onClick = {
+                                FernMenuItem(text = { Text(stringResource(R.string.rig_new_animation)) }, onClick = {
                                     rig.addAnimation(newAnimationName)
                                     showAnimations = false
                                 })
@@ -1073,7 +1073,7 @@ fun Toolbar(
                         }
                         DropdownMenu(expanded = showAlignMenu, onDismissRequest = { showAlignMenu = false }) {
                             for (alignment in StrokeAlignment.entries) {
-                                DropdownMenuItem(
+                                FernMenuItem(
                                     text = { Text(stringResource(alignment.label)) },
                                     onClick = {
                                         state.alignSelection(alignment)
@@ -1092,7 +1092,7 @@ fun Toolbar(
                                 ShapeOp.UNION to R.string.combine_union, ShapeOp.INTERSECT to R.string.combine_intersect,
                                 ShapeOp.SUBTRACT to R.string.combine_subtract, ShapeOp.EXCLUDE to R.string.combine_exclude,
                             )) {
-                                DropdownMenuItem(
+                                FernMenuItem(
                                     text = { Text(stringResource(label)) },
                                     onClick = {
                                         state.combineSelection(op)
@@ -1117,7 +1117,7 @@ fun Toolbar(
                             }
                             DropdownMenu(expanded = showLinkMenu, onDismissRequest = { showLinkMenu = false }) {
                                 for ((kind, label) in listOf(LinkKind.ROD to R.string.link_rod, LinkKind.ROPE to R.string.link_rope, LinkKind.ATTACH to R.string.link_attach)) {
-                                    DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = {
+                                    FernMenuItem(text = { Text(stringResource(label)) }, onClick = {
                                         showLinkMenu = false
                                         state.linkSelection(kind)
                                     })
@@ -1136,7 +1136,7 @@ fun Toolbar(
                         }
                         DropdownMenu(expanded = showPlaceOnPlaneMenu, onDismissRequest = { showPlaceOnPlaneMenu = false }) {
                             for (plane in IsometricPlane.entries) {
-                                DropdownMenuItem(
+                                FernMenuItem(
                                     text = { Text(stringResource(isometricPlaneLabel(plane))) },
                                     onClick = {
                                         state.placeSelectionOnPlane(plane)
@@ -1338,7 +1338,7 @@ fun Toolbar(
                                                 else LocalContentColor.current)
                                         DropdownMenu(expanded = showSymmetryMenu, onDismissRequest = { showSymmetryMenu = false }) {
                                             for (mode in SymmetryMode.entries) {
-                                                DropdownMenuItem(
+                                                FernMenuItem(
                                                     text = { Text(stringResource(mode.label)) },
                                                     onClick = {
                                                         state.setSymmetry(mode)
@@ -1353,7 +1353,7 @@ fun Toolbar(
                                                 else LocalContentColor.current)
                                         DropdownMenu(expanded = showPerspectiveMenu, onDismissRequest = { showPerspectiveMenu = false }) {
                                             for (mode in PerspectiveMode.entries) {
-                                                DropdownMenuItem(
+                                                FernMenuItem(
                                                     text = { Text(stringResource(mode.label)) },
                                                     onClick = {
                                                         state.setPerspective(mode)
@@ -1423,7 +1423,7 @@ fun Toolbar(
                                                 else LocalContentColor.current)
                                         DropdownMenu(expanded = showBlendModeMenu, onDismissRequest = { showBlendModeMenu = false }) {
                                             for (mode in StrokeBlendMode.entries) {
-                                                DropdownMenuItem(
+                                                FernMenuItem(
                                                     text = { Text(stringResource(blendModeLabel(mode))) },
                                                     onClick = {
                                                         state.activeBlendMode = mode
@@ -1440,7 +1440,7 @@ fun Toolbar(
                                         LabelledIconButton(onClick = { showBackgroundStyleMenu = true }, icon = Icons.Filled.GridOn, label = stringResource(R.string.tb_background, stringResource(backgroundStyleLabel(state.backgroundStyle))))
                                         DropdownMenu(expanded = showBackgroundStyleMenu, onDismissRequest = { showBackgroundStyleMenu = false }) {
                                             for (style in BackgroundStyle.entries) {
-                                                DropdownMenuItem(
+                                                FernMenuItem(
                                                     text = { Text(stringResource(backgroundStyleLabel(style))) },
                                                     onClick = {
                                                         state.setBackground(state.backgroundColor, style)
@@ -1449,7 +1449,7 @@ fun Toolbar(
                                                 )
                                             }
                                             for (paper in PaperPreset.entries) {
-                                                DropdownMenuItem(
+                                                FernMenuItem(
                                                     text = { Text(stringResource(paper.label)) },
                                                     onClick = {
                                                         state.applyPaperPreset(paper)
@@ -1457,7 +1457,7 @@ fun Toolbar(
                                                     },
                                                 )
                                             }
-                                            DropdownMenuItem(
+                                            FernMenuItem(
                                                 text = { Text(stringResource(R.string.tb_background_color)) },
                                                 onClick = {
                                                     showBackgroundStyleMenu = false
@@ -1671,7 +1671,7 @@ private fun ToolSlotButton(state: CanvasState, index: Int) {
             }
         }
         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-            DropdownMenuItem(
+            FernMenuItem(
                 text = { Text(stringResource(R.string.tb_slot_save)) },
                 onClick = {
                     state.saveToolSlot(index)
@@ -1679,7 +1679,7 @@ private fun ToolSlotButton(state: CanvasState, index: Int) {
                 },
             )
             if (preset != null) {
-                DropdownMenuItem(
+                FernMenuItem(
                     text = { Text(stringResource(R.string.action_clear)) },
                     onClick = {
                         state.clearToolSlot(index)
@@ -1787,7 +1787,7 @@ private fun MenuButton(@androidx.annotation.StringRes label: Int, icon: androidx
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             for ((itemLabel, itemIcon, action) in items) {
-                DropdownMenuItem(
+                FernMenuItem(
                     text = { Text(stringResource(itemLabel)) },
                     leadingIcon = { Icon(itemIcon, contentDescription = null) },
                     onClick = {

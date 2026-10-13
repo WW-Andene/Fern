@@ -16,7 +16,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
+import com.andene.fern.FernListItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -113,7 +113,7 @@ fun CommandPalette(commands: List<PaletteCommand>, onDismiss: () -> Unit) {
                 if (results.isEmpty()) Text(stringResource(R.string.palette_nothing))
                 LazyColumn(Modifier.heightIn(max = FernSize.dialogMaxHeight)) {
                     items(results) { c ->
-                        ListItem(
+                        FernListItem(
                             headlineContent = { Text(c.label) },
                             supportingContent = { Text(c.location) },
                             trailingContent = c.shortcut?.let { { Text(it) } },

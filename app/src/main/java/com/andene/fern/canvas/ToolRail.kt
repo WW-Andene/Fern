@@ -38,7 +38,7 @@ import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Polyline
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.andene.fern.FernMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -136,7 +136,7 @@ fun ToolRail(state: CanvasState, vertical: Boolean, modifier: Modifier = Modifie
                     DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
                         for (tool in RAIL_EXTRA_TOOLS) {
                             val isPinned = tool in pinned
-                            DropdownMenuItem(
+                            FernMenuItem(
                                 text = { Text(stringResource(toolName(tool))) },
                                 leadingIcon = { Icon(railIcon(state, tool), contentDescription = null) },
                                 onClick = {

@@ -60,7 +60,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.DropdownMenuItem
+import com.andene.fern.FernMenuItem
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.horizontalScroll
@@ -272,7 +272,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                                 }
                                 DropdownMenu(expanded = blendMenu, onDismissRequest = { blendMenu = false }) {
                                     for (mode in LayerBlend.entries) {
-                                        DropdownMenuItem(
+                                        FernMenuItem(
                                             text = { Text(stringResource(mode.label)) },
                                             onClick = {
                                                 state.updateLayer(layer.id) { it.copy(blend = mode) }

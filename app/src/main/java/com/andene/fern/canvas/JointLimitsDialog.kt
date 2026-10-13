@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RangeSlider
+import com.andene.fern.FernRangeSlider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,7 +50,7 @@ fun JointLimitsDialog(bone: Bone, current: Double, onApply: (min: Double?, max: 
                     Text(stringResource(R.string.joint_limits_enable), modifier = Modifier.weight(1f))
                     FernSwitch(checked = limited, onCheckedChange = { limited = it })
                 }
-                RangeSlider(value = range, onValueChange = { range = it }, valueRange = -180f..180f, enabled = limited)
+                FernRangeSlider(value = range, onValueChange = { range = it }, valueRange = -180f..180f, enabled = limited)
                 Text(
                     stringResource(R.string.joint_limits_range, range.start.roundToInt(), range.endInclusive.roundToInt(), current.roundToInt()),
                     style = MaterialTheme.typography.bodySmall,

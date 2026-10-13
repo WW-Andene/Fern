@@ -80,8 +80,6 @@ Set aside for the owner (needs a device and a person):
 
 The app's look and layout rebuilt on the CLAUDE.md §7 scale, so every later screen is built from compliant parts. Comes first: every phase below adds UI.
 
-- [~] 336. **Fern components.** Fern versions of every control in use, with sizes on the scale instead of Material's: text field (56 tall today), button (40), slider (20 px thumb), switch (52 wide), chip, menu (112 minimum width), dialog (280 minimum width) and list row. Raw Material controls are no longer used directly in UI code, checked by a test.
-  Done: `FernComponents.kt` - `FernTextButton` (48 tall), `FernSlider` (16 dp thumb), `FernSwitch` (48 x 24 track, 16 dp thumb) and `FernTextField` (48 tall for one line); every call site moved to them. Left: menus (Material's 112 dp minimum item width), list rows, and a check that fails on direct Material calls.
 - [~] D42. **One panel pattern.** A header (title, search or filter, the main action,
   collapse), a body with rows that can be dragged, swiped and long-pressed for the same actions
   everywhere, and a footer only when it's needed.

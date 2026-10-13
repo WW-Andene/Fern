@@ -17,7 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.andene.fern.FernMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -129,7 +129,7 @@ internal fun <T> Choice(current: String, options: List<T>, label: @Composable (T
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             for (o in options) {
                 val text = if (o is ConditionKind) stringResource(o.label) else label(o)
-                DropdownMenuItem(text = { Text(text) }, onClick = { open = false; onPick(o) })
+                FernMenuItem(text = { Text(text) }, onClick = { open = false; onPick(o) })
             }
         }
     }

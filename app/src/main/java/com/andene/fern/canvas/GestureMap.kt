@@ -11,7 +11,7 @@ import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.DropdownMenuItem
+import com.andene.fern.FernMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -102,7 +102,7 @@ fun GestureMapEditor(filter: (String) -> Boolean = { true }) {
                 FernTextButton(onClick = { open = true }) { Text(stringResource(map.getValue(gesture).label)) }
                 DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
                     for (action in GestureAction.entries) {
-                        DropdownMenuItem(text = { Text(stringResource(action.label)) }, onClick = {
+                        FernMenuItem(text = { Text(stringResource(action.label)) }, onClick = {
                             GestureSettings.set(context, gesture, action)
                             open = false
                         })
@@ -189,7 +189,7 @@ fun TouchTimingEditor() {
         Box {
             FernTextButton(onClick = { open = true }) { Text(stringResource(current.label)) }
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                for (t in TouchTiming.entries) DropdownMenuItem(text = { Text(stringResource(t.label)) }, onClick = {
+                for (t in TouchTiming.entries) FernMenuItem(text = { Text(stringResource(t.label)) }, onClick = {
                     TouchTimingSettings.set(context, t)
                     open = false
                 })
@@ -209,7 +209,7 @@ fun PalmRejectionEditor() {
         Box {
             FernTextButton(onClick = { open = true }) { Text(stringResource(current.label)) }
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                for (p in PalmRejection.entries) DropdownMenuItem(text = { Text(stringResource(p.label)) }, onClick = {
+                for (p in PalmRejection.entries) FernMenuItem(text = { Text(stringResource(p.label)) }, onClick = {
                     PalmSettings.set(context, p)
                     open = false
                 })

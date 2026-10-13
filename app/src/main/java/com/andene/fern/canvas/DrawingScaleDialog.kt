@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.andene.fern.FernMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -66,7 +66,7 @@ fun DrawingScaleDialog(state: CanvasState, onDismiss: () -> Unit) {
                         FernTextButton(onClick = { showUnits = true }) { Text(unit.symbol) }
                         DropdownMenu(expanded = showUnits, onDismissRequest = { showUnits = false }) {
                             for (option in MeasureUnit.entries) {
-                                DropdownMenuItem(text = { Text(option.symbol) }, onClick = {
+                                FernMenuItem(text = { Text(option.symbol) }, onClick = {
                                     unit = option
                                     showUnits = false
                                 })

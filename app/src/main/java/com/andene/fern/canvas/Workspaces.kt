@@ -11,7 +11,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.andene.fern.FernMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -120,7 +120,7 @@ fun WorkspaceSwitcher(hiddenGroups: Set<ToolbarGroup>, onHiddenGroups: (Set<Tool
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             for (w in all) {
-                DropdownMenuItem(
+                FernMenuItem(
                     text = { Text(label(w)) },
                     leadingIcon = { if (w.id == activeId) Icon(Icons.Filled.Check, contentDescription = null) },
                     trailingIcon = if (w.label == null) {
@@ -142,13 +142,13 @@ fun WorkspaceSwitcher(hiddenGroups: Set<ToolbarGroup>, onHiddenGroups: (Set<Tool
             }
             HorizontalDivider()
             if (active != null && active.label == null) {
-                DropdownMenuItem(text = { Text(stringResource(R.string.workspace_update, active.name)) }, onClick = {
+                FernMenuItem(text = { Text(stringResource(R.string.workspace_update, active.name)) }, onClick = {
                     custom = custom.map { if (it.id == active.id) it.copy(hiddenGroups = hiddenGroups, pinned = pinned) else it }
                     WorkspaceStore.setCustom(context, custom)
                     open = false
                 })
             }
-            DropdownMenuItem(text = { Text(stringResource(R.string.workspace_save_new)) }, onClick = {
+            FernMenuItem(text = { Text(stringResource(R.string.workspace_save_new)) }, onClick = {
                 open = false
                 naming = true
             })

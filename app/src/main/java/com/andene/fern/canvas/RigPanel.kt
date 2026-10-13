@@ -1,7 +1,7 @@
 package com.andene.fern.canvas
 
 import androidx.compose.foundation.clickable
-import androidx.compose.material3.DropdownMenuItem
+import com.andene.fern.FernMenuItem
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.layout.Box
@@ -123,12 +123,12 @@ fun RigPanel(state: CanvasState, onDismiss: () -> Unit) {
                                     )
                                     DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
                                         for ((curve, label) in listOf(KeyCurve.Linear to R.string.rig_curve_linear, KeyCurve.Stepped to R.string.rig_curve_stepped, KeyCurve.Bezier(CubicEasing.DEFAULT) to R.string.rig_curve_eased)) {
-                                            DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = {
+                                            FernMenuItem(text = { Text(stringResource(label)) }, onClick = {
                                                 editor.setKeyCurve(timeline.boneId, timeline.property, key.time, curve)
                                                 open = false
                                             })
                                         }
-                                        DropdownMenuItem(text = { Text(stringResource(R.string.rig_key_delete)) }, onClick = {
+                                        FernMenuItem(text = { Text(stringResource(R.string.rig_key_delete)) }, onClick = {
                                             editor.deleteKey(timeline.boneId, timeline.property, key.time)
                                             open = false
                                         })

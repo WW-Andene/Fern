@@ -34,7 +34,7 @@ import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.andene.fern.FernMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -258,7 +258,7 @@ fun DocumentsDialog(
                     FernTextButton(onClick = { showTemplates = true }) { Text(stringResource(R.string.documents_new)) }
                     DropdownMenu(expanded = showTemplates, onDismissRequest = { showTemplates = false }) {
                         for (template in DocumentTemplate.entries) {
-                            DropdownMenuItem(
+                            FernMenuItem(
                                 text = { Text(stringResource(template.label)) },
                                 onClick = {
                                     showTemplates = false

@@ -15,7 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.andene.fern.FernMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LocalTextStyle
@@ -173,7 +173,7 @@ fun TextEditDialog(
                         )
                         DropdownMenu(expanded = linkMenu == LinkMenu.PINS, onDismissRequest = { linkMenu = null }) {
                             for (pin in linkChoices.pins) {
-                                DropdownMenuItem(text = { Text(pin.name) }, onClick = {
+                                FernMenuItem(text = { Text(pin.name) }, onClick = {
                                     link = LinkTarget.Pin(pin.id)
                                     linkMenu = null
                                 })
@@ -189,7 +189,7 @@ fun TextEditDialog(
                         )
                         DropdownMenu(expanded = linkMenu == LinkMenu.DOCUMENTS, onDismissRequest = { linkMenu = null }) {
                             for (document in linkChoices.documents) {
-                                DropdownMenuItem(text = { Text(document.name) }, onClick = {
+                                FernMenuItem(text = { Text(document.name) }, onClick = {
                                     link = LinkTarget.Document(document.id)
                                     linkMenu = null
                                 })
