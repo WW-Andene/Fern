@@ -140,7 +140,8 @@ The app's look and layout rebuilt on the CLAUDE.md §7 scale, so every later scr
 
 Make the tool phases cheap and safe to build: every tool currently goes through the same few very large files.
 
-- [ ] 167. Split per-tool gesture handling out of `DrawingCanvas.kt` into one handler per tool (press, move, release, cancel), and per-tool state out of `CanvasState.kt` (CLAUDE.md §4.5): both are thousands of lines and every new tool touches the same `when` blocks.
+- [~] 167. Split per-tool gesture handling out of `DrawingCanvas.kt` into one handler per tool (press, move, release, cancel), and per-tool state out of `CanvasState.kt` (CLAUDE.md §4.5): both are thousands of lines and every new tool touches the same `when` blocks.
+  Gesture handling written, not yet compiled or tested: `ToolGestures.kt`, one gesture per tool (press begins it, then move, release, cancel); the canvas keeps the plumbing (pointers, palm rejection, long press, navigation) and no longer switches on the tool. Left: per-tool state out of `CanvasState.kt`.
 - [ ] 168. Gesture tests: fingers landing and lifting at different times, a pan becoming a pinch, stylus with a resting palm, long press versus a slow stroke.
 - [ ] 171. On-canvas handle framework: one way to draw, hit-test and drag handles (shape parameters, joint limits, gradient stops, vanishing points, IK targets, constraint targets) instead of each tool doing its own.
 - [ ] 172. On-canvas numeric readout and entry: any handle can show its value and accept a typed one.

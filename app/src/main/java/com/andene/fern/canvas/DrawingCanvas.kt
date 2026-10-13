@@ -286,43 +286,24 @@ fun DrawingCanvas(
                     var prevAngle = 0.0
                     // Fingers on the canvas at the last navigation frame.
                     var prevNavigationCount = 0
-                    var selectionGestureKind = SelectionGestureKind.OTHER
+                    // The active tool's one-pointer gesture, from press to release (roadmap item 167).
+                    var toolGesture: ToolGesture? = null
                     var wasStylusActive = false
                     // Tool to return to after a gesture that the stylus temporarily switched to the eraser.
                     var toolBeforeStylusEraser: Tool? = null
                     // This gesture is moving a guide (guide edit mode, roadmap item 340), not using the tool.
                     var editingGuide = false
 
-                    fun endActiveDrawAction() {
+                    // Ends the tool's gesture: released, or [cancelled] by a second finger turning it into navigation.
+                    fun endActiveDrawAction(cancelled: Boolean = false) {
                         if (editingGuide) {
                             state.endGuideEdit()
                             editingGuide = false
                             return
                         }
-                        when (state.activeTool) {
-                            Tool.PEN -> {
-                                state.endStroke()
-                                com.andene.fern.FernSounds.strokeEnd()
-                            }
-                            Tool.ERASER -> state.endErase()
-                            Tool.SHAPE -> state.endShape()
-                            Tool.FILL -> {} // one-shot on pointer-down, nothing to end
-                            Tool.TEXT -> state.endTextGesture()
-                            Tool.EYEDROPPER -> {} // one-shot on pointer-down, nothing to end
-                            Tool.CONNECT -> state.endConnect()
-                            Tool.BONE -> state.endBone()
-                            Tool.BEZIER -> {} // a node is placed on press; nothing to end
-                            Tool.MEASURE -> state.endMeasure()
-                            Tool.RIG -> state.rigEditor.end()
-                            Tool.SELECT -> {
-                                when (selectionGestureKind) {
-                                    SelectionGestureKind.SCALE -> state.endScaleSelection()
-                                    SelectionGestureKind.ROTATE -> state.endRotateSelection()
-                                    SelectionGestureKind.OTHER -> state.endSelectGesture()
-                                }
-                                selectionReadout = false
-                            }
-                        }
+                        toolGesture?.let { if (cancelled) it.cancel() else it.release() }
+                        toolGesture = null
+                        selectionReadout = false
                         toolBeforeStylusEraser?.let { state.activeTool = it }
                         toolBeforeStylusEraser = null
                     }
@@ -400,35 +381,18 @@ fun DrawingCanvas(
                                 if (state.editingGuides) {
                                     editingGuide = true
                                     state.beginGuideEdit(world)
-                                } else when (state.activeTool) {
-                                    Tool.PEN -> state.beginStroke(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
-                                    Tool.ERASER -> state.beginErase(world)
-                                    Tool.SHAPE -> state.beginShape(world)
-                                    Tool.FILL -> state.fillAt(world)
-                                    Tool.TEXT -> state.beginTextGesture(world)
-                                    Tool.EYEDROPPER -> state.pickColorAt(world)
-                                    Tool.CONNECT -> state.beginConnect(world)
-                                    Tool.BONE -> state.beginBone(world)
-                                    Tool.BEZIER -> state.beginBezierNode(world)
-                                    Tool.MEASURE -> state.beginMeasure(world)
-                                    Tool.RIG -> state.rigEditor.begin(world)
-                                    Tool.SELECT -> {
-                                        // The shape builder and knife (roadmap item 141) take every drag, handles included.
+                                } else {
+                                    val tool = state.activeTool
+                                    selectionReadout = tool == Tool.SELECT
+                                    val press = GesturePoint(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
+                                    toolGesture = startToolGesture(state, tool, press) {
+                                        // What a select press caught, in screen space. The shape builder and knife
+                                        // (roadmap item 141) take every drag, handles included.
                                         val handles = if (state.shapeEditMode == null) selectionHandles(state, screenCenter) else null
-                                        selectionReadout = true
-                                        selectionGestureKind = when {
-                                            handles != null && (downPos - handles.scaleHandle).getDistance() <= HANDLE_HIT.toPx() -> {
-                                                state.beginScaleSelection(world)
-                                                SelectionGestureKind.SCALE
-                                            }
-                                            handles != null && (downPos - handles.rotateHandle).getDistance() <= HANDLE_HIT.toPx() -> {
-                                                state.beginRotateSelection(world)
-                                                SelectionGestureKind.ROTATE
-                                            }
-                                            else -> {
-                                                state.beginSelectGesture(world)
-                                                SelectionGestureKind.OTHER
-                                            }
+                                        when {
+                                            handles != null && (downPos - handles.scaleHandle).getDistance() <= HANDLE_HIT.toPx() -> SelectionGestureKind.SCALE
+                                            handles != null && (downPos - handles.rotateHandle).getDistance() <= HANDLE_HIT.toPx() -> SelectionGestureKind.ROTATE
+                                            else -> SelectionGestureKind.OTHER
                                         }
                                     }
                                 }
@@ -437,38 +401,19 @@ fun DrawingCanvas(
                                 val change = pointers[0]
                                 if (change.positionChanged()) {
                                     val world = state.screenToWorld(state.unrotateScreen(change.position, screenCenter), screenCenter)
-                                    if (editingGuide) state.continueGuideEdit(world) else when (state.activeTool) {
-                                        Tool.PEN -> {
-                                            state.extendStroke(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
-                                            // The paper's sound follows the pen's speed on screen (design roadmap D59).
-                                            state.activePenType.paperSound()?.let { paper ->
-                                                val millis = (change.uptimeMillis - change.previousUptimeMillis).coerceAtLeast(1L)
-                                                com.andene.fern.FernSounds.stroke(paper, (change.position - change.previousPosition).getDistance() / millis)
-                                            }
-                                        }
-                                        Tool.ERASER -> state.continueErase(world)
-                                        Tool.SHAPE -> state.continueShape(world)
-                                        Tool.FILL -> {} // one-shot; ignore drag
-                                        Tool.TEXT -> state.continueTextGesture(world)
-                                        Tool.EYEDROPPER -> {} // one-shot; ignore drag
-                                        Tool.CONNECT -> state.continueConnect(world)
-                                        Tool.BONE -> state.continueBone(world)
-                                        Tool.BEZIER -> state.dragBezierHandle(world)
-                                        Tool.MEASURE -> state.continueMeasure(world)
-                                        Tool.RIG -> state.rigEditor.move(world)
-                                        Tool.SELECT -> when (selectionGestureKind) {
-                                            SelectionGestureKind.SCALE -> state.continueScaleSelection(world)
-                                            SelectionGestureKind.ROTATE -> state.continueRotateSelection(world)
-                                            SelectionGestureKind.OTHER -> state.continueSelectGesture(world)
-                                        }
+                                    if (editingGuide) {
+                                        state.continueGuideEdit(world)
+                                    } else {
+                                        val millis = (change.uptimeMillis - change.previousUptimeMillis).coerceAtLeast(1L)
+                                        val speed = (change.position - change.previousPosition).getDistance() / millis
+                                        toolGesture?.move(GesturePoint(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation, speed))
                                     }
                                 }
                             }
                             pointers[0].consume()
                         } else {
-                            // A second finger turns a text tap into a pinch: don't open the text dialog for it.
-                            if (mode == Mode.DRAW && state.activeTool == Tool.TEXT) state.cancelTextGesture()
-                            else if (mode == Mode.DRAW) endActiveDrawAction()
+                            // A second finger turns the gesture into navigation (a text tap into a pinch, with no text box).
+                            if (mode == Mode.DRAW) endActiveDrawAction(cancelled = true)
                             val centroid = pointers.fold(Offset.Zero) { acc, c -> acc + c.position } / count.toFloat()
                             val span = pointers.fold(0f) { acc, c -> acc + hypot((c.position.x - centroid.x), (c.position.y - centroid.y)) } / count.toFloat()
                             // Angle of the first two fingers; its change frame to frame rotates the canvas.
@@ -1842,7 +1787,6 @@ private val HANDLE_COLOR: Color get() = FernColors.current.selection
 private val DRAWING_GUIDE_COLOR: Color get() = FernColors.current.active
 
 private enum class Mode { NONE, DRAW, NAVIGATE }
-private enum class SelectionGestureKind { SCALE, ROTATE, OTHER }
 
 /** The signed change from [from] to [to] in radians, wrapped to -pi..pi so crossing the +-180 degree seam doesn't jump. */
 private fun angleDelta(from: Double, to: Double): Double {
@@ -2422,10 +2366,3 @@ private const val RIG_BONE_SHOULDER = 0.1f
 private const val RIG_BONE_FILL_ALPHA = 0.3f
 private const val RIG_JOINT_PX = 4f
 private const val RIG_WEIGHT_MIN_ALPHA = 0.12
-
-/** The paper sound a pen makes (design roadmap D59): graphite-like pens sound like a pencil, inks like a felt tip; digital ones are silent. */
-internal fun PenType.paperSound(): com.andene.fern.PaperSound? = when (this) {
-    PenType.PENCIL, PenType.CRAYON -> com.andene.fern.PaperSound.PENCIL
-    PenType.MARKER, PenType.HIGHLIGHTER, PenType.CALLIGRAPHY -> com.andene.fern.PaperSound.MARKER
-    PenType.AIRBRUSH, PenType.PIXEL, PenType.STAMP -> null
-}
