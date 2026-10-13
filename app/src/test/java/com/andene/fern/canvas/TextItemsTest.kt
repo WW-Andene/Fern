@@ -18,9 +18,9 @@ class TextItemsTest {
     @Test
     fun tapPlacesAPlainLabel() {
         val state = CanvasState()
-        state.beginTextGesture(WorldPoint(10.0, 20.0))
-        state.continueTextGesture(WorldPoint(12.0, 21.0)) // within the tap slop
-        state.endTextGesture()
+        state.textTool.begin(WorldPoint(10.0, 20.0))
+        state.textTool.move(WorldPoint(12.0, 21.0)) // within the tap slop
+        state.textTool.end()
         val pending = state.pendingTextEdit
         assertNotNull(pending)
         assertNull(pending!!.boxWidthWorld)
@@ -30,11 +30,11 @@ class TextItemsTest {
     @Test
     fun dragDrawsATextBoxFromItsTopLeft() {
         val state = CanvasState()
-        state.beginTextGesture(WorldPoint(200.0, 50.0))
-        state.continueTextGesture(WorldPoint(100.0, 80.0))
-        assertNotNull(state.textBoxDraft)
-        state.endTextGesture()
-        assertNull(state.textBoxDraft)
+        state.textTool.begin(WorldPoint(200.0, 50.0))
+        state.textTool.move(WorldPoint(100.0, 80.0))
+        assertNotNull(state.textTool.boxDraft)
+        state.textTool.end()
+        assertNull(state.textTool.boxDraft)
         val pending = state.pendingTextEdit!!
         assertEquals(WorldPoint(100.0, 50.0), pending.worldPoint)
         assertEquals(100.0, pending.boxWidthWorld!!, 0.0)
@@ -48,7 +48,7 @@ class TextItemsTest {
     @Test
     fun editingCanDropTheBox() {
         val state = CanvasState()
-        state.beginTextGesture(WorldPoint(0.0, 0.0)); state.continueTextGesture(WorldPoint(100.0, 10.0)); state.endTextGesture()
+        state.textTool.begin(WorldPoint(0.0, 0.0)); state.textTool.move(WorldPoint(100.0, 10.0)); state.textTool.end()
         state.confirmTextEdit("Boxed")
         state.beginTextEdit(WorldPoint(1.0, 1.0)) // tap on the label: edit it
         assertEquals(100.0, state.pendingTextEdit!!.boxWidthWorld!!, 0.0)
@@ -59,9 +59,9 @@ class TextItemsTest {
     @Test
     fun cancelledGestureOpensNothing() {
         val state = CanvasState()
-        state.beginTextGesture(WorldPoint(0.0, 0.0))
-        state.cancelTextGesture()
-        state.endTextGesture()
+        state.textTool.begin(WorldPoint(0.0, 0.0))
+        state.textTool.cancel()
+        state.textTool.end()
         assertNull(state.pendingTextEdit)
     }
 

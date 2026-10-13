@@ -65,13 +65,13 @@ internal fun startToolGesture(state: CanvasState, tool: Tool, point: GesturePoin
             NO_GESTURE
         }
         Tool.TEXT -> {
-            state.beginTextGesture(at)
+            state.textTool.begin(at)
             // A second finger means a pinch, not a tap to type: no text box for it.
-            gesture(move = { state.continueTextGesture(it.world) }, release = state::endTextGesture, cancel = state::cancelTextGesture)
+            gesture(move = { state.textTool.move(it.world) }, release = state.textTool::end, cancel = state.textTool::cancel)
         }
         Tool.CONNECT -> {
-            state.beginConnect(at)
-            gesture(move = { state.continueConnect(it.world) }, release = state::endConnect)
+            state.connectTool.begin(at)
+            gesture(move = { state.connectTool.move(it.world) }, release = state.connectTool::end)
         }
         Tool.BONE -> {
             state.beginBone(at)

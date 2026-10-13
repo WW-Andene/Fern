@@ -846,7 +846,7 @@ fun DrawingCanvas(
             }
 
             // Connector being dragged out: from its label's box edge to the finger.
-            state.connectorDraft?.let { (fromId, point) ->
+            state.connectTool.draft?.let { (fromId, point) ->
                 state.textItems.firstOrNull { it.id == fromId }?.let { from ->
                     val (min, max) = state.textBounds(from)
                     val start = state.worldToScreen(WorldPoint((min.x + max.x) / 2, (min.y + max.y) / 2), screenCenter)
@@ -859,7 +859,7 @@ fun DrawingCanvas(
                 drawCircle(color = MARQUEE_BORDER_COLOR, radius = 12f, center = state.worldToScreen(anchor, screenCenter), style = DrawStyle(width = 2f))
             }
 
-            state.textBoxDraft?.let { (start, end) ->
+            state.textTool.boxDraft?.let { (start, end) ->
                 val a = state.worldToScreen(start, screenCenter)
                 val b = state.worldToScreen(end, screenCenter)
                 drawRect(

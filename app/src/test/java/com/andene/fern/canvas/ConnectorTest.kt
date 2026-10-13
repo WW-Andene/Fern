@@ -30,7 +30,7 @@ class ConnectorTest {
     }
 
     private fun connect(state: CanvasState, from: WorldPoint, to: WorldPoint) {
-        state.beginConnect(from); state.continueConnect(to); state.endConnect()
+        state.connectTool.begin(from); state.connectTool.move(to); state.connectTool.end()
     }
 
     @Test
@@ -42,7 +42,7 @@ class ConnectorTest {
         connect(state, WorldPoint(5.0, 5.0), WorldPoint(8.0, 5.0)) // onto itself: nothing
         connect(state, WorldPoint(5.0, 5.0), WorldPoint(150.0, 200.0)) // onto empty canvas: nothing
         assertEquals(1, state.connectors.size)
-        assertNull(state.connectorDraft)
+        assertNull(state.connectTool.draft)
         state.undo()
         assertTrue(state.connectors.isEmpty())
         state.redo()
@@ -55,8 +55,8 @@ class ConnectorTest {
         connect(state, WorldPoint(5.0, 5.0), WorldPoint(305.0, 5.0))
         val (from, to) = state.connectorEnds(state.connectors.single())!!
         val (a, b) = connectorSegment(from.first, from.second, to.first, to.second)!!
-        state.beginConnect(WorldPoint((a.x + b.x) / 2, (a.y + b.y) / 2 + 3))
-        state.endConnect()
+        state.connectTool.begin(WorldPoint((a.x + b.x) / 2, (a.y + b.y) / 2 + 3))
+        state.connectTool.end()
         assertTrue(state.connectors.isEmpty())
     }
 

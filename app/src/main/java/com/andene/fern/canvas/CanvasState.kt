@@ -3128,11 +3128,14 @@ class CanvasState(
         val initialFeatures: Set<OpenTypeFeature> = emptySet(),
     )
 
-    /** While dragging out a text box with the TEXT tool: its opposite corners, for the preview outline. */
-    var textBoxDraft: Pair<WorldPoint, WorldPoint>? by mutableStateOf(null)
-        private set
-
-    private var textGestureStart: WorldPoint? = null
+    /** The TEXT tool's gesture and the box it's drawing out; its state lives there (roadmap item 167). */
+    val textTool = TextTool(object : TextTool.Host {
+        override val scale: Double get() = this@CanvasState.scale
+        override fun editTextAt(point: WorldPoint) = beginTextEdit(point)
+        override fun newTextBox(topLeft: WorldPoint, width: Double) {
+            pendingTextEdit = PendingTextEdit(null, topLeft, "", initialSizePx = activeTextSizeWorld, boxWidthWorld = width)
+        }
+    })
 
     var pendingTextEdit: PendingTextEdit? by mutableStateOf(null)
         private set
@@ -3463,41 +3466,22 @@ class CanvasState(
         connectors.addAll(loaded.filter { it.fromId in ids && it.toId in ids })
     }
 
-    /** While dragging out a connector with the CONNECT tool: the label it starts from and the finger's point. */
-    var connectorDraft: Pair<String, WorldPoint>? by mutableStateOf(null)
-        private set
-
-    /**
-     * CONNECT tool: press on a label and drag to another to connect them (a connector between
-     * the same two labels in the same direction isn't added twice). Pressing on an existing
-     * connector, away from any label, removes it.
-     */
-    fun beginConnect(worldPoint: WorldPoint) {
-        val from = findTextItemAt(worldPoint)
-        if (from != null) {
-            connectorDraft = from.id to worldPoint
-            return
+    /** The CONNECT tool and the connector it's dragging out; its state lives there (roadmap item 167). */
+    val connectTool = ConnectTool(object : ConnectTool.Host {
+        override fun labelAt(point: WorldPoint) = findTextItemAt(point)
+        override fun connectorAt(point: WorldPoint) = this@CanvasState.connectorAt(point)
+        override fun connected(fromId: String, toId: String) = connectors.any { it.fromId == fromId && it.toId == toId }
+        override fun connect(fromId: String, toId: String) {
+            recordHistory()
+            connectors.add(Connector(UUID.randomUUID().toString(), fromId, toId))
+            onConnectorsChanged(connectors.toList())
         }
-        val hit = connectorAt(worldPoint) ?: return
-        recordHistory()
-        connectors.remove(hit)
-        onConnectorsChanged(connectors.toList())
-    }
-
-    fun continueConnect(worldPoint: WorldPoint) {
-        val draft = connectorDraft ?: return
-        connectorDraft = draft.first to worldPoint
-    }
-
-    fun endConnect() {
-        val (fromId, point) = connectorDraft ?: return
-        connectorDraft = null
-        val to = findTextItemAt(point) ?: return
-        if (to.id == fromId || connectors.any { it.fromId == fromId && it.toId == to.id }) return
-        recordHistory()
-        connectors.add(Connector(UUID.randomUUID().toString(), fromId, to.id))
-        onConnectorsChanged(connectors.toList())
-    }
+        override fun disconnect(connector: Connector) {
+            recordHistory()
+            connectors.remove(connector)
+            onConnectorsChanged(connectors.toList())
+        }
+    })
 
     /** Lays out the connected labels as a layered flowchart ([tidyDiagram]); one undo step. */
     fun tidyDiagram() {
@@ -4345,46 +4329,9 @@ class CanvasState(
     }
 
     /**
-     * TEXT tool, pointer-down: opens [pendingTextEdit] for the entry dialog to act on -
-     * editing whatever label already sits at [worldPoint] (per [findTextItemAt]), or a fresh
-     * one to be placed there.
+     * Opens [pendingTextEdit] for the entry dialog to act on - editing whatever label already sits
+     * at [worldPoint] (per [findTextItemAt]), or a fresh one to be placed there.
      */
-    /**
-     * TEXT tool gesture: a tap places (or edits) a label where it lands; a drag past the tap slop
-     * draws out a text box instead, whose width the new label's text wraps to - the text-box
-     * convention of drawing and whiteboard apps. The dialog opens when the finger lifts.
-     */
-    fun beginTextGesture(worldPoint: WorldPoint) {
-        textGestureStart = worldPoint
-        textBoxDraft = null
-    }
-
-    fun continueTextGesture(worldPoint: WorldPoint) {
-        val start = textGestureStart ?: return
-        val movedScreen = hypot(worldPoint.x - start.x, worldPoint.y - start.y) * scale
-        if (textBoxDraft != null || movedScreen > TAP_SLOP_SCREEN) textBoxDraft = start to worldPoint
-    }
-
-    fun endTextGesture() {
-        val start = textGestureStart ?: return
-        textGestureStart = null
-        val box = textBoxDraft
-        textBoxDraft = null
-        if (box == null) {
-            beginTextEdit(start)
-            return
-        }
-        val (a, b) = box
-        val topLeft = WorldPoint(minOf(a.x, b.x), minOf(a.y, b.y))
-        pendingTextEdit = PendingTextEdit(null, topLeft, "", initialSizePx = activeTextSizeWorld, boxWidthWorld = abs(b.x - a.x))
-    }
-
-    /** Abandons a TEXT gesture that turned into something else (e.g. a second finger landed to pinch). */
-    fun cancelTextGesture() {
-        textGestureStart = null
-        textBoxDraft = null
-    }
-
     fun beginTextEdit(worldPoint: WorldPoint) {
         val existing = findTextItemAt(worldPoint)
         pendingTextEdit = if (existing != null) {
