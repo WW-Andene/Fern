@@ -113,7 +113,7 @@ fun ToolRail(state: CanvasState, vertical: Boolean, modifier: Modifier = Modifie
     val context = LocalContext.current
     val pinned by RailSettings.pinnedState(context)
     var showMore by remember { mutableStateOf(false) }
-    Surface(modifier = modifier, shape = MaterialTheme.shapes.large, tonalElevation = FernSpace.xs, shadowElevation = FernSpace.xs) {
+    Surface(modifier = modifier.railDropTarget(context), shape = MaterialTheme.shapes.large, tonalElevation = FernSpace.xs, shadowElevation = FernSpace.xs) {
         BoxWithConstraints {
             // Labelled buttons are wider and taller (design roadmap D95), so fewer fit.
             val slot = if (iconLabelsShown()) FernScale.s64 else FernSize.touchTarget
@@ -125,7 +125,7 @@ fun ToolRail(state: CanvasState, vertical: Boolean, modifier: Modifier = Modifie
             val secondLine = if (com.andene.fern.FernDensity.expert) (RAIL_EXTRA_TOOLS - shownPinned.toSet()).take(room) else emptyList()
             val extraLine: @Composable () -> Unit = { for (tool in secondLine) RailButton(state, tool) }
             val content: @Composable () -> Unit = {
-                for (tool in RAIL_TOOLS + shownPinned) RailButton(state, tool)
+                for (tool in RAIL_TOOLS + shownPinned) RailButton(state, tool, pinned = tool in shownPinned)
                 Box {
                     LabelledIconButton(onClick = { showMore = true }, icon = FernIcons.MoreHoriz, label = stringResource(R.string.rail_more_tools))
                     DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
@@ -181,11 +181,13 @@ fun ToolRail(state: CanvasState, vertical: Boolean, modifier: Modifier = Modifie
  * the eraser with one hand and erase with the other.
  */
 @Composable
-private fun RailButton(state: CanvasState, tool: Tool) {
+private fun RailButton(state: CanvasState, tool: Tool, pinned: Boolean = false) {
     val active = state.activeTool == tool
     val view = LocalView.current
     val label = stringResource(toolName(tool))
     val labelled = iconLabelsShown()
+    // While the layout is being arranged, a pinned tool is dragged off the rail rather than used (design roadmap D22).
+    val arranging = pinned && RailArrange.active
     Box(
         modifier = Modifier
             .size(if (labelled) FernScale.s64 else FernSize.touchTarget)
@@ -200,7 +202,9 @@ private fun RailButton(state: CanvasState, tool: Tool) {
                     true
                 }
             }
-            .pointerInput(tool) {
+            .then(if (arranging) Modifier.railToolSource(tool, MaterialTheme.colorScheme.secondaryContainer) { RailArrange.draggedPinned = tool } else Modifier)
+            .pointerInput(tool, arranging) {
+                if (arranging) return@pointerInput
                 awaitEachGesture {
                     val down = awaitFirstDown()
                     val adjustable = tool == Tool.PEN || tool == Tool.ERASER

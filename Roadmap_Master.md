@@ -192,7 +192,7 @@ Switching, adjusting and arranging without looking. Builds on Phases 1 and 2.
 - [~] D22. **Drag-to-arrange edit mode.** Drag tools, actions and panels onto the rail, the
   properties bar, the quick menu and the panels; remove them by dragging away. This replaces
   showing or hiding whole groups.
-  Written, not yet compiled or tested: `LayoutEditor.kt` (Settings > Arrange the layout), one panel: the rail's pinned tools and the quick menu's actions reorder by dragging a handle (or Move up/down for screen readers), go with one tap and come back from chips; toolbar groups as toggles. It replaces the separate toolbar and quick-menu customisation dialogs, now deleted. Dragging straight onto the live rail/menu, rather than in this panel, is not done.
+  Written, not yet compiled or tested: `LayoutEditor.kt` (Settings > Arrange the layout), one panel: the rail's pinned tools and the quick menu's actions reorder by dragging a handle (or Move up/down for screen readers), go with one tap and come back from chips; toolbar groups as toggles. It replaces the separate toolbar and quick-menu customisation dialogs, now deleted. While it's open, the live rail takes part too (`RailArrange.kt`): a tool's chip long-pressed and dragged onto the rail pins it, and a pinned tool long-pressed on the rail and dropped off it goes. The quick menu's ring is an overlay that isn't on screen while arranging, so it's arranged in the panel.
 - [~] D23. **Layout presets.** Save, name, switch between, export and import whole layouts
   (rail, panels, gestures, shortcuts, workspaces). Ready-made presets: "Minimal", "Procreate-like",
   "Desktop-like", "One-hand".

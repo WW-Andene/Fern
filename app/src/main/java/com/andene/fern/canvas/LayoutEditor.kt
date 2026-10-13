@@ -23,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -67,6 +68,11 @@ fun LayoutEditor(
 ) {
     val context = LocalContext.current
     val pinned by RailSettings.pinnedState(context)
+    // While this is open, the live rail takes tools dragged onto it and gives up those dragged off (design roadmap D22).
+    DisposableEffect(Unit) {
+        RailArrange.active = true
+        onDispose { RailArrange.active = false }
+    }
     FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.layout_title)) },
@@ -116,8 +122,10 @@ fun LayoutEditor(
                 ReorderableList(pinned, { stringResource(toolName(it)) }, { railIcon(state, it) }) { RailSettings.setPinned(context, it) }
                 FlowRow {
                     for (tool in RAIL_EXTRA_TOOLS - pinned.toSet()) {
+                        // Tap to pin, or long-press and drag it onto the rail.
                         AssistChip(onClick = { RailSettings.setPinned(context, pinned + tool) }, label = { Text(stringResource(toolName(tool))) },
-                            leadingIcon = { Icon(FernIcons.Add, contentDescription = null) }, modifier = Modifier.padding(end = FernScale.s8))
+                            leadingIcon = { Icon(FernIcons.Add, contentDescription = null) },
+                            modifier = Modifier.padding(end = FernScale.s8).railToolSource(tool, MaterialTheme.colorScheme.secondaryContainer))
                     }
                 }
                 Text(stringResource(R.string.quick_menu), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = FernScale.s16))
