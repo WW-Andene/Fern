@@ -374,9 +374,10 @@ Goal: every panel from Phase D2 designed to the same pattern and fast to work in
   scrubbing, play and loop at the edge of the hand. It replaces the animation toolbar group and
   the separate X-sheet and dopesheet dialogs.
   Written, not yet compiled or tested: the animation strip (already docked at the edge opposite the toolbar, with frames, onion skin, tags, play and loop/ping-pong) gains a scrubber, "Frame n of N", to drag through frames; its rarer tools (pose blending, dopesheet, sway, branches, X-sheet, easing, fps) sit behind More. The X-sheet and dopesheet open as docked panels (D33) rather than being merged into the strip.
-- [ ] D46. **Objects and logic panel.** Object list, properties, behaviours, rules (blocks) and
+- [~] D46. **Objects and logic panel.** Object list, properties, behaviours, rules (blocks) and
   script in one panel with tabs, instead of the object dialog opening states, rules and script
   dialogs on top of each other.
+  Written, not yet compiled or tested: the object panel has tabs Object, States, Rules and Script (the editors were split out of their dialogs as `StateMachineEditor`, `RulesEditor`, `GameScriptEditor`), and chips for every object to switch between them without closing; nothing stacks any more.
 - [ ] D47. **Inspector for the selection.** Transform, style, constraints (ROADMAP item 144) and
   the measurement for whatever is selected, always in the same place.
 - [ ] D91. **Swipe between panels.** On the phone, swipe sideways inside the bottom sheet to move

@@ -1074,4 +1074,5 @@
     <string name="brush_slots_full">Favourites are full: replace one by holding it</string>
     <string name="brush_pin">Add %1$s to favourites</string>
     <string name="anim_frame_of">Frame %1$d of %2$d</string>
+    <string name="object_tab_object">Object</string>
 </resources>

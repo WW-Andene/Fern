@@ -41,6 +41,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import com.andene.fern.MoreOptions
 import com.andene.fern.R
+import androidx.compose.material3.Tab
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.foundation.horizontalScroll
 
 /**
  * A game object (roadmap item 155): its name, its number properties, and its behaviours with
@@ -56,14 +59,32 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
     }
     var newProperty by remember { mutableStateOf("") }
     var showBehaviours by remember { mutableStateOf(false) }
-    var showStates by remember { mutableStateOf(false) }
-    var showRules by remember { mutableStateOf(false) }
-    var showScript by remember { mutableStateOf(false) }
+    // One panel for the object and its logic, by tab (design roadmap D46).
+    var tab by remember { mutableStateOf(0) }
     FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.object_title)) },
         text = {
-            Column(Modifier.heightIn(max = FernScale.s512).verticalScroll(rememberScrollState())) {
+            Column {
+            // Every object, to switch to another without closing the panel.
+            if (state.gameObjects.size > 1) Row(Modifier.horizontalScroll(rememberScrollState())) {
+                for (o in state.gameObjects) {
+                    FilterChip(selected = o.id == current.id, onClick = { current = o }, label = { Text(o.name) }, modifier = Modifier.padding(end = FernScale.s8))
+                }
+            }
+            ScrollableTabRow(selectedTabIndex = tab, edgePadding = FernScale.none) {
+                for ((index, label) in listOf(R.string.object_tab_object, R.string.states_title, R.string.rules_title, R.string.game_script_title).withIndex()) {
+                    Tab(selected = tab == index, onClick = {
+                        tab = index
+                        state.gameObjects.firstOrNull { it.id == current.id }?.let { current = it }
+                    }, text = { Text(stringResource(label)) })
+                }
+            }
+            when (tab) {
+                1 -> StateMachineEditor(state, current.id)
+                2 -> RulesEditor(state, current.id)
+                3 -> GameScriptEditor(state, current.id)
+                else -> Column(Modifier.heightIn(max = FernScale.s512).verticalScroll(rememberScrollState())) {
                 OutlinedTextField(current.name, { save(current.copy(name = it)) }, label = { Text(stringResource(R.string.object_name)) }, singleLine = true)
                 Text(stringResource(R.string.object_properties), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = FernScale.s8))
                 for ((key, value) in current.properties) key(key) {
@@ -123,25 +144,6 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                         onCheckedChange = { follow -> state.changeGameSettings(state.gameSettings.copy(cameraTarget = if (follow) current.id else null)) },
                     )
                 }
-                // Animation states (roadmap item 158).
-                TextButton(onClick = { showStates = true }) { Text(stringResource(R.string.states_title)) }
-                if (showStates) StateMachineDialog(state, current.id, onDismiss = {
-                    showStates = false
-                    state.gameObjects.firstOrNull { it.id == current.id }?.let { current = it }
-                })
-                // Rules from blocks (roadmap item 156) and the object's script (item 164).
-                TextButton(onClick = { showRules = true }) { Text(stringResource(R.string.rules_title_count, current.rules.size)) }
-                if (showRules) RulesDialog(state, current.id, onDismiss = {
-                    showRules = false
-                    state.gameObjects.firstOrNull { it.id == current.id }?.let { current = it }
-                })
-                TextButton(onClick = { showScript = true }) {
-                    Text(stringResource(if (current.script.isEmpty()) R.string.game_script_add else R.string.game_script_edit))
-                }
-                if (showScript) GameScriptDialog(state, current.id, onDismiss = {
-                    showScript = false
-                    state.gameObjects.firstOrNull { it.id == current.id }?.let { current = it }
-                })
                 // Physics, hitbox and links: one tap away, not in the way (design roadmap D32).
                 MoreOptions("object_advanced") {
                     PhysicsSection(state, current.body) { save(current.copy(body = it)) }
@@ -168,6 +170,8 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                         }
                     }
                 }
+            }
+            }
             }
         },
         dismissButton = {

@@ -33,31 +33,32 @@ private const val EXAMPLE_GAME_SCRIPT = "// Collect coins; win at 10\nif touchin
  */
 @Composable
 fun GameScriptDialog(state: CanvasState, objectId: String, onDismiss: () -> Unit) {
-    val target = state.gameObjects.firstOrNull { it.id == objectId } ?: return onDismiss()
-    var source by remember { mutableStateOf(target.script.ifEmpty { EXAMPLE_GAME_SCRIPT }) }
-    var error by remember { mutableStateOf<ScriptError?>(null) }
     FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.game_script_title)) },
-        text = {
-            Column(Modifier.heightIn(max = FernScale.s512).verticalScroll(rememberScrollState())) {
-                Text(stringResource(R.string.game_script_help), style = MaterialTheme.typography.bodySmall)
-                // Checked as it's typed, errors shown at their line (design roadmap D33).
-                CodeEditor(source, {
-                    source = it
-                    error = if (it.isBlank()) null else GameScript.check(it)
-                }, error, Modifier.padding(top = FernScale.s8))
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                error = if (source.isBlank()) null else GameScript.check(source)
-                if (error == null) {
-                    state.updateObject(target.copy(script = source.trim()))
-                    onDismiss()
-                }
-            }) { Text(stringResource(R.string.game_script_save)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        text = { GameScriptEditor(state, objectId, onSaved = onDismiss) },
     )
+}
+
+/** The script editor itself, in its own panel or as a tab of the object panel (design roadmap D46). */
+@Composable
+fun GameScriptEditor(state: CanvasState, objectId: String, onSaved: () -> Unit = {}) {
+    val target = state.gameObjects.firstOrNull { it.id == objectId } ?: return
+    var source by remember(objectId) { mutableStateOf(target.script.ifEmpty { EXAMPLE_GAME_SCRIPT }) }
+    var error by remember(objectId) { mutableStateOf<ScriptError?>(null) }
+    Column(Modifier.heightIn(max = FernScale.s512).verticalScroll(rememberScrollState())) {
+        Text(stringResource(R.string.game_script_help), style = MaterialTheme.typography.bodySmall)
+        // Checked as it's typed, errors shown at their line (design roadmap D33).
+        CodeEditor(source, {
+            source = it
+            error = if (it.isBlank()) null else GameScript.check(it)
+        }, error, Modifier.padding(top = FernScale.s8))
+        TextButton(onClick = {
+            error = if (source.isBlank()) null else GameScript.check(source)
+            if (error == null) {
+                state.updateObject(target.copy(script = source.trim()))
+                onSaved()
+            }
+        }) { Text(stringResource(R.string.game_script_save)) }
+    }
 }

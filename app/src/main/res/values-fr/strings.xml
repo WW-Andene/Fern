@@ -1078,4 +1078,5 @@
     <string name="brush_slots_full">Les favoris sont pleins : remplacez-en un en le maintenant</string>
     <string name="brush_pin">Ajouter %1$s aux favoris</string>
     <string name="anim_frame_of">Image %1$d sur %2$d</string>
+    <string name="object_tab_object">Objet</string>
 </resources>
