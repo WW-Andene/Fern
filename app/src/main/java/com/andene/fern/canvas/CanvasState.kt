@@ -3775,7 +3775,7 @@ class CanvasState(
         if (!guideSnapping) return point
         val reach = GUIDE_REACH_SCREEN / scale.coerceAtLeast(1e-300)
         return drawingGuides.asSequence()
-            .filter { it.kind == GuideKind.STRAIGHT || it.kind == GuideKind.ELLIPSE }
+            .filter { it.kind == GuideKind.STRAIGHT || it.kind == GuideKind.ELLIPSE || it.kind == GuideKind.CURVE }
             .mapNotNull { it.constraint(point, reach)?.invoke(point) }
             .minByOrNull { hypot(it.x - point.x, it.y - point.y) } ?: point
     }
@@ -4493,7 +4493,7 @@ class CanvasState(
             val handle = guide.handles.indexOfFirst { hypot(it.x - worldPoint.x, it.y - worldPoint.y) <= radius }
             val onGuide = handle == -1 && guide.constraint(worldPoint, radius)?.let { c ->
                 val p = c(worldPoint)
-                (guide.kind == GuideKind.STRAIGHT || guide.kind == GuideKind.ELLIPSE) &&
+                (guide.kind == GuideKind.STRAIGHT || guide.kind == GuideKind.ELLIPSE || guide.kind == GuideKind.CURVE) &&
                     hypot(p.x - worldPoint.x, p.y - worldPoint.y) <= radius
             } == true
             if (handle != -1 || onGuide) {

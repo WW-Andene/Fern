@@ -29,6 +29,8 @@ enum class GuideKind(@StringRes val label: Int, val handleCount: Int) {
     ELLIPSE(R.string.guide_ellipse, 3),
     /** A grid (origin, and a corner of its first cell): strokes run along its nearest row or column. */
     GRID(R.string.guide_grid, 2),
+    /** A French-curve ruler: a cubic Bézier (start, two control points, end); strokes starting near it follow it. */
+    CURVE(R.string.guide_curve, 4),
 }
 
 /** One guide on the page: its kind and its handles in world space. */
@@ -64,6 +66,11 @@ data class DrawingGuide(
         if (!visible) return null
         return when (kind) {
             GuideKind.GRID -> constraints(start, reach).firstOrNull()
+            GuideKind.CURVE -> {
+                val curve = curvePoints(handles)
+                val near = nearestOnPolyline(curve, start)
+                if (hypot(near.x - start.x, near.y - start.y) > reach) null else { p -> nearestOnPolyline(curve, p) }
+            }
             GuideKind.STRAIGHT -> {
                 val (a, b) = handles
                 val dir = WorldPoint(b.x - a.x, b.y - a.y)
@@ -102,6 +109,46 @@ fun newGuideHandles(kind: GuideKind, center: WorldPoint, size: Double): List<Wor
     GuideKind.RADIAL, GuideKind.CONCENTRIC -> listOf(center)
     GuideKind.ELLIPSE -> listOf(center, WorldPoint(center.x + size / 2, center.y), WorldPoint(center.x, center.y - size / 4))
     GuideKind.GRID -> listOf(center, WorldPoint(center.x + size / 8, center.y + size / 8))
+    GuideKind.CURVE -> listOf(
+        WorldPoint(center.x - size / 2, center.y),
+        WorldPoint(center.x - size / 6, center.y - size / 3),
+        WorldPoint(center.x + size / 6, center.y + size / 3),
+        WorldPoint(center.x + size / 2, center.y),
+    )
+}
+
+/** A CURVE guide's Bézier as a polyline, fine enough that snapping to it looks smooth. */
+fun curvePoints(handles: List<WorldPoint>): List<WorldPoint> {
+    val (a, b, c, d) = handles
+    return (0..CURVE_SEGMENTS).map { k ->
+        val t = k.toDouble() / CURVE_SEGMENTS
+        val u = 1 - t
+        WorldPoint(
+            u * u * u * a.x + 3 * u * u * t * b.x + 3 * u * t * t * c.x + t * t * t * d.x,
+            u * u * u * a.y + 3 * u * u * t * b.y + 3 * u * t * t * c.y + t * t * t * d.y,
+        )
+    }
+}
+
+/** The point of the polyline [points] nearest [p]. */
+fun nearestOnPolyline(points: List<WorldPoint>, p: WorldPoint): WorldPoint {
+    var best = points.first()
+    var bestDist = Double.MAX_VALUE
+    for (i in 0 until points.size - 1) {
+        val a = points[i]
+        val b = points[i + 1]
+        val dx = b.x - a.x
+        val dy = b.y - a.y
+        val len2 = dx * dx + dy * dy
+        val t = if (len2 < 1e-24) 0.0 else (((p.x - a.x) * dx + (p.y - a.y) * dy) / len2).coerceIn(0.0, 1.0)
+        val q = WorldPoint(a.x + t * dx, a.y + t * dy)
+        val d = hypot(q.x - p.x, q.y - p.y)
+        if (d < bestDist) {
+            bestDist = d
+            best = q
+        }
+    }
+    return best
 }
 
 private fun onCircle(c: WorldPoint, r: Double, p: WorldPoint): WorldPoint {
@@ -151,3 +198,4 @@ fun ellipseOf(handles: List<WorldPoint>): GuideEllipse {
 }
 
 private const val ELLIPSE_NEWTON_STEPS = 4
+private const val CURVE_SEGMENTS = 128

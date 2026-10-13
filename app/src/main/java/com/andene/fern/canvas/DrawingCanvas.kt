@@ -2309,6 +2309,16 @@ private fun DrawScope.drawGuides(state: CanvasState, screenCenter: Offset, editi
                     while (y <= size.height) { drawLine(faint, Offset(0f, y), Offset(size.width, y), strokeWidth = GUIDE_FAINT_PX); y += ch }
                 }
             }
+            GuideKind.CURVE -> {
+                val path = androidx.compose.ui.graphics.Path()
+                curvePoints(guide.handles).map(::screen).forEachIndexed { k, p -> if (k == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y) }
+                drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(GUIDE_LINE_PX))
+                // The control arms, so the handles read as a Bézier's.
+                if (editing) {
+                    drawLine(color.copy(alpha = GUIDE_FAINT_ALPHA), h[0], h[1], strokeWidth = GUIDE_FAINT_PX)
+                    drawLine(color.copy(alpha = GUIDE_FAINT_ALPHA), h[3], h[2], strokeWidth = GUIDE_FAINT_PX)
+                }
+            }
             GuideKind.ELLIPSE -> {
                 val e = ellipseOf(guide.handles)
                 val path = androidx.compose.ui.graphics.Path()

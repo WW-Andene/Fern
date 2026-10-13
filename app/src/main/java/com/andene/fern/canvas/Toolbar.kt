@@ -1678,4 +1678,5 @@ private fun guideKindIcon(kind: GuideKind): androidx.compose.ui.graphics.vector.
     GuideKind.CONCENTRIC -> Icons.Filled.TripOrigin
     GuideKind.ELLIPSE -> Icons.Filled.PanoramaFishEye
     GuideKind.GRID -> Icons.Filled.GridOn
+    GuideKind.CURVE -> Icons.Filled.Gesture
 }
