@@ -1,6 +1,12 @@
 package com.andene.fern.canvas
 
 import androidx.compose.foundation.clickable
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -81,6 +87,43 @@ fun RigPanel(state: CanvasState, onDismiss: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                // The active animation's keys (roadmap items 256-257): one row per bone and property.
+                editor.activeAnimation?.let { anim ->
+                    Text(stringResource(R.string.rig_keys, anim.name), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = FernScale.s8))
+                    if (anim.timelines.isEmpty()) Text(stringResource(R.string.rig_no_keys))
+                    for (timeline in anim.timelines) {
+                        val boneName = rig.bones.firstOrNull { it.id == timeline.boneId }?.name.orEmpty()
+                        Text(stringResource(R.string.rig_timeline, boneName, stringResource(propertyLabel(timeline.property))), style = MaterialTheme.typography.bodySmall)
+                        Row(Modifier.horizontalScroll(rememberScrollState())) {
+                            for (key in timeline.keys) {
+                                var open by remember(key) { mutableStateOf(false) }
+                                Box {
+                                    FilterChip(
+                                        selected = kotlin.math.abs(key.time - state.currentAnimFrame) < 1e-9,
+                                        onClick = {
+                                            state.goToAnimFrame(key.time.toInt())
+                                            open = true
+                                        },
+                                        label = { Text(stringResource(R.string.rig_key_frame, key.time.toInt() + 1, stringResource(curveLabel(key.curve)))) },
+                                        modifier = Modifier.padding(end = FernScale.s4),
+                                    )
+                                    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                                        for ((curve, label) in listOf(KeyCurve.Linear to R.string.rig_curve_linear, KeyCurve.Stepped to R.string.rig_curve_stepped, KeyCurve.Bezier(CubicEasing.DEFAULT) to R.string.rig_curve_eased)) {
+                                            DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = {
+                                                editor.setKeyCurve(timeline.boneId, timeline.property, key.time, curve)
+                                                open = false
+                                            })
+                                        }
+                                        DropdownMenuItem(text = { Text(stringResource(R.string.rig_key_delete)) }, onClick = {
+                                            editor.deleteKey(timeline.boneId, timeline.property, key.time)
+                                            open = false
+                                        })
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 Text(stringResource(R.string.rig_slots), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = FernScale.s8))
                 if (rig.slots.isEmpty()) Text(stringResource(R.string.rig_no_slots))
                 // Last drawn on top: listed top first, as a layers list is.
@@ -102,4 +145,20 @@ fun RigPanel(state: CanvasState, onDismiss: () -> Unit) {
             }
         },
     )
+}
+
+private fun propertyLabel(property: BoneProperty): Int = when (property) {
+    BoneProperty.ROTATE -> R.string.rig_property_rotate
+    BoneProperty.X -> R.string.rig_property_x
+    BoneProperty.Y -> R.string.rig_property_y
+    BoneProperty.SCALE_X -> R.string.rig_property_scale_x
+    BoneProperty.SCALE_Y -> R.string.rig_property_scale_y
+    BoneProperty.SHEAR_X -> R.string.rig_property_shear_x
+    BoneProperty.SHEAR_Y -> R.string.rig_property_shear_y
+}
+
+private fun curveLabel(curve: KeyCurve): Int = when (curve) {
+    KeyCurve.Linear -> R.string.rig_curve_linear
+    KeyCurve.Stepped -> R.string.rig_curve_stepped
+    is KeyCurve.Bezier -> R.string.rig_curve_eased
 }

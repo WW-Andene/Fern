@@ -421,7 +421,8 @@ Rigging the way Spine works: the artist's own drawing cut into parts on a skelet
 
 Animation tools on the Phase 11 model.
 
-- [ ] 256. Dopesheet with one row per timeline (bone rotate, translate, scale, shear; slot attachment and colour; draw order; events), collapsible per bone; key filters by bone or channel.
+- [~] 256. Dopesheet with one row per timeline (bone rotate, translate, scale, shear; slot attachment and colour; draw order; events), collapsible per bone; key filters by bone or channel.
+  Done: for the new rig, the rig panel lists the active animation's keys per bone and property; tapping a key goes to its frame and offers linear, held or eased to the next key, or deleting it. Left: a timeline strip with keys dragged in time, and key filters.
 - [ ] 257. Graph editor for every curve, not only angle: separate x and y curves, tangent handles, stepped keys, copy and paste of curves, curve presets.
 - [ ] 258. Auto-key: changing a bone or property records a key; key all channels or only changed ones.
 - [ ] 259. Offset keys in time across several bones with one drag (a tail wave).

@@ -358,6 +358,25 @@ class RigEditor(private val host: Host) {
         change(rig.copy(animations = animations.map { if (it.id == updated.id) updated else it }))
     }
 
+    /** Replaces the key of [boneId]'s [property] at [time] in the active animation by [update], or deletes it when [update] returns null. */
+    private fun editKey(boneId: String, property: BoneProperty, time: Double, update: (Key) -> Key?) {
+        val anim = activeAnimation ?: return
+        host.recordHistory()
+        val timelines = anim.timelines.mapNotNull { t ->
+            if (t.boneId != boneId || t.property != property) t else {
+                val keys = t.keys.mapNotNull { k -> if (kotlin.math.abs(k.time - time) < 1e-9) update(k) else k }
+                if (keys.isEmpty()) null else t.copy(keys = keys)
+            }
+        }
+        val updated = anim.copy(timelines = timelines)
+        change(rig.copy(animations = rig.animations.map { if (it.id == updated.id) updated else it }))
+    }
+
+    fun deleteKey(boneId: String, property: BoneProperty, time: Double) = editKey(boneId, property, time) { null }
+
+    /** Sets how the value moves from this key to the next (roadmap item 257): linear, held, or eased. */
+    fun setKeyCurve(boneId: String, property: BoneProperty, time: Double, curve: KeyCurve) = editKey(boneId, property, time) { it.copy(curve = curve) }
+
     /** Adds an empty animation named [name] and makes it active (roadmap item 253). */
     fun addAnimation(name: String) {
         host.recordHistory()
