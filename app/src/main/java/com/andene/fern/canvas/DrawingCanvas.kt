@@ -137,6 +137,8 @@ fun DrawingCanvas(
     var selectionReadout by remember { mutableStateOf(false) }
     // Pinching or panning: the zoom and turn show at the top (design roadmap D38).
     var navigating by remember { mutableStateOf(false) }
+    // The last two-finger tap's action and time, to spot a double tap.
+    var lastTwoFingerTap by remember { mutableStateOf(GestureAction.NONE to 0L) }
     // What a tap gesture did, where and when, shown briefly (design roadmap D38).
     var gestureBadge by remember { mutableStateOf<Triple<String, Offset, Long>?>(null) }
     gestureBadge?.let { badge ->
@@ -486,7 +488,21 @@ fun DrawingCanvas(
                             3 -> CanvasGesture.THREE_FINGER_TAP
                             else -> CanvasGesture.FOUR_FINGER_TAP
                         }
-                        runGesture(gestures.getValue(gesture), firstDown.position)
+                        val now = SystemClock.uptimeMillis()
+                        if (maxPointers == 2 && now - lastTwoFingerTap.second <= DOUBLE_TAP_MILLIS) {
+                            // A two-finger double tap fits the drawing (design roadmap D41); the first tap's undo or redo is taken back.
+                            when (lastTwoFingerTap.first) {
+                                GestureAction.UNDO -> state.redo()
+                                GestureAction.REDO -> state.undo()
+                                else -> {}
+                            }
+                            lastTwoFingerTap = GestureAction.NONE to 0L
+                            state.fitWithReturn()
+                        } else {
+                            val action = gestures.getValue(gesture)
+                            if (maxPointers == 2) lastTwoFingerTap = action to now
+                            runGesture(action, firstDown.position)
+                        }
                     } else if (maxPointers == 3 && swipeFrom != null && (swipeLast - swipeFrom).getDistance() >= SWIPE_MIN_PX &&
                         swipeSpanChange <= SWIPE_SPAN_SLOP_PX && tapDuration <= SWIPE_MAX_MILLIS &&
                         gestures.getValue(CanvasGesture.THREE_FINGER_SWIPE) != GestureAction.NONE
@@ -1767,6 +1783,8 @@ private const val LONG_PRESS_MILLIS = 500L
 private const val PALM_NEAR_MILLIS = 1024L
 // Padding around an on-canvas readout.
 private const val READOUT_GAP_PX = 4f
+// Two two-finger taps this close together are a double tap.
+private const val DOUBLE_TAP_MILLIS = 384L
 // How long a gesture's badge shows, and where the zoom readout sits below the top edge.
 private const val GESTURE_BADGE_MILLIS = 768L
 private const val NAV_BADGE_TOP_PX = 128f

@@ -1061,4 +1061,9 @@
         <item quantity="other">%1$d selected</item>
     </plurals>
     <string name="mode_turn_off">Turn off</string>
+    <string name="nav_actual_size">100 %</string>
+    <string name="nav_level">Level the view</string>
+    <string name="nav_back">Back to where I was</string>
+    <string name="nav_minimap_show">Show the minimap</string>
+    <string name="nav_minimap_hide">Hide the minimap</string>
 </resources>

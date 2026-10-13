@@ -350,8 +350,9 @@ Goal: the canvas says what is happening without a single word or dialog.
   stabiliser show as small, tappable chips at the edge of the canvas while active, so a mode
   never stays on unnoticed.
   Written, not yet compiled or tested: `ModeChips.kt`. Symmetry, perspective, wrap-around, isometric plane, stabiliser and ruler show as chips on the free hand's side while on; tapping one turns it off. Snapping to objects is on by default, so it isn't flagged as a mode.
-- [ ] D41. **Navigation aids.** Fit, 100 %, reset rotation and "go back to where I was" one tap
+- [~] D41. **Navigation aids.** Fit, 100 %, reset rotation and "go back to where I was" one tap
   away; the minimap as an optional overlay; a double-tap with two fingers to fit.
+  Written, not yet compiled or tested: `NavigationAids.kt`, a small bar on the free hand's side: Fit, 100 %, Level (while turned), Back to where I was (after any of those), and minimap on/off (saved). A two-finger double tap fits the drawing, taking back the first tap's undo.
 
 ## Phase D8 — Panels in depth
 

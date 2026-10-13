@@ -99,6 +99,7 @@ import com.andene.fern.canvas.CanvasHaptics
 import com.andene.fern.canvas.ToolRail
 import com.andene.fern.canvas.SelectionActionStrip
 import com.andene.fern.canvas.ModeChips
+import com.andene.fern.canvas.NavigationAids
 import com.andene.fern.canvas.CommandPaletteState
 import com.andene.fern.canvas.GestureAction
 import com.andene.fern.canvas.KeyCombo
@@ -278,6 +279,7 @@ class MainActivity : ComponentActivity() {
                     var showQuickMenu by remember { mutableStateOf(false) }
                     // Every bar and panel hidden for a clear canvas (design roadmap D15 and D78).
                     var chromeHidden by remember { mutableStateOf(false) }
+                    var minimapShown by remember { mutableStateOf(AppSettings.minimap(context)) }
                     // A tool key being held: the key, the tool before it, when it went down (design roadmap D17).
                     var toolKeyHold by remember { mutableStateOf<Triple<Key, Tool, Long>?>(null) }
                     // True while a document is being read: the canvas is covered so nothing can be
@@ -1343,7 +1345,7 @@ class MainActivity : ComponentActivity() {
                                         .fillMaxHeight(0.4f),
                                 )
                             }
-                            Minimap(
+                            if (minimapShown) Minimap(
                                 state = canvasState,
                                 modifier = Modifier
                                     // Opposite the drawing hand, whose palm rests below and beside the pen.
@@ -1354,6 +1356,19 @@ class MainActivity : ComponentActivity() {
                                     .padding(bottom = railInset)
                                     .padding(horizontal = railSide),
                             )
+                            NavigationAids(
+                                canvasState,
+                                minimapShown,
+                                onMinimapChange = { value ->
+                                    minimapShown = value
+                                    AppSettings.setMinimap(context, value)
+                                },
+                                Modifier
+                                    .align(if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(top = if (toolbarAtBottom) FernScale.s64 else FernScale.s96, start = FernScale.s12, end = FernScale.s12)
+                                    .padding(horizontal = railSide),
+                            )
                             CanvasHaptics(canvasState)
                             // Drawing modes that are on, at the edge opposite the drawing hand (design roadmap D40).
                             ModeChips(
@@ -1361,7 +1376,7 @@ class MainActivity : ComponentActivity() {
                                 Modifier
                                     .align(if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(top = if (toolbarAtBottom) FernScale.s16 else FernScale.s128, start = FernScale.s12, end = FernScale.s12)
+                                    .padding(top = if (toolbarAtBottom) FernScale.s128 else FernScale.s192, start = FernScale.s12, end = FernScale.s12)
                                     .padding(horizontal = railSide),
                             )
                             // The selection's actions beside it (design roadmap D39).

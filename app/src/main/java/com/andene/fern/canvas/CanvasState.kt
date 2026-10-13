@@ -6096,6 +6096,39 @@ class CanvasState(
         rotation = 0.0
     }
 
+    /** The view before the last jump (fit, 100 %, level), for "back to where I was" (design roadmap D41). */
+    var previousView by mutableStateOf<Triple<WorldPoint, Double, Double>?>(null)
+        private set
+
+    private fun rememberView() {
+        previousView = Triple(panWorld, scale, rotation)
+    }
+
+    /** Fits the drawing, remembering the view to come back to. */
+    fun fitWithReturn() {
+        rememberView()
+        zoomToFit()
+    }
+
+    /** 100 % about the screen centre. */
+    fun actualSize() {
+        rememberView()
+        scale = 1.0
+    }
+
+    /** Level: no turn. */
+    fun levelView() {
+        rememberView()
+        rotation = 0.0
+    }
+
+    /** Back to the view before the last jump; that jump's view becomes the one to come back to. */
+    fun backToPreviousView() {
+        val back = previousView ?: return
+        rememberView()
+        restoreView(back.first, back.second, back.third)
+    }
+
     /**
      * Canvas rotation in radians, applied as a whole-scene rotation about the screen centre at
      * draw time. [worldToScreen]/[screenToWorld] deliberately stay unrotated ("view space"), so

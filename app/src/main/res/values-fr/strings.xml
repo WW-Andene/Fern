@@ -1065,4 +1065,9 @@
         <item quantity="other">%1$d sélectionnés</item>
     </plurals>
     <string name="mode_turn_off">Désactiver</string>
+    <string name="nav_actual_size">100 %</string>
+    <string name="nav_level">Remettre la vue droite</string>
+    <string name="nav_back">Revenir où j’étais</string>
+    <string name="nav_minimap_show">Afficher la mini-carte</string>
+    <string name="nav_minimap_hide">Masquer la mini-carte</string>
 </resources>

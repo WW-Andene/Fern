@@ -48,6 +48,7 @@ private const val KEY_HIGH_CONTRAST = "high_contrast"
 private const val KEY_COLOR_BLIND_SAFE = "color_blind_safe"
 private const val KEY_HAPTICS = "haptics"
 private const val KEY_UI_SIZE = "ui_size"
+private const val KEY_MINIMAP = "minimap"
 private const val KEY_HIDDEN_TOOLBAR_GROUPS = "hidden_toolbar_groups"
 private const val KEY_QUICK_MENU = "quick_menu_actions"
 
@@ -75,6 +76,13 @@ object AppSettings {
 
     fun setHighContrast(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_HIGH_CONTRAST, value).apply()
+    }
+
+    /** Whether the minimap shows (design roadmap D41). */
+    fun minimap(context: Context): Boolean = prefs(context).getBoolean(KEY_MINIMAP, true)
+
+    fun setMinimap(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean(KEY_MINIMAP, value).apply()
     }
 
     /** The UI size (design roadmap D25). */
