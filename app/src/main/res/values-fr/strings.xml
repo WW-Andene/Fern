@@ -1046,4 +1046,6 @@
     <string name="tips_practice">Page d’entraînement</string>
     <string name="tips_practice_name">Entraînement</string>
     <string name="tips_practice_ready">Une page d’entraînement : essayez tout, votre travail n’est pas touché.</string>
+    <string name="job_exporting">Export en cours…</string>
+    <string name="job_cancelled">Export annulé</string>
 </resources>

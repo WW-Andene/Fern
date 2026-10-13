@@ -1043,4 +1043,6 @@
     <string name="tips_practice">Practice page</string>
     <string name="tips_practice_name">Practice</string>
     <string name="tips_practice_ready">A practice page: try anything, your work is untouched.</string>
+    <string name="job_exporting">Exporting…</string>
+    <string name="job_cancelled">Export cancelled</string>
 </resources>

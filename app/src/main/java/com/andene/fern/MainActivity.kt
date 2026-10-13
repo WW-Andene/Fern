@@ -193,6 +193,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -390,8 +391,9 @@ class MainActivity : ComponentActivity() {
 
                     // Renders off the main thread, then writes to the picked location; null bytes = empty document.
                     fun writeExport(uri: Uri, render: () -> ByteArray?) {
-                        coroutineScope.launch {
-                            val bytes = withContext(Dispatchers.Default) { render() }
+                        // Shown with Cancel while it runs (design roadmap D31); a cancelled export leaves no empty file behind.
+                        val job = coroutineScope.launch {
+                            val bytes = runInterruptible(Dispatchers.Default) { render() }
                             val message = if (bytes == null) {
                                 context.getString(R.string.toast_nothing_export)
                             } else {
@@ -401,6 +403,10 @@ class MainActivity : ComponentActivity() {
                                 context.getString(R.string.toast_exported)
                             }
                             FernMessages.show(message)
+                        }
+                        FernJobs.track(context.getString(R.string.job_exporting), job) {
+                            runCatching { android.provider.DocumentsContract.deleteDocument(context.contentResolver, uri) }
+                            FernMessages.show(context.getString(R.string.job_cancelled))
                         }
                     }
 
@@ -1345,6 +1351,12 @@ class MainActivity : ComponentActivity() {
                                     .padding(horizontal = railSide),
                             )
                             CanvasHaptics(canvasState)
+                            FernJobHost(
+                                Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(top = FernScale.s64),
+                            )
                             // Messages (design roadmap D6), opposite the toolbar and out from under the drawing hand.
                             FernMessageHost(
                                 Modifier

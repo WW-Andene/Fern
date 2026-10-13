@@ -292,9 +292,10 @@ Goal: nothing lost, nothing blocking, nothing to hunt for.
 - [~] D30. **Plain-language copy pass.** Short verbs on buttons, errors that say what to do,
   consistent terms (one name per concept across the app and both languages).
   Written, not yet compiled or tested: every error message (23, both languages) now says what to do next, naming the files Fern reads; English apostrophes made consistent. A full glossary pass over all ~1000 strings is D63.
-- [ ] D31. **Performance as UX.** Panels and menus open in under 100 ms, no layout shift on the
+- [~] D31. **Performance as UX.** Panels and menus open in under 100 ms, no layout shift on the
   canvas when a bar appears, and long jobs (exports, imports) run in the background with
   progress and cancel.
+  Written, not yet compiled or tested: exports already ran off the main thread; now each shows an "Exporting…" card with a progress bar and Cancel (`FernJobs`), and a cancelled export removes its empty file. Bars and panels float over a full-screen canvas, so none shifts the drawing when it appears. Opening times aren't measured yet (D70); progress is indeterminate (the exporters report no fraction).
 - [ ] D86. **No accidental loss of state.** Leaving a tool, closing a panel or rotating the phone
   never discards a half-done action (a text being typed, a Bézier path, a selection); it's kept
   or finished.
