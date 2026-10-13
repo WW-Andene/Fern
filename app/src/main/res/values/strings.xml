@@ -863,6 +863,10 @@
     <string name="otf_fractions">Fractions</string>
     <string name="tb_text_on_path">Text along the selected line</string>
     <string name="transform_title">Position, size and rotation</string>
+    <string name="handle_x">X</string>
+    <string name="handle_y">Y</string>
+    <string name="handle_turn">Turn</string>
+    <string name="handle_entry_title">Type the value</string>
     <string name="inspector_title">Selection</string>
     <string name="inspector_style">Style</string>
     <string name="inspector_size">Size: %1$s × %2$s</string>

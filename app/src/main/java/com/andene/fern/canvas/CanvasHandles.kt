@@ -1,10 +1,12 @@
 package com.andene.fern.canvas
 
+import androidx.annotation.StringRes
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStyle
+import com.andene.fern.R
 
 /*
  * On-canvas handles (roadmap item 171): one way to show, hit-test and drag the points a finger
@@ -22,16 +24,43 @@ enum class HandleShape { ROUND, SQUARE }
  * A point on the canvas a finger can grab and drag. [press] gets the world point pressed,
  * [drag] each new one, [release] the lift. [screenOffset] places it that many screen pixels from
  * [position] - for a handle that sits beside what it moves, like the selection's rotate handle -
- * whatever the zoom.
+ * whatever the zoom. [live] is where it is now (it moves while dragged; [position] is where it
+ * was when listed). [value] is what it sets when that isn't simply its position (roadmap item
+ * 172): shown beside it while dragged, and typed in when it's held.
  */
 class CanvasHandle(
     val position: WorldPoint,
     val shape: HandleShape = HandleShape.ROUND,
     val screenOffset: Offset = Offset.Zero,
+    val live: () -> WorldPoint = { position },
+    val value: HandleValue? = null,
     val press: (WorldPoint) -> Unit = {},
     val drag: (WorldPoint) -> Unit,
     val release: () -> Unit = {},
 )
+
+/** One number a handle sets: its name, its current value (read live) and its unit. */
+class HandleField(@StringRes val label: Int, val read: () -> Double, val unit: String)
+
+/** The numbers a handle sets (roadmap item 172), and how typed ones are applied, in the fields' order. */
+class HandleValue(val fields: List<HandleField>, val apply: (List<Double>) -> Unit)
+
+/**
+ * What [this] handle sets: its own [CanvasHandle.value], or else its position, X and Y in the
+ * drawing's unit ([scale]), applied by dragging it there - press, one drag, release - so a typed
+ * position does exactly what a drag to it would.
+ */
+internal fun CanvasHandle.typedValue(scale: DrawingScale?): HandleValue = value ?: HandleValue(
+    listOf(
+        HandleField(R.string.handle_x, { live().x * scale.factor }, scale.symbol),
+        HandleField(R.string.handle_y, { live().y * scale.factor }, scale.symbol),
+    ),
+) { (x, y) ->
+    val from = live()
+    press(from)
+    drag(WorldPoint(x / scale.factor, y / scale.factor))
+    release()
+}
 
 /**
  * The handle a press at [screen] grabs: the nearest of [handles] within [radiusPx] (half a 48 dp
@@ -43,8 +72,8 @@ internal fun handleAt(handles: List<CanvasHandle>, screen: Offset, toScreen: (Wo
         .minByOrNull { (_, distance) -> distance }
         ?.first
 
-/** A handle being dragged, as the gesture the canvas runs instead of the tool's. */
-internal class HandleGesture(private val handle: CanvasHandle, pressedAt: WorldPoint) : ToolGesture {
+/** A handle being dragged, as the gesture the canvas runs instead of the tool's; [handle] shows its value meanwhile. */
+internal class HandleGesture(val handle: CanvasHandle, pressedAt: WorldPoint) : ToolGesture {
     init {
         handle.press(pressedAt)
     }

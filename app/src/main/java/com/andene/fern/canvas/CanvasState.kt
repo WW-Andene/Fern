@@ -4459,13 +4459,22 @@ class CanvasState(
     fun canvasHandles(): List<CanvasHandle> = buildList {
         // Vanishing points are guides too (roadmap item 344); the pen moves them as well, on a locked layer too.
         if (perspectiveMode != PerspectiveMode.OFF && (editingGuides || activeTool == Tool.PEN)) {
-            for (i in vanishingPoints.indices) add(CanvasHandle(vanishingPoints[i], drag = { if (i in vanishingPoints.indices) vanishingPoints[i] = it }))
+            for (i in vanishingPoints.indices) {
+                add(CanvasHandle(vanishingPoints[i], live = { vanishingPoints.getOrElse(i) { WorldPoint.Zero } }, drag = { if (i in vanishingPoints.indices) vanishingPoints[i] = it }))
+            }
         }
         if (editingGuides) {
             for (guide in drawingGuides) {
                 if (!guide.visible) continue
                 for (k in guide.handles.indices) {
-                    add(CanvasHandle(guide.handles[k], drag = { moveGuideHandle(guide.id, k, it) }, release = { onDrawingGuidesChanged(drawingGuides.toList()) }))
+                    add(
+                        CanvasHandle(
+                            guide.handles[k],
+                            live = { drawingGuides.firstOrNull { it.id == guide.id }?.handles?.getOrNull(k) ?: guide.handles[k] },
+                            drag = { moveGuideHandle(guide.id, k, it) },
+                            release = { onDrawingGuidesChanged(drawingGuides.toList()) },
+                        ),
+                    )
                 }
             }
             return@buildList
@@ -4474,18 +4483,53 @@ class CanvasState(
         val editing = nodeEditStroke
         when {
             meshWarping && meshMatchesSelection() -> for (k in meshNodes.indices) {
-                add(CanvasHandle(meshNodes[k], press = { pressMeshNode(k, it) }, drag = ::dragMeshNode, release = ::releaseMeshNode))
+                add(CanvasHandle(meshNodes[k], live = { meshNodes.getOrElse(k) { WorldPoint.Zero } }, press = { pressMeshNode(k, it) }, drag = ::dragMeshNode, release = ::releaseMeshNode))
             }
             editing != null -> {
                 val nodes = editNodeIndices(editing.points.size)
                 for (k in nodes.indices) {
-                    add(CanvasHandle(editing.points[nodes[k]], HandleShape.SQUARE, press = { pressEditNode(editing, k, it) }, drag = { dragEditNode(editing, it) }, release = ::releaseEditNode))
+                    add(
+                        CanvasHandle(
+                            editing.points[nodes[k]], HandleShape.SQUARE,
+                            // Reading the revision lets a readout follow the drag (the points aren't snapshot state).
+                            live = { editing.revision; editing.points.getOrElse(nodes[k]) { WorldPoint.Zero } },
+                            press = { pressEditNode(editing, k, it) }, drag = { dragEditNode(editing, it) }, release = ::releaseEditNode,
+                        ),
+                    )
                 }
             }
             else -> selectionBounds()?.let { (min, max) ->
-                add(CanvasHandle(max, press = ::beginScaleSelection, drag = ::continueScaleSelection, release = ::endScaleSelection))
-                // Above the top edge's middle, the same distance on screen whatever the zoom.
-                add(CanvasHandle(WorldPoint((min.x + max.x) / 2, min.y), screenOffset = Offset(0f, -ROTATE_HANDLE_OFFSET_SCREEN), press = ::beginRotateSelection, drag = ::continueRotateSelection, release = ::endRotateSelection))
+                val k = drawingScale.factor
+                val unit = drawingScale.symbol
+                // Reading each stroke's revision lets a readout follow the drag (the points aren't snapshot state).
+                fun bounds(): Pair<WorldPoint, WorldPoint> {
+                    for (stroke in selection) stroke.revision
+                    return selectionBounds() ?: (min to max)
+                }
+                // The scale handle sets the size, keeping the top-left corner where it is.
+                val size = HandleValue(
+                    listOf(
+                        HandleField(R.string.transform_width, { bounds().let { (a, b) -> (b.x - a.x) * k } }, unit),
+                        HandleField(R.string.transform_height, { bounds().let { (a, b) -> (b.y - a.y) * k } }, unit),
+                    ),
+                ) { (width, height) ->
+                    val (a, _) = bounds()
+                    transformSelection(a.x, a.y, width / k, height / k, 0.0)
+                }
+                add(CanvasHandle(max, live = { bounds().second }, value = size, press = ::beginScaleSelection, drag = ::continueScaleSelection, release = ::endScaleSelection))
+                // The rotate handle, above the top edge's middle the same distance on screen whatever
+                // the zoom, sets a turn in degrees (shown while turning; typed, it turns that much).
+                val turn = HandleValue(listOf(HandleField(R.string.handle_turn, { selectionTurnDegrees }, "°"))) { (degrees) ->
+                    val (a, b) = bounds()
+                    transformSelection(a.x, a.y, b.x - a.x, b.y - a.y, degrees)
+                }
+                add(
+                    CanvasHandle(
+                        WorldPoint((min.x + max.x) / 2, min.y), screenOffset = Offset(0f, -ROTATE_HANDLE_OFFSET_SCREEN),
+                        live = { bounds().let { (a, b) -> WorldPoint((a.x + b.x) / 2, a.y) } }, value = turn,
+                        press = ::beginRotateSelection, drag = ::continueRotateSelection, release = ::endRotateSelection,
+                    ),
+                )
             }
         }
     }
@@ -5158,9 +5202,14 @@ class CanvasState(
         strokesChanged()
     }
 
+    /** How far the selection has been turned by its rotate handle so far, in degrees; 0 when it isn't being turned. */
+    var selectionTurnDegrees by mutableDoubleStateOf(0.0)
+        private set
+
     fun beginRotateSelection(worldPoint: WorldPoint) {
         val bounds = selectionBounds() ?: return
         recordHistory()
+        selectionTurnDegrees = 0.0
         val (min, max) = bounds
         gestureAnchor = WorldPoint((min.x + max.x) / 2.0, (min.y + max.y) / 2.0)
         gestureStartAngle = atan2(worldPoint.y - gestureAnchor.y, worldPoint.x - gestureAnchor.x)
@@ -5171,6 +5220,7 @@ class CanvasState(
         if (gestureSnapshot.isEmpty()) return
         val currentAngle = atan2(worldPoint.y - gestureAnchor.y, worldPoint.x - gestureAnchor.x)
         val delta = currentAngle - gestureStartAngle
+        selectionTurnDegrees = Math.toDegrees(normalizeAngle(delta))
         val cosDelta = cos(delta)
         val sinDelta = sin(delta)
         for ((stroke, originalPoints) in gestureSnapshot) {
@@ -5188,6 +5238,7 @@ class CanvasState(
     }
 
     fun endRotateSelection() {
+        selectionTurnDegrees = 0.0
         gestureSnapshot = emptyMap()
         strokesChanged()
     }

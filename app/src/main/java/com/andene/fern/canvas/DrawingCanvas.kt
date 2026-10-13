@@ -151,6 +151,9 @@ fun DrawingCanvas(
     var hoverPoint by remember { mutableStateOf<Offset?>(null) }
     // Whether a selection is being moved, scaled or turned: its place and size show beside it (design roadmap D37).
     var selectionReadout by remember { mutableStateOf(false) }
+    // The handle being dragged, for its readout, and the one held to type its value (roadmap item 172).
+    var draggedHandle by remember { mutableStateOf<CanvasHandle?>(null) }
+    var heldHandle by remember { mutableStateOf<CanvasHandle?>(null) }
     // Pinching or panning: the zoom and turn show at the top (design roadmap D38).
     var navigating by remember { mutableStateOf(false) }
     // The last two-finger tap's action and time, to spot a double tap.
@@ -304,6 +307,7 @@ fun DrawingCanvas(
                         toolGesture?.let { if (cancelled) it.cancel() else it.release() }
                         toolGesture = null
                         selectionReadout = false
+                        draggedHandle = null
                         toolBeforeStylusEraser?.let { state.activeTool = it }
                         toolBeforeStylusEraser = null
                     }
@@ -319,10 +323,12 @@ fun DrawingCanvas(
                             // Held still: whatever the first touch began (a dot) wasn't meant.
                             longPressArmed = false
                             longPressed = true
+                            // A handle held still opens its value to type (roadmap item 172) instead of the long-press action.
+                            val held = (toolGesture as? HandleGesture)?.handle
                             if (mode == Mode.DRAW) endActiveDrawAction()
                             state.discardActionsSince(historyDepthAtStart)
                             mode = Mode.NONE
-                            runGesture(gestures.getValue(CanvasGesture.LONG_PRESS), firstDown.position)
+                            if (held != null) heldHandle = held else runGesture(gestures.getValue(CanvasGesture.LONG_PRESS), firstDown.position)
                             continue
                         }
                         val allPressed = event.changes.filter { it.pressed }
@@ -378,10 +384,12 @@ fun DrawingCanvas(
                                 val downPos = state.unrotateScreen(pointers[0].position, screenCenter)
                                 val world = state.screenToWorld(downPos, screenCenter)
                                 val tool = state.activeTool
-                                selectionReadout = tool == Tool.SELECT
                                 // A handle under the finger takes the press before any tool (roadmap item 171).
                                 val handle = handleAt(state.canvasHandles(), downPos, { state.worldToScreen(it, screenCenter) }, HANDLE_HIT.toPx())
+                                // A dragged handle shows its own value (roadmap item 172); the select tool's readout is for the rest.
+                                selectionReadout = tool == Tool.SELECT && handle == null
                                 if (handle != null) {
+                                    draggedHandle = handle
                                     toolGesture = HandleGesture(handle, world)
                                 } else if (state.editingGuides) {
                                     // In guide edit mode a finger moves guides and nothing else; out of it guides never take a touch.
@@ -938,6 +946,23 @@ fun DrawingCanvas(
         gestureBadge?.let { (label, at, _) -> badge(label, at) }
     }
     // The selection's position and size while it's dragged (design roadmap D37), in the drawing's units.
+    draggedHandle?.let { handle ->
+        // Beside the handle, above it, in the scrim's colours like the selection's readout.
+        val label = handleReadout(handle.typedValue(state.drawingScale))
+        Canvas(Modifier.matchParentSize()) {
+            val screenCenter = Offset(size.width / 2f, size.height / 2f)
+            val layout = textMeasurer.measure(label, TextStyle(color = FernColors.current.onScrim, fontSize = FernType.caption))
+            val at = state.worldToScreen(handle.live(), screenCenter) + handle.screenOffset
+            val anchor = at - Offset(layout.size.width / 2f, layout.size.height + READOUT_GAP_PX * 2 + HANDLE_HIT.toPx())
+            drawRoundRect(FernColors.current.scrim, topLeft = anchor - Offset(READOUT_GAP_PX, READOUT_GAP_PX), size = Size(layout.size.width + READOUT_GAP_PX * 2, layout.size.height + READOUT_GAP_PX * 2), cornerRadius = androidx.compose.ui.geometry.CornerRadius(READOUT_GAP_PX))
+            drawText(layout, topLeft = anchor)
+        }
+    }
+    heldHandle?.let { handle ->
+        // Remembered per handle: the panel's fields belong to this one value until it closes.
+        val value = remember(handle) { handle.typedValue(state.drawingScale) }
+        HandleEntryPanel(value, onDismiss = { heldHandle = null })
+    }
     if (selectionReadout) state.selectionBounds()?.let { (min, max) ->
         Canvas(Modifier.matchParentSize()) {
             val screenCenter = Offset(size.width / 2f, size.height / 2f)
