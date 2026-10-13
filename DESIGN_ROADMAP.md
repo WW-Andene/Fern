@@ -261,8 +261,9 @@ Goal: every surface rearrangeable, layouts portable.
   stylus, keys, palm), Appearance (theme, density, UI size), Accessibility, Canvas, Files and
   colour management. Every setting can be reset on its own.
   Written, not yet compiled or tested: a search field (accent- and case-insensitive, either language's wording via the palette matcher) filters every row; sections Input, Appearance, Accessibility, Canvas, Files and colour management; each switch, gesture and shortcut shows a reset button while it differs from its default. Theme, density and UI size join Appearance with D25 and D60.
-- [ ] D25. **UI density and size.** Compact, comfortable or large, scaled on the §7 steps,
+- [~] D25. **UI density and size.** Compact, comfortable or large, scaled on the §7 steps,
   separate from the system font scale.
+  Written, not yet compiled or tested: Settings > Appearance > Interface size: Standard, Large (×1.25), Largest (×1.5, which keeps the §7 steps: 16→24, 32→48); it scales every dp while text still follows the system font size on top. No size below standard, so touch targets never shrink; a compact mode for experts is D90.
 - [ ] D83. **Per-workspace layouts.** Each workspace (D11) remembers its own rail, panels and quick
   menu; switching workspace brings them back.
 - [ ] D84. **Custom tool presets on the rail.** Save a tool with its settings as a named preset

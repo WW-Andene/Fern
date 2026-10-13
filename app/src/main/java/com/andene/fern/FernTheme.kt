@@ -6,6 +6,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.graphics.Color
 
 /**
@@ -40,7 +43,7 @@ val HighContrastDark: ColorScheme = darkColorScheme(
  * marks ([FernColors]) in standard, high-contrast or colour-blind-safe colours.
  */
 @Composable
-fun FernTheme(highContrast: Boolean, colorBlindSafe: Boolean = false, content: @Composable () -> Unit) {
+fun FernTheme(highContrast: Boolean, colorBlindSafe: Boolean = false, uiSize: UiSize = UiSize.STANDARD, content: @Composable () -> Unit) {
     FernColors.current = FernColors.roles(
         when {
             colorBlindSafe -> FernColorMode.COLOR_BLIND_SAFE
@@ -55,5 +58,20 @@ fun FernTheme(highContrast: Boolean, colorBlindSafe: Boolean = false, content: @
         dark -> darkColorScheme()
         else -> lightColorScheme()
     }
-    MaterialTheme(colorScheme = scheme, content = content)
+    // The UI size (design roadmap D25) scales every dp; text keeps following the system's own font size on top.
+    val density = LocalDensity.current
+    CompositionLocalProvider(LocalDensity provides Density(density.density * uiSize.factor, density.fontScale)) {
+        MaterialTheme(colorScheme = scheme, content = content)
+    }
+}
+
+/**
+ * How big the whole UI is drawn (design roadmap D25), separate from the system font size. The
+ * factors keep the §7 steps: at 1.5, 16 dp becomes 24 and 32 becomes 48. There is no size under
+ * standard, so a control is never smaller than its 48 dp touch target.
+ */
+enum class UiSize(val factor: Float, @androidx.annotation.StringRes val label: Int) {
+    STANDARD(1f, R.string.ui_size_standard),
+    LARGE(1.25f, R.string.ui_size_large),
+    LARGEST(1.5f, R.string.ui_size_largest),
 }

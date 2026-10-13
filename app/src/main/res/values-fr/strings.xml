@@ -1022,4 +1022,8 @@
     <string name="settings_section_canvas">Canevas</string>
     <string name="settings_section_files">Fichiers et gestion des couleurs</string>
     <string name="settings_reset">Réinitialiser %1$s</string>
+    <string name="ui_size_title">Taille de l’interface</string>
+    <string name="ui_size_standard">Standard</string>
+    <string name="ui_size_large">Grande</string>
+    <string name="ui_size_largest">Très grande</string>
 </resources>

@@ -47,6 +47,7 @@ private const val KEY_BRUSH_PRESETS = "brush_presets"
 private const val KEY_HIGH_CONTRAST = "high_contrast"
 private const val KEY_COLOR_BLIND_SAFE = "color_blind_safe"
 private const val KEY_HAPTICS = "haptics"
+private const val KEY_UI_SIZE = "ui_size"
 private const val KEY_HIDDEN_TOOLBAR_GROUPS = "hidden_toolbar_groups"
 private const val KEY_QUICK_MENU = "quick_menu_actions"
 
@@ -74,6 +75,14 @@ object AppSettings {
 
     fun setHighContrast(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_HIGH_CONTRAST, value).apply()
+    }
+
+    /** The UI size (design roadmap D25). */
+    fun uiSize(context: Context): com.andene.fern.UiSize =
+        prefs(context).getString(KEY_UI_SIZE, null)?.let { n -> com.andene.fern.UiSize.entries.firstOrNull { it.name == n } } ?: com.andene.fern.UiSize.STANDARD
+
+    fun setUiSize(context: Context, value: com.andene.fern.UiSize) {
+        prefs(context).edit().putString(KEY_UI_SIZE, value.name).apply()
     }
 
     /** Haptic feedback (design roadmap D7), on unless switched off. */
@@ -235,6 +244,8 @@ fun SettingsDialog(
     onColorBlindSafeChange: (Boolean) -> Unit,
     haptics: Boolean,
     onHapticsChange: (Boolean) -> Unit,
+    uiSize: com.andene.fern.UiSize = com.andene.fern.UiSize.STANDARD,
+    onUiSizeChange: (com.andene.fern.UiSize) -> Unit = {},
     snapToObjects: Boolean,
     onSnapToObjectsChange: (Boolean) -> Unit,
     onShowGuide: () -> Unit,
@@ -266,6 +277,14 @@ fun SettingsDialog(
                 SettingsSection(R.string.settings_section_appearance)
                 SwitchSetting(stringResource(R.string.settings_left_handed), leftHanded, false, ::shows, onLeftHandedChange)
                 SwitchSetting(stringResource(R.string.settings_toolbar_bottom), toolbarAtBottom, false, ::shows, onToolbarAtBottomChange)
+                if (shows(stringResource(R.string.ui_size_title))) {
+                    Text(stringResource(R.string.ui_size_title), modifier = Modifier.padding(top = FernScale.s8))
+                    Row {
+                        for (size in com.andene.fern.UiSize.entries) {
+                            androidx.compose.material3.FilterChip(selected = uiSize == size, onClick = { onUiSizeChange(size) }, label = { Text(stringResource(size.label)) }, modifier = Modifier.padding(end = FernScale.s8))
+                        }
+                    }
+                }
                 if (shows(stringResource(R.string.layout_title))) TextButton(onClick = onArrangeLayout) { Text(stringResource(R.string.layout_title)) }
                 // Accessibility.
                 SettingsSection(R.string.settings_section_accessibility)

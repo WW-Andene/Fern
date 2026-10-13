@@ -252,7 +252,8 @@ class MainActivity : ComponentActivity() {
             var highContrast by remember { mutableStateOf(AppSettings.highContrast(this)) }
             var colorBlindSafe by remember { mutableStateOf(AppSettings.colorBlindSafe(this)) }
             remember { FernHaptics.enabled = AppSettings.haptics(this) }
-            FernTheme(highContrast = highContrast, colorBlindSafe = colorBlindSafe) {
+            var uiSize by remember { mutableStateOf(AppSettings.uiSize(this)) }
+            FernTheme(highContrast = highContrast, colorBlindSafe = colorBlindSafe, uiSize = uiSize) {
                 Surface(color = Color(0xFFF7F5F0)) {
                     val context = LocalContext.current
                     val lifecycleOwner = LocalLifecycleOwner.current
@@ -1572,6 +1573,11 @@ class MainActivity : ComponentActivity() {
                             onColorBlindSafeChange = { value ->
                                 colorBlindSafe = value
                                 AppSettings.setColorBlindSafe(context, value)
+                            },
+                            uiSize = uiSize,
+                            onUiSizeChange = { value ->
+                                uiSize = value
+                                AppSettings.setUiSize(context, value)
                             },
                             haptics = FernHaptics.enabled,
                             onHapticsChange = { value ->

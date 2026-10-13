@@ -1019,4 +1019,8 @@
     <string name="settings_section_canvas">Canvas</string>
     <string name="settings_section_files">Files and colour management</string>
     <string name="settings_reset">Reset %1$s</string>
+    <string name="ui_size_title">Interface size</string>
+    <string name="ui_size_standard">Standard</string>
+    <string name="ui_size_large">Large</string>
+    <string name="ui_size_largest">Largest</string>
 </resources>
