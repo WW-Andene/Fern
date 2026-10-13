@@ -1,6 +1,8 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.ConfirmIrreversible
 import com.andene.fern.FernPanel
+import com.andene.fern.confirmationSkipped
 
 import com.andene.fern.FernMessages
 
@@ -112,6 +114,17 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
         }
     }
 
+    var confirmingDelete by remember { mutableStateOf<String?>(null) }
+    confirmingDelete?.let { id ->
+        ConfirmIrreversible(
+            CONFIRM_RASTER_DELETE, stringResource(R.string.confirm_raster_delete), stringResource(R.string.tb_delete),
+            onConfirm = {
+                state.deleteLayer(id)
+                confirmingDelete = null
+            },
+            onDismiss = { confirmingDelete = null },
+        )
+    }
     FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.layers_title)) },
@@ -208,7 +221,10 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                         IconButton(onClick = { state.mergeLayerDown(layer.id) }, enabled = layer != state.layers.first()) {
                             Icon(Icons.Filled.MergeType, contentDescription = stringResource(R.string.layers_merge))
                         }
-                        IconButton(onClick = { state.deleteLayer(layer.id) }, enabled = state.layers.size > 1) {
+                        IconButton(onClick = {
+                            // A raster layer's pixels don't come back with undo: ask first (design roadmap D26).
+                            if (layer.raster && !confirmationSkipped(context, CONFIRM_RASTER_DELETE)) confirmingDelete = layer.id else state.deleteLayer(layer.id)
+                        }, enabled = state.layers.size > 1) {
                             Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.layers_delete))
                         }
                     }
@@ -373,3 +389,5 @@ private fun HdrSection(state: CanvasState) {
     Text(stringResource(R.string.hdr_intensity, "%.1f".format(state.hdrIntensity)))
     Slider(value = state.hdrIntensity, onValueChange = { state.hdrIntensity = it }, valueRange = 1f..16f)
 }
+
+private const val CONFIRM_RASTER_DELETE = "delete_raster_layer"

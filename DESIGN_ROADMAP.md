@@ -275,9 +275,10 @@ Goal: every surface rearrangeable, layouts portable.
 
 Goal: nothing lost, nothing blocking, nothing to hunt for.
 
-- [ ] D26. **Everything undoable, or warned about.** Bring frames, layers, objects and resizing
+- [~] D26. **Everything undoable, or warned about.** Bring frames, layers, objects and resizing
   into undo. Until then, ask once before a destructive action that can't be undone, with "Don't
   ask again".
+  Written, not yet compiled or tested: frames, layers, game objects and game settings are now in each undo step, so deleting a frame, a layer (and its strokes) or an object, and resizing a frame, undo in one step. Deleting a raster layer still loses its pixels on undo, so it asks first (`ConfirmIrreversible`, with "Don't ask again").
 - [ ] D27. **Live preview** for every adjustment (blend, filters, fill, brush edits, transforms)
   on the canvas itself, with Apply and Cancel inline.
 - [ ] D28. **Empty states and inline hints.** An empty layers panel or object list explains

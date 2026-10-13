@@ -1023,4 +1023,6 @@
     <string name="ui_size_standard">Standard</string>
     <string name="ui_size_large">Large</string>
     <string name="ui_size_largest">Largest</string>
+    <string name="confirm_dont_ask">Don’t ask again</string>
+    <string name="confirm_raster_delete">Delete this painted layer? Undo brings the layer back but not its pixels.</string>
 </resources>

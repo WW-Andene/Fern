@@ -557,7 +557,9 @@ class CanvasState(
 
     /** Turns object [id] back into a plain drawing; its strokes stay (still grouped). Its links go with it. */
     fun removeObject(id: String) {
-        if (!gameObjects.removeWhere { it.id == id }) return
+        if (gameObjects.none { it.id == id }) return
+        recordHistory()
+        gameObjects.removeWhere { it.id == id }
         gameSettings = gameSettings.copy(links = gameSettings.links.filter { it.from != id && it.to != id })
         onGameObjectsChanged(gameObjects.toList(), gameSettings)
     }
@@ -1909,6 +1911,8 @@ class CanvasState(
     }
 
     fun deleteFrame(id: String) {
+        if (frames.none { it.id == id }) return
+        recordHistory()
         frames.removeWhere { it.id == id }
         onFramesChanged(frames.toList())
     }
@@ -1917,14 +1921,15 @@ class CanvasState(
      * Resizes frame [id] to [width] x [height] world units, its top-left corner staying put
      * (roadmap item 144). The strokes on it - visible ones whose bounds' centre lies in the old
      * frame - follow their [Stroke.constraints] (unconstrained ones stay pinned top-left, so they
-     * don't move); a group's members follow within the whole group's bounds. Their change is one undo step; the frame's size, like every frame edit, isn't
-     * part of the undo history, so resizing back is how to restore it.
+     * don't move); a group's members follow within the whole group's bounds. The new size and the
+     * strokes' moves are one undo step.
      */
     fun resizeFrame(id: String, width: Double, height: Double) {
         val index = frames.indexOfFirst { it.id == id }
         if (index == -1 || width <= 0 || height <= 0 || !width.isFinite() || !height.isFinite()) return
         val old = frames[index]
         val resized = old.copy(max = WorldPoint(old.min.x + width, old.min.y + height))
+        recordHistory() // the frame's new size, and its strokes' moves, are one step (design roadmap D26)
         val inside = strokes.filter { stroke ->
             val cx = (stroke.minX + stroke.maxX) / 2
             val cy = (stroke.minY + stroke.maxY) / 2
@@ -1932,7 +1937,6 @@ class CanvasState(
                 stroke.constraints.let { it != null && it != LayoutConstraints() }
         }
         if (inside.isNotEmpty()) {
-            recordHistory()
             // A group follows as one object: its members stretch or scale within the group's bounds.
             val groupBounds = inside.filter { it.groupId != null }.groupBy { it.groupId }.mapValues { (_, members) ->
                 listOf(members.minOf { it.minX }, members.minOf { it.minY }, members.maxOf { it.maxX }, members.maxOf { it.maxY })
@@ -3146,6 +3150,11 @@ class CanvasState(
         val connectors: List<Connector>? = null,
         var bones: List<Bone>? = null,
         val holds: Map<Int, Int>? = null,
+        // Frames, layers and game objects are part of undo too (design roadmap D26).
+        var frames: List<Frame>? = null,
+        var layers: List<Layer>? = null,
+        var objects: List<GameObject>? = null,
+        var game: GameSettings? = null,
     ) {
         val log = Stroke.MutationLog()
 
@@ -3438,7 +3447,12 @@ class CanvasState(
     private val undoStack = ArrayDeque<HistoryEntry>()
     private val redoStack = ArrayDeque<HistoryEntry>()
 
-    private fun currentEntry() = HistoryEntry.of(strokes.toList(), imageItems.toList(), textItems.toList(), connectors.toList(), bones.toList(), frameHolds.toMap())
+    private fun currentEntry() = HistoryEntry.of(strokes.toList(), imageItems.toList(), textItems.toList(), connectors.toList(), bones.toList(), frameHolds.toMap()).also {
+        it.frames = frames.toList()
+        it.layers = layers.toList()
+        it.objects = gameObjects.toList()
+        it.game = gameSettings
+    }
 
     /** Called at the start of every stroke-changing action; also invalidates redo, standard editor semantics. */
     private fun recordHistory() {
@@ -3516,6 +3530,25 @@ class CanvasState(
             frameHolds.clear()
             frameHolds.putAll(savedHolds)
             onAnimationSettingsChanged(animationSettings())
+        }
+        entry.frames?.takeIf { it != frames.toList() }?.let { saved ->
+            frames.clear()
+            frames.addAll(saved)
+            onFramesChanged(frames.toList())
+        }
+        entry.layers?.takeIf { it != layers.toList() }?.let { saved ->
+            layers.clear()
+            layers.addAll(saved)
+            if (layers.none { it.id == activeLayerId }) activeLayerId = layers.last().id
+            onLayersChanged(layers.toList())
+        }
+        val savedObjects = entry.objects
+        val savedGame = entry.game
+        if (savedObjects != null && savedGame != null && (savedObjects != gameObjects.toList() || savedGame != gameSettings)) {
+            gameObjects.clear()
+            gameObjects.addAll(savedObjects)
+            gameSettings = savedGame
+            onGameObjectsChanged(gameObjects.toList(), gameSettings)
         }
         val savedBones = entry.bones
         if (savedBones != null && savedBones != bones.toList()) {
