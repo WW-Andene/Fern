@@ -513,7 +513,8 @@ Rigging fast and reusable.
 
 Rigs leave and come back without loss. Today export bakes each bone's ink into one image and import keeps only rotation and translation.
 
-- [ ] 305. Spine export with slots, attachments, meshes, weights, skins, constraints, events, draw order and colour timelines, and a packed atlas.
+- [~] 305. Spine export with slots, attachments, meshes, weights, skins, constraints, events, draw order and colour timelines, and a packed atlas.
+  Done: the new rig exports as Spine JSON 4.1 (`SpineRigExport.kt`): bones with position, rotation, length, scale, shear and inherit; slots in draw order; each attached drawing as an image with a weighted mesh, so it bends in Spine as in Fern; every animation's rotate, translate, scale and shear keys with linear, stepped or Bezier curves. Left: skins, constraints, events, draw-order and colour timelines, and a packed atlas.
 - [ ] 306. Spine import of all of the above (JSON 3.8 and 4.x).
 - [ ] 307. Spine binary (`.skel`) export; export settings (scale, nonessential data, pretty JSON, chosen animations).
 - [ ] 308. DragonBones export and import at the same level.

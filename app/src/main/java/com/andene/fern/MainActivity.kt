@@ -131,6 +131,7 @@ import com.andene.fern.canvas.DocumentLoadingOverlay
 import com.andene.fern.canvas.PressureCurves
 import com.andene.fern.canvas.PaletteStore
 import com.andene.fern.canvas.RigStorage
+import com.andene.fern.canvas.exportSpineRig
 import com.andene.fern.canvas.LoadedDocument
 import com.andene.fern.canvas.LinkChoices
 import com.andene.fern.canvas.LinkTarget
@@ -570,7 +571,12 @@ class MainActivity : ComponentActivity() {
                     val spineExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("application/zip"),
                     ) { uri ->
-                        if (uri != null) writeExport(uri) { exportSpine(canvasState, textMeasurer, density, imageForExport) }
+                        if (uri != null) writeExport(uri) {
+                            // The Spine-model rig when there is one (roadmap item 305); the frame-by-frame bones otherwise.
+                            val rig = canvasState.rigEditor.rig
+                            if (rig.bones.isNotEmpty()) exportSpineRig(canvasState, rig, canvasState.animFps, textMeasurer, density, imageForExport)
+                            else exportSpine(canvasState, textMeasurer, density, imageForExport)
+                        }
                     }
                     val dragonBonesExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("application/zip"),

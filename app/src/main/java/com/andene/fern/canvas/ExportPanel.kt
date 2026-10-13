@@ -72,7 +72,8 @@ enum class ExportFormat(
     REPLAY_MP4(ExportPurpose.ANIMATION, R.string.tb_export_replay_mp4),
     SPRITE_SHEET(ExportPurpose.GAME, R.string.tb_export_sprites, recommended = true, available = { it.animFrameCount > 1 }),
     SPRITE_ATLAS(ExportPurpose.GAME, R.string.tb_export_sprite_atlas, available = { it.animFrameCount > 1 }),
-    SPINE(ExportPurpose.GAME, R.string.tb_export_spine, available = { it.animFrameCount > 1 && it.bones.isNotEmpty() }),
+    // The Spine-model rig exports from its setup pose, so it needs bones but no animation frames.
+    SPINE(ExportPurpose.GAME, R.string.tb_export_spine, available = { it.rigEditor.rig.bones.isNotEmpty() || (it.animFrameCount > 1 && it.bones.isNotEmpty()) }),
     DRAGON_BONES(ExportPurpose.GAME, R.string.tb_export_dragonbones, available = { it.animFrameCount > 1 && it.bones.isNotEmpty() }),
 }
 
