@@ -254,7 +254,7 @@ Switching, adjusting and arranging without looking. Builds on Phases 1 and 2.
 - [~] D38. **Visible gesture feedback.** A short ghost of the undone stroke on a two-finger undo,
   the zoom percentage and rotation angle while pinching, snapping back to 0° and 100 % with a
   haptic tick.
-  Written, not yet compiled or tested: while pinching or panning, the zoom % and turn in degrees show at the top; an undo or redo by tap shows a brief "Undo"/"Redo" badge where the fingers were; the turn snapping back level ticks, as zoom passing 100 % already did (D7). A ghost of the undone stroke itself isn't drawn: the badge stands in for it.
+  Written, not yet compiled or tested: while pinching or panning, the zoom % and turn in degrees show at the top; an undo or redo by tap shows a brief "Undo"/"Redo" badge where the fingers were; the turn snapping back level ticks, as zoom passing 100 % already did (D7). And what the undo took away fades out where it was, as a ghost of the stroke in its own colour (with animations off it's gone at once).
 - [~] D39. **Selection that explains itself.** Handles sized for fingers (48 dp hit area), a
   floating action strip beside the selection (move, transform, style, duplicate, delete, make
   object) instead of the toolbar, and the count of what's selected.

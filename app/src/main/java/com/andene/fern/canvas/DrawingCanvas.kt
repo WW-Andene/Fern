@@ -12,6 +12,9 @@ import android.graphics.BitmapFactory
 import android.view.MotionEvent
 import android.view.SurfaceView
 import androidx.compose.foundation.layout.Box
+import com.andene.fern.FernMotion
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Animatable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.foundation.layout.mandatorySystemGestures
@@ -185,6 +188,16 @@ fun DrawingCanvas(
     var lastTwoFingerTap by remember { mutableStateOf(GestureAction.NONE to 0L) }
     // What a tap gesture did, where and when, shown briefly (design roadmap D38).
     var gestureBadge by remember { mutableStateOf<Triple<String, Offset, Long>?>(null) }
+    // The strokes a gesture's undo just took away, fading out where they were (design roadmap D38).
+    var undoGhost by remember { mutableStateOf<List<Stroke>>(emptyList()) }
+    val undoGhostAlpha = remember { Animatable(0f) }
+    LaunchedEffect(undoGhost) {
+        if (undoGhost.isEmpty()) return@LaunchedEffect
+        // Compose follows the system's animation scale: with animations off it's gone at once (D5).
+        undoGhostAlpha.snapTo(UNDO_GHOST_ALPHA)
+        undoGhostAlpha.animateTo(0f, tween(FernMotion.LONG))
+        undoGhost = emptyList()
+    }
     gestureBadge?.let { badge ->
         LaunchedEffect(badge) {
             delay(GESTURE_BADGE_MILLIS)
@@ -305,7 +318,14 @@ fun DrawingCanvas(
                     fun runGesture(action: GestureAction, at: Offset) {
                         // A badge where the fingers tapped says what happened (design roadmap D38).
                         if (action == GestureAction.UNDO || action == GestureAction.REDO) gestureBadge = Triple(context.getString(action.label), at, SystemClock.uptimeMillis())
+                        val before = if (action == GestureAction.UNDO) state.strokes.toList() else emptyList()
                         state.runGestureAction(action, state.screenToWorld(state.unrotateScreen(at, screenCenter), screenCenter), onGestureAction)
+                        // And what an undo took away fades out where it was (D38). Undo restores the earlier
+                        // stroke list itself, so the strokes no longer in it are exactly the ones undone.
+                        if (before.isNotEmpty()) {
+                            val now = state.strokes.toList()
+                            undoGhost = before.filter { b -> now.none { it === b } }
+                        }
                     }
 
                     var mode = Mode.NONE
@@ -966,6 +986,17 @@ fun DrawingCanvas(
             }
             drawHandles(handles, { state.worldToScreen(it, screenCenter) }, HANDLE_COLOR)
             if (state.activeTool == Tool.RIG) drawRig(state, screenCenter)
+        }
+    }
+    if (undoGhost.isNotEmpty()) Canvas(Modifier.matchParentSize()) {
+        val screenCenter = Offset(size.width / 2f, size.height / 2f)
+        val alpha = undoGhostAlpha.value
+        for (stroke in undoGhost) {
+            val points = stroke.points.map { state.worldToScreen(it, screenCenter) }
+            val width = (stroke.widthWorld * state.scale).toFloat().coerceAtLeast(1f)
+            val color = stroke.color.copy(alpha = stroke.color.alpha * alpha)
+            if (points.size == 1) drawCircle(color, radius = width / 2, center = points[0])
+            for (i in 1 until points.size) drawLine(color, points[i - 1], points[i], strokeWidth = width, cap = StrokeCap.Round)
         }
     }
     if (navigating || gestureBadge != null) Canvas(Modifier.matchParentSize()) {
@@ -1819,6 +1850,8 @@ private const val PALM_NEAR_MILLIS = 1024L
 private const val READOUT_GAP_PX = 4f
 // How strongly a stamp brush's hover ghost shows: enough to read the tip, not to hide the drawing.
 private const val STAMP_GHOST_ALPHA = 0.4f
+// How strongly an undone stroke's ghost starts, before it fades (design roadmap D38).
+private const val UNDO_GHOST_ALPHA = 0.6f
 // Two two-finger taps this close together are a double tap.
 private const val DOUBLE_TAP_MILLIS = 384L
 // How long a gesture's badge shows, and where the zoom readout sits below the top edge.
