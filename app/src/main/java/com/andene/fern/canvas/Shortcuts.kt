@@ -74,6 +74,7 @@ enum class ShortcutAction(@StringRes val label: Int, val default: KeyCombo, val 
     ZOOM_OUT(R.string.shortcut_zoom_out, KeyCombo(KeyEvent.KEYCODE_MINUS, ctrl = true)),
     FIT(R.string.gesture_action_fit, KeyCombo(KeyEvent.KEYCODE_0)),
     PALETTE(R.string.palette_title, KeyCombo(KeyEvent.KEYCODE_K, ctrl = true)),
+    QUICK_MENU(R.string.quick_menu, KeyCombo(KeyEvent.KEYCODE_Q)),
     TOGGLE_CHROME(R.string.gesture_action_toggle_chrome, KeyCombo(KeyEvent.KEYCODE_TAB)),
 }
 

@@ -1102,6 +1102,7 @@ class MainActivity : ComponentActivity() {
                                     ShortcutAction.ZOOM_OUT -> canvasState.zoomAround(center, center, 1 / ZOOM_STEP)
                                     ShortcutAction.FIT -> canvasState.zoomToFit()
                                     ShortcutAction.PALETTE -> CommandPaletteState.open = true
+                                    ShortcutAction.QUICK_MENU -> showQuickMenu = true
                                     ShortcutAction.TOGGLE_CHROME -> chromeHidden = !chromeHidden
                                     else -> return@onPreviewKeyEvent false
                                 }
@@ -1370,6 +1371,8 @@ class MainActivity : ComponentActivity() {
                             )
                             QuickMenuButton(
                                 onOpen = { showQuickMenu = true },
+                                state = canvasState,
+                                actions = quickMenuActions,
                                 modifier = Modifier
                                     // Same side as the minimap, mid-height: in reach of the free hand's thumb.
                                     .align(if (leftHanded) AbsoluteAlignment.CenterRight else AbsoluteAlignment.CenterLeft)

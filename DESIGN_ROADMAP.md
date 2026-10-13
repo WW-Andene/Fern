@@ -235,8 +235,9 @@ Goal: switching tools and adjusting without looking or opening anything.
   harmonies) that expands in place to the full picker. "Change everywhere" becomes a visible
   action, not a hidden long-press.
   Written, not yet compiled or tested: `ColorStrip.kt` in the properties bar for pen, shape, Bézier and fill: current colour (tap: the full picker as a live, non-blocking panel), saved, recent, five harmonies, the palette. While the current colour is a saved one, "Change everywhere" and "Remove" show as buttons. The toolbar's separate colour rows and button are gone.
-- [ ] D21. **The quick menu becomes a radial menu** that opens from any gesture, key or button,
+- [~] D21. **The quick menu becomes a radial menu** that opens from any gesture, key or button,
   holds any action, and supports flick selection without looking.
+  Written, not yet compiled or tested: the ring opens from its button, a gesture (D15), the stylus button or Q (D18); it can hold any tool, pen/eraser swap and brush size besides the earlier actions; a flick from the button toward an action runs it on release without showing the ring, ticking as each comes under the thumb.
 - [ ] D80. **Last-tool toggle.** One tap (or gesture) swaps between the current and the previous
   tool, with each keeping its own size, colour and settings.
 - [ ] D81. **Per-tool memory.** Every tool remembers its last size, opacity, colour and options;
