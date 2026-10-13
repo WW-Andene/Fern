@@ -265,7 +265,8 @@ Guides as professional tools have them: placed, locked and drawn along, many kin
 
 - [~] 342. **Ruler kinds.** Straight ruler, curve ruler (drawn as a Bézier), ellipse and circle, parallel lines, concentric (radial) circles, radiating lines from a point, polyline, and a guide grid.
   Done: straight ruler, parallel lines, radiating lines, concentric circles and ellipse (`Guides.kt`). Left: curve ruler, polyline and a guide grid.
-- [ ] 344. **Perspective rebuilt.** 1, 2 and 3-point grids drawn on the canvas with a horizon line, vanishing points dragged as handles (including far off the page), grid density, and the pen snapping to the nearest perspective direction. Today there are 1 and 2 points with no grid.
+- [~] 344. **Perspective rebuilt.** 1, 2 and 3-point grids drawn on the canvas with a horizon line, vanishing points dragged as handles (including far off the page), grid density, and the pen snapping to the nearest perspective direction. Today there are 1 and 2 points with no grid.
+  Done: three-point perspective; the horizon through the first two points; vanishing points dragged in guide edit mode as well as with the pen; perspective works alongside the guides. Left: grid density, and reaching points far off the page without zooming out.
 - [ ] 345. **Curvilinear perspective.** 4, 5 and 6-point (fisheye) grids for wide-angle scenes.
 - [ ] 346. **Perspective tools.** Shapes, text and pasted images placed onto a perspective plane; isometric and dimetric grids joined into the same system.
 - [ ] 185. Ruler and Measure merged: a measurement pinned as a dimension line in real-world units; angle (three points), area and perimeter; copy a measurement into a text label.

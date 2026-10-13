@@ -13,11 +13,14 @@ import kotlin.math.hypot
  *   corridor seen head-on).
  * - [TWO_POINT]: lines toward either of two vanishing points on the horizon, plus verticals
  *   (a building seen from a corner).
+ * - [THREE_POINT]: two vanishing points on the horizon and a third above or below it, so
+ *   verticals converge too (a tower seen from the ground, a street from above; roadmap item 344).
  */
 enum class PerspectiveMode(@StringRes val label: Int, val pointCount: Int) {
     OFF(R.string.perspective_off, 0),
     ONE_POINT(R.string.perspective_one, 1),
     TWO_POINT(R.string.perspective_two, 2),
+    THREE_POINT(R.string.perspective_three, 3),
 }
 
 /**
@@ -35,7 +38,8 @@ fun perspectiveDirections(mode: PerspectiveMode, vanishingPoints: List<WorldPoin
         val length = hypot(dx, dy)
         if (length > 1e-9) directions.add(WorldPoint(dx / length, dy / length))
     }
-    directions.add(WorldPoint(0.0, 1.0))
+    // In three-point perspective verticals recede to the third point, so there is no plain vertical.
+    if (mode != PerspectiveMode.THREE_POINT) directions.add(WorldPoint(0.0, 1.0))
     if (mode == PerspectiveMode.ONE_POINT) directions.add(WorldPoint(1.0, 0.0))
     return directions
 }

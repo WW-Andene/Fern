@@ -1269,7 +1269,7 @@ fun Toolbar(
                                     for (kind in GuideKind.entries) {
                                         LabelledIconButton(onClick = { state.addGuide(kind) }, icon = guideKindIcon(kind), label = stringResource(kind.label))
                                     }
-                                    if (state.drawingGuides.isNotEmpty()) {
+                                    if (state.drawingGuides.isNotEmpty() || state.perspectiveMode != PerspectiveMode.OFF) {
                                         LabelledIconButton(
                                             onClick = { state.editingGuides = !state.editingGuides },
                                             icon = Icons.Filled.Edit,

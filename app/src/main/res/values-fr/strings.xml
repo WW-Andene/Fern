@@ -1102,4 +1102,5 @@
     <string name="guide_snapping">Aimanter aux guides</string>
     <string name="guide_list">Guides sur la page</string>
     <string name="guide_remove">Retirer %1$s</string>
+    <string name="perspective_three">Perspective à trois points</string>
 </resources>

@@ -676,8 +676,8 @@ fun DrawingCanvas(
                 val reach = hypot(size.width, size.height) * 2f
                 val points = state.vanishingPoints.map { state.worldToScreen(it, screenCenter) }
                 val horizonY = points.first().y
-                if (points.size == 2) {
-                    // The horizon is the line through both points, extended across the screen.
+                if (points.size >= 2) {
+                    // The horizon is the line through the first two points, extended across the screen.
                     val d = points[1] - points[0]
                     val unit = d / d.getDistance().coerceAtLeast(1e-3f)
                     drawLine(PERSPECTIVE_HORIZON_COLOR, points[0] - unit * reach, points[0] + unit * reach, strokeWidth = 2f)

@@ -251,6 +251,9 @@ class CanvasState(
         // A new guide's size across, in screen pixels (a §7 primary), converted to world units.
         private const val GUIDE_DEFAULT_SIZE_SCREEN = 512.0
 
+        // Stands in for a guide id while a vanishing point is dragged in guide edit mode.
+        private const val VANISHING_POINT_GUIDE = "vanishing point"
+
         // A straight guide or ellipse catches strokes starting this close to it (screen px).
         private const val GUIDE_REACH_SCREEN = 48.0
     }
@@ -3712,9 +3715,11 @@ class CanvasState(
             val halfSpread = (viewportSize.width.takeIf { it > 0f } ?: DEFAULT_VIEW_WIDTH_SCREEN) * 0.4 / scale.coerceAtLeast(1e-300)
             when (mode.pointCount) {
                 1 -> vanishingPoints.add(panWorld)
-                2 -> {
+                2, 3 -> {
                     vanishingPoints.add(WorldPoint(panWorld.x - halfSpread, panWorld.y))
                     vanishingPoints.add(WorldPoint(panWorld.x + halfSpread, panWorld.y))
+                    // The third point below the horizon, as far below as the others are apart: a tower seen from above.
+                    if (mode.pointCount == 3) vanishingPoints.add(WorldPoint(panWorld.x, panWorld.y + halfSpread * 2))
                 }
             }
         }
@@ -4470,6 +4475,15 @@ class CanvasState(
      */
     fun beginGuideEdit(worldPoint: WorldPoint): Boolean {
         val radius = guideHandleRadiusWorld
+        // Vanishing points are guides too (roadmap item 344): dragged the same way.
+        if (perspectiveMode != PerspectiveMode.OFF) {
+            val vp = vanishingPoints.indexOfFirst { hypot(it.x - worldPoint.x, it.y - worldPoint.y) <= radius }
+            if (vp != -1) {
+                guideDrag = VANISHING_POINT_GUIDE to vp
+                guideDragLast = worldPoint
+                return true
+            }
+        }
         for (guide in drawingGuides.asReversed()) {
             val handle = guide.handles.indexOfFirst { hypot(it.x - worldPoint.x, it.y - worldPoint.y) <= radius }
             val onGuide = handle == -1 && guide.constraint(worldPoint, radius)?.let { c ->
@@ -4488,6 +4502,10 @@ class CanvasState(
 
     fun continueGuideEdit(worldPoint: WorldPoint) {
         val (id, handle) = guideDrag ?: return
+        if (id == VANISHING_POINT_GUIDE) {
+            if (handle in vanishingPoints.indices) vanishingPoints[handle] = worldPoint
+            return
+        }
         val i = drawingGuides.indexOfFirst { it.id == id }
         if (i == -1) return
         val guide = drawingGuides[i]
