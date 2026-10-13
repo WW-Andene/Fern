@@ -35,25 +35,19 @@ private const val EXAMPLE_SCRIPT = "// A star\ncolor #2E7D32 width 4\nrepeat 5 [
 @Composable
 fun ScriptDialog(onRun: (List<ScriptLine>) -> Unit, onDismiss: () -> Unit) {
     var source by remember { mutableStateOf(EXAMPLE_SCRIPT) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<ScriptError?>(null) }
     val scope = rememberCoroutineScope()
-    val errorTemplate = stringResource(R.string.script_error)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.script_title)) },
         text = {
             Column {
                 Text(stringResource(R.string.script_help), style = MaterialTheme.typography.bodySmall)
-                OutlinedTextField(
-                    value = source,
-                    onValueChange = {
-                        source = it
-                        error = null
-                    },
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                    modifier = Modifier.fillMaxWidth().heightIn(min = FernScale.s128).padding(top = FernScale.s8),
-                )
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = FernScale.s8)) }
+                // Checked as it's typed, errors shown at their line (design roadmap D33).
+                CodeEditor(source, {
+                    source = it
+                    error = DrawScript.check(it)
+                }, error, Modifier.padding(top = FernScale.s8))
             }
         },
         confirmButton = {
@@ -62,7 +56,7 @@ fun ScriptDialog(onRun: (List<ScriptLine>) -> Unit, onDismiss: () -> Unit) {
                 scope.launch {
                     when (val result = withContext(Dispatchers.Default) { DrawScript.run(script) }) {
                         is ScriptResult.Drawn -> onRun(result.lines)
-                        is ScriptResult.Failed -> error = errorTemplate.format(result.line, result.message)
+                        is ScriptResult.Failed -> error = ScriptError(result.line, result.message)
                     }
                 }
             }) { Text(stringResource(R.string.script_run)) }

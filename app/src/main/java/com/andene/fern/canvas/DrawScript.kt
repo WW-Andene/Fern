@@ -42,6 +42,14 @@ object DrawScript {
         "color" to 1, "width" to 1, "circle" to 1,
     )
 
+    /** The first error that stops [source] parsing, or null; cheap enough to run on every keystroke (design roadmap D33). */
+    fun check(source: String): ScriptError? = try {
+        ScriptEngine.parse(source, commands, emptyMap())
+        null
+    } catch (e: ScriptError) {
+        e
+    }
+
     fun run(source: String): ScriptResult = try {
         val program = ScriptEngine.parse(source, commands, emptyMap())
         val pen = Pen()

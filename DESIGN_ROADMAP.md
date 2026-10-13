@@ -312,9 +312,10 @@ Goal: complete and deep to master, while the first minute stays simple.
 - [~] D32. **Progressive disclosure.** Advanced settings stay one tap away inside the same panel
   (a "More" disclosure), never a separate dialog.
   Written, not yet compiled or tested: `FernDisclosure.kt` (`MoreOptions`, `MoreInline`), expanded state announced to screen readers and kept across rotation. Used for the drawing tools' line options and stabiliser in the properties bar, and for an object's physics, hitbox and links in its panel; other panels can adopt it as they're reworked (D42-D47).
-- [ ] D33. **Pro surfaces** for the deep features: dopesheet and timeline docked, the node or
+- [~] D33. **Pro surfaces** for the deep features: dopesheet and timeline docked, the node or
   block editor for game logic as a panel, the script editor with syntax highlighting, line
   numbers and inline errors.
+  Written, not yet compiled or tested: `CodeEditor.kt` for the drawing and object scripts: line numbers, keywords/numbers/texts/comments coloured from the theme, checked on every keystroke with the error's line number in red and its message below. The dopesheet and X-sheet open as docked panels; the rules (blocks) were already a panel (D10). Merging timeline, X-sheet and dopesheet into one strip is D45.
 - [ ] D34. **Recorded actions and macros.** Repeat the last action, and record a sequence and
   bind it to a key or gesture (it builds on the scripting language of ROADMAP item 164).
 - [ ] D35. **Usage-aware suggestions (on-device only).** Offer to pin a tool or action you use

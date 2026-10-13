@@ -42,16 +42,11 @@ fun GameScriptDialog(state: CanvasState, objectId: String, onDismiss: () -> Unit
         text = {
             Column(Modifier.heightIn(max = FernScale.s512).verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.game_script_help), style = MaterialTheme.typography.bodySmall)
-                OutlinedTextField(
-                    value = source,
-                    onValueChange = {
-                        source = it
-                        error = null
-                    },
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                    modifier = Modifier.fillMaxWidth().heightIn(min = FernScale.s128).padding(top = FernScale.s8),
-                )
-                error?.let { Text(stringResource(R.string.script_error, it.line, it.message.orEmpty()), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = FernScale.s8)) }
+                // Checked as it's typed, errors shown at their line (design roadmap D33).
+                CodeEditor(source, {
+                    source = it
+                    error = if (it.isBlank()) null else GameScript.check(it)
+                }, error, Modifier.padding(top = FernScale.s8))
             }
         },
         confirmButton = {

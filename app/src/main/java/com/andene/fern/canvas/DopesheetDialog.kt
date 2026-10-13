@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+
 import com.andene.fern.FernScale
 
 import androidx.compose.foundation.Canvas
@@ -19,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -60,7 +61,7 @@ fun DopesheetDialog(state: CanvasState, onDismiss: () -> Unit) {
     val accent = MaterialTheme.colorScheme.primary
     val lineColor = MaterialTheme.colorScheme.onSurface
 
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.dopesheet_title)) },
         text = {
