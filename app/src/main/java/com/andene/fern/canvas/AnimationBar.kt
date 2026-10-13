@@ -16,6 +16,10 @@ import androidx.compose.material.icons.filled.ViewTimeline
 import androidx.compose.material.icons.filled.Animation
 import androidx.compose.material.icons.filled.Merge
 import com.andene.fern.R
+import com.andene.fern.MoreInline
+import kotlin.math.roundToInt
+import androidx.compose.material3.Slider
+import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -82,6 +86,21 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
         tonalElevation = FernScale.s4,
         shadowElevation = FernScale.s4,
     ) {
+        Column {
+        // Scrub through the frames (design roadmap D45): drag along the strip to see each one.
+        if (state.animFrameCount > 1) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = FernScale.s12)) {
+                Text(stringResource(R.string.anim_frame_of, state.currentAnimFrame + 1, state.animFrameCount), style = MaterialTheme.typography.labelMedium)
+                Slider(
+                    value = state.currentAnimFrame.toFloat(),
+                    onValueChange = { state.goToAnimFrame(it.roundToInt()) },
+                    valueRange = 0f..(state.animFrameCount - 1).toFloat(),
+                    steps = (state.animFrameCount - 2).coerceAtLeast(0),
+                    enabled = !state.playing,
+                    modifier = Modifier.weight(1f).padding(start = FernScale.s8),
+                )
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { state.goToAnimFrame(state.currentAnimFrame - 1) }, enabled = !state.playing && state.currentAnimFrame > 0) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.presentation_previous))
@@ -133,6 +152,8 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
                     contentDescription = if (state.pingPong) stringResource(R.string.anim_pingpong) else stringResource(R.string.anim_loop),
                 )
             }
+            // Rarer tools behind More, so the strip stays short (design roadmap D32, D45).
+            MoreInline("animation_more") {
             if (state.currentBones.isNotEmpty() && state.animFrameCount > 1) {
                 IconButton(onClick = { blendingPose = true }) {
                     Icon(Icons.Filled.Merge, contentDescription = stringResource(R.string.blend_pose_title))
@@ -165,6 +186,8 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
             }) {
                 Text(stringResource(R.string.anim_fps, state.animFps))
             }
+            }
+        }
         }
     }
 }

@@ -370,9 +370,10 @@ Goal: every panel from Phase D2 designed to the same pattern and fast to work in
   (ROADMAP item 140), favourites pinned to the rail, and editing beside the preview, not in a
   separate dialog.
   Written, not yet compiled or tested: `BrushLibrary.kt`, opened from the pen button in the properties bar (replacing the pen-kind menu): tiles for each pen kind (a sample stroke in the current colour suggesting its look) and each saved stamp brush (its real stamped preview), filtered by name or tag; tap picks, the pin adds it to a free favourite slot, Edit opens the brush editor, now a panel beside the canvas (D27).
-- [ ] D45. **Timeline panel.** Frames, onion skin, tags and the X-sheet in one dockable strip with
+- [~] D45. **Timeline panel.** Frames, onion skin, tags and the X-sheet in one dockable strip with
   scrubbing, play and loop at the edge of the hand. It replaces the animation toolbar group and
   the separate X-sheet and dopesheet dialogs.
+  Written, not yet compiled or tested: the animation strip (already docked at the edge opposite the toolbar, with frames, onion skin, tags, play and loop/ping-pong) gains a scrubber, "Frame n of N", to drag through frames; its rarer tools (pose blending, dopesheet, sway, branches, X-sheet, easing, fps) sit behind More. The X-sheet and dopesheet open as docked panels (D33) rather than being merged into the strip.
 - [ ] D46. **Objects and logic panel.** Object list, properties, behaviours, rules (blocks) and
   script in one panel with tabs, instead of the object dialog opening states, rules and script
   dialogs on top of each other.
