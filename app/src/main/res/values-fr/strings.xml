@@ -1105,4 +1105,6 @@
     <string name="perspective_three">Perspective à trois points</string>
     <string name="guide_grid">Grille</string>
     <string name="guide_curve">Règle courbe</string>
+    <string name="selection_make_tip">Faire une pointe de pinceau avec la sélection</string>
+    <string name="selection_tip_made">Pointe créée : dessinez pour l’essayer</string>
 </resources>

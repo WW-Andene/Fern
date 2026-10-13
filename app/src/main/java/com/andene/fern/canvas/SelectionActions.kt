@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FormatPaint
@@ -56,6 +57,7 @@ fun SelectionActionStrip(state: CanvasState) {
     val x = anchor.x.coerceIn(0f, (viewport.width - stripSize.width).coerceAtLeast(0f))
     val y = (anchor.y - stripSize.height - gap / 2).coerceIn(0f, (viewport.height - stripSize.height).coerceAtLeast(0f))
     val deleted = stringResource(R.string.msg_deleted)
+    val tipMade = stringResource(R.string.selection_tip_made)
     val undo = stringResource(R.string.action_undo)
     Surface(
         modifier = Modifier.offset { IntOffset(x.roundToInt(), y.roundToInt()) }.onSizeChanged { stripSize = it },
@@ -69,6 +71,8 @@ fun SelectionActionStrip(state: CanvasState) {
             IconButton(onClick = { state.recolorSelection() }) { Icon(Icons.Filled.FormatPaint, contentDescription = stringResource(R.string.tb_apply_colour)) }
             IconButton(onClick = { SelectionRequests.transform = true }) { Icon(Icons.Filled.Transform, contentDescription = stringResource(R.string.transform_title)) }
             IconButton(onClick = { SelectionRequests.makeObject = true }) { Icon(Icons.Filled.Toys, contentDescription = stringResource(R.string.object_title)) }
+            // Your own drawing as a brush tip (roadmap item 347).
+            IconButton(onClick = { if (state.brushTipFromSelection()) FernMessages.show(tipMade) }) { Icon(Icons.Filled.Brush, contentDescription = stringResource(R.string.selection_make_tip)) }
             IconButton(onClick = {
                 state.deleteSelection()
                 FernMessages.show(deleted, undo) { state.undo() }

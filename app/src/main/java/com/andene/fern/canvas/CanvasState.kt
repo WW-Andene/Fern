@@ -253,6 +253,9 @@ class CanvasState(
         // A new guide's size across, in screen pixels (a §7 primary), converted to world units.
         private const val GUIDE_DEFAULT_SIZE_SCREEN = 512.0
 
+        // The selection is drawn this big before it is averaged down to a tip, so thin lines survive.
+        private const val TIP_RENDER_PX = 256
+
         // Stands in for a guide id while a vanishing point is dragged in guide edit mode.
         private const val VANISHING_POINT_GUIDE = "vanishing point"
 
@@ -5023,6 +5026,63 @@ class CanvasState(
     }
 
     /** The current selection's combined bounding box, or null if nothing is selected. */
+    /**
+     * Makes the selected ink the brush tip (roadmap item 347), the way Clip Studio and Krita
+     * register a brush tip from the canvas: the selection is drawn in black, fitted into a
+     * square, and its coverage becomes the tip of both the stamp pen and the raster brushes.
+     * Switches to the stamp pen so the new tip can be tried at once. Returns false when nothing
+     * with ink is selected.
+     */
+    fun brushTipFromSelection(): Boolean {
+        val ink = selection.filter { it.points.isNotEmpty() }
+        if (ink.isEmpty()) return false
+        val minX = ink.minOf { it.minX - it.widthWorld / 2 }
+        val minY = ink.minOf { it.minY - it.widthWorld / 2 }
+        val maxX = ink.maxOf { it.maxX + it.widthWorld / 2 }
+        val maxY = ink.maxOf { it.maxY + it.widthWorld / 2 }
+        val extent = maxOf(maxX - minX, maxY - minY)
+        if (extent <= 0.0) return false
+        val side = TIP_RENDER_PX
+        val k = side / extent
+        val bitmap = android.graphics.Bitmap.createBitmap(side, side, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        // Centred in the square, like a picked tip image.
+        val dx = (side - (maxX - minX) * k) / 2
+        val dy = (side - (maxY - minY) * k) / 2
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.BLACK
+            strokeCap = android.graphics.Paint.Cap.ROUND
+            strokeJoin = android.graphics.Paint.Join.ROUND
+        }
+        for (stroke in ink) {
+            val path = android.graphics.Path()
+            stroke.points.forEachIndexed { i, p ->
+                val x = ((p.x - minX) * k + dx).toFloat()
+                val y = ((p.y - minY) * k + dy).toFloat()
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            paint.alpha = (stroke.color.alpha * 255).toInt()
+            if (stroke.filled) {
+                path.close()
+                paint.style = android.graphics.Paint.Style.FILL
+            } else {
+                paint.style = android.graphics.Paint.Style.STROKE
+                paint.strokeWidth = (stroke.widthWorld * k).toFloat().coerceAtLeast(1f)
+                if (stroke.points.size == 1) path.lineTo(((stroke.points[0].x - minX) * k + dx).toFloat() + 0.01f, ((stroke.points[0].y - minY) * k + dy).toFloat())
+            }
+            canvas.drawPath(path, paint)
+        }
+        val pixels = IntArray(side * side)
+        bitmap.getPixels(pixels, 0, side, 0, 0, side, side)
+        bitmap.recycle()
+        val mask = tipMaskFromArgb(pixels, side, side)
+        activeBrush = activeBrush.copy(tip = StampTip.IMAGE, mask = mask)
+        rasterBrush = rasterBrush.copy(tip = mask)
+        activePenType = PenType.STAMP
+        activeTool = Tool.PEN
+        return true
+    }
+
     fun selectionBounds(): Pair<WorldPoint, WorldPoint>? {
         if (selection.isEmpty()) return null
         val left = selection.minOf { it.minX }

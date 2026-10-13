@@ -296,7 +296,8 @@ One brush engine with every setting editable, pens made from your own drawing, a
 - [ ] D82. **Pressure curve tuning in one screen**, drawn on the screen with your own stylus or
   finger, with a live test stroke; per-pen presets.
 - [ ] 201. Brush studio: every setting above in one editor, in sections, with a test pad using pressure and a live preview of spacing, jitter and scatter; brushes saved as presets and shared as files.
-- [ ] 347. **Brush tip from a selection.** Select part of your own drawing and make it a brush tip (and a grain), for any brush, not only the stamp pen: the way Clip Studio, Krita and Photoshop register a brush from the canvas. Today a custom tip is a file picked from the gallery, shrunk to 64×64, for the stamp pen only.
+- [~] 347. **Brush tip from a selection.** Select part of your own drawing and make it a brush tip (and a grain), for any brush, not only the stamp pen: the way Clip Studio, Krita and Photoshop register a brush from the canvas. Today a custom tip is a file picked from the gallery, shrunk to 64×64, for the stamp pen only.
+  Done: "Make a brush tip from the selection" on the selection strip draws the selected ink into a square and sets it as the tip of the stamp pen and of the raster brushes, then switches to the stamp pen. Left: grain from a selection, and tips for the other pens once they are brushes (349).
 - [ ] 348. **Pen from a selection.** Select a drawn shape and make it a vector pen: stretched along the stroke (art brush) or repeated (pattern brush), with its colours kept or recoloured by the pen colour.
 - [ ] 202. Brush import: tips from Photoshop `.abr` files and shapes and grains from Procreate `.brushset` files.
 - [ ] 203. Vector art and pattern brushes: a shape stretched along the path, or repeated along it with corner pieces.

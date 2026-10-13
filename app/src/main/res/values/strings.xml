@@ -1101,4 +1101,6 @@
     <string name="perspective_three">Three-point perspective</string>
     <string name="guide_grid">Grid</string>
     <string name="guide_curve">Curve ruler</string>
+    <string name="selection_make_tip">Make a brush tip from the selection</string>
+    <string name="selection_tip_made">Brush tip made: draw to try it</string>
 </resources>
