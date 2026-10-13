@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
 import com.andene.fern.FernScale
 
 import androidx.compose.foundation.Canvas
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -84,14 +84,14 @@ fun SignatureDialog(saved: List<Stroke>, onPlace: (List<Stroke>) -> Unit, onDism
             }
         },
         confirmButton = {
-            TextButton(onClick = { onPlace(strokes.toList()) }, enabled = strokes.isNotEmpty()) {
+            FernTextButton(onClick = { onPlace(strokes.toList()) }, enabled = strokes.isNotEmpty()) {
                 Text(stringResource(R.string.signature_place))
             }
         },
         dismissButton = {
             Row {
-                TextButton(onClick = { strokes.clear() }) { Text(stringResource(R.string.signature_clear)) }
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+                FernTextButton(onClick = { strokes.clear() }) { Text(stringResource(R.string.signature_clear)) }
+                FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
             }
         },
     )

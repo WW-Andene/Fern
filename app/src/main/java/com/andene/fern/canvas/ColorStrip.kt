@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
@@ -9,7 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -56,8 +56,8 @@ fun ColorStrip(state: CanvasState, palette: List<Color>, showPalette: Boolean, o
             border = BorderStroke(FernScale.s2, MaterialTheme.colorScheme.primary),
         ) {}
         if (current in state.savedColors) {
-            TextButton(onClick = { onChangeEverywhere(current) }) { Text(stringResource(R.string.color_change_everywhere)) }
-            TextButton(onClick = { state.removeSavedColor(current) }) { Text(stringResource(R.string.color_remove_saved)) }
+            FernTextButton(onClick = { onChangeEverywhere(current) }) { Text(stringResource(R.string.color_change_everywhere)) }
+            FernTextButton(onClick = { state.removeSavedColor(current) }) { Text(stringResource(R.string.color_remove_saved)) }
         }
         for (color in state.savedColors) Swatch(color, RoundedCornerShape(FernScale.s6), stringResource(R.string.color_saved)) { pick(color) } // §7.3: 0.24 × 24 → 6
         for (color in state.recentColors.filter { it !in state.savedColors && it != current }) Swatch(color, CircleShape, stringResource(R.string.color_recent)) { pick(color) }

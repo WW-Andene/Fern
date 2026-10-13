@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernTextField
 import com.andene.fern.FernScale
 
 import android.view.KeyEvent
@@ -24,9 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -101,11 +101,11 @@ fun InputMappingDialog(state: CanvasState, onDismiss: () -> Unit) {
                     }
                     var adding by remember { mutableStateOf(false) }
                     Row {
-                        TextButton(onClick = { capturing = index }) {
+                        FernTextButton(onClick = { capturing = index }) {
                             Text(stringResource(if (capturing == index) R.string.controls_press_key else R.string.controls_add_key))
                         }
                         Box {
-                            TextButton(onClick = { adding = true }) { Text(stringResource(R.string.controls_add_other)) }
+                            FernTextButton(onClick = { adding = true }) { Text(stringResource(R.string.controls_add_other)) }
                             DropdownMenu(expanded = adding, onDismissRequest = { adding = false }) {
                                 val others = TouchButton.entries.map { InputBinding.Touch(it) } +
                                     listOf(InputBinding.Axis(AXIS_X, false), InputBinding.Axis(AXIS_X, true), InputBinding.Axis(AXIS_Y, false), InputBinding.Axis(AXIS_Y, true), InputBinding.Screen, InputBinding.Stylus)
@@ -121,16 +121,16 @@ fun InputMappingDialog(state: CanvasState, onDismiss: () -> Unit) {
                     HorizontalDivider()
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(newAction, { newAction = it.filter { c -> c.isLetterOrDigit() || c == '_' } }, label = { Text(stringResource(R.string.controls_new_action)) }, singleLine = true, modifier = Modifier.weight(1f))
-                    TextButton(onClick = {
+                    FernTextField(newAction, { newAction = it.filter { c -> c.isLetterOrDigit() || c == '_' } }, label = { Text(stringResource(R.string.controls_new_action)) }, singleLine = true, modifier = Modifier.weight(1f))
+                    FernTextButton(onClick = {
                         save(actions + InputAction(newAction, emptyList()))
                         newAction = ""
                     }, enabled = newAction.isNotEmpty() && actions.none { it.name == newAction }) { Text(stringResource(R.string.object_add)) }
                 }
-                TextButton(onClick = { save(DEFAULT_ACTIONS) }) { Text(stringResource(R.string.controls_defaults)) }
+                FernTextButton(onClick = { save(DEFAULT_ACTIONS) }) { Text(stringResource(R.string.controls_defaults)) }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
 }
 

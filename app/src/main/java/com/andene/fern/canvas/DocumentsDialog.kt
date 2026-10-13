@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernTextField
 import com.andene.fern.FernScale
 
 import androidx.annotation.StringRes
@@ -36,9 +38,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -109,7 +109,7 @@ fun DocumentsDialog(
         title = { Text(if (showingTrash) stringResource(R.string.documents_trash) else stringResource(R.string.documents_title)) },
         text = {
             Column {
-                OutlinedTextField(
+                FernTextField(
                     value = query,
                     onValueChange = { query = it },
                     singleLine = true,
@@ -185,7 +185,7 @@ fun DocumentsDialog(
                                 }
                             } else if (movingId == doc.id) {
                                 // Empty name moves the document back to the top level.
-                                OutlinedTextField(
+                                FernTextField(
                                     value = moveText,
                                     onValueChange = { moveText = it },
                                     singleLine = true,
@@ -199,7 +199,7 @@ fun DocumentsDialog(
                                     Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.documents_confirm_move))
                                 }
                             } else if (renamingId == doc.id) {
-                                OutlinedTextField(
+                                FernTextField(
                                     value = renameText,
                                     onValueChange = { renameText = it },
                                     singleLine = true,
@@ -253,9 +253,9 @@ fun DocumentsDialog(
         },
         confirmButton = {
             Row {
-                TextButton(onClick = onImport) { Text(stringResource(R.string.documents_import)) }
+                FernTextButton(onClick = onImport) { Text(stringResource(R.string.documents_import)) }
                 Box {
-                    TextButton(onClick = { showTemplates = true }) { Text(stringResource(R.string.documents_new)) }
+                    FernTextButton(onClick = { showTemplates = true }) { Text(stringResource(R.string.documents_new)) }
                     DropdownMenu(expanded = showTemplates, onDismissRequest = { showTemplates = false }) {
                         for (template in DocumentTemplate.entries) {
                             DropdownMenuItem(
@@ -271,7 +271,7 @@ fun DocumentsDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
+            FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         },
     )
 }

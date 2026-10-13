@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSwitch
 import com.andene.fern.FernScale
 
 import androidx.compose.foundation.layout.Column
@@ -10,9 +12,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RangeSlider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,7 +47,7 @@ fun JointLimitsDialog(bone: Bone, current: Double, onApply: (min: Double?, max: 
             Column {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.joint_limits_enable), modifier = Modifier.weight(1f))
-                    Switch(checked = limited, onCheckedChange = { limited = it })
+                    FernSwitch(checked = limited, onCheckedChange = { limited = it })
                 }
                 RangeSlider(value = range, onValueChange = { range = it }, valueRange = -180f..180f, enabled = limited)
                 Text(
@@ -58,10 +58,10 @@ fun JointLimitsDialog(bone: Bone, current: Double, onApply: (min: Double?, max: 
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            FernTextButton(onClick = {
                 if (limited) onApply(Math.toRadians(range.start.toDouble()), Math.toRadians(range.endInclusive.toDouble())) else onApply(null, null)
             }) { Text(stringResource(R.string.action_done)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

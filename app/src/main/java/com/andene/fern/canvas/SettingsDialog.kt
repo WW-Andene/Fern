@@ -1,5 +1,8 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSwitch
+import com.andene.fern.FernTextField
 import com.andene.fern.FernMessages
 
 import com.andene.fern.FernScale
@@ -13,7 +16,6 @@ import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,9 +27,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -269,7 +269,7 @@ fun SettingsDialog(
         title = { Text(stringResource(R.string.settings_title)) },
         text = {
             Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-                OutlinedTextField(
+                FernTextField(
                     query, { query = it },
                     placeholder = { Text(stringResource(R.string.settings_search)) },
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
@@ -293,7 +293,7 @@ fun SettingsDialog(
                         }
                     }
                 }
-                if (shows(stringResource(R.string.layout_title))) TextButton(onClick = onArrangeLayout) { Text(stringResource(R.string.layout_title)) }
+                if (shows(stringResource(R.string.layout_title))) FernTextButton(onClick = onArrangeLayout) { Text(stringResource(R.string.layout_title)) }
                 // Accessibility.
                 SettingsSection(R.string.settings_section_accessibility)
                 SwitchSetting(stringResource(R.string.settings_high_contrast), highContrast, false, ::shows, onHighContrastChange)
@@ -306,11 +306,11 @@ fun SettingsDialog(
                 SettingsSection(R.string.settings_section_files)
                 if (shows(stringResource(R.string.settings_cmyk_profile, ""))) CmykProfileRow()
                 // Help.
-                if (shows(stringResource(R.string.settings_show_guide))) TextButton(onClick = onShowGuide) { Text(stringResource(R.string.settings_show_guide)) }
+                if (shows(stringResource(R.string.settings_show_guide))) FernTextButton(onClick = onShowGuide) { Text(stringResource(R.string.settings_show_guide)) }
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) }
+            FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) }
         },
     )
 }
@@ -335,7 +335,7 @@ private fun SwitchSetting(label: String, checked: Boolean, default: Boolean, sho
         if (checked != default) {
             IconButton(onClick = { onChange(default) }) { Icon(Icons.Filled.RestartAlt, contentDescription = stringResource(R.string.settings_reset, label)) }
         }
-        Switch(checked = checked, onCheckedChange = onChange)
+        FernSwitch(checked = checked, onCheckedChange = onChange)
     }
 }
 
@@ -357,7 +357,7 @@ private fun CmykProfileRow() {
             stringResource(R.string.settings_cmyk_profile, profile?.description?.ifEmpty { "ICC" } ?: stringResource(R.string.settings_cmyk_none)),
             modifier = Modifier.weight(1f),
         )
-        TextButton(onClick = { pick.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.settings_cmyk_load)) }
-        if (profile != null) TextButton(onClick = { ColorManagement.removeProfile(context) }) { Text(stringResource(R.string.settings_cmyk_remove)) }
+        FernTextButton(onClick = { pick.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.settings_cmyk_load)) }
+        if (profile != null) FernTextButton(onClick = { ColorManagement.removeProfile(context) }) { Text(stringResource(R.string.settings_cmyk_remove)) }
     }
 }

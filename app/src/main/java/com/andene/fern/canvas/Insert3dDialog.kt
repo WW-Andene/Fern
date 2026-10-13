@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
 import com.andene.fern.FernScale
 
 import androidx.annotation.StringRes
@@ -9,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -36,8 +36,8 @@ fun Insert3dDialog(onPrimitive: (MeshPrimitive) -> Unit, onHand: () -> Unit, onH
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onImportObj) { Text(stringResource(R.string.model_import_obj)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        confirmButton = { FernTextButton(onClick = onImportObj) { Text(stringResource(R.string.model_import_obj)) } },
+        dismissButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 

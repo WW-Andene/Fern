@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
 import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
@@ -12,7 +13,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -99,7 +99,7 @@ fun GestureMapEditor(filter: (String) -> Boolean = { true }) {
                 }
             }
             Box {
-                TextButton(onClick = { open = true }) { Text(stringResource(map.getValue(gesture).label)) }
+                FernTextButton(onClick = { open = true }) { Text(stringResource(map.getValue(gesture).label)) }
                 DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
                     for (action in GestureAction.entries) {
                         DropdownMenuItem(text = { Text(stringResource(action.label)) }, onClick = {
@@ -161,7 +161,7 @@ fun PalmRejectionEditor() {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.palm_title), modifier = Modifier.weight(1f))
         Box {
-            TextButton(onClick = { open = true }) { Text(stringResource(current.label)) }
+            FernTextButton(onClick = { open = true }) { Text(stringResource(current.label)) }
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
                 for (p in PalmRejection.entries) DropdownMenuItem(text = { Text(stringResource(p.label)) }, onClick = {
                     PalmSettings.set(context, p)

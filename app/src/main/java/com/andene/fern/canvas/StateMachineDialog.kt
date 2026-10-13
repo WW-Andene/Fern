@@ -1,5 +1,8 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSwitch
+import com.andene.fern.FernTextField
 import com.andene.fern.FernPanel
 
 import com.andene.fern.FernScale
@@ -19,11 +22,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,12 +70,12 @@ fun StateMachineEditor(state: CanvasState, objectId: String) {
                     save(machine.copy(states = machine.states.mapIndexed { k, x -> if (k == i) x.copy(tag = tag) else x }))
                 }
                 Text(stringResource(R.string.states_loop), modifier = Modifier.padding(start = FernScale.s8))
-                Switch(checked = s.loop, onCheckedChange = { loop -> save(machine.copy(states = machine.states.mapIndexed { k, x -> if (k == i) x.copy(loop = loop) else x })) })
+                FernSwitch(checked = s.loop, onCheckedChange = { loop -> save(machine.copy(states = machine.states.mapIndexed { k, x -> if (k == i) x.copy(loop = loop) else x })) })
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(newState, { newState = it }, label = { Text(stringResource(R.string.states_new)) }, singleLine = true, modifier = Modifier.weight(1f))
-            TextButton(onClick = {
+            FernTextField(newState, { newState = it }, label = { Text(stringResource(R.string.states_new)) }, singleLine = true, modifier = Modifier.weight(1f))
+            FernTextButton(onClick = {
                 save(machine.copy(states = machine.states + AnimState(newState.trim()), initial = machine.initial.ifEmpty { newState.trim() }))
                 newState = ""
             }, enabled = newState.isNotBlank() && machine.states.none { it.name == newState.trim() }) { Text(stringResource(R.string.object_add)) }
@@ -96,7 +96,7 @@ fun StateMachineEditor(state: CanvasState, objectId: String) {
             ConditionsEditor(t.conditions) { update(t.copy(conditions = it)) }
             HorizontalDivider()
         }
-        if (names.isNotEmpty()) TextButton(onClick = { save(machine.copy(transitions = machine.transitions + Transition(null, names.first(), emptyList()))) }) {
+        if (names.isNotEmpty()) FernTextButton(onClick = { save(machine.copy(transitions = machine.transitions + Transition(null, names.first(), emptyList()))) }) {
             Text(stringResource(R.string.states_add_transition))
         }
     }
@@ -110,14 +110,14 @@ fun ConditionsEditor(conditions: List<Condition>, onChange: (List<Condition>) ->
         fun update(x: Condition) = onChange(conditions.mapIndexed { k, y -> if (k == i) x else y })
         Row(verticalAlignment = Alignment.CenterVertically) {
             Choice(stringResource(c.kind.label), ConditionKind.entries, { it.name }) { update(c.copy(kind = it)) }
-            if (c.kind.needsText) OutlinedTextField(c.text, { update(c.copy(text = it)) }, singleLine = true, modifier = Modifier.weight(1f))
+            if (c.kind.needsText) FernTextField(c.text, { update(c.copy(text = it)) }, singleLine = true, modifier = Modifier.weight(1f))
             if (c.kind.needsValue) NumberField(c.value) { update(c.copy(value = it)) }
             IconButton(onClick = { onChange(conditions.filterIndexed { k, _ -> k != i }) }) {
                 Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.condition_remove))
             }
         }
     }
-    TextButton(onClick = { onChange(conditions + Condition(ConditionKind.GROUNDED)) }) { Text(stringResource(R.string.condition_add)) }
+    FernTextButton(onClick = { onChange(conditions + Condition(ConditionKind.GROUNDED)) }) { Text(stringResource(R.string.condition_add)) }
 }
 
 /** A button showing [current] that opens a menu of [options]. */
@@ -125,7 +125,7 @@ fun ConditionsEditor(conditions: List<Condition>, onChange: (List<Condition>) ->
 internal fun <T> Choice(current: String, options: List<T>, label: @Composable (T) -> String, onPick: (T) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { open = true }) { Text(current) }
+        FernTextButton(onClick = { open = true }) { Text(current) }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             for (o in options) {
                 val text = if (o is ConditionKind) stringResource(o.label) else label(o)

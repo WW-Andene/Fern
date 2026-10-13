@@ -51,7 +51,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.DisposableEffect
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.collectLatest
@@ -1573,7 +1572,7 @@ class MainActivity : ComponentActivity() {
                             title = { Text(stringResource(R.string.crash_title)) },
                             text = { Text(stringResource(R.string.crash_text)) },
                             confirmButton = {
-                                TextButton(onClick = {
+                                FernTextButton(onClick = {
                                     val send = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
                                         putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.crash_subject))
@@ -1585,7 +1584,7 @@ class MainActivity : ComponentActivity() {
                                 }) { Text(stringResource(R.string.crash_share)) }
                             },
                             dismissButton = {
-                                TextButton(onClick = {
+                                FernTextButton(onClick = {
                                     CrashReporter.clearPendingReport(context)
                                     crashReport = null
                                 }) { Text(stringResource(R.string.action_dismiss)) }

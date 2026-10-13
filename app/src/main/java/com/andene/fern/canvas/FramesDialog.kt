@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernTextField
 import com.andene.fern.FernPanel
 
 import com.andene.fern.FernScale
@@ -24,10 +26,8 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -135,7 +135,7 @@ fun FramesDialog(
                                 modifier = Modifier.padding(end = FernScale.s4),
                             )
                         }
-                        TextButton(onClick = { onExportSlices(sliceScales.sorted()) }, enabled = sliceScales.isNotEmpty()) {
+                        FernTextButton(onClick = { onExportSlices(sliceScales.sorted()) }, enabled = sliceScales.isNotEmpty()) {
                             Text(stringResource(R.string.frames_export_slices))
                         }
                     }
@@ -144,7 +144,7 @@ fun FramesDialog(
                     modifier = Modifier.padding(top = FernScale.s8),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    OutlinedTextField(
+                    FernTextField(
                         value = newFrameName,
                         onValueChange = { newFrameName = it },
                         label = { Text(stringResource(R.string.frames_new_name)) },
@@ -164,8 +164,8 @@ fun FramesDialog(
         },
         confirmButton = {
             Row {
-                TextButton(onClick = onAddComicPage) { Text(stringResource(R.string.frames_comic)) }
-                TextButton(onClick = onPresent, enabled = frames.isNotEmpty()) { Text(stringResource(R.string.frames_present)) }
+                FernTextButton(onClick = onAddComicPage) { Text(stringResource(R.string.frames_comic)) }
+                FernTextButton(onClick = onPresent, enabled = frames.isNotEmpty()) { Text(stringResource(R.string.frames_present)) }
             }
         },
     )

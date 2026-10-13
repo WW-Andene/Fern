@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextField
 import android.content.Context
 import android.content.res.Configuration
 import android.content.res.Resources
@@ -16,7 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -99,7 +99,7 @@ fun CommandPalette(commands: List<PaletteCommand>, onDismiss: () -> Unit) {
         title = { Text(stringResource(R.string.palette_title)) },
         text = {
             Column {
-                OutlinedTextField(
+                FernTextField(
                     query,
                     { query = it },
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },

@@ -1,5 +1,8 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSlider
+import com.andene.fern.FernTextField
 import com.andene.fern.FernPanel
 
 import com.andene.fern.FernScale
@@ -17,11 +20,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -101,7 +101,7 @@ fun ColorPickerDialog(
                 ) {}
 
                 Text(stringResource(R.string.color_hue), modifier = Modifier.padding(top = FernScale.s8))
-                Slider(
+                FernSlider(
                     value = hue,
                     onValueChange = {
                         hue = it
@@ -111,7 +111,7 @@ fun ColorPickerDialog(
                 )
 
                 Text(stringResource(R.string.color_saturation))
-                Slider(
+                FernSlider(
                     value = saturation,
                     onValueChange = {
                         saturation = it
@@ -121,7 +121,7 @@ fun ColorPickerDialog(
                 )
 
                 Text(stringResource(R.string.color_brightness))
-                Slider(
+                FernSlider(
                     value = value,
                     onValueChange = {
                         value = it
@@ -157,7 +157,7 @@ fun ColorPickerDialog(
                 }
 
                 Row(modifier = Modifier.padding(top = FernScale.s8)) {
-                    OutlinedTextField(
+                    FernTextField(
                         value = hexText,
                         onValueChange = { text ->
                             hexText = text
@@ -181,7 +181,7 @@ fun ColorPickerDialog(
                 )
                 Row {
                     for ((channel, label) in listOf("C", "M", "Y", "K").withIndex()) {
-                        OutlinedTextField(
+                        FernTextField(
                             value = cmykTexts[channel],
                             onValueChange = { text ->
                                 cmykTexts = cmykTexts.toMutableList().also { it[channel] = text }
@@ -229,14 +229,14 @@ fun ColorPickerDialog(
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
+                    FernTextField(
                         value = spotName,
                         onValueChange = { spotName = it },
                         label = { Text(stringResource(R.string.color_spot_name)) },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = {
+                    FernTextButton(onClick = {
                         if (spotName.isNotBlank()) {
                             val color = currentColor()
                             ColorManagement.saveSpot(context, SpotColor(spotName.trim(), color, cmykOf(color)))
@@ -247,19 +247,19 @@ fun ColorPickerDialog(
             }
         }
     val pickerConfirm: @Composable () -> Unit = {
-            TextButton(onClick = { onColorSelected(currentColor()) }) {
+            FernTextButton(onClick = { onColorSelected(currentColor()) }) {
                 Text(stringResource(R.string.action_select))
             }
         }
     val pickerDismiss: @Composable () -> Unit = {
             Row {
                 if (onImportPalette != null) {
-                    TextButton(onClick = onImportPalette) { Text(stringResource(R.string.color_import_palette)) }
+                    FernTextButton(onClick = onImportPalette) { Text(stringResource(R.string.color_import_palette)) }
                 }
                 if (onSaveColor != null) {
-                    TextButton(onClick = { onSaveColor(currentColor()) }) { Text(stringResource(R.string.color_save_palette)) }
+                    FernTextButton(onClick = { onSaveColor(currentColor()) }) { Text(stringResource(R.string.color_save_palette)) }
                 }
-                TextButton(onClick = onDismiss) {
+                FernTextButton(onClick = onDismiss) {
                     Text(stringResource(R.string.action_cancel))
                 }
             }
@@ -267,10 +267,10 @@ fun ColorPickerDialog(
     if (live) {
         // Inline and live (design roadmap D20): each change applies at once, the canvas stays usable.
         LaunchedEffect(hue, saturation, value) { if (hexText.isNotEmpty()) onColorSelected(currentColor()) }
-        FernPanel(onDismissRequest = onDismiss, title = pickerTitle, text = pickerText, confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } }, dismissButton = {
+        FernPanel(onDismissRequest = onDismiss, title = pickerTitle, text = pickerText, confirmButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } }, dismissButton = {
             Row {
-                if (onImportPalette != null) TextButton(onClick = onImportPalette) { Text(stringResource(R.string.color_import_palette)) }
-                if (onSaveColor != null) TextButton(onClick = { onSaveColor(currentColor()) }) { Text(stringResource(R.string.color_save_palette)) }
+                if (onImportPalette != null) FernTextButton(onClick = onImportPalette) { Text(stringResource(R.string.color_import_palette)) }
+                if (onSaveColor != null) FernTextButton(onClick = { onSaveColor(currentColor()) }) { Text(stringResource(R.string.color_save_palette)) }
             }
         })
     } else {

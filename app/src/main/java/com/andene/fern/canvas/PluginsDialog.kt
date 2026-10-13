@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernTextField
 import com.andene.fern.FernScale
 
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -19,9 +21,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -73,20 +73,20 @@ fun PluginsDialog(state: CanvasState, onDismiss: () -> Unit) {
             onDismissRequest = { writing = null },
             title = { Text(stringResource(R.string.plugins_new)) },
             text = {
-                OutlinedTextField(
+                FernTextField(
                     source, { writing = it },
                     textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                     modifier = Modifier.fillMaxWidth().heightIn(min = FernScale.s256),
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
+                FernTextButton(onClick = {
                     PluginLibrary.install(context, source, "Plugin")
                     writing = null
                     revision++
                 }) { Text(stringResource(R.string.plugins_save)) }
             },
-            dismissButton = { TextButton(onClick = { writing = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { FernTextButton(onClick = { writing = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
         return
     }
@@ -110,13 +110,13 @@ fun PluginsDialog(state: CanvasState, onDismiss: () -> Unit) {
                         }
                     }
                     Row {
-                        TextButton(onClick = { install.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.plugins_install)) }
-                        TextButton(onClick = { writing = PLUGIN_TEMPLATE }) { Text(stringResource(R.string.plugins_new)) }
+                        FernTextButton(onClick = { install.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.plugins_install)) }
+                        FernTextButton(onClick = { writing = PLUGIN_TEMPLATE }) { Text(stringResource(R.string.plugins_new)) }
                     }
                 } else {
                     if (plugin.description.isNotEmpty()) Text(plugin.description)
                     for (param in plugin.params) {
-                        OutlinedTextField(
+                        FernTextField(
                             values[param.name].orEmpty(), { values[param.name] = it },
                             label = { Text(param.label) },
                             singleLine = true,
@@ -131,9 +131,9 @@ fun PluginsDialog(state: CanvasState, onDismiss: () -> Unit) {
         confirmButton = {
             val plugin = chosen
             if (plugin == null) {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
+                FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
             } else {
-                TextButton(enabled = !running, onClick = {
+                FernTextButton(enabled = !running, onClick = {
                     val params = values.mapValues { (_, v) -> v.replace(',', '.').toDoubleOrNull() }.filterValues { it != null }.mapValues { it.value!! }
                     val input = state.pluginInput()
                     running = true
@@ -152,7 +152,7 @@ fun PluginsDialog(state: CanvasState, onDismiss: () -> Unit) {
             }
         },
         dismissButton = {
-            if (chosen != null) TextButton(onClick = { chosen = null; error = null }) { Text(stringResource(R.string.plugins_back)) }
+            if (chosen != null) FernTextButton(onClick = { chosen = null; error = null }) { Text(stringResource(R.string.plugins_back)) }
         },
     )
 }

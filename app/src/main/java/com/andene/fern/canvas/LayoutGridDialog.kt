@@ -1,11 +1,11 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSlider
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -33,25 +33,25 @@ fun LayoutGridDialog(frame: Frame, onApply: (LayoutGrid?) -> Unit, onDismiss: ()
         text = {
             Column {
                 Text(stringResource(R.string.layout_grid_columns, columns.roundToInt()))
-                Slider(value = columns, onValueChange = { columns = it.roundToInt().toFloat() }, valueRange = 0f..MAX_COUNT)
+                FernSlider(value = columns, onValueChange = { columns = it.roundToInt().toFloat() }, valueRange = 0f..MAX_COUNT)
                 Text(stringResource(R.string.layout_grid_rows, rows.roundToInt()))
-                Slider(value = rows, onValueChange = { rows = it.roundToInt().toFloat() }, valueRange = 0f..MAX_COUNT)
+                FernSlider(value = rows, onValueChange = { rows = it.roundToInt().toFloat() }, valueRange = 0f..MAX_COUNT)
                 Text(stringResource(R.string.layout_grid_gutter, gutter.roundToInt()))
-                Slider(value = gutter, onValueChange = { gutter = it.roundToInt().toFloat() }, valueRange = 0f..MAX_SPACING)
+                FernSlider(value = gutter, onValueChange = { gutter = it.roundToInt().toFloat() }, valueRange = 0f..MAX_SPACING)
                 Text(stringResource(R.string.layout_grid_margin, margin.roundToInt()))
-                Slider(value = margin, onValueChange = { margin = it.roundToInt().toFloat() }, valueRange = 0f..MAX_SPACING)
+                FernSlider(value = margin, onValueChange = { margin = it.roundToInt().toFloat() }, valueRange = 0f..MAX_SPACING)
             }
         },
         confirmButton = {
             Row {
-                if (current != null) TextButton(onClick = { onApply(null) }) { Text(stringResource(R.string.layout_grid_remove)) }
-                TextButton(
+                if (current != null) FernTextButton(onClick = { onApply(null) }) { Text(stringResource(R.string.layout_grid_remove)) }
+                FernTextButton(
                     onClick = { onApply(LayoutGrid(columns.roundToInt(), rows.roundToInt(), gutter.toDouble(), margin.toDouble())) },
                     enabled = columns >= 1f || rows >= 1f,
                 ) { Text(stringResource(R.string.action_apply)) }
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 

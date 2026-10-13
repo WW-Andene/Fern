@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernTextField
 import com.andene.fern.FernPanel
 
 import com.andene.fern.FernScale
@@ -10,9 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -70,11 +70,11 @@ fun TransformDialog(
         text = {
             Column {
                 Row {
-                    OutlinedTextField(x, { x = it }, label = { Text("X ($unitSymbol)") }, singleLine = true, keyboardOptions = numeric, modifier = Modifier.width(FernScale.s128).padding(end = FernScale.s8))
-                    OutlinedTextField(y, { y = it }, label = { Text("Y ($unitSymbol)") }, singleLine = true, keyboardOptions = numeric, modifier = Modifier.width(FernScale.s128))
+                    FernTextField(x, { x = it }, label = { Text("X ($unitSymbol)") }, singleLine = true, keyboardOptions = numeric, modifier = Modifier.width(FernScale.s128).padding(end = FernScale.s8))
+                    FernTextField(y, { y = it }, label = { Text("Y ($unitSymbol)") }, singleLine = true, keyboardOptions = numeric, modifier = Modifier.width(FernScale.s128))
                 }
                 Row {
-                    OutlinedTextField(
+                    FernTextField(
                         w,
                         { text ->
                             w = text
@@ -83,7 +83,7 @@ fun TransformDialog(
                         label = { Text("${stringResource(R.string.transform_width)} ($unitSymbol)") }, singleLine = true, keyboardOptions = numeric,
                         modifier = Modifier.width(FernScale.s128).padding(end = FernScale.s8),
                     )
-                    OutlinedTextField(
+                    FernTextField(
                         h,
                         { text ->
                             h = text
@@ -97,14 +97,14 @@ fun TransformDialog(
                     Checkbox(checked = locked, onCheckedChange = { locked = it })
                     Text(stringResource(R.string.transform_keep_proportions))
                 }
-                OutlinedTextField(angle, { angle = it }, label = { Text(stringResource(R.string.transform_rotate)) }, singleLine = true, keyboardOptions = numeric, modifier = Modifier.width(FernScale.s128))
+                FernTextField(angle, { angle = it }, label = { Text(stringResource(R.string.transform_rotate)) }, singleLine = true, keyboardOptions = numeric, modifier = Modifier.width(FernScale.s128))
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            FernTextButton(onClick = {
                 onApply(parseWorld(x) ?: min.x, parseWorld(y) ?: min.y, parseWorld(w) ?: startWidth, parseWorld(h) ?: startHeight, parse(angle) ?: 0.0)
             }) { Text(stringResource(R.string.action_apply)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

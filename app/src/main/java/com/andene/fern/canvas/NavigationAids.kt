@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
@@ -11,7 +12,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,7 +28,7 @@ fun NavigationAids(state: CanvasState, minimapShown: Boolean, onMinimapChange: (
     Surface(modifier, shape = MaterialTheme.shapes.large, tonalElevation = FernSpace.xs, shadowElevation = FernSpace.xs) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { state.fitWithReturn() }) { Icon(Icons.Filled.CenterFocusStrong, contentDescription = stringResource(R.string.gesture_action_fit)) }
-            TextButton(onClick = { state.actualSize() }) { Text(stringResource(R.string.nav_actual_size)) }
+            FernTextButton(onClick = { state.actualSize() }) { Text(stringResource(R.string.nav_actual_size)) }
             if (state.rotation != 0.0) IconButton(onClick = { state.levelView() }) { Icon(Icons.Filled.Explore, contentDescription = stringResource(R.string.nav_level)) }
             if (state.previousView != null) IconButton(onClick = { state.backToPreviousView() }) { Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.nav_back)) }
             IconButton(onClick = { onMinimapChange(!minimapShown) }) {

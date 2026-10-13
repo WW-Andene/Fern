@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernTextField
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,7 +9,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -52,7 +53,7 @@ fun DrawingScaleDialog(state: CanvasState, onDismiss: () -> Unit) {
                     else stringResource(R.string.scale_one_unit),
                 )
                 Row {
-                    OutlinedTextField(
+                    FernTextField(
                         value,
                         { value = it },
                         singleLine = true,
@@ -61,7 +62,7 @@ fun DrawingScaleDialog(state: CanvasState, onDismiss: () -> Unit) {
                         modifier = androidx.compose.ui.Modifier.weight(1f),
                     )
                     Box {
-                        TextButton(onClick = { showUnits = true }) { Text(unit.symbol) }
+                        FernTextButton(onClick = { showUnits = true }) { Text(unit.symbol) }
                         DropdownMenu(expanded = showUnits, onDismissRequest = { showUnits = false }) {
                             for (option in MeasureUnit.entries) {
                                 DropdownMenuItem(text = { Text(option.symbol) }, onClick = {
@@ -76,12 +77,12 @@ fun DrawingScaleDialog(state: CanvasState, onDismiss: () -> Unit) {
         },
         confirmButton = {
             Row {
-                if (current != null) TextButton(onClick = {
+                if (current != null) FernTextButton(onClick = {
                     state.changeDrawingScale(null)
                     onDismiss()
                 }) { Text(stringResource(R.string.scale_none)) }
-                TextButton(onClick = {
-                    val real = parsed ?: return@TextButton
+                FernTextButton(onClick = {
+                    val real = parsed ?: return@FernTextButton
                     state.changeDrawingScale(
                         if (measuredLine != null) DrawingScale.calibrated(measuredLine, real, unit) else DrawingScale(unit, real),
                     )
@@ -89,6 +90,6 @@ fun DrawingScaleDialog(state: CanvasState, onDismiss: () -> Unit) {
                 }, enabled = parsed != null) { Text(stringResource(R.string.action_apply)) }
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

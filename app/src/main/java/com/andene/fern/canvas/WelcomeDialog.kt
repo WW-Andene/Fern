@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSwitch
 import com.andene.fern.FernScale
 
 import com.andene.fern.R
@@ -9,13 +11,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Switch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
@@ -45,7 +45,7 @@ fun WelcomeDialog(onDismiss: () -> Unit, onPractice: (() -> Unit)? = null) {
                 }
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     Text(stringResource(R.string.tips_show_in_context), modifier = Modifier.weight(1f))
-                    Switch(checked = tipsOn, onCheckedChange = {
+                    FernSwitch(checked = tipsOn, onCheckedChange = {
                         tipsOn = it
                         Tips.setOff(context, !it)
                     })
@@ -53,10 +53,10 @@ fun WelcomeDialog(onDismiss: () -> Unit, onPractice: (() -> Unit)? = null) {
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.welcome_start)) }
+            FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.welcome_start)) }
         },
         dismissButton = {
-            if (onPractice != null) TextButton(onClick = onPractice) { Text(stringResource(R.string.tips_practice)) }
+            if (onPractice != null) FernTextButton(onClick = onPractice) { Text(stringResource(R.string.tips_practice)) }
         },
     )
 }

@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
 import com.andene.fern.FernScale
 
 import androidx.compose.foundation.Canvas
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -94,8 +94,8 @@ fun EasingCurveDialog(initial: CubicEasing, onApply: (CubicEasing) -> Unit, onDi
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onApply(curve) }) { Text(stringResource(R.string.action_done)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        confirmButton = { FernTextButton(onClick = { onApply(curve) }) { Text(stringResource(R.string.action_done)) } },
+        dismissButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 

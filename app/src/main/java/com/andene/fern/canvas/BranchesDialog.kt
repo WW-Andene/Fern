@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernTextField
 import com.andene.fern.FernScale
 
 import androidx.compose.foundation.clickable
@@ -19,9 +21,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -79,13 +79,13 @@ fun BranchesDialog(state: CanvasState, onDismiss: () -> Unit) {
                     FilterChip(selected = preference == MergePreference.OURS, onClick = { preference = MergePreference.OURS }, label = { Text(stringResource(R.string.branches_keep_ours)) }, modifier = Modifier.padding(end = FernScale.s8))
                     FilterChip(selected = preference == MergePreference.THEIRS, onClick = { preference = MergePreference.THEIRS }, label = { Text(stringResource(R.string.branches_take_theirs)) })
                 }
-                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.branches_new_name)) }, singleLine = true)
-                TextButton(onClick = {
+                FernTextField(name, { name = it }, label = { Text(stringResource(R.string.branches_new_name)) }, singleLine = true)
+                FernTextButton(onClick = {
                     state.createBranch(name.trim())
                     name = ""
                 }, enabled = name.isNotBlank() && state.branches.none { it.name == name.trim() }) { Text(stringResource(R.string.branches_create)) }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
 }

@@ -1,9 +1,9 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernTextField
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -100,14 +100,14 @@ fun LayoutEditor(
                 val typing = naming
                 if (typing == null) {
                     Row {
-                        TextButton(onClick = { naming = "" }) { Text(stringResource(R.string.layout_save_preset)) }
-                        TextButton(onClick = { onExport(current("Fern")) }) { Text(stringResource(R.string.layout_export)) }
-                        TextButton(onClick = onImport) { Text(stringResource(R.string.layout_import)) }
+                        FernTextButton(onClick = { naming = "" }) { Text(stringResource(R.string.layout_save_preset)) }
+                        FernTextButton(onClick = { onExport(current("Fern")) }) { Text(stringResource(R.string.layout_export)) }
+                        FernTextButton(onClick = onImport) { Text(stringResource(R.string.layout_import)) }
                     }
                 } else {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(typing, { naming = it }, label = { Text(stringResource(R.string.workspace_name)) }, singleLine = true, modifier = Modifier.weight(1f))
-                        TextButton(enabled = typing.isNotBlank(), onClick = {
+                        FernTextField(typing, { naming = it }, label = { Text(stringResource(R.string.workspace_name)) }, singleLine = true, modifier = Modifier.weight(1f))
+                        FernTextButton(enabled = typing.isNotBlank(), onClick = {
                             saved = saved + current(typing.trim())
                             LayoutPresets.setSaved(context, saved)
                             naming = null

@@ -1,5 +1,8 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSlider
+import com.andene.fern.FernTextField
 import com.andene.fern.ConfirmIrreversible
 import com.andene.fern.FernPanel
 import androidx.compose.material.icons.filled.Add
@@ -62,10 +65,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -172,7 +172,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                         }
                     }
                 }
-                TextButton(onClick = { pickFile.launch(arrayOf("image/*")) }) { Text(stringResource(R.string.layers_add_file)) }
+                FernTextButton(onClick = { pickFile.launch(arrayOf("image/*")) }) { Text(stringResource(R.string.layers_add_file)) }
                 LayerCompsSection(state)
                 if (state.layers.any { it.hdr }) HdrSection(state)
                 for (layer in state.layers.reversed()) {
@@ -205,7 +205,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                             )
                         }
                         if (renamingId == layer.id) {
-                            OutlinedTextField(
+                            FernTextField(
                                 value = renameText,
                                 onValueChange = { renameText = it },
                                 singleLine = true,
@@ -266,7 +266,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             var blendMenu by remember { mutableStateOf(false) }
                             Box {
-                                TextButton(onClick = { blendMenu = true }) {
+                                FernTextButton(onClick = { blendMenu = true }) {
                                     Text(stringResource(R.string.layers_blend) + ": " + stringResource(layer.blend.label))
                                 }
                                 DropdownMenu(expanded = blendMenu, onDismissRequest = { blendMenu = false }) {
@@ -283,7 +283,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                             }
                             val adjustment = layer.adjustment
                             if (adjustment != null) {
-                                TextButton(onClick = { editingAdjustment = layer.id to adjustment }) { Text(stringResource(R.string.layers_edit_adjustment)) }
+                                FernTextButton(onClick = { editingAdjustment = layer.id to adjustment }) { Text(stringResource(R.string.layers_edit_adjustment)) }
                             }
                         }
                         // Masks, clipping and alpha lock (roadmap item 91).
@@ -323,13 +323,13 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                         }
                     }
                     if (active) {
-                        Slider(
+                        FernSlider(
                             value = layer.opacity,
                             onValueChange = { value -> state.updateLayer(layer.id) { it.copy(opacity = value) } },
                             valueRange = 0f..1f,
                         )
                         // Blank for a layer that's always shown; a name puts it in that skin.
-                        OutlinedTextField(
+                        FernTextField(
                             value = layer.skin.orEmpty(),
                             onValueChange = { name -> state.updateLayer(layer.id) { it.copy(skin = name.trim().ifEmpty { null }) } },
                             label = { Text(stringResource(R.string.layers_skin)) },
@@ -342,13 +342,13 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
         },
         confirmButton = {
             Row {
-                TextButton(onClick = { state.deleteEmptyLayers() }) { Text(stringResource(R.string.layers_remove_empty)) }
-                TextButton(onClick = { state.deleteHiddenLayers() }) { Text(stringResource(R.string.layers_delete_hidden)) }
+                FernTextButton(onClick = { state.deleteEmptyLayers() }) { Text(stringResource(R.string.layers_remove_empty)) }
+                FernTextButton(onClick = { state.deleteHiddenLayers() }) { Text(stringResource(R.string.layers_delete_hidden)) }
                 // Raster layers hold pixels; 16 bits per channel for smooth gradients.
-                TextButton(onClick = { state.addRasterLayer(8) }) { Text(stringResource(R.string.layers_new_raster)) }
-                TextButton(onClick = { state.addRasterLayer(16) }) { Text(stringResource(R.string.layers_new_raster_16)) }
-                TextButton(onClick = { state.addRasterLayer(16, hdr = true) }) { Text(stringResource(R.string.layers_new_hdr)) }
-                TextButton(onClick = {
+                FernTextButton(onClick = { state.addRasterLayer(8) }) { Text(stringResource(R.string.layers_new_raster)) }
+                FernTextButton(onClick = { state.addRasterLayer(16) }) { Text(stringResource(R.string.layers_new_raster_16)) }
+                FernTextButton(onClick = { state.addRasterLayer(16, hdr = true) }) { Text(stringResource(R.string.layers_new_hdr)) }
+                FernTextButton(onClick = {
                     state.addAdjustmentLayer(Levels())
                     editingAdjustment = state.activeLayerId to Levels()
                 }) { Text(stringResource(R.string.layers_new_adjustment)) }
@@ -380,13 +380,13 @@ private fun LayerCompsSection(state: CanvasState) {
             )
         }
         val newName = stringResource(R.string.layers_comp_default_name, state.layerComps.size + 1)
-        TextButton(onClick = { chosenId = state.saveLayerComp(newName) }) {
+        FernTextButton(onClick = { chosenId = state.saveLayerComp(newName) }) {
             Text(stringResource(R.string.layers_comp_save))
         }
     }
     val chosen = state.layerComps.firstOrNull { it.id == chosenId } ?: return
     Row(verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(
+        FernTextField(
             value = chosen.name,
             onValueChange = { name -> state.renameLayerComp(chosen.id, name) },
             label = { Text(stringResource(R.string.layers_comp_name)) },
@@ -412,14 +412,14 @@ private fun HdrSection(state: CanvasState) {
     val view = state.hdrView
     Text(stringResource(R.string.hdr_title), style = MaterialTheme.typography.labelLarge)
     Text(stringResource(R.string.hdr_exposure, "%+.1f".format(view.exposureStops)))
-    Slider(value = view.exposureStops, onValueChange = { state.changeHdrView(view.copy(exposureStops = it)) }, valueRange = -6f..6f)
+    FernSlider(value = view.exposureStops, onValueChange = { state.changeHdrView(view.copy(exposureStops = it)) }, valueRange = -6f..6f)
     Row {
         for ((mode, label) in listOf(ToneMap.CLIP to R.string.hdr_clip, ToneMap.FILMIC to R.string.hdr_filmic)) {
             FilterChip(selected = view.toneMap == mode, onClick = { state.changeHdrView(view.copy(toneMap = mode)) }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = FernScale.s4))
         }
     }
     Text(stringResource(R.string.hdr_intensity, "%.1f".format(state.hdrIntensity)))
-    Slider(value = state.hdrIntensity, onValueChange = { state.hdrIntensity = it }, valueRange = 1f..16f)
+    FernSlider(value = state.hdrIntensity, onValueChange = { state.hdrIntensity = it }, valueRange = 1f..16f)
 }
 
 private const val CONFIRM_RASTER_DELETE = "delete_raster_layer"

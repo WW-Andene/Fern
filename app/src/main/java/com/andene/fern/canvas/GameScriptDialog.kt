@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
 import com.andene.fern.FernPanel
 
 import com.andene.fern.FernScale
@@ -11,9 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,7 +52,7 @@ fun GameScriptEditor(state: CanvasState, objectId: String, onSaved: () -> Unit =
             source = it
             error = if (it.isBlank()) null else GameScript.check(it)
         }, error, Modifier.padding(top = FernScale.s8))
-        TextButton(onClick = {
+        FernTextButton(onClick = {
             error = if (source.isBlank()) null else GameScript.check(source)
             if (error == null) {
                 state.updateObject(target.copy(script = source.trim()))

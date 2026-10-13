@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernTextField
 import com.andene.fern.FernPanel
 
 import com.andene.fern.FernScale
@@ -17,10 +19,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,7 +74,7 @@ fun RulesEditor(state: CanvasState, objectId: String) {
                 }
             }
         }
-        TextButton(onClick = { save(rules + Rule(listOf(Condition(ConditionKind.ACTION_PRESSED, "jump")), emptyList())) }) {
+        FernTextButton(onClick = { save(rules + Rule(listOf(Condition(ConditionKind.ACTION_PRESSED, "jump")), emptyList())) }) {
             Text(stringResource(R.string.rules_add))
         }
     }
@@ -88,12 +88,12 @@ private fun ActionsEditor(actions: List<RuleAction>, onChange: (List<RuleAction>
         fun update(x: RuleAction) = onChange(actions.mapIndexed { k, y -> if (k == i) x else y })
         Row(verticalAlignment = Alignment.CenterVertically) {
             Choice(stringResource(a.kind.label), ActionKind.entries, { stringResource(it.label) }) { update(a.copy(kind = it)) }
-            if (a.kind.needsText) OutlinedTextField(a.text, { update(a.copy(text = it)) }, singleLine = true, modifier = Modifier.weight(1f))
+            if (a.kind.needsText) FernTextField(a.text, { update(a.copy(text = it)) }, singleLine = true, modifier = Modifier.weight(1f))
             if (a.kind.needsValue) NumberField(a.value) { update(a.copy(value = it)) }
             IconButton(onClick = { onChange(actions.filterIndexed { k, _ -> k != i }) }) {
                 Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.rules_remove_action))
             }
         }
     }
-    TextButton(onClick = { onChange(actions + RuleAction(ActionKind.ADD_TO_PROPERTY, "score", 1.0)) }) { Text(stringResource(R.string.rules_add_action)) }
+    FernTextButton(onClick = { onChange(actions + RuleAction(ActionKind.ADD_TO_PROPERTY, "score", 1.0)) }) { Text(stringResource(R.string.rules_add_action)) }
 }

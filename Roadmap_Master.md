@@ -80,7 +80,8 @@ Set aside for the owner (needs a device and a person):
 
 The app's look and layout rebuilt on the CLAUDE.md §7 scale, so every later screen is built from compliant parts. Comes first: every phase below adds UI.
 
-- [ ] 336. **Fern components.** Fern versions of every control in use, with sizes on the scale instead of Material's: text field (56 tall today), button (40), slider (20 px thumb), switch (52 wide), chip, menu (112 minimum width), dialog (280 minimum width) and list row. Raw Material controls are no longer used directly in UI code, checked by a test.
+- [~] 336. **Fern components.** Fern versions of every control in use, with sizes on the scale instead of Material's: text field (56 tall today), button (40), slider (20 px thumb), switch (52 wide), chip, menu (112 minimum width), dialog (280 minimum width) and list row. Raw Material controls are no longer used directly in UI code, checked by a test.
+  Done: `FernComponents.kt` - `FernTextButton` (48 tall), `FernSlider` (16 dp thumb), `FernSwitch` (48 x 24 track, 16 dp thumb) and `FernTextField` (48 tall for one line); every call site moved to them. Left: menus (Material's 112 dp minimum item width), list rows, and a check that fails on direct Material calls.
 - [ ] 337. **The last dialogs become panels.** The 34 remaining `AlertDialog`s move to the panel pattern (D42), so nothing modal covers the canvas except a destructive confirm.
 - [ ] 338. **Chrome budget.** A fixed limit per surface, enforced in code: the rail holds a set number of tools, the properties bar shows at most one row of the active tool's main settings with the rest one tap away (D32), no strip grows with use. Today the pen's bar holds about 70 controls and the toolbar about 27 buttons in one scrolling strip.
 - [ ] 339. **The toolbar is retired.** What it holds moves to the rail, the contextual properties bar, the labelled menus (D12) and panels; nothing scrolls sideways.

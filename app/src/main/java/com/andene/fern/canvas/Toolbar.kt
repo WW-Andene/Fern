@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSlider
 import androidx.compose.ui.platform.LocalView
 
 import com.andene.fern.FernHaptics
@@ -169,10 +171,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -521,13 +521,13 @@ fun Toolbar(
             title = { Text(stringResource(R.string.macro_name_title, steps.size)) },
             text = { androidx.compose.material3.OutlinedTextField(name, { name = it }, singleLine = true) },
             confirmButton = {
-                TextButton(enabled = name.isNotBlank(), onClick = {
+                FernTextButton(enabled = name.isNotBlank(), onClick = {
                     macros = macros + Macro(name.trim(), steps)
                     Macros.setSaved(context0, macros)
                     namingMacro = null
                 }) { Text(stringResource(R.string.action_save)) }
             },
-            dismissButton = { TextButton(onClick = { namingMacro = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { FernTextButton(onClick = { namingMacro = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
     val appItems = listOf<Triple<Int, androidx.compose.ui.graphics.vector.ImageVector, () -> Unit>>(
@@ -673,7 +673,7 @@ fun Toolbar(
                 // Measure (roadmap item 143): drag for a distance and angle, tap a shape for its
                 // perimeter and area, tap a line for its length; the scale button sets real units.
                 if (state.activeTool == Tool.MEASURE) {
-                    TextButton(onClick = { showDrawingScaleDialog = true }) {
+                    FernTextButton(onClick = { showDrawingScaleDialog = true }) {
                         Text(stringResource(R.string.scale_button, state.drawingScale.symbol))
                     }
                 }
@@ -831,7 +831,7 @@ fun Toolbar(
                     }
                     if (state.paintingWeights) {
                         // Cycles the painted weight in quarters: how much ink follows the selected bone.
-                        TextButton(onClick = { state.weightPaintValue = ((state.weightPaintValue * 4 + 1) % 5) / 4 }) {
+                        FernTextButton(onClick = { state.weightPaintValue = ((state.weightPaintValue * 4 + 1) % 5) / 4 }) {
                             Text(stringResource(R.string.tb_weight_value, (state.weightPaintValue * 100).toInt()))
                         }
                     }
@@ -1365,7 +1365,7 @@ fun Toolbar(
                     verticalAlignment = Alignment.CenterVertically,
                 ) { properties() }
                 if (showWidthSlider) {
-                    Slider(
+                    FernSlider(
                         value = state.activeWidthWorld.toFloat(),
                         onValueChange = { state.activeWidthWorld = it.toDouble() },
                         valueRange = MIN_WIDTH_SCREEN..MAX_WIDTH_SCREEN,
@@ -1375,7 +1375,7 @@ fun Toolbar(
                     )
                 }
                 if (showOpacitySlider) {
-                    Slider(
+                    FernSlider(
                         value = state.activeOpacity.toFloat(),
                         onValueChange = { state.activeOpacity = it.toDouble() },
                         valueRange = MIN_OPACITY..1f,
@@ -1385,7 +1385,7 @@ fun Toolbar(
                     )
                 }
                 if (showStabilizationSlider) {
-                    Slider(
+                    FernSlider(
                         value = state.activeStabilization.toFloat(),
                         onValueChange = { state.activeStabilization = it.toDouble() },
                         valueRange = 0f..CanvasState.MAX_STABILIZATION.toFloat(),
@@ -1613,7 +1613,7 @@ private val STROKE_TOOLS = setOf(Tool.PEN, Tool.SHAPE, Tool.BEZIER, Tool.ERASER)
 private fun MenuButton(@androidx.annotation.StringRes label: Int, icon: androidx.compose.ui.graphics.vector.ImageVector, items: List<Triple<Int, androidx.compose.ui.graphics.vector.ImageVector, () -> Unit>>) {
     var open by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { open = true }) {
+        FernTextButton(onClick = { open = true }) {
             Icon(icon, contentDescription = null, modifier = Modifier.padding(end = FernScale.s4))
             Text(stringResource(label))
         }

@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernTextField
 import com.andene.fern.FernScale
 
 import com.andene.fern.R
@@ -17,9 +19,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LocalTextStyle
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -82,7 +82,7 @@ fun TextEditDialog(
         title = { Text(if (pending.initialText.isEmpty()) stringResource(R.string.text_add) else stringResource(R.string.text_edit)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                OutlinedTextField(
+                FernTextField(
                     value = text,
                     onValueChange = { text = it },
                     label = { Text(stringResource(R.string.text_label)) },
@@ -222,7 +222,7 @@ fun TextEditDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(result()) }) { Text(stringResource(R.string.action_done)) }
+            FernTextButton(onClick = { onConfirm(result()) }) { Text(stringResource(R.string.action_done)) }
         },
         dismissButton = {
             Row {
@@ -230,15 +230,15 @@ fun TextEditDialog(
                 val webLink = remember(text) { firstWebLink(text) }
                 val uriHandler = LocalUriHandler.current
                 if (webLink != null) {
-                    TextButton(onClick = { runCatching { uriHandler.openUri(webLink) } }) { Text(stringResource(R.string.text_open_link)) }
+                    FernTextButton(onClick = { runCatching { uriHandler.openUri(webLink) } }) { Text(stringResource(R.string.text_open_link)) }
                 }
                 link?.let { target ->
-                    TextButton(onClick = {
+                    FernTextButton(onClick = {
                         onConfirm(result())
                         onFollowLink(target)
                     }) { Text(stringResource(R.string.text_follow_link)) }
                 }
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+                FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
             }
         },
     )
