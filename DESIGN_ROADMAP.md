@@ -319,8 +319,9 @@ Goal: complete and deep to master, while the first minute stays simple.
 - [~] D34. **Recorded actions and macros.** Repeat the last action, and record a sequence and
   bind it to a key or gesture (it builds on the scripting language of ROADMAP item 164).
   Written, not yet compiled or tested: `Macros.kt`. Actions run from the quick menu (tap or flick) or the palette are remembered: Repeat last action on Ctrl+., any gesture (Settings) or the palette. App > Record a macro records them until Stop recording, then names and saves the macro; saved macros run from the palette. A macro holds quick-menu actions (tools, undo/redo, duplicate, delete, colour, size), not strokes. Binding one macro to its own key is not done; Repeat last is the bindable one.
-- [ ] D35. **Usage-aware suggestions (on-device only).** Offer to pin a tool or action you use
+- [~] D35. **Usage-aware suggestions (on-device only).** Offer to pin a tool or action you use
   often but reach through menus. No telemetry leaves the device (CLAUDE.md §8.1).
+  Written, not yet compiled or tested: `UsageHints.kt`. A tool picked five times from "More tools" or the palette while not on the rail gets one offer to pin it (snackbar with Pin). Counts stay in the app's own preferences; nothing leaves the device.
 - [ ] D89. **Gesture and shortcut discoverability.** Long-press any control to see what it does,
   its gesture and its shortcut, in both languages; a "tips you haven't tried" list in Help.
 - [ ] D90. **Expert density.** An optional compact mode for experienced users showing more tools

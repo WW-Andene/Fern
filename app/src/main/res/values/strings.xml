@@ -1054,4 +1054,6 @@
     <string name="macro_stop">Stop recording</string>
     <string name="macro_name_title">Name this macro (%1$d steps)</string>
     <string name="macro_location">Macro</string>
+    <string name="hint_pin_tool">You often pick %1$s from the menus. Pin it to the rail?</string>
+    <string name="hint_pin">Pin</string>
 </resources>

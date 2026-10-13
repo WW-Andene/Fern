@@ -1057,4 +1057,6 @@
     <string name="macro_stop">Arrêter l’enregistrement</string>
     <string name="macro_name_title">Nommer cette macro (%1$d étapes)</string>
     <string name="macro_location">Macro</string>
+    <string name="hint_pin_tool">Vous choisissez souvent %1$s dans les menus. L’épingler au rail ?</string>
+    <string name="hint_pin">Épingler</string>
 </resources>

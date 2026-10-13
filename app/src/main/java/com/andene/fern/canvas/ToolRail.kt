@@ -137,6 +137,7 @@ fun ToolRail(state: CanvasState, vertical: Boolean, modifier: Modifier = Modifie
                                 onClick = {
                                     state.activeTool = tool
                                     showMore = false
+                                    UsageHints.toolReachedIndirectly(context, tool)
                                 },
                                 trailingIcon = {
                                     IconButton(onClick = {

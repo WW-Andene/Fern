@@ -560,7 +560,10 @@ fun Toolbar(
     val labels = rememberCommandLabels()
     val paletteCommands = buildList {
         val toolShortcuts = mapOf(Tool.PEN to "P", Tool.ERASER to "E", Tool.SELECT to "V")
-        for (tool in Tool.entries - Tool.RULER) add(labels.command(toolName(tool), R.string.palette_location_rail, toolShortcuts[tool]) { state.activeTool = tool })
+        for (tool in Tool.entries - Tool.RULER) add(labels.command(toolName(tool), R.string.palette_location_rail, toolShortcuts[tool]) {
+            state.activeTool = tool
+            UsageHints.toolReachedIndirectly(context0, tool)
+        })
         add(labels.command(R.string.action_undo, R.string.palette_location_toolbar, "Ctrl+Z") { state.undo() })
         add(labels.command(R.string.action_redo, R.string.palette_location_toolbar, "Ctrl+Y") { state.redo() })
         add(labels.command(R.string.layers_title, R.string.palette_location_toolbar) { showLayersDialog = true })
