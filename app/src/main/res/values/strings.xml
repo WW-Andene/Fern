@@ -1067,4 +1067,6 @@
     <string name="nav_minimap_show">Show the minimap</string>
     <string name="nav_minimap_hide">Hide the minimap</string>
     <string name="panel_filter">Filter</string>
+    <string name="layers_deleted">Layer deleted</string>
+    <string name="layers_opacity_drag">Drag sideways to change the opacity</string>
 </resources>

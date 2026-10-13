@@ -1071,4 +1071,6 @@
     <string name="nav_minimap_show">Afficher la mini-carte</string>
     <string name="nav_minimap_hide">Masquer la mini-carte</string>
     <string name="panel_filter">Filtrer</string>
+    <string name="layers_deleted">Calque supprimé</string>
+    <string name="layers_opacity_drag">Glissez sur le côté pour changer l’opacité</string>
 </resources>

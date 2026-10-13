@@ -2,6 +2,13 @@ package com.andene.fern.canvas
 
 import com.andene.fern.ConfirmIrreversible
 import com.andene.fern.FernPanel
+import androidx.compose.material.icons.filled.Add
+import com.andene.fern.PanelRow
+import kotlin.math.roundToInt
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import com.andene.fern.confirmationSkipped
 
 import com.andene.fern.FernMessages
@@ -125,9 +132,26 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
             onDismiss = { confirmingDelete = null },
         )
     }
+    var layerFilter by remember { mutableStateOf("") }
+    val deletedLabel = stringResource(R.string.layers_deleted)
+    val undoLabel = stringResource(R.string.action_undo)
+    fun delete(layer: Layer) {
+        // A raster layer's pixels don't come back with undo: ask first (design roadmap D26); other layers offer Undo.
+        if (layer.raster && !confirmationSkipped(context, CONFIRM_RASTER_DELETE)) {
+            confirmingDelete = layer.id
+        } else {
+            state.deleteLayer(layer.id)
+            if (!layer.raster) FernMessages.show(deletedLabel, undoLabel) { state.undo() }
+        }
+    }
     FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.layers_title)) },
+        // The panel's main action in its header, and a filter by name (design roadmap D42, D43).
+        headerAction = {
+            IconButton(onClick = { state.addLayer() }) { Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.layers_new)) }
+        },
+        onFilter = { layerFilter = it },
         text = {
             Column(
                 modifier = Modifier
@@ -152,11 +176,15 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                 LayerCompsSection(state)
                 if (state.layers.any { it.hdr }) HdrSection(state)
                 for (layer in state.layers.reversed()) {
+                    if (layerFilter.isNotBlank() && !layer.name.contains(layerFilter.trim(), ignoreCase = true)) continue
                     val active = layer.id == state.activeLayerId
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
+                    // Swipe left to delete, tap to make active (design roadmap D43).
+                    PanelRow(
+                        onClick = { state.activeLayerId = layer.id },
+                        onSwipeDelete = if (state.layers.size > 1) { { delete(layer) } } else null,
+                        deleteLabel = stringResource(R.string.layers_delete),
                     ) {
+                        LayerThumbnail(state, layer.id)
                         IconButton(onClick = { state.updateLayer(layer.id) { it.copy(visible = !it.visible) } }) {
                             Icon(
                                 if (layer.visible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
@@ -190,12 +218,20 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                                 Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.action_confirm_rename))
                             }
                         } else {
+                            // Drag sideways on the name to set the layer's opacity, shown beside it (design roadmap D43).
+                            val opacityLabel = stringResource(R.string.layers_opacity_drag)
                             Text(
-                                text = layer.name,
+                                text = if (layer.opacity < 1f) "${layer.name} · ${(layer.opacity * 100).roundToInt()} %" else layer.name,
                                 fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .clickable { state.activeLayerId = layer.id }
+                                    .semantics { stateDescription = opacityLabel }
+                                    .pointerInput(layer.id) {
+                                        detectHorizontalDragGestures { change, dx ->
+                                            change.consume()
+                                            state.updateLayer(layer.id) { it.copy(opacity = (it.opacity + dx / OPACITY_DRAG_PX).coerceIn(0f, 1f)) }
+                                        }
+                                    }
                                     .padding(vertical = FernScale.s12),
                             )
                             IconButton(onClick = {
@@ -221,10 +257,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                         IconButton(onClick = { state.mergeLayerDown(layer.id) }, enabled = layer != state.layers.first()) {
                             Icon(Icons.Filled.MergeType, contentDescription = stringResource(R.string.layers_merge))
                         }
-                        IconButton(onClick = {
-                            // A raster layer's pixels don't come back with undo: ask first (design roadmap D26).
-                            if (layer.raster && !confirmationSkipped(context, CONFIRM_RASTER_DELETE)) confirmingDelete = layer.id else state.deleteLayer(layer.id)
-                        }, enabled = state.layers.size > 1) {
+                        IconButton(onClick = { delete(layer) }, enabled = state.layers.size > 1) {
                             Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.layers_delete))
                         }
                     }
@@ -311,7 +344,6 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
             Row {
                 TextButton(onClick = { state.deleteEmptyLayers() }) { Text(stringResource(R.string.layers_remove_empty)) }
                 TextButton(onClick = { state.deleteHiddenLayers() }) { Text(stringResource(R.string.layers_delete_hidden)) }
-                TextButton(onClick = { state.addLayer() }) { Text(stringResource(R.string.layers_new)) }
                 // Raster layers hold pixels; 16 bits per channel for smooth gradients.
                 TextButton(onClick = { state.addRasterLayer(8) }) { Text(stringResource(R.string.layers_new_raster)) }
                 TextButton(onClick = { state.addRasterLayer(16) }) { Text(stringResource(R.string.layers_new_raster_16)) }
@@ -391,3 +423,6 @@ private fun HdrSection(state: CanvasState) {
 }
 
 private const val CONFIRM_RASTER_DELETE = "delete_raster_layer"
+
+// Dragging this far sideways on a layer's name takes its opacity from clear to solid.
+private const val OPACITY_DRAG_PX = 384f
