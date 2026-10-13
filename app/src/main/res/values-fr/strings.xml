@@ -976,6 +976,7 @@
     <string name="workspace_custom_layout">disposition personnalisée</string>
     <string name="workspace_delete">Supprimer l’espace %1$s</string>
     <string name="workspace_update">Enregistrer la disposition dans %1$s</string>
+    <string name="workspace_reset">Réinitialiser %1$s</string>
     <string name="workspace_save_new">Enregistrer la disposition comme espace</string>
     <string name="workspace_name">Nom de l’espace</string>
     <string name="menu_group_insert">Insérer</string>

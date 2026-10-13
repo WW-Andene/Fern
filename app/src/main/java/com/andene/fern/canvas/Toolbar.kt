@@ -147,11 +147,12 @@ fun Toolbar(
     var showMore by remember { mutableStateOf(false) }
     var showWidthSlider by remember { mutableStateOf(false) }
     var showColorPicker by remember { mutableStateOf(false) }
-    var showBrushLibrary by remember { mutableStateOf(false) }
+    // The docked panels' open state is shared, so workspaces can keep it (design roadmap D83).
+    var showBrushLibrary by DockedPanels::brushes
     var showShapeKindMenu by remember { mutableStateOf(false) }
     var showOpacitySlider by remember { mutableStateOf(false) }
     var showStabilizationSlider by remember { mutableStateOf(false) }
-    var showLayersDialog by remember { mutableStateOf(false) }
+    var showLayersDialog by DockedPanels::layers
     var showSearchDialog by remember { mutableStateOf(false) }
     var showSymmetryMenu by remember { mutableStateOf(false) }
     var showAlignMenu by remember { mutableStateOf(false) }
@@ -334,8 +335,8 @@ fun Toolbar(
     var showBackgroundColorPicker by remember { mutableStateOf(false) }
     var showBrushEditor by remember { mutableStateOf(false) }
     var showPressureCurve by remember { mutableStateOf(false) }
-    var showPalettes by remember { mutableStateOf(false) }
-    var showRigPanel by remember { mutableStateOf(false) }
+    var showPalettes by DockedPanels::palettes
+    var showRigPanel by DockedPanels::rig
     var showGradientDialog by remember { mutableStateOf(false) }
     var showPerspectiveMenu by remember { mutableStateOf(false) }
 

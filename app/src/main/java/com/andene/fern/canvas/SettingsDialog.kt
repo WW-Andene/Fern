@@ -142,13 +142,19 @@ object AppSettings {
     /** The quick menu's actions (roadmap item 133), in ring order; [DEFAULT_QUICK_MENU] until changed. */
     fun quickMenuActions(context: Context): List<QuickMenuAction> {
         val saved = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_QUICK_MENU, null) ?: return DEFAULT_QUICK_MENU
-        // Names no longer in QuickMenuAction (from another version) are dropped.
-        val names = saved.split(',').toSet()
-        return QuickMenuAction.entries.filter { it.name in names }.ifEmpty { DEFAULT_QUICK_MENU }
+        // In the saved order (the ring's); names no longer in QuickMenuAction (from another version) are dropped.
+        return saved.split(',').mapNotNull { name -> QuickMenuAction.entries.firstOrNull { it.name == name } }.distinct().ifEmpty { DEFAULT_QUICK_MENU }
     }
+
+    private var quickMenuLoaded: androidx.compose.runtime.MutableState<List<QuickMenuAction>>? = null
+
+    /** The quick menu's actions as state, so the ring follows a change made elsewhere (a workspace switch, design roadmap D83). */
+    fun quickMenuState(context: Context): androidx.compose.runtime.MutableState<List<QuickMenuAction>> =
+        quickMenuLoaded ?: mutableStateOf(quickMenuActions(context)).also { quickMenuLoaded = it }
 
     fun setQuickMenuActions(context: Context, value: List<QuickMenuAction>) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString(KEY_QUICK_MENU, value.joinToString(",") { it.name }).apply()
+        quickMenuLoaded?.value = value
     }
 
     fun setHiddenToolbarGroups(context: Context, value: Set<ToolbarGroup>) {

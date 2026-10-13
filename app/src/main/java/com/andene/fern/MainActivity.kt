@@ -341,7 +341,8 @@ class MainActivity : ComponentActivity() {
                     // The toolbar's edge: where the user put it, or the bottom in one-hand mode.
                     val toolbarLow = toolbarAtBottom || oneHand
                     var hiddenToolbarGroups by remember { mutableStateOf(AppSettings.hiddenToolbarGroups(context)) }
-                    var quickMenuActions by remember { mutableStateOf(AppSettings.quickMenuActions(context)) }
+                    // Shared state: a workspace switch (design roadmap D83) changes it from the toolbar.
+                    var quickMenuActions by AppSettings.quickMenuState(context)
                     var showLayoutEditor by remember { mutableStateOf(false) }
                     var crashReport by remember { mutableStateOf(CrashReporter.pendingReport(context)) }
                     var presentingIndex by remember { mutableStateOf<Int?>(null) } // non-null = presenting that frame

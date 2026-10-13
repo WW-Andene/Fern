@@ -973,6 +973,7 @@
     <string name="workspace_custom_layout">custom layout</string>
     <string name="workspace_delete">Delete workspace %1$s</string>
     <string name="workspace_update">Save layout into %1$s</string>
+    <string name="workspace_reset">Reset %1$s</string>
     <string name="workspace_save_new">Save layout as a workspace</string>
     <string name="workspace_name">Workspace name</string>
     <string name="menu_group_insert">Insert</string>

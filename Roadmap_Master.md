@@ -201,8 +201,9 @@ Switching, adjusting and arranging without looking. Builds on Phases 1 and 2.
   stylus, keys, palm), Appearance (theme, density, UI size), Accessibility, Canvas, Files and
   colour management. Every setting can be reset on its own.
   Written, not yet compiled or tested: a search field (accent- and case-insensitive, either language's wording via the palette matcher) filters every row; sections Input, Appearance, Accessibility, Canvas, Files and colour management; each switch, gesture and shortcut shows a reset button while it differs from its default. Theme, density and UI size join Appearance with D25 and D60.
-- [ ] D83. **Per-workspace layouts.** Each workspace (D11) remembers its own rail, panels and quick
+- [~] D83. **Per-workspace layouts.** Each workspace (D11) remembers its own rail, panels and quick
   menu; switching workspace brings them back.
+  Written, not yet compiled or tested: a workspace now also holds its quick menu and open docked panels (layers, brushes, palettes, rig: `DockedPanels`), and remembers how it was left: switching saves the layout into the workspace being left, then brings the chosen one back as it was last left (built-in ones keep this as an override). Reset brings the active one back as defined. The quick menu's saved order was being lost on restart (read back in a fixed order); it's kept now.
 - [ ] D84. **Custom tool presets on the rail.** Save a tool with its settings as a named preset
   ("Ink 2 px blue", "Soft eraser") and pin it like a tool.
 - [ ] D85. **Reset to defaults** per surface and for everything, with a preview before applying
