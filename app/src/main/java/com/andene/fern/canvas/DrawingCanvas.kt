@@ -1076,6 +1076,11 @@ fun DrawingCanvas(
                     drawLine(Color.White, from, to, strokeWidth = 3f)
                     drawLine(mark, from, to, strokeWidth = 1f)
                 }
+            } else if (state.activeTool == Tool.PEN && state.activePenType == PenType.STAMP && state.activeBrush.tip != StampTip.CIRCLE) {
+                // A stamp brush's own tip (design roadmap D36): a see-through ghost of one dab at its
+                // real size, upright since there's no direction of travel yet.
+                val brush = state.activeBrush
+                drawStamp(brush.tip, Stamp(point, radius * 2f, 0f), FernColors.current.selection.copy(alpha = STAMP_GHOST_ALPHA), mask = brush.mask)
             } else {
                 drawCircle(Color.White, radius = radius + 1f, center = point, style = DrawStyle(width = 3f))
                 drawCircle(FernColors.current.selection, radius = radius, center = point, style = DrawStyle(width = 1f))
@@ -1812,6 +1817,8 @@ private const val WHEEL_ZOOM_STEP = 1.1
 private const val PALM_NEAR_MILLIS = 1024L
 // Padding around an on-canvas readout.
 private const val READOUT_GAP_PX = 4f
+// How strongly a stamp brush's hover ghost shows: enough to read the tip, not to hide the drawing.
+private const val STAMP_GHOST_ALPHA = 0.4f
 // Two two-finger taps this close together are a double tap.
 private const val DOUBLE_TAP_MILLIS = 384L
 // How long a gesture's badge shows, and where the zoom readout sits below the top edge.
