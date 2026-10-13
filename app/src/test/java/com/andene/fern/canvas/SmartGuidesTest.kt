@@ -45,7 +45,7 @@ class SmartGuidesTest {
 
     @Test
     fun dimensionsReadLengthOrWidthByHeight() {
-        assertEquals("50", shapeDimensions(ShapeKind.LINE, WorldPoint(0.0, 0.0), WorldPoint(30.0, 40.0)))
+        assertEquals("50 · -53°", shapeDimensions(ShapeKind.LINE, WorldPoint(0.0, 0.0), WorldPoint(30.0, 40.0)))
         assertEquals("30 × 40", shapeDimensions(ShapeKind.RECTANGLE, WorldPoint(0.0, 0.0), WorldPoint(30.0, -40.0)))
     }
 }

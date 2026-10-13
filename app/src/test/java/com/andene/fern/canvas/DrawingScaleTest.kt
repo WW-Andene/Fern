@@ -85,8 +85,8 @@ class DrawingScaleTest {
 
     @Test
     fun shapeReadoutUsesTheScale() {
-        assertEquals("5.00 m", shapeDimensions(ShapeKind.LINE, WorldPoint(0.0, 0.0), WorldPoint(300.0, 400.0), DrawingScale(MeasureUnit.METRE, 0.01)))
+        assertEquals("5.00 m · -53°", shapeDimensions(ShapeKind.LINE, WorldPoint(0.0, 0.0), WorldPoint(300.0, 400.0), DrawingScale(MeasureUnit.METRE, 0.01)))
         assertEquals("3.00 × 4.00 m", shapeDimensions(ShapeKind.RECTANGLE, WorldPoint(0.0, 0.0), WorldPoint(300.0, 400.0), DrawingScale(MeasureUnit.METRE, 0.01)))
-        assertEquals("500", shapeDimensions(ShapeKind.LINE, WorldPoint(0.0, 0.0), WorldPoint(300.0, 400.0)))
+        assertEquals("500 · -53°", shapeDimensions(ShapeKind.LINE, WorldPoint(0.0, 0.0), WorldPoint(300.0, 400.0)))
     }
 }

@@ -132,6 +132,8 @@ fun DrawingCanvas(
     val palm by PalmSettings.state(context)
     // Where a hovering stylus is (design roadmap D16): the brush's footprint shows there before it touches.
     var hoverPoint by remember { mutableStateOf<Offset?>(null) }
+    // Whether a selection is being moved, scaled or turned: its place and size show beside it (design roadmap D37).
+    var selectionReadout by remember { mutableStateOf(false) }
     val imageBitmapCache = remember { mutableMapOf<String, ImageBitmap>() }
     // Low-latency ink (see FrontBufferedInk): a transparent front-buffered surface above the
     // canvas. Placed first in the Box so the canvas, not the surface, receives touches; the
@@ -271,6 +273,7 @@ fun DrawingCanvas(
                                 SelectionGestureKind.ROTATE -> state.endRotateSelection()
                                 SelectionGestureKind.OTHER -> state.endSelectGesture()
                             }
+                            selectionReadout = false
                         }
                         toolBeforeStylusEraser?.let { state.activeTool = it }
                         toolBeforeStylusEraser = null
@@ -360,6 +363,7 @@ fun DrawingCanvas(
                                     Tool.SELECT -> {
                                         // The shape builder and knife (roadmap item 141) take every drag, handles included.
                                         val handles = if (state.shapeEditMode == null) selectionHandles(state, screenCenter) else null
+                                        selectionReadout = true
                                         selectionGestureKind = when {
                                             handles != null && (downPos - handles.scaleHandle).getDistance() <= HANDLE_HIT_RADIUS_SCREEN -> {
                                                 state.beginScaleSelection(world)
@@ -923,6 +927,18 @@ fun DrawingCanvas(
                     }
                 }
             }
+        }
+    }
+    // The selection's position and size while it's dragged (design roadmap D37), in the drawing's units.
+    if (selectionReadout) state.selectionBounds()?.let { (min, max) ->
+        Canvas(Modifier.matchParentSize()) {
+            val screenCenter = Offset(size.width / 2f, size.height / 2f)
+            val scaleOf = state.drawingScale
+            val label = "${scaleOf.formatLength(min.x)}, ${scaleOf.formatLength(min.y)} · ${formatMeasure((max.x - min.x) * scaleOf.factor)} × ${scaleOf.formatLength(max.y - min.y)}"
+            val layout = textMeasurer.measure(label, TextStyle(color = FernColors.current.onScrim, fontSize = FernType.caption))
+            val anchor = state.worldToScreen(min, screenCenter) - Offset(0f, layout.size.height + READOUT_GAP_PX * 2)
+            drawRoundRect(FernColors.current.scrim, topLeft = anchor - Offset(READOUT_GAP_PX, READOUT_GAP_PX), size = Size(layout.size.width + READOUT_GAP_PX * 2, layout.size.height + READOUT_GAP_PX * 2), cornerRadius = androidx.compose.ui.geometry.CornerRadius(READOUT_GAP_PX))
+            drawText(layout, topLeft = anchor)
         }
     }
     // Where a typed transform would put the selection (design roadmap D27).
@@ -1624,12 +1640,14 @@ private val GUIDE_COLOR: Color get() = FernColors.current.guide
 internal fun shapeDimensions(kind: ShapeKind, start: WorldPoint, end: WorldPoint, drawingScale: DrawingScale? = null): String {
     val dx = abs(end.x - start.x)
     val dy = abs(end.y - start.y)
+    // A line's angle too, counter-clockwise from the right as on a protractor (design roadmap D37).
+    val angle = "%.0f°".format(Math.toDegrees(kotlin.math.atan2(-(end.y - start.y), end.x - start.x)))
     if (drawingScale != null) return when (kind) {
-        ShapeKind.LINE, ShapeKind.ARROW -> drawingScale.formatLength(kotlin.math.hypot(dx, dy))
+        ShapeKind.LINE, ShapeKind.ARROW -> "${drawingScale.formatLength(kotlin.math.hypot(dx, dy))} · $angle"
         else -> "${formatMeasure(dx * drawingScale.unitsPerWorld)} × ${drawingScale.formatLength(dy)}"
     }
     return when (kind) {
-        ShapeKind.LINE, ShapeKind.ARROW -> "%.0f".format(kotlin.math.hypot(dx, dy))
+        ShapeKind.LINE, ShapeKind.ARROW -> "%.0f · %s".format(kotlin.math.hypot(dx, dy), angle)
         else -> "%.0f × %.0f".format(dx, dy)
     }
 }
@@ -1716,6 +1734,8 @@ private const val MULTI_FINGER_TAP_SLOP_PX = 24f // on the §7 scale
 private const val LONG_PRESS_MILLIS = 500L
 // After a stylus was last seen, strict palm rejection ignores touches this long.
 private const val PALM_NEAR_MILLIS = 1024L
+// Padding around an on-canvas readout.
+private const val READOUT_GAP_PX = 4f
 // Under this footprint radius the hover cursor is a crosshair; its gap and arm lengths.
 private const val CROSSHAIR_BELOW_PX = 4f
 private const val CROSSHAIR_GAP_PX = 4f
