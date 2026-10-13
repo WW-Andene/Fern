@@ -208,11 +208,6 @@ import kotlinx.coroutines.withContext
 // memory. 2048 is on the project size scale.
 private const val MAX_IMAGE_EDGE_PX = 2048
 
-// Window width from which the toolbar wraps instead of scrolling (tablets, unfolded foldables,
-// wide split windows). Material's "expanded" class starts at 840dp; this is that, put on the §7
-// scale (512 + 256), which also takes in a portrait tablet.
-private const val WIDE_WINDOW_DP = 768
-
 class MainActivity : ComponentActivity() {
     private val powerMonitor by lazy { PowerMonitor(applicationContext) }
 
@@ -1228,7 +1223,6 @@ class MainActivity : ComponentActivity() {
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(bottom = railInset + FernScale.s8, start = railSide, end = railSide)
                                     .padding(horizontal = FernScale.s8),
-                                wrap = LocalConfiguration.current.screenWidthDp >= WIDE_WINDOW_DP,
                                 modifier = Modifier
                                     .align(if (toolbarAtBottom) Alignment.BottomCenter else Alignment.TopCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())

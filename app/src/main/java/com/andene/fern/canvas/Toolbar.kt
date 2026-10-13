@@ -143,6 +143,7 @@ import androidx.compose.material.icons.filled.LineStyle
 import androidx.compose.material.icons.filled.LineWeight
 import androidx.compose.material.icons.filled.LinearScale
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Opacity
@@ -212,8 +213,6 @@ fun Toolbar(
     modifier: Modifier = Modifier,
     /** Button groups the user turned off in Settings (roadmap item 71); see [ToolbarGroup]. */
     hiddenGroups: Set<ToolbarGroup> = emptySet(),
-    /** Wrap the tools onto several rows instead of scrolling them sideways: for wide windows (roadmap item 74). */
-    wrap: Boolean = false,
     onOpenDocuments: () -> Unit = {},
     onOpenPins: () -> Unit = {},
     onOpenVersions: () -> Unit = {},
@@ -274,6 +273,7 @@ fun Toolbar(
 ) {
     val dragOutLabel = stringResource(R.string.tb_drag_out)
     var showExportMenu by remember { mutableStateOf(false) }
+    var showMore by remember { mutableStateOf(false) }
     var showWidthSlider by remember { mutableStateOf(false) }
     var showColorPicker by remember { mutableStateOf(false) }
     var showBrushLibrary by remember { mutableStateOf(false) }
@@ -1150,213 +1150,234 @@ fun Toolbar(
             // Every tool, in toolbar order. On a phone they scroll sideways: they add up to far
             // more than its width, and without scrolling everything past the edge was unreachable.
             // On a wide window (roadmap item 74) they wrap onto further rows instead, all in view.
+            // The top bar (roadmap items 338, 339): a fixed set that never scrolls - undo, redo,
+            // layers, play (once there is a game), search, export and "More". Everything else is
+            // in the More panel, in labelled sections, so the bar can't grow with each feature.
             val tools: @Composable () -> Unit = {
-                WorkspaceSwitcher(hiddenGroups, onHiddenGroupsChange)
-                IconButton(onClick = { CommandPaletteState.open = true }) {
-                    Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.palette_title))
-                }
-                if (ToolbarGroup.FAVOURITES !in hiddenGroups) {
-                    for (index in 0 until TOOL_SLOT_COUNT) ToolSlotButton(state, index)
-                }
-
-                if (ToolbarGroup.GUIDES !in hiddenGroups) {
-                    Box {
-                        IconButton(onClick = { showSymmetryMenu = true }) {
-                            Icon(
-                                Icons.Filled.Flare,
-                                contentDescription = stringResource(R.string.tb_symmetry, stringResource(state.symmetryMode.label)),
-                                tint = if (state.symmetryMode != SymmetryMode.OFF) MaterialTheme.colorScheme.primary
-                                else LocalContentColor.current,
-                            )
-                        }
-                        DropdownMenu(expanded = showSymmetryMenu, onDismissRequest = { showSymmetryMenu = false }) {
-                            for (mode in SymmetryMode.entries) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(mode.label)) },
-                                    onClick = {
-                                        state.setSymmetry(mode)
-                                        showSymmetryMenu = false
-                                    },
-                                )
-                            }
-                        }
-                    }
-                    Box {
-                        IconButton(onClick = { showPerspectiveMenu = true }) {
-                            Icon(
-                                Icons.Filled.ViewInAr,
-                                contentDescription = stringResource(R.string.tb_perspective, stringResource(state.perspectiveMode.label)),
-                                tint = if (state.perspectiveMode != PerspectiveMode.OFF) MaterialTheme.colorScheme.primary
-                                else LocalContentColor.current,
-                            )
-                        }
-                        DropdownMenu(expanded = showPerspectiveMenu, onDismissRequest = { showPerspectiveMenu = false }) {
-                            for (mode in PerspectiveMode.entries) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(mode.label)) },
-                                    onClick = {
-                                        state.setPerspective(mode)
-                                        showPerspectiveMenu = false
-                                    },
-                                )
-                            }
-                        }
-                    }
-                }
-                if (ToolbarGroup.ANIMATION !in hiddenGroups) {
-                    IconButton(onClick = {
-                        state.animationMode = !state.animationMode
-                        state.playing = false
-                    }) {
-                        Icon(
-                            Icons.Filled.Movie,
-                            contentDescription = if (state.animationMode) stringResource(R.string.tb_anim_on) else stringResource(R.string.tb_anim_off),
-                            tint = if (state.animationMode) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                        )
-                    }
-                }
-                if (ToolbarGroup.LAYERS !in hiddenGroups) {
-                    IconButton(onClick = { showLayersDialog = true }) {
-                        Icon(Icons.Filled.Layers, contentDescription = stringResource(R.string.layers_title))
-                    }
-                    Box {
-                        IconButton(onClick = { showBlendModeMenu = true }) {
-                            Icon(
-                                // Was the Layers icon before layers existed; that icon now opens the layer panel.
-                                Icons.Filled.Tonality,
-                                contentDescription = stringResource(R.string.tb_blend, stringResource(blendModeLabel(state.activeBlendMode))),
-                                tint = if (state.activeBlendMode != StrokeBlendMode.NORMAL) MaterialTheme.colorScheme.primary
-                                else LocalContentColor.current,
-                            )
-                        }
-                        DropdownMenu(expanded = showBlendModeMenu, onDismissRequest = { showBlendModeMenu = false }) {
-                            for (mode in StrokeBlendMode.entries) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(blendModeLabel(mode))) },
-                                    onClick = {
-                                        state.activeBlendMode = mode
-                                        showBlendModeMenu = false
-                                    },
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Play the game (roadmap item 155) once something is an object.
-                if (state.gameObjects.isNotEmpty()) {
-                    IconButton(onClick = { state.startPlay() }) {
-                        Icon(Icons.Filled.SportsEsports, contentDescription = stringResource(R.string.play_start))
-                    }
-                    // The game's controls (roadmap item 160).
-                    IconButton(onClick = { showControls = true }) {
-                        Icon(Icons.Filled.Gamepad, contentDescription = stringResource(R.string.controls_title))
-                    }
-                }
                 IconButton(onClick = { state.undo() }) {
                     Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.action_undo))
                 }
                 IconButton(onClick = { state.redo() }) {
                     Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = stringResource(R.string.action_redo))
                 }
-                if (ToolbarGroup.VIEW !in hiddenGroups) {
-                    IconButton(onClick = {
-                        state.clear()
-                        FernMessages.show(clearedMessage, undoLabel) { state.undo() }
-                    }) {
-                        Icon(Icons.Filled.DeleteSweep, contentDescription = stringResource(R.string.tb_clear_all))
-                    }
-                    IconButton(onClick = { state.resetView() }) {
-                        Icon(Icons.Filled.ZoomOutMap, contentDescription = stringResource(R.string.tb_reset_view))
-                    }
-                    IconButton(onClick = { state.zoomToFit() }) {
-                        Icon(Icons.Filled.CenterFocusStrong, contentDescription = stringResource(R.string.tb_fit))
+                if (ToolbarGroup.LAYERS !in hiddenGroups) {
+                    IconButton(onClick = { showLayersDialog = true }) {
+                        Icon(Icons.Filled.Layers, contentDescription = stringResource(R.string.layers_title))
                     }
                 }
-                IconButton(onClick = onOpenDocuments) {
-                    Icon(Icons.Filled.Description, contentDescription = stringResource(R.string.documents_title))
-                }
-                // Occasional actions, grouped by purpose behind labelled menus, each one level deep (design roadmap D12).
-                MenuButton(R.string.menu_group_insert, Icons.Filled.AddBox, insertItems)
-                MenuButton(R.string.menu_group_import, Icons.Filled.FileOpen, importItems)
-                MenuButton(R.string.menu_group_document, Icons.Filled.Description, documentItems)
-                MenuButton(R.string.menu_group_app, Icons.Filled.Settings, appItems)
-                if (ToolbarGroup.REPLAY !in hiddenGroups) {
-                    IconButton(onClick = { state.replayCount = if (state.replayCount == null) 0 else null }) {
-                        Icon(
-                            Icons.Filled.Replay,
-                            contentDescription = if (state.replayCount == null) stringResource(R.string.tb_replay) else stringResource(R.string.tb_stop_replay),
-                            tint = if (state.replayCount != null) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                        )
+                // Play the game (roadmap item 155) once something is an object.
+                if (state.gameObjects.isNotEmpty()) {
+                    IconButton(onClick = { state.startPlay() }) {
+                        Icon(Icons.Filled.SportsEsports, contentDescription = stringResource(R.string.play_start))
                     }
+                }
+                IconButton(onClick = { CommandPaletteState.open = true }) {
+                    Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.palette_title))
                 }
                 // Export by purpose, then format (design roadmap D13).
                 IconButton(onClick = { showExportMenu = true }) {
                     Icon(Icons.Filled.IosShare, contentDescription = stringResource(R.string.tb_export))
                 }
+                IconButton(onClick = { showMore = true }) {
+                    Icon(Icons.Filled.MoreHoriz, contentDescription = stringResource(R.string.more_title))
+                }
                 if (showExportMenu) {
                     ExportPanel(state, onDismiss = { showExportMenu = false }, run = runExport)
                 }
-                if (ToolbarGroup.BACKGROUND !in hiddenGroups) {
-                    Box {
-                        IconButton(onClick = { showBackgroundStyleMenu = true }) {
-                            Icon(Icons.Filled.GridOn, contentDescription = stringResource(R.string.tb_background, stringResource(backgroundStyleLabel(state.backgroundStyle))))
-                        }
-                        DropdownMenu(expanded = showBackgroundStyleMenu, onDismissRequest = { showBackgroundStyleMenu = false }) {
-                            for (style in BackgroundStyle.entries) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(backgroundStyleLabel(style))) },
-                                    onClick = {
-                                        state.setBackground(state.backgroundColor, style)
-                                        showBackgroundStyleMenu = false
-                                    },
-                                )
-                            }
-                            for (paper in PaperPreset.entries) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(paper.label)) },
-                                    onClick = {
-                                        state.applyPaperPreset(paper)
-                                        showBackgroundStyleMenu = false
-                                    },
-                                )
-                            }
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.tb_background_color)) },
-                                onClick = {
-                                    showBackgroundStyleMenu = false
-                                    showBackgroundColorPicker = true
-                                },
-                            )
-                        }
-                    }
-                }
-                if (ToolbarGroup.GUIDES !in hiddenGroups) {
-                    IconButton(onClick = {
-                        state.toggleRuler()
-                        state.activeTool = if (state.rulerActive) Tool.RULER
-                        else if (state.activeTool == Tool.RULER) Tool.PEN else state.activeTool
-                    }) {
-                        Icon(
-                            Icons.Filled.Straighten,
-                            contentDescription = stringResource(R.string.tb_ruler),
-                            tint = if (state.rulerActive) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                        )
-                    }
-                }
             }
-            if (wrap) {
-                FlowRow(
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(FernScale.s8),
-                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(FernScale.s8),
-                ) { tools() }
-            } else {
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(FernScale.s8),
-                ) { tools() }
+            if (showMore) {
+                FernPanel(
+                    scrollContent = true,
+                    onDismissRequest = { showMore = false },
+                    title = { Text(stringResource(R.string.more_title)) },
+                    text = {
+                        Column {
+                            MoreSection(stringResource(R.string.more_section_workspace)) {
+                                WorkspaceSwitcher(hiddenGroups, onHiddenGroupsChange)
+                            }
+                            MoreSection(stringResource(R.string.more_section_mode)) {
+                                if (ToolbarGroup.ANIMATION !in hiddenGroups) {
+                                    IconButton(onClick = {
+                                        state.animationMode = !state.animationMode
+                                        state.playing = false
+                                    }) {
+                                        Icon(
+                                            Icons.Filled.Movie,
+                                            contentDescription = if (state.animationMode) stringResource(R.string.tb_anim_on) else stringResource(R.string.tb_anim_off),
+                                            tint = if (state.animationMode) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                        )
+                                    }
+                                }
+                                if (state.gameObjects.isNotEmpty()) {
+                                    // The game's controls (roadmap item 160).
+                                    IconButton(onClick = { showControls = true }) {
+                                        Icon(Icons.Filled.Gamepad, contentDescription = stringResource(R.string.controls_title))
+                                    }
+                                }
+                                if (ToolbarGroup.REPLAY !in hiddenGroups) {
+                                    IconButton(onClick = { state.replayCount = if (state.replayCount == null) 0 else null }) {
+                                        Icon(
+                                            Icons.Filled.Replay,
+                                            contentDescription = if (state.replayCount == null) stringResource(R.string.tb_replay) else stringResource(R.string.tb_stop_replay),
+                                            tint = if (state.replayCount != null) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                        )
+                                    }
+                                }
+                            }
+                            MoreSection(stringResource(R.string.more_section_guides)) {
+                                if (ToolbarGroup.GUIDES !in hiddenGroups) {
+                                    Box {
+                                        IconButton(onClick = { showSymmetryMenu = true }) {
+                                            Icon(
+                                                Icons.Filled.Flare,
+                                                contentDescription = stringResource(R.string.tb_symmetry, stringResource(state.symmetryMode.label)),
+                                                tint = if (state.symmetryMode != SymmetryMode.OFF) MaterialTheme.colorScheme.primary
+                                                else LocalContentColor.current,
+                                            )
+                                        }
+                                        DropdownMenu(expanded = showSymmetryMenu, onDismissRequest = { showSymmetryMenu = false }) {
+                                            for (mode in SymmetryMode.entries) {
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(mode.label)) },
+                                                    onClick = {
+                                                        state.setSymmetry(mode)
+                                                        showSymmetryMenu = false
+                                                    },
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Box {
+                                        IconButton(onClick = { showPerspectiveMenu = true }) {
+                                            Icon(
+                                                Icons.Filled.ViewInAr,
+                                                contentDescription = stringResource(R.string.tb_perspective, stringResource(state.perspectiveMode.label)),
+                                                tint = if (state.perspectiveMode != PerspectiveMode.OFF) MaterialTheme.colorScheme.primary
+                                                else LocalContentColor.current,
+                                            )
+                                        }
+                                        DropdownMenu(expanded = showPerspectiveMenu, onDismissRequest = { showPerspectiveMenu = false }) {
+                                            for (mode in PerspectiveMode.entries) {
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(mode.label)) },
+                                                    onClick = {
+                                                        state.setPerspective(mode)
+                                                        showPerspectiveMenu = false
+                                                    },
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                if (ToolbarGroup.GUIDES !in hiddenGroups) {
+                                    IconButton(onClick = {
+                                        state.toggleRuler()
+                                        state.activeTool = if (state.rulerActive) Tool.RULER
+                                        else if (state.activeTool == Tool.RULER) Tool.PEN else state.activeTool
+                                    }) {
+                                        Icon(
+                                            Icons.Filled.Straighten,
+                                            contentDescription = stringResource(R.string.tb_ruler),
+                                            tint = if (state.rulerActive) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                        )
+                                    }
+                                }
+                            }
+                            MoreSection(stringResource(R.string.more_section_canvas)) {
+                                if (ToolbarGroup.LAYERS !in hiddenGroups) {
+                                    Box {
+                                        IconButton(onClick = { showBlendModeMenu = true }) {
+                                            Icon(
+                                                // Was the Layers icon before layers existed; that icon now opens the layer panel.
+                                                Icons.Filled.Tonality,
+                                                contentDescription = stringResource(R.string.tb_blend, stringResource(blendModeLabel(state.activeBlendMode))),
+                                                tint = if (state.activeBlendMode != StrokeBlendMode.NORMAL) MaterialTheme.colorScheme.primary
+                                                else LocalContentColor.current,
+                                            )
+                                        }
+                                        DropdownMenu(expanded = showBlendModeMenu, onDismissRequest = { showBlendModeMenu = false }) {
+                                            for (mode in StrokeBlendMode.entries) {
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(blendModeLabel(mode))) },
+                                                    onClick = {
+                                                        state.activeBlendMode = mode
+                                                        showBlendModeMenu = false
+                                                    },
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (ToolbarGroup.BACKGROUND !in hiddenGroups) {
+                                    Box {
+                                        IconButton(onClick = { showBackgroundStyleMenu = true }) {
+                                            Icon(Icons.Filled.GridOn, contentDescription = stringResource(R.string.tb_background, stringResource(backgroundStyleLabel(state.backgroundStyle))))
+                                        }
+                                        DropdownMenu(expanded = showBackgroundStyleMenu, onDismissRequest = { showBackgroundStyleMenu = false }) {
+                                            for (style in BackgroundStyle.entries) {
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(backgroundStyleLabel(style))) },
+                                                    onClick = {
+                                                        state.setBackground(state.backgroundColor, style)
+                                                        showBackgroundStyleMenu = false
+                                                    },
+                                                )
+                                            }
+                                            for (paper in PaperPreset.entries) {
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(paper.label)) },
+                                                    onClick = {
+                                                        state.applyPaperPreset(paper)
+                                                        showBackgroundStyleMenu = false
+                                                    },
+                                                )
+                                            }
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(R.string.tb_background_color)) },
+                                                onClick = {
+                                                    showBackgroundStyleMenu = false
+                                                    showBackgroundColorPicker = true
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                                if (ToolbarGroup.VIEW !in hiddenGroups) {
+                                    IconButton(onClick = {
+                                        state.clear()
+                                        FernMessages.show(clearedMessage, undoLabel) { state.undo() }
+                                    }) {
+                                        Icon(Icons.Filled.DeleteSweep, contentDescription = stringResource(R.string.tb_clear_all))
+                                    }
+                                    IconButton(onClick = { state.resetView() }) {
+                                        Icon(Icons.Filled.ZoomOutMap, contentDescription = stringResource(R.string.tb_reset_view))
+                                    }
+                                    IconButton(onClick = { state.zoomToFit() }) {
+                                        Icon(Icons.Filled.CenterFocusStrong, contentDescription = stringResource(R.string.tb_fit))
+                                    }
+                                }
+                            }
+                            MoreSection(stringResource(R.string.more_section_tool_slots)) {
+                                if (ToolbarGroup.FAVOURITES !in hiddenGroups) {
+                                    for (index in 0 until TOOL_SLOT_COUNT) ToolSlotButton(state, index)
+                                }
+                            }
+                            MoreSection(stringResource(R.string.more_section_menus)) {
+                                IconButton(onClick = onOpenDocuments) {
+                                    Icon(Icons.Filled.Description, contentDescription = stringResource(R.string.documents_title))
+                                }
+                                // Occasional actions, grouped by purpose behind labelled menus, each one level deep (design roadmap D12).
+                                MenuButton(R.string.menu_group_insert, Icons.Filled.AddBox, insertItems)
+                                MenuButton(R.string.menu_group_import, Icons.Filled.FileOpen, importItems)
+                                MenuButton(R.string.menu_group_document, Icons.Filled.Description, documentItems)
+                                MenuButton(R.string.menu_group_app, Icons.Filled.Settings, appItems)
+                            }
+                        }
+                    },
+                )
             }
+            Row(verticalAlignment = Alignment.CenterVertically) { tools() }
         }
     }
 
@@ -1633,4 +1654,12 @@ private fun MenuButton(@androidx.annotation.StringRes label: Int, icon: androidx
             }
         }
     }
+}
+
+/** One labelled section of the More panel: its title, then its controls wrapping onto rows. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun MoreSection(title: String, content: @Composable () -> Unit) {
+    Text(title, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = FernScale.s8))
+    FlowRow(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(FernScale.s4)) { content() }
 }

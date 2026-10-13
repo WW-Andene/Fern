@@ -1078,4 +1078,11 @@
     <string name="brush_pin">Ajouter %1$s aux favoris</string>
     <string name="anim_frame_of">Image %1$d sur %2$d</string>
     <string name="object_tab_object">Objet</string>
+    <string name="more_title">Plus</string>
+    <string name="more_section_workspace">Espace de travail</string>
+    <string name="more_section_mode">Modes</string>
+    <string name="more_section_guides">Guides</string>
+    <string name="more_section_canvas">Canevas et vue</string>
+    <string name="more_section_tool_slots">Emplacements d’outils</string>
+    <string name="more_section_menus">Documents et menus</string>
 </resources>

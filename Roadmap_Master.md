@@ -82,8 +82,8 @@ The app's look and layout rebuilt on the CLAUDE.md §7 scale, so every later scr
 
 - [~] 336. **Fern components.** Fern versions of every control in use, with sizes on the scale instead of Material's: text field (56 tall today), button (40), slider (20 px thumb), switch (52 wide), chip, menu (112 minimum width), dialog (280 minimum width) and list row. Raw Material controls are no longer used directly in UI code, checked by a test.
   Done: `FernComponents.kt` - `FernTextButton` (48 tall), `FernSlider` (16 dp thumb), `FernSwitch` (48 x 24 track, 16 dp thumb) and `FernTextField` (48 tall for one line); every call site moved to them. Left: menus (Material's 112 dp minimum item width), list rows, and a check that fails on direct Material calls.
-- [ ] 338. **Chrome budget.** A fixed limit per surface, enforced in code: the rail holds a set number of tools, the properties bar shows at most one row of the active tool's main settings with the rest one tap away (D32), no strip grows with use. Today the pen's bar holds about 70 controls and the toolbar about 27 buttons in one scrolling strip.
-- [ ] 339. **The toolbar is retired.** What it holds moves to the rail, the contextual properties bar, the labelled menus (D12) and panels; nothing scrolls sideways.
+- [~] 338. **Chrome budget.** A fixed limit per surface, enforced in code: the rail holds a set number of tools, the properties bar shows at most one row of the active tool's main settings with the rest one tap away (D32), no strip grows with use. Today the pen's bar holds about 70 controls and the toolbar about 27 buttons in one scrolling strip.
+  Done: the top bar is a fixed set that never scrolls (undo, redo, layers, play once there is a game, search, export, More); everything else is in the More panel in labelled sections. Left: the properties bar, still one scrolling row of every setting of the active tool.
 - [~] D42. **One panel pattern.** A header (title, search or filter, the main action,
   collapse), a body with rows that can be dragged, swiped and long-pressed for the same actions
   everywhere, and a footer only when it's needed.

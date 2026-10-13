@@ -1074,4 +1074,11 @@
     <string name="brush_pin">Add %1$s to favourites</string>
     <string name="anim_frame_of">Frame %1$d of %2$d</string>
     <string name="object_tab_object">Object</string>
+    <string name="more_title">More</string>
+    <string name="more_section_workspace">Workspace</string>
+    <string name="more_section_mode">Modes</string>
+    <string name="more_section_guides">Guides</string>
+    <string name="more_section_canvas">Canvas and view</string>
+    <string name="more_section_tool_slots">Tool slots</string>
+    <string name="more_section_menus">Documents and menus</string>
 </resources>
