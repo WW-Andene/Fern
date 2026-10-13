@@ -12,7 +12,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
@@ -115,10 +117,11 @@ internal fun railIcon(state: CanvasState, tool: Tool): ImageVector = when (tool)
  * The tool rail (design roadmap D8): the main tools in a fixed order that never scrolls, then
  * the tools the user pinned, then "More tools" with the rest - so a tool is always in the same
  * place and the hand learns it. Horizontal along the bottom of a phone held upright, vertical
- * along the side otherwise. Pinned tools that don't fit move into "More tools".
+ * along the side otherwise. Pinned tools that don't fit move into "More tools". In expert
+ * density the rest of the tools get a second line.
  */
 @Composable
-fun ToolRail(state: CanvasState, vertical: Boolean, modifier: Modifier = Modifier) {
+fun ToolRail(state: CanvasState, vertical: Boolean, modifier: Modifier = Modifier, leftHanded: Boolean = false) {
     val context = LocalContext.current
     val pinned by RailSettings.pinnedState(context)
     var showMore by remember { mutableStateOf(false) }
@@ -129,6 +132,10 @@ fun ToolRail(state: CanvasState, vertical: Boolean, modifier: Modifier = Modifie
             val room = ((if (vertical) maxHeight else maxWidth) / slot).toInt()
             // One place is kept for "More tools".
             val shownPinned = pinned.take((room - RAIL_TOOLS.size - 1).coerceAtLeast(0))
+            // Expert density (design roadmap D90): a second line holds the tools not on the first,
+            // each still a full-size button, so they're one tap away instead of behind "More tools".
+            val secondLine = if (com.andene.fern.FernDensity.expert) (RAIL_EXTRA_TOOLS - shownPinned.toSet()).take(room) else emptyList()
+            val extraLine: @Composable () -> Unit = { for (tool in secondLine) RailButton(state, tool) }
             val content: @Composable () -> Unit = {
                 for (tool in RAIL_TOOLS + shownPinned) RailButton(state, tool)
                 Box {
@@ -159,7 +166,23 @@ fun ToolRail(state: CanvasState, vertical: Boolean, modifier: Modifier = Modifie
                     }
                 }
             }
-            if (vertical) Column(verticalArrangement = Arrangement.Center) { content() } else Row(horizontalArrangement = Arrangement.Center) { content() }
+            if (vertical) {
+                // The second line sits on the canvas side, away from the screen edge the first holds:
+                // the rail is on the physical left unless left-handed, and a Row runs right to left in RTL.
+                val ltr = LocalLayoutDirection.current == LayoutDirection.Ltr
+                val secondAfter = ltr != leftHanded
+                Row {
+                    if (!secondAfter && secondLine.isNotEmpty()) Column(verticalArrangement = Arrangement.Center) { extraLine() }
+                    Column(verticalArrangement = Arrangement.Center) { content() }
+                    if (secondAfter && secondLine.isNotEmpty()) Column(verticalArrangement = Arrangement.Center) { extraLine() }
+                }
+            } else {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // Above the first line, so the main tools stay at the bottom edge under the thumb.
+                    if (secondLine.isNotEmpty()) Row(horizontalArrangement = Arrangement.Center) { extraLine() }
+                    Row(horizontalArrangement = Arrangement.Center) { content() }
+                }
+            }
         }
     }
 }

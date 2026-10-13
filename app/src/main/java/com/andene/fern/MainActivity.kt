@@ -265,6 +265,7 @@ class MainActivity : ComponentActivity() {
             var colorBlindSafe by remember { mutableStateOf(AppSettings.colorBlindSafe(this)) }
             remember { FernHaptics.enabled = AppSettings.haptics(this) }
             remember { FernPaper.chromeFollowsPaper = AppSettings.chromeFollowsPaper(this) }
+            remember { FernDensity.expert = AppSettings.expertDensity(this) }
             remember { PressureCurves.load(this) }
             var uiSize by remember { mutableStateOf(AppSettings.uiSize(this)) }
             FernTheme(highContrast = highContrast, colorBlindSafe = colorBlindSafe, uiSize = uiSize) {
@@ -1471,6 +1472,7 @@ class MainActivity : ComponentActivity() {
                             ToolRail(
                                 state = canvasState,
                                 vertical = !portrait,
+                                leftHanded = leftHanded,
                                 modifier = Modifier
                                     .align(
                                         when {

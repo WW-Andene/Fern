@@ -50,6 +50,7 @@ private const val KEY_COLOR_BLIND_SAFE = "color_blind_safe"
 private const val KEY_HAPTICS = "haptics"
 private const val KEY_UI_SIZE = "ui_size"
 private const val KEY_MINIMAP = "minimap"
+private const val KEY_EXPERT_DENSITY = "expert_density"
 private const val KEY_HIDDEN_TOOLBAR_GROUPS = "hidden_toolbar_groups"
 private const val KEY_QUICK_MENU = "quick_menu_actions"
 
@@ -91,6 +92,14 @@ object AppSettings {
 
     fun setMinimap(context: Context, value: Boolean) {
         prefs(context).edit().putBoolean(KEY_MINIMAP, value).apply()
+    }
+
+    /** Expert density (design roadmap D90); off unless switched on. */
+    fun expertDensity(context: Context): Boolean = prefs(context).getBoolean(KEY_EXPERT_DENSITY, false)
+
+    fun setExpertDensity(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean(KEY_EXPERT_DENSITY, value).apply()
+        com.andene.fern.FernDensity.expert = value
     }
 
     /** The UI size (design roadmap D25). */
@@ -296,6 +305,7 @@ fun SettingsDialog(
                 SwitchSetting(stringResource(R.string.settings_toolbar_bottom), toolbarAtBottom, false, ::shows, onToolbarAtBottomChange)
                 val context = androidx.compose.ui.platform.LocalContext.current
                 SwitchSetting(stringResource(R.string.settings_icon_labels), iconLabelsShown(), true, ::shows) { IconLabels.set(context, it) }
+                SwitchSetting(stringResource(R.string.settings_expert_density), com.andene.fern.FernDensity.expert, false, ::shows) { AppSettings.setExpertDensity(context, it) }
                 SwitchSetting(stringResource(R.string.settings_chrome_follows_paper), com.andene.fern.FernPaper.chromeFollowsPaper, false, ::shows) { AppSettings.setChromeFollowsPaper(context, it) }
                 if (shows(stringResource(R.string.ui_size_title))) {
                     Text(stringResource(R.string.ui_size_title), modifier = Modifier.padding(top = FernScale.s8))

@@ -131,6 +131,16 @@ val FernShapes: Shapes = Shapes(
 )
 
 /**
+ * Expert density (design roadmap D90): for experienced users, more of the tools at once on a
+ * phone - a second line of tools on the rail, and the "More" disclosures ([MoreOptions],
+ * [MoreInline]) open from the start - without making anything smaller: every control keeps its
+ * 48 dp touch target. Off by default (easy to come in). Settings sets [expert].
+ */
+object FernDensity {
+    var expert: Boolean by mutableStateOf(false)
+}
+
+/**
  * How big the whole UI is drawn (design roadmap D25), separate from the system font size. The
  * factors keep the §7 steps: at 1.5, 16 dp becomes 24 and 32 becomes 48. There is no size under
  * standard, so a control is never smaller than its 48 dp touch target.
