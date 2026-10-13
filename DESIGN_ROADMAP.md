@@ -358,9 +358,10 @@ Goal: the canvas says what is happening without a single word or dialog.
 
 Goal: every panel from Phase D2 designed to the same pattern and fast to work in.
 
-- [ ] D42. **One panel pattern.** A header (title, search or filter, the main action,
+- [~] D42. **One panel pattern.** A header (title, search or filter, the main action,
   collapse), a body with rows that can be dragged, swiped and long-pressed for the same actions
   everywhere, and a footer only when it's needed.
+  Written, not yet compiled or tested: `FernPanel` gains a header main action, an optional filter field and (phone) a drag handle sizing the sheet between a quarter and three quarters of the screen; `PanelRow` is the shared row: tap, long-press, swipe left to delete (with a delete action for screen readers). Panels adopt them as they're reworked in D43-D47.
 - [ ] D43. **Layers panel.** Thumbnails, visibility and lock on the row, opacity with a drag on
   the row, the blend mode inline, drag to reorder or into groups, swipe to delete with Undo,
   multi-select, and layer comps (ROADMAP item 123) in the same panel.

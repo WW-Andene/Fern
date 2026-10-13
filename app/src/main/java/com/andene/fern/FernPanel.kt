@@ -2,6 +2,19 @@ package com.andene.fern
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.height
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Box
@@ -54,7 +67,11 @@ class PanelEntry internal constructor(
     onDismissRequest: () -> Unit,
     content: @Composable () -> Unit,
     actions: @Composable () -> Unit,
+    headerAction: (@Composable () -> Unit)? = null,
+    onFilter: ((String) -> Unit)? = null,
 ) {
+    var headerAction by mutableStateOf(headerAction)
+    var onFilter by mutableStateOf(onFilter)
     var title by mutableStateOf(title)
     var onDismissRequest by mutableStateOf(onDismissRequest)
     var content by mutableStateOf(content)
@@ -78,6 +95,10 @@ fun FernPanel(
     text: @Composable () -> Unit,
     confirmButton: @Composable () -> Unit = {},
     dismissButton: @Composable () -> Unit = {},
+    /** The panel's main action, in its header (design roadmap D42): e.g. "New layer". */
+    headerAction: (@Composable () -> Unit)? = null,
+    /** When set, a filter field under the header; called as the text changes. */
+    onFilter: ((String) -> Unit)? = null,
 ) {
     val key = remember { Any() }
     val actions: @Composable () -> Unit = {
@@ -85,7 +106,7 @@ fun FernPanel(
         confirmButton()
     }
     DisposableEffect(key) {
-        FernPanels.open.add(PanelEntry(key, title, onDismissRequest, text, actions))
+        FernPanels.open.add(PanelEntry(key, title, onDismissRequest, text, actions, headerAction, onFilter))
         onDispose { FernPanels.open.removeAll { it.key === key } }
     }
     SideEffect {
@@ -94,6 +115,8 @@ fun FernPanel(
             it.onDismissRequest = onDismissRequest
             it.content = text
             it.actions = actions
+            it.headerAction = headerAction
+            it.onFilter = onFilter
         }
     }
 }
@@ -103,6 +126,9 @@ fun FernPanel(
 fun androidx.compose.foundation.layout.BoxScope.FernPanelHost(railOnLeft: Boolean, railInset: androidx.compose.ui.unit.Dp, railSide: androidx.compose.ui.unit.Dp) {
     val entry = FernPanels.open.lastOrNull() ?: return
     var collapsed by remember(entry.key) { mutableStateOf(false) }
+    var filter by remember(entry.key) { mutableStateOf("") }
+    // How much of the screen the sheet may take; dragged at its handle (design roadmap D42).
+    var share by remember { mutableFloatStateOf(DEFAULT_SHEET_SHARE) }
     BackHandler { entry.onDismissRequest() }
     val configuration = LocalConfiguration.current
     val portrait = configuration.screenHeightDp >= configuration.screenWidthDp
@@ -111,7 +137,7 @@ fun androidx.compose.foundation.layout.BoxScope.FernPanelHost(railOnLeft: Boolea
             .align(Alignment.BottomCenter)
             .fillMaxWidth()
             .padding(bottom = railInset)
-            .heightIn(max = (configuration.screenHeightDp / 2).dp)
+            .heightIn(max = (configuration.screenHeightDp * share).dp)
     } else {
         Modifier
             .align(if (railOnLeft) androidx.compose.ui.AbsoluteAlignment.CenterLeft else androidx.compose.ui.AbsoluteAlignment.CenterRight)
@@ -121,10 +147,29 @@ fun androidx.compose.foundation.layout.BoxScope.FernPanelHost(railOnLeft: Boolea
     }
     Surface(modifier.padding(FernSpace.sm), shape = MaterialTheme.shapes.large, tonalElevation = FernSpace.xs, shadowElevation = FernSpace.sm) {
         Column {
+            if (portrait) {
+                // The handle: drag up or down to give the sheet more or less of the screen.
+                val screenPx = with(LocalDensity.current) { configuration.screenHeightDp.dp.toPx() }
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(FernScale.s16)
+                        .pointerInput(Unit) {
+                            detectVerticalDragGestures { change, dy ->
+                                change.consume()
+                                share = (share - dy / screenPx).coerceIn(MIN_SHEET_SHARE, MAX_SHEET_SHARE)
+                            }
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(Modifier.width(FernScale.s32).height(FernScale.s4).background(MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small))
+                }
+            }
             Row(Modifier.fillMaxWidth().padding(start = FernSpace.lg), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f).semantics { heading() }) {
                     ProvideTextStyle(MaterialTheme.typography.titleMedium) { entry.title() }
                 }
+                entry.headerAction?.invoke()
                 IconButton(onClick = { collapsed = !collapsed }) {
                     Icon(
                         if (collapsed) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
@@ -136,6 +181,19 @@ fun androidx.compose.foundation.layout.BoxScope.FernPanelHost(railOnLeft: Boolea
                 }
             }
             if (!collapsed) {
+                entry.onFilter?.let { onFilter ->
+                    OutlinedTextField(
+                        filter,
+                        {
+                            filter = it
+                            onFilter(it)
+                        },
+                        placeholder = { Text(stringResource(R.string.panel_filter)) },
+                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = FernSpace.lg, vertical = FernSpace.xs),
+                    )
+                }
                 HorizontalDivider()
                 Box(Modifier.weight(1f, fill = false).padding(horizontal = FernSpace.lg, vertical = FernSpace.sm)) {
                     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
@@ -147,4 +205,70 @@ fun androidx.compose.foundation.layout.BoxScope.FernPanelHost(railOnLeft: Boolea
             }
         }
     }
+}
+
+// The sheet's share of the screen: half by default, between a quarter and three quarters.
+private const val DEFAULT_SHEET_SHARE = 0.5f
+private const val MIN_SHEET_SHARE = 0.25f
+private const val MAX_SHEET_SHARE = 0.75f
+
+/**
+ * One row in a panel, the same everywhere (design roadmap D42): a tap runs [onClick], a long
+ * press [onLongClick], and swiping it left deletes it through [onSwipeDelete], which should
+ * offer Undo. Screen readers get delete as an action instead of the swipe.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun PanelRow(
+    onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
+    onSwipeDelete: (() -> Unit)? = null,
+    deleteLabel: String = "",
+    content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
+) {
+    val row: @Composable () -> Unit = {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = FernSize.touchTarget)
+                .background(MaterialTheme.colorScheme.surface)
+                .then(
+                    if (onClick != null || onLongClick != null) {
+                        Modifier.combinedClickable(onClick = { onClick?.invoke() }, onLongClick = onLongClick)
+                    } else {
+                        Modifier
+                    },
+                )
+                .then(
+                    if (onSwipeDelete != null) {
+                        Modifier.semantics {
+                            customActions = listOf(androidx.compose.ui.semantics.CustomAccessibilityAction(deleteLabel) {
+                                onSwipeDelete()
+                                true
+                            })
+                        }
+                    } else {
+                        Modifier
+                    },
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content,
+        )
+    }
+    if (onSwipeDelete == null) return row()
+    val dismiss = androidx.compose.material3.rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) onSwipeDelete()
+            false // the row goes when its item does; the swipe springs back
+        },
+    )
+    androidx.compose.material3.SwipeToDismissBox(
+        state = dismiss,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.errorContainer).padding(horizontal = FernSpace.lg), contentAlignment = Alignment.CenterEnd) {
+                Icon(androidx.compose.material.icons.Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+            }
+        },
+    ) { row() }
 }
