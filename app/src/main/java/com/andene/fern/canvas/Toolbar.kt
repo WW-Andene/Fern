@@ -194,14 +194,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 
-private val palette = listOf(
-    Color(0xFF1B1B1B),
-    Color(0xFFE53935),
-    Color(0xFF1E88E5),
-    Color(0xFF43A047),
-    Color(0xFFFB8C00),
-)
-
 // Screen-pixel pen width range: matches CanvasState's default of 4.0 and stays reasonable
 // across the full slider (a 1px pen is barely visible; 32px is a thick marker).
 internal const val MIN_WIDTH_SCREEN = 1f
@@ -487,6 +479,7 @@ fun Toolbar(
     var showBackgroundColorPicker by remember { mutableStateOf(false) }
     var showBrushEditor by remember { mutableStateOf(false) }
     var showPressureCurve by remember { mutableStateOf(false) }
+    var showPalettes by remember { mutableStateOf(false) }
     var showGradientDialog by remember { mutableStateOf(false) }
     var showPerspectiveMenu by remember { mutableStateOf(false) }
 
@@ -603,7 +596,7 @@ fun Toolbar(
     val properties: @Composable () -> Unit = {
                 // One colour strip for every tool that draws in colour (design roadmap D20).
                 if (state.activeTool == Tool.PEN || state.activeTool == Tool.SHAPE || state.activeTool == Tool.BEZIER || state.activeTool == Tool.FILL) {
-                    ColorStrip(state, palette, ToolbarGroup.PALETTE !in hiddenGroups, onOpenPicker = { showColorPicker = true }, onChangeEverywhere = { editingSavedColor = it })
+                    ColorStrip(state, ToolbarGroup.PALETTE !in hiddenGroups, onOpenPicker = { showColorPicker = true }, onOpenPalettes = { showPalettes = true }, onChangeEverywhere = { editingSavedColor = it })
                 }
                 if (state.activeTool == Tool.PEN || state.activeTool == Tool.SHAPE || state.activeTool == Tool.BEZIER) {
                 // Pen kinds and saved brushes in one library (design roadmap D44).
@@ -1429,6 +1422,10 @@ fun Toolbar(
                 }
             }
         }
+    }
+
+    if (showPalettes) {
+        PalettePanel(state, onImport = onImportPalette, onChangeEverywhere = { editingSavedColor = it }, onDismiss = { showPalettes = false })
     }
 
     if (showPressureCurve) {

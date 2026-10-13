@@ -129,6 +129,7 @@ import com.andene.fern.canvas.FramesDialog
 import com.andene.fern.canvas.ClipboardContent
 import com.andene.fern.canvas.DocumentLoadingOverlay
 import com.andene.fern.canvas.PressureCurves
+import com.andene.fern.canvas.PaletteStore
 import com.andene.fern.canvas.LoadedDocument
 import com.andene.fern.canvas.LinkChoices
 import com.andene.fern.canvas.LinkTarget
@@ -341,7 +342,7 @@ class MainActivity : ComponentActivity() {
                             onTextChanged = { snapshot -> CanvasStorage.saveTextItems(context, currentDocumentId, snapshot) },
                             onImageChanged = { snapshot -> CanvasStorage.saveImageItems(context, currentDocumentId, snapshot) },
                             onBackgroundChanged = { color, style -> CanvasStorage.saveBackground(context, currentDocumentId, color, style) },
-                            onSavedColorsChanged = { colors -> CanvasStorage.saveSavedColors(context, colors) },
+                            onPalettesChanged = { palettes, activeId -> coroutineScope.launch(Dispatchers.IO) { PaletteStore.save(context, palettes, activeId) } },
                             onBrushChanged = { brush -> AppSettings.setStampBrush(context, brush) },
                             onToolSlotsChanged = { slots -> AppSettings.setToolSlots(context, slots) },
                             onBrushPresetsChanged = { presets -> AppSettings.setBrushPresets(context, presets) },
@@ -680,7 +681,8 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }.getOrNull().orEmpty()
                             }
-                            colors.forEach { canvasState.addSavedColor(it) }
+                            // An imported palette becomes a palette of its own (roadmap item 350), not more saved colours.
+                            if (colors.isNotEmpty()) canvasState.addPalette(context.getString(R.string.palette_imported), colors)
                             FernMessages.show(if (colors.isEmpty()) context.getString(R.string.toast_bad_palette) else context.resources.getQuantityString(R.plurals.toast_imported_colours, colors.size, colors.size))
                         }
                     }
@@ -967,7 +969,10 @@ class MainActivity : ComponentActivity() {
                     }
 
                     LaunchedEffect(Unit) {
-                        canvasState.loadSavedColors(withContext(Dispatchers.IO) { CanvasStorage.loadSavedColors(context) })
+                        val (palettes, activePalette) = withContext(Dispatchers.IO) {
+                            PaletteStore.load(context, context.getString(R.string.palette_basic), context.getString(R.string.palette_mine))
+                        }
+                        canvasState.loadPalettes(palettes, activePalette)
                         canvasState.loadBrush(AppSettings.stampBrush(context))
                         canvasState.loadToolSlots(AppSettings.toolSlots(context))
                         canvasState.loadBrushPresets(AppSettings.brushPresets(context))

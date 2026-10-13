@@ -667,14 +667,10 @@ object CanvasStorage {
         }
     }
 
-    /** The user's saved colour palette, shared by all documents. */
+    /** The single saved palette of earlier versions, read once to become the "My colours" palette (see [PaletteStore]). */
     fun loadSavedColors(context: Context): List<Color> {
         val root = readStored(File(context.filesDir, PALETTE_FILE_NAME)) { it as JSONArray } ?: return emptyList()
         return (0 until root.length()).map { Color(root.getInt(it)) }
-    }
-
-    fun saveSavedColors(context: Context, colors: List<Color>) {
-        writeStored(File(context.filesDir, PALETTE_FILE_NAME), JSONArray().apply { colors.forEach { put(it.toArgb()) } })
     }
 
     fun saveFrames(context: Context, documentId: String, frames: List<Frame>) {

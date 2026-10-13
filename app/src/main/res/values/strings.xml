@@ -1105,4 +1105,15 @@
     <string name="selection_tip_made">Brush tip made: draw to try it</string>
     <string name="pressure_curve_title">Pressure curve</string>
     <string name="pressure_curve_for">Pressure curve: %1$s</string>
+    <string name="palette_basic">Basic colours</string>
+    <string name="palette_mine">My colours</string>
+    <string name="palette_imported">Imported palette</string>
+    <string name="palette_panel_title">Palettes</string>
+    <string name="palette_new_name">New palette</string>
+    <string name="palette_new">New palette</string>
+    <string name="palette_name">Palette name</string>
+    <string name="palette_rename">Rename</string>
+    <string name="palette_delete">Delete the palette %1$s</string>
+    <string name="palette_move_earlier">Move earlier</string>
+    <string name="palette_move_later">Move later</string>
 </resources>

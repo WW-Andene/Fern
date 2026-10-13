@@ -86,7 +86,8 @@ class CanvasState(
     /** Raster pixels changed; [takeDirtyRasterTiles] has what to save. */
     private val onRasterChanged: () -> Unit = {},
     private val onFramesChanged: (List<Frame>) -> Unit = {},
-    private val onSavedColorsChanged: (List<Color>) -> Unit = {},
+    /** The palettes or the active one changed (roadmap item 350), to save them. */
+    private val onPalettesChanged: (List<Palette>, String?) -> Unit = { _, _ -> },
     private val onBrushChanged: (StampBrush) -> Unit = {},
     private val onToolSlotsChanged: (List<ToolPreset?>) -> Unit = {},
     private val onBrushPresetsChanged: (List<BrushPreset>) -> Unit = {},
@@ -121,9 +122,6 @@ class CanvasState(
 
         // Passes per Smooth tap: visibly smoother without collapsing small details in one tap.
         private const val SMOOTH_PASSES = 3
-
-        // A full row of small swatches on a phone; 16 is on the §7 scale.
-        private const val MAX_SAVED_COLORS = 16
 
         // 8 swatches fit beside the fixed palette without crowding the toolbar; on the §7 scale.
         private const val MAX_RECENT_COLORS = 8
@@ -2832,14 +2830,71 @@ class CanvasState(
         activeLayerId = layers.last().id
     }
 
-    /** The user's saved palette (app-wide, not per document), oldest first. */
+    /** The active palette's colours (app-wide, not per document), in the palette's order. */
     val savedColors = mutableStateListOf<Color>()
 
+    /** Every palette (roadmap item 350); [savedColors] is the active one's colours. */
+    val palettes = mutableStateListOf<Palette>()
+
+    var activePaletteId by mutableStateOf<String?>(null)
+        private set
+
+    /** Writes [savedColors] back into the active palette and reports the change. */
+    private fun palettesChanged() {
+        val i = palettes.indexOfFirst { it.id == activePaletteId }
+        if (i != -1) palettes[i] = palettes[i].copy(colors = savedColors.toList())
+        onPalettesChanged(palettes.toList(), activePaletteId)
+    }
+
+    fun loadPalettes(loaded: List<Palette>, activeId: String?) {
+        palettes.clear()
+        palettes.addAll(loaded)
+        activePaletteId = activeId?.takeIf { id -> loaded.any { it.id == id } } ?: loaded.firstOrNull()?.id
+        savedColors.clear()
+        savedColors.addAll(palettes.firstOrNull { it.id == activePaletteId }?.colors.orEmpty())
+    }
+
+    /** Makes [id] the active palette: its colours fill the colour row. */
+    fun selectPalette(id: String) {
+        val palette = palettes.firstOrNull { it.id == id } ?: return
+        activePaletteId = id
+        savedColors.clear()
+        savedColors.addAll(palette.colors)
+        onPalettesChanged(palettes.toList(), activePaletteId)
+    }
+
+    /** Adds a palette named [name] with [colors] and makes it active. */
+    fun addPalette(name: String, colors: List<Color> = emptyList()) {
+        val palette = Palette(UUID.randomUUID().toString(), name, colors.distinct().take(MAX_PALETTE_COLORS))
+        palettes.add(palette)
+        selectPalette(palette.id)
+    }
+
+    fun renamePalette(id: String, name: String) {
+        val i = palettes.indexOfFirst { it.id == id }
+        if (i == -1 || name.isBlank()) return
+        palettes[i] = palettes[i].copy(name = name)
+        onPalettesChanged(palettes.toList(), activePaletteId)
+    }
+
+    /** Deletes palette [id]; the last one left is never deleted, so there is always a palette. */
+    fun deletePalette(id: String) {
+        if (palettes.size <= 1) return
+        palettes.removeAll { it.id == id }
+        if (activePaletteId == id) selectPalette(palettes.first().id) else onPalettesChanged(palettes.toList(), activePaletteId)
+    }
+
+    /** Moves the active palette's colour at [from] to [to] (drag to reorder in the palette panel). */
+    fun moveSavedColor(from: Int, to: Int) {
+        if (from !in savedColors.indices || to !in savedColors.indices || from == to) return
+        savedColors.add(to, savedColors.removeAt(from))
+        palettesChanged()
+    }
+
     fun addSavedColor(color: Color) {
-        if (color in savedColors) return
+        if (color in savedColors || savedColors.size >= MAX_PALETTE_COLORS) return
         savedColors.add(color)
-        while (savedColors.size > MAX_SAVED_COLORS) savedColors.removeAt(0)
-        onSavedColorsChanged(savedColors.toList())
+        palettesChanged()
     }
 
     /**
@@ -2870,7 +2925,7 @@ class CanvasState(
         val index = savedColors.indexOf(old)
         if (index != -1) {
             savedColors[index] = new
-            onSavedColorsChanged(savedColors.toList())
+            palettesChanged()
         }
         if (same(activeColor)) activeColor = new.copy(alpha = activeColor.alpha)
     }
@@ -2904,12 +2959,7 @@ class CanvasState(
     }
 
     fun removeSavedColor(color: Color) {
-        if (savedColors.remove(color)) onSavedColorsChanged(savedColors.toList())
-    }
-
-    fun loadSavedColors(loaded: List<Color>) {
-        savedColors.clear()
-        savedColors.addAll(loaded)
+        if (savedColors.remove(color)) palettesChanged()
     }
 
     /** Colours most recently drawn with, newest first, for quick re-picking from the toolbar. */

@@ -1109,4 +1109,15 @@
     <string name="selection_tip_made">Pointe créée : dessinez pour l’essayer</string>
     <string name="pressure_curve_title">Courbe de pression</string>
     <string name="pressure_curve_for">Courbe de pression : %1$s</string>
+    <string name="palette_basic">Couleurs de base</string>
+    <string name="palette_mine">Mes couleurs</string>
+    <string name="palette_imported">Palette importée</string>
+    <string name="palette_panel_title">Palettes</string>
+    <string name="palette_new_name">Nouvelle palette</string>
+    <string name="palette_new">Nouvelle palette</string>
+    <string name="palette_name">Nom de la palette</string>
+    <string name="palette_rename">Renommer</string>
+    <string name="palette_delete">Supprimer la palette %1$s</string>
+    <string name="palette_move_earlier">Avancer</string>
+    <string name="palette_move_later">Reculer</string>
 </resources>

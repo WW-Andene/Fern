@@ -82,8 +82,6 @@ The app's look and layout rebuilt on the CLAUDE.md §7 scale, so every later scr
 
 - [~] 336. **Fern components.** Fern versions of every control in use, with sizes on the scale instead of Material's: text field (56 tall today), button (40), slider (20 px thumb), switch (52 wide), chip, menu (112 minimum width), dialog (280 minimum width) and list row. Raw Material controls are no longer used directly in UI code, checked by a test.
   Done: `FernComponents.kt` - `FernTextButton` (48 tall), `FernSlider` (16 dp thumb), `FernSwitch` (48 x 24 track, 16 dp thumb) and `FernTextField` (48 tall for one line); every call site moved to them. Left: menus (Material's 112 dp minimum item width), list rows, and a check that fails on direct Material calls.
-- [~] 338. **Chrome budget.** A fixed limit per surface, enforced in code: the rail holds a set number of tools, the properties bar shows at most one row of the active tool's main settings with the rest one tap away (D32), no strip grows with use. Today the pen's bar holds about 70 controls and the toolbar about 27 buttons in one scrolling strip.
-  Done: the top bar is a fixed set that never scrolls (undo, redo, layers, play once there is a game, search, export, More); everything else is in the More panel in labelled sections. Left: the properties bar, still one scrolling row of every setting of the active tool.
 - [~] D42. **One panel pattern.** A header (title, search or filter, the main action,
   collapse), a body with rows that can be dragged, swiped and long-pressed for the same actions
   everywhere, and a footer only when it's needed.
@@ -310,8 +308,6 @@ One brush engine with every setting editable, pens made from your own drawing, a
 
 A real palette system and an eyedropper that sees what is on screen. Builds on screen sampling (170).
 
-- [ ] 350. **Palette panel.** A palette is its own panel, not swatches packed into the properties bar: a grid of swatches, several named palettes, switching between them, drag to reorder, add from the current colour, rename and delete. Imported `.gpl` and `.ase` files become whole palettes. Today saved colours are capped at 16 and share one scrolling row with the current colour, 8 recent colours, 5 harmonies and a fixed palette (`ColorStrip.kt`).
-- [ ] 351. **Compact colour row.** The properties bar keeps only the current colour, the previous one and the active palette's first few swatches; the rest is the palette panel.
 - [ ] 352. **Document palettes.** A palette can belong to a document (its colours used in the drawing) as well as to the app, and a document's colours can be collected into a palette.
 - [~] D20. **One colour flow.** A single inline colour strip (current, recent, saved swatches,
   harmonies) that expands in place to the full picker. "Change everywhere" becomes a visible
