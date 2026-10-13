@@ -1066,7 +1066,8 @@ fun DrawingCanvas(
     // The brush's footprint under a hovering stylus (design roadmap D16).
     hoverPoint?.let { point ->
         if (state.activeTool == Tool.PEN || state.activeTool == Tool.ERASER) Canvas(Modifier.matchParentSize()) {
-            val radius = (state.activeWidthWorld * state.scale / 2).toFloat()
+            // The size is in screen px whatever the zoom (a stroke is drawn activeWidthWorld px wide), so no zoom factor.
+            val radius = (state.activeWidthWorld / 2).toFloat()
             if (radius < CROSSHAIR_BELOW_PX) {
                 // Too small to see as a ring (design roadmap D36): a crosshair with a gap at the tip.
                 val mark = FernColors.current.selection

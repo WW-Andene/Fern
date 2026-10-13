@@ -164,8 +164,9 @@ Switching, adjusting and arranging without looking. Builds on Phases 1 and 2.
   Written, not yet compiled or tested: `UndoRedo.kt`. On a phone held upright with the toolbar at the top, undo and redo leave the top bar for a pill at the bottom of the free hand's side (the minimap moves up above it); wherever they are, a long press on undo opens the history scrubber, a slider over every step that undoes and redoes as it's dragged (`CanvasState.scrubHistoryTo`), everything staying redoable until a new action.
 - [ ] D80. **Last-tool toggle.** One tap (or gesture) swaps between the current and the previous
   tool, with each keeping its own size, colour and settings.
-- [ ] D81. **Per-tool memory.** Every tool remembers its last size, opacity, colour and options;
+- [~] D81. **Per-tool memory.** Every tool remembers its last size, opacity, colour and options;
   the eraser never inherits the pen's size by surprise.
+  Written, not yet compiled or tested: the drawing tools (pen, eraser, shape, fill, text, Bézier) each keep their colour, size, opacity, pen, brush and line style for the session; switching swaps them. Tools that don't draw (select, eyedropper, measure…) leave the settings with the last drawing tool, so a picked colour goes to it. The eraser has its own size at last (48 px to start, the old fixed size): sizing it on the rail used to change the pen's.
 - [~] D15. **A gesture map you can change.** Taps with two, three or four fingers; a pinch with a
   rotation lock; long-press on the canvas as the eyedropper; a three-finger swipe to the quick
   menu; an edge swipe to show or hide panels. Each one is assigned in Settings.

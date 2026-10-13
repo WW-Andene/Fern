@@ -214,8 +214,12 @@ class CanvasState(
 
         // Eraser radius in screen pixels (on the §7 scale - Secondary tier), converted to
         // world units by the same scale-dependent logic as pen width, so the eraser covers
-        // a consistent on-screen area regardless of zoom level.
+        // a consistent on-screen area regardless of zoom level. The eraser's own size starts
+        // at twice this (design roadmap D81).
         private const val ERASER_RADIUS_SCREEN = 24.0
+
+        // The tools with their own settings (design roadmap D81): the ones that draw or erase.
+        private val TOOLS_WITH_SETTINGS = setOf(Tool.PEN, Tool.ERASER, Tool.SHAPE, Tool.FILL, Tool.TEXT, Tool.BEZIER)
 
         // How close (in screen pixels) a stroke's start/end points must be to count as a
         // "closed" shape for the FILL tool - same scale-dependent conversion as the eraser.
@@ -279,8 +283,39 @@ class CanvasState(
             // flipped stylus switches to it for one gesture and back.
             if (value != Tool.SELECT && value != Tool.ERASER) endShapeEdit()
             if (value != Tool.MEASURE) measureTool.clear()
+            swapToolSettings(value)
             activeToolState = value
         }
+
+    /**
+     * Per-tool memory (design roadmap D81): what each drawing tool was last set to - colour, size,
+     * opacity, pen, brush and line style, as a [ToolPreset] - so the eraser never inherits the
+     * pen's size and the fill keeps its own colour. For this session, like the active settings
+     * themselves.
+     */
+    private val toolMemory = HashMap<Tool, ToolPreset>()
+
+    /** The drawing tool whose settings are the active ones; a tool that doesn't draw (select, eyedropper) leaves them with it. */
+    private var settingsOwner = Tool.PEN
+
+    private fun swapToolSettings(next: Tool) {
+        // A colour picked with the eyedropper, or a size set while selecting, goes to the drawing tool used next.
+        if (next !in TOOLS_WITH_SETTINGS || next == settingsOwner) return
+        toolMemory[settingsOwner] = ToolPreset(activePenType, activeColor, activeWidthWorld, activeOpacity, activeBlendMode, activeDashed, activeBrush, activeLineStyle)
+        // A tool not used yet starts from the current settings; the eraser at its own default size.
+        val restored = toolMemory[next] ?: if (next == Tool.ERASER) toolMemory.getValue(settingsOwner).copy(width = ERASER_RADIUS_SCREEN * 2) else null
+        restored?.let {
+            activeColor = it.color
+            activeWidthWorld = it.width
+            activeOpacity = it.opacity
+            activePenType = it.penType
+            activeBlendMode = it.blendMode
+            activeDashed = it.dashed
+            activeBrush = it.brush
+            activeLineStyle = it.lineStyle
+        }
+        settingsOwner = next
+    }
     var activePenType by mutableStateOf(PenType.MARKER)
 
     private var toolBeforeEraserToggle = Tool.PEN
@@ -3894,9 +3929,12 @@ class CanvasState(
         strokesChanged()
     }
 
-    /** World-space radius of the eraser at the current zoom level. */
+    /**
+     * World-space radius of the eraser at the current zoom level: half its own size (design
+     * roadmap D81) while it's the tool, the default otherwise.
+     */
     private val eraserRadiusWorld: Double
-        get() = ERASER_RADIUS_SCREEN / inputScale
+        get() = (if (settingsOwner == Tool.ERASER) activeWidthWorld / 2 else ERASER_RADIUS_SCREEN) / inputScale
 
     // The zoom of the view the pen is drawing in: the main view's, or the second view's while
     // it forwards a stroke (see [withInputScale]). Pen width and eraser size are on-screen
