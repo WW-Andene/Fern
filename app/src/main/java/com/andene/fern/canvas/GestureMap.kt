@@ -56,6 +56,8 @@ enum class GestureAction(@StringRes val label: Int) {
     COMMAND_PALETTE(R.string.palette_title),
     /** Hides or shows every bar and panel, for a clear canvas. */
     TOGGLE_CHROME(R.string.gesture_action_toggle_chrome),
+    /** Runs the last quick-menu or palette action again (design roadmap D34). */
+    REPEAT_LAST(R.string.macro_repeat_last),
 }
 
 private const val KEY_GESTURES = "gesture_map"
@@ -120,6 +122,7 @@ fun CanvasState.runGestureAction(action: GestureAction, at: WorldPoint?, onScree
         GestureAction.EYEDROPPER -> at?.let(::pickColorAt)
         GestureAction.TOGGLE_ERASER -> toggleEraser()
         GestureAction.FIT_VIEW -> zoomToFit()
+        GestureAction.REPEAT_LAST -> Macros.repeatLast(this)
         else -> onScreenAction(action)
     }
 }

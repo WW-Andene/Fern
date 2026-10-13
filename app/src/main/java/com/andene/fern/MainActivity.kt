@@ -100,6 +100,7 @@ import com.andene.fern.canvas.ToolRail
 import com.andene.fern.canvas.CommandPaletteState
 import com.andene.fern.canvas.GestureAction
 import com.andene.fern.canvas.KeyCombo
+import com.andene.fern.canvas.Macros
 import com.andene.fern.canvas.ShortcutAction
 import com.andene.fern.canvas.ShortcutCapture
 import com.andene.fern.canvas.ShortcutCheatSheet
@@ -1111,6 +1112,7 @@ class MainActivity : ComponentActivity() {
                                     ShortcutAction.FIT -> canvasState.zoomToFit()
                                     ShortcutAction.PALETTE -> CommandPaletteState.open = true
                                     ShortcutAction.QUICK_MENU -> showQuickMenu = true
+                                    ShortcutAction.REPEAT_LAST -> Macros.repeatLast(canvasState)
                                     ShortcutAction.TOGGLE_CHROME -> chromeHidden = !chromeHidden
                                     else -> return@onPreviewKeyEvent false
                                 }

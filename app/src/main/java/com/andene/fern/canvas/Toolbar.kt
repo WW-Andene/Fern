@@ -130,6 +130,8 @@ import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.HighlightAlt
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.AddBox
 import androidx.compose.material.icons.filled.IosShare
@@ -498,7 +500,30 @@ fun Toolbar(
         Triple(if (state.showRulers) R.string.rulers_hide else R.string.rulers_show, Icons.Filled.SquareFoot) { state.showRulers = !state.showRulers },
         Triple(if (state.wrapFrameId == null) R.string.wrap_on else R.string.wrap_off, Icons.Filled.Texture) { state.toggleWrapAround() },
     )
+    val context0 = LocalContext.current
+    // Recording macros (design roadmap D34).
+    var macros by remember { mutableStateOf(Macros.saved(context0)) }
+    var namingMacro by remember { mutableStateOf<List<QuickMenuAction>?>(null) }
+    val macroLocation = stringResource(R.string.macro_location)
+    namingMacro?.let { steps ->
+        var name by remember { mutableStateOf("") }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { namingMacro = null },
+            title = { Text(stringResource(R.string.macro_name_title, steps.size)) },
+            text = { androidx.compose.material3.OutlinedTextField(name, { name = it }, singleLine = true) },
+            confirmButton = {
+                TextButton(enabled = name.isNotBlank(), onClick = {
+                    macros = macros + Macro(name.trim(), steps)
+                    Macros.setSaved(context0, macros)
+                    namingMacro = null
+                }) { Text(stringResource(R.string.action_save)) }
+            },
+            dismissButton = { TextButton(onClick = { namingMacro = null }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
     val appItems = listOf<Triple<Int, androidx.compose.ui.graphics.vector.ImageVector, () -> Unit>>(
+        if (Macros.recording == null) Triple(R.string.macro_record, Icons.Filled.FiberManualRecord) { Macros.startRecording() }
+        else Triple(R.string.macro_stop, Icons.Filled.Stop) { namingMacro = Macros.stopRecording() },
         Triple(R.string.settings_title, Icons.Filled.Settings, onOpenSettings),
         Triple(R.string.plugins_title, Icons.Filled.Extension) { showPlugins = true },
     )
@@ -545,6 +570,10 @@ fun Toolbar(
             for ((label, _, action) in items) add(labels.command(label, group, run = action))
         }
         for (format in ExportFormat.entries) if (format.available(state)) add(labels.command(format.label, R.string.tb_export) { runExport(format) })
+        // Actions and macros (design roadmap D34): run through Macros so they can be repeated and recorded.
+        for (action in QuickMenuAction.entries) add(labels.command(action.label, R.string.quick_menu) { Macros.perform(state, action) })
+        add(labels.command(R.string.macro_repeat_last, R.string.menu_group_document, "Ctrl+.") { Macros.repeatLast(state) })
+        for (macro in macros) add(PaletteCommand(macro.name, macro.name, macroLocation) { Macros.run(state, macro) })
         addAll(extraCommands)
     }
     if (CommandPaletteState.open) CommandPalette(paletteCommands, onDismiss = { CommandPaletteState.open = false })

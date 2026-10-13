@@ -136,7 +136,7 @@ fun QuickMenuButton(onOpen: () -> Unit, modifier: Modifier = Modifier, state: Ca
                         change.consume()
                     }
                     val chosen = aimed
-                    if (chosen == null) onOpen() else state?.let { actions[chosen].run(it) }
+                    if (chosen == null) onOpen() else state?.let { Macros.perform(it, actions[chosen]) }
                 }
             },
         shape = CircleShape,
@@ -185,7 +185,7 @@ fun QuickMenuOverlay(state: CanvasState, onDismiss: () -> Unit, actions: List<Qu
                     .size(ITEM_SIZE_DP.dp)
                     .semantics { contentDescription = label }
                     .clickable {
-                        action.run(state)
+                        Macros.perform(state, action)
                         onDismiss()
                     },
                 shape = CircleShape,

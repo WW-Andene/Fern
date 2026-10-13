@@ -316,8 +316,9 @@ Goal: complete and deep to master, while the first minute stays simple.
   block editor for game logic as a panel, the script editor with syntax highlighting, line
   numbers and inline errors.
   Written, not yet compiled or tested: `CodeEditor.kt` for the drawing and object scripts: line numbers, keywords/numbers/texts/comments coloured from the theme, checked on every keystroke with the error's line number in red and its message below. The dopesheet and X-sheet open as docked panels; the rules (blocks) were already a panel (D10). Merging timeline, X-sheet and dopesheet into one strip is D45.
-- [ ] D34. **Recorded actions and macros.** Repeat the last action, and record a sequence and
+- [~] D34. **Recorded actions and macros.** Repeat the last action, and record a sequence and
   bind it to a key or gesture (it builds on the scripting language of ROADMAP item 164).
+  Written, not yet compiled or tested: `Macros.kt`. Actions run from the quick menu (tap or flick) or the palette are remembered: Repeat last action on Ctrl+., any gesture (Settings) or the palette. App > Record a macro records them until Stop recording, then names and saves the macro; saved macros run from the palette. A macro holds quick-menu actions (tools, undo/redo, duplicate, delete, colour, size), not strokes. Binding one macro to its own key is not done; Repeat last is the bindable one.
 - [ ] D35. **Usage-aware suggestions (on-device only).** Offer to pin a tool or action you use
   often but reach through menus. No telemetry leaves the device (CLAUDE.md §8.1).
 - [ ] D89. **Gesture and shortcut discoverability.** Long-press any control to see what it does,

@@ -1052,4 +1052,9 @@
     <string name="more_less">Moins</string>
     <string name="more_open">déplié</string>
     <string name="more_closed">replié</string>
+    <string name="macro_repeat_last">Répéter la dernière action</string>
+    <string name="macro_record">Enregistrer une macro</string>
+    <string name="macro_stop">Arrêter l’enregistrement</string>
+    <string name="macro_name_title">Nommer cette macro (%1$d étapes)</string>
+    <string name="macro_location">Macro</string>
 </resources>
