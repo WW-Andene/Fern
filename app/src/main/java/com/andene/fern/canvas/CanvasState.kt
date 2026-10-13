@@ -4017,6 +4017,14 @@ class CanvasState(
     var originShift by mutableStateOf(WorldPoint.Zero)
         private set
 
+    /**
+     * Finishes what's half done before the document is left (design roadmap D86): a Bézier path
+     * being built becomes an open path in this document, rather than carried into the next one.
+     */
+    fun finishPendingWork() {
+        if (bezierTool.nodes.isNotEmpty()) bezierTool.finish(closed = false)
+    }
+
     /** The ERASER tool and its lasso setting; its gesture state lives there (roadmap item 167). */
     val eraserTool = EraserTool(object : EraserTool.Host {
         override fun startErase(): Int {

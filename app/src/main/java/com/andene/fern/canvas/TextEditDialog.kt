@@ -78,7 +78,9 @@ fun TextEditDialog(
     fun result() = TextEditResult(text, bold, italic, sticky, sizePx, font, alignment, keepBox, link, outlined, features)
 
     FernPanel(
-        onDismissRequest = onDismiss,
+        // Closing the panel (its ✕, back) keeps what was typed (design roadmap D86): the label is
+        // placed or updated. Only Cancel throws an edit away; an untouched or blank one just closes.
+        onDismissRequest = { if (text != pending.initialText && text.isNotBlank()) onConfirm(result()) else onDismiss() },
         title = { Text(if (pending.initialText.isEmpty()) stringResource(R.string.text_add) else stringResource(R.string.text_edit)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {

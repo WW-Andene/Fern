@@ -58,6 +58,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -87,6 +88,13 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
         )
     }
     var renameText by remember { mutableStateOf("") }
+    // A rename in progress when the panel closes is kept, not lost (design roadmap D86).
+    DisposableEffect(Unit) {
+        onDispose {
+            val id = renamingId
+            if (id != null && renameText.isNotBlank()) state.updateLayer(id) { it.copy(name = renameText.trim()) }
+        }
+    }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     // File layers (roadmap item 138): the picked image's permission is kept, so it reloads later.
@@ -562,6 +570,12 @@ private fun GroupHeader(
     val allVisible = members.all { it.visible }
     val allLocked = members.all { it.locked }
     var text by remember(name) { mutableStateOf(name) }
+    // A group rename in progress when the panel closes is kept (design roadmap D86); once confirmed it's the name, so nothing more happens.
+    if (renaming) {
+        DisposableEffect(Unit) {
+            onDispose { if (text.isNotBlank() && text.trim() != name) state.renameGroup(member.id, text.trim()) }
+        }
+    }
     Row(Modifier.fillMaxWidth().heightIn(min = FernSize.touchTarget), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onToggleCollapsed) {
             Icon(

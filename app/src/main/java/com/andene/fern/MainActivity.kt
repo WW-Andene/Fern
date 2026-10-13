@@ -988,6 +988,8 @@ class MainActivity : ComponentActivity() {
                         loadingDocument = true
                         try {
                             val leaving = currentDocumentId
+                            // Half-done work belongs to this document: finished here, not carried over (design roadmap D86).
+                            canvasState.finishPendingWork()
                             saveRasters(leaving)
                             val leavingView = canvasState.panWorld to canvasState.scale
                             val strokes = canvasState.strokes.toList()

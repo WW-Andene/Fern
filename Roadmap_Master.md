@@ -231,9 +231,10 @@ Switching, adjusting and arranging without looking. Builds on Phases 1 and 2.
   canvas when a bar appears, and long jobs (exports, imports) run in the background with
   progress and cancel.
   Written, not yet compiled or tested: exports already ran off the main thread; now each shows an "Exporting…" card with a progress bar and Cancel (`FernJobs`), and a cancelled export removes its empty file. Bars and panels float over a full-screen canvas, so none shifts the drawing when it appears. Frame-by-frame exports (GIF, APNG, MP4, WebM, sprite sheet, replays) now report each frame, so their bar fills; single-image exports stay indeterminate (one render, nothing to count). Opening times aren't measured yet (D70).
-- [ ] D86. **No accidental loss of state.** Leaving a tool, closing a panel or rotating the phone
+- [~] D86. **No accidental loss of state.** Leaving a tool, closing a panel or rotating the phone
   never discards a half-done action (a text being typed, a Bézier path, a selection); it's kept
   or finished.
+  Written, not yet compiled or tested: closing the text panel (its ✕ or back) now places or updates the label typed rather than throwing it away (only Cancel does); a layer or group rename in progress is kept when the layers panel closes; switching documents finishes a Bézier path in the document it belongs to (it used to be carried into the next one). Already so: leaving the Bézier pen finishes its path, the selection survives tool switches, and rotating keeps everything (D56).
 - [ ] D87. **Smart defaults.** New documents, layers, exports and objects start with the choice
   most people make, named sensibly in the user's language; nothing asks a question it can answer
   itself.
