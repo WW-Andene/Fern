@@ -30,7 +30,7 @@ import com.andene.fern.R
 fun DrawingScaleDialog(state: CanvasState, onDismiss: () -> Unit) {
     val current = state.drawingScale
     // A measured straight line offers calibration; its length in canvas units.
-    val measuredLine = state.measurement?.takeIf { it.points.size == 2 && !it.closed && it.length > 0 }?.length
+    val measuredLine = state.measureTool.measurement?.takeIf { it.points.size == 2 && !it.closed && it.length > 0 }?.length
     var unit by remember { mutableStateOf(current?.unit ?: MeasureUnit.CENTIMETRE) }
     var showUnits by remember { mutableStateOf(false) }
     var value by remember {

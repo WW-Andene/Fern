@@ -62,25 +62,25 @@ class DrawingScaleTest {
         state.loadStrokes(listOf(square))
         state.snapToObjects = false
         state.activeTool = Tool.MEASURE
-        state.beginMeasure(WorldPoint(200.0, 0.0))
-        state.continueMeasure(WorldPoint(230.0, 40.0))
-        state.endMeasure()
-        assertEquals(50.0, state.measurement!!.length, 1e-9)
+        state.measureTool.begin(WorldPoint(200.0, 0.0))
+        state.measureTool.move(WorldPoint(230.0, 40.0))
+        state.measureTool.end()
+        assertEquals(50.0, state.measureTool.measurement!!.length, 1e-9)
         // A tap inside the square measures its perimeter and area.
-        state.beginMeasure(WorldPoint(50.0, 50.0))
-        state.endMeasure()
-        val shape = state.measurement!!
+        state.measureTool.begin(WorldPoint(50.0, 50.0))
+        state.measureTool.end()
+        val shape = state.measureTool.measurement!!
         assertTrue(shape.closed)
         assertEquals(400.0, shape.length, 1e-9)
         assertEquals(10000.0, shape.area, 1e-9)
         // A tap on nothing clears it; leaving the tool too.
-        state.beginMeasure(WorldPoint(500.0, 500.0))
-        state.endMeasure()
-        assertNull(state.measurement)
-        state.beginMeasure(WorldPoint(50.0, 50.0))
-        state.endMeasure()
+        state.measureTool.begin(WorldPoint(500.0, 500.0))
+        state.measureTool.end()
+        assertNull(state.measureTool.measurement)
+        state.measureTool.begin(WorldPoint(50.0, 50.0))
+        state.measureTool.end()
         state.activeTool = Tool.PEN
-        assertNull(state.measurement)
+        assertNull(state.measureTool.measurement)
     }
 
     @Test

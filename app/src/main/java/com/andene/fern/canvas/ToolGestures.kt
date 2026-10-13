@@ -83,8 +83,8 @@ internal fun startToolGesture(state: CanvasState, tool: Tool, point: GesturePoin
             gesture(move = { state.dragBezierHandle(it.world) }, release = {})
         }
         Tool.MEASURE -> {
-            state.beginMeasure(at)
-            gesture(move = { state.continueMeasure(it.world) }, release = state::endMeasure)
+            state.measureTool.begin(at)
+            gesture(move = { state.measureTool.move(it.world) }, release = state.measureTool::end)
         }
         Tool.RIG -> {
             state.rigEditor.begin(at)

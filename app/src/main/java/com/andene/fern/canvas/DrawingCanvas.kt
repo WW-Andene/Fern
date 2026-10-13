@@ -892,7 +892,7 @@ fun DrawingCanvas(
             }
 
             // Measurement (roadmap item 143): the measured line or outline, and its readout.
-            if (state.activeTool == Tool.MEASURE) state.measurement?.let { measured ->
+            if (state.activeTool == Tool.MEASURE) state.measureTool.measurement?.let { measured ->
                 val screen = measured.points.map { state.worldToScreen(it, screenCenter) }
                 val path = Path().apply {
                     moveTo(screen[0].x, screen[0].y)

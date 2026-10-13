@@ -178,14 +178,14 @@ class CanvasState(
         private const val MIND_MAP_SPREAD_Y_SCREEN = 192.0
 
         // Movement under this many screen px still counts as a tap; on the §7 scale.
-        private const val TAP_SLOP_SCREEN = 8.0
+        internal const val TAP_SLOP_SCREEN = 8.0
 
         // Touch radius of a vanishing point's handle, and how far a stroke must travel before its
         // perspective direction is chosen; both on the §7 scale.
         private const val VANISHING_POINT_HANDLE_SCREEN = 24.0
 
         // How close (screen px) a shape point must come to an object anchor to snap; on the §7 scale.
-        private const val OBJECT_SNAP_RADIUS_SCREEN = 12.0
+        internal const val OBJECT_SNAP_RADIUS_SCREEN = 12.0
 
         // Touch radius of a node handle in node editing; on the §7 scale.
         private const val NODE_HANDLE_SCREEN = 16.0
@@ -229,7 +229,7 @@ class CanvasState(
 
         // How close (in screen pixels) a stroke's start/end points must be to count as a
         // "closed" shape for the FILL tool - same scale-dependent conversion as the eraser.
-        private const val FILL_CLOSE_TOLERANCE_SCREEN = 24.0
+        internal const val FILL_CLOSE_TOLERANCE_SCREEN = 24.0
         // Gaps in line art up to about twice this (screen px) are closed by the fill.
         private const val FILL_GAP_SCREEN = 4.0
         // How quickly the play camera catches up with its target: this share of the gap a second (roadmap item 161).
@@ -292,7 +292,7 @@ class CanvasState(
             // The shape builder and knife belong to the SELECT tool; the eraser is spared, since a
             // flipped stylus switches to it for one gesture and back.
             if (value != Tool.SELECT && value != Tool.ERASER) endShapeEdit()
-            if (value != Tool.MEASURE) measurement = null
+            if (value != Tool.MEASURE) measureTool.clear()
             activeToolState = value
         }
     var activePenType by mutableStateOf(PenType.MARKER)
@@ -5321,47 +5321,17 @@ class CanvasState(
         drawingScale = scale
     }
 
-    /**
-     * What the MEASURE tool (roadmap item 143) is showing: a dragged line (two points, open), a
-     * tapped stroke's outline (closed when it's a closed shape: perimeter and area), or null.
-     * Not part of the document; it stays until the next measurement.
-     */
-    var measurement: Measurement? by mutableStateOf(null)
-        private set
-
-    /** Starts a measuring drag at [worldPoint], snapped to a nearby stroke end or corner when object snapping is on. */
-    fun beginMeasure(worldPoint: WorldPoint) {
-        val start = snappedToObject(worldPoint) ?: worldPoint
-        measurement = Measurement(listOf(start, start), closed = false)
-    }
-
-    fun continueMeasure(worldPoint: WorldPoint) {
-        val start = measurement?.points?.firstOrNull() ?: return
-        measurement = Measurement(listOf(start, snappedToObject(worldPoint) ?: worldPoint), closed = false)
-    }
-
-    /**
-     * Ends a measuring drag. A drag shorter than a tap measures what was tapped instead: the
-     * smallest visible closed shape around the point (perimeter and area), else the nearest
-     * visible line within reach (its length), else nothing.
-     */
-    fun endMeasure() {
-        snapIndicator = null
-        val line = measurement ?: return
-        val (a, b) = line.points
-        if (hypot(b.x - a.x, b.y - a.y) * scale > TAP_SLOP_SCREEN) return
-        val reach = OBJECT_SNAP_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
-        val closeTolerance = FILL_CLOSE_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
-        val near = strokesNear(a.x - reach, a.y - reach, a.x + reach, a.y + reach).filter { isVisible(it) && it.points.size >= 2 }
-        val shape = strokes.filter { isVisible(it) && (it.filled || isClosedLoop(it.points, closeTolerance)) && polygonContains(it.points, a) }
-            .minByOrNull { polygonArea(it.points) }
-        measurement = when {
-            shape != null -> Measurement(shape.points, closed = true)
-            else -> near.minByOrNull { distanceToPolyline(it.points, a) }
-                ?.takeIf { distanceToPolyline(it.points, a) <= reach }
-                ?.let { Measurement(it.points, closed = false) }
+    /** The MEASURE tool (roadmap item 143) and what it's showing; its state lives there (roadmap item 167). */
+    val measureTool = MeasureTool(object : MeasureTool.Host {
+        override val scale: Double get() = this@CanvasState.scale
+        override val strokes: List<Stroke> get() = this@CanvasState.strokes
+        override fun snappedToObject(point: WorldPoint) = this@CanvasState.snappedToObject(point)
+        override fun clearSnapIndicator() {
+            snapIndicator = null
         }
-    }
+        override fun strokesNear(left: Double, top: Double, right: Double, bottom: Double) = this@CanvasState.strokesNear(left, top, right, bottom)
+        override fun isVisible(stroke: Stroke) = this@CanvasState.isVisible(stroke)
+    })
 
     /** Screen rulers along the canvas's top and left edges (roadmap item 99). A view setting. */
     var showRulers by mutableStateOf(false)
