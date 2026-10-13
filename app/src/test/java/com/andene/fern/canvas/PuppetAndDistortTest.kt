@@ -56,13 +56,11 @@ class PuppetAndDistortTest {
         tap(WorldPoint(0.0, 0.0))
         tap(WorldPoint(100.0, 0.0))
         assertEquals(2, state.meshNodes.size)
-        state.beginSelectGesture(WorldPoint(100.0, 0.0))
-        state.continueSelectGesture(WorldPoint(0.0, 100.0))
-        state.endSelectGesture()
+        state.dragHandle(WorldPoint(100.0, 0.0), WorldPoint(0.0, 100.0))
         val line = state.strokes.single()
         assertNear(WorldPoint(0.0, 50.0), line.points[1])
         assertNear(WorldPoint(0.0, 100.0), line.points[2])
-        tap(WorldPoint(0.0, 100.0)) // pulls that pin out; the ink stays bent
+        state.dragHandle(WorldPoint(0.0, 100.0)) // a tap on the pin pulls it out; the ink stays bent
         assertEquals(1, state.meshNodes.size)
         assertNear(WorldPoint(0.0, 100.0), state.strokes.single().points[2])
         // Switching to another warp kind replaces the puppet.

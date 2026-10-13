@@ -37,9 +37,8 @@ class MeshWarpTest {
         state.toggleMeshWarp()
         assertTrue(state.meshWarping)
         val node = state.meshNodes[5] // second row, second column: inside the box
-        state.beginSelectGesture(node)
-        state.continueSelectGesture(WorldPoint(node.x, node.y - 40))
-        state.endSelectGesture()
+        state.activeTool = Tool.SELECT
+        state.dragHandle(node, WorldPoint(node.x, node.y - 40))
         // Bent upward, most where the dragged point pulls, least at the far end.
         val lift = line.points.map { -it.y }
         assertTrue(lift.max() > 5.0) // 40 x B1(1/3) x B1(1/2) ≈ 6.7 at most

@@ -63,9 +63,7 @@ class RasterAdjustTest {
         val before = surface.tiles.values.sumOf { t -> (3 until t.data.size step 4).count { (t.data[it].toInt() and 0xFFFF) > 0 } }
         state.activeTool = Tool.SELECT
         val node = state.meshNodes[5]
-        state.beginSelectGesture(node)
-        state.continueSelectGesture(WorldPoint(node.x + 60, node.y + 60))
-        state.endSelectGesture()
+        state.dragHandle(node, WorldPoint(node.x + 60, node.y + 60))
         val after = surface.tiles.values.sumOf { t -> (3 until t.data.size step 4).count { (t.data[it].toInt() and 0xFFFF) > 0 } }
         assertTrue(after > 0 && after != before)
         state.undo()
@@ -80,13 +78,14 @@ class RasterAdjustTest {
         state.activeTool = Tool.SELECT
         val node = state.meshNodes[0]
         val painted = { surface.tiles.values.sumOf { t -> (3 until t.data.size step 4).count { (t.data[it].toInt() and 0xFFFF) > 0 } } }
-        state.beginSelectGesture(node)
-        state.continueSelectGesture(WorldPoint(node.x + 30, node.y + 30))
+        val handle = state.canvasHandles().first { it.position == node }
+        handle.press(node)
+        handle.drag(WorldPoint(node.x + 30, node.y + 30))
         val oneStep = painted()
         // The same end point reached in a second event paints the same picture: nothing of the original returns.
-        state.continueSelectGesture(WorldPoint(node.x + 31, node.y + 31))
-        state.continueSelectGesture(WorldPoint(node.x + 30, node.y + 30))
-        state.endSelectGesture()
+        handle.drag(WorldPoint(node.x + 31, node.y + 31))
+        handle.drag(WorldPoint(node.x + 30, node.y + 30))
+        handle.release()
         assertEquals(oneStep, painted())
     }
 }

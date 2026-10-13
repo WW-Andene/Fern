@@ -43,9 +43,8 @@ class NodeEditingTest {
         state.selection.add(stroke)
         state.toggleNodeEditing()
         assertTrue(state.nodeEditing)
-        state.beginSelectGesture(WorldPoint(101.0, 1.0)) // on the end node
-        state.continueSelectGesture(WorldPoint(121.0, 31.0))
-        state.endSelectGesture()
+        state.activeTool = Tool.SELECT
+        state.dragHandle(WorldPoint(101.0, 1.0), WorldPoint(121.0, 31.0)) // on the end node
         assertEquals(WorldPoint(120.0, 30.0), stroke.points.last())
         state.undo()
         assertEquals(WorldPoint(100.0, 0.0), state.strokes.single().points.last())

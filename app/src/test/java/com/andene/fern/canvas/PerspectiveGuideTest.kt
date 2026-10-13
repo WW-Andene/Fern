@@ -63,9 +63,8 @@ class PerspectiveGuideTest {
     @Test
     fun touchingAHandleMovesTheVanishingPointInsteadOfDrawing() {
         val state = stateWith(PerspectiveMode.ONE_POINT)
-        state.beginStroke(WorldPoint(5.0, 5.0)) // within the handle radius of (0, 0)
-        state.extendStroke(WorldPoint(300.0, -50.0))
-        state.endStroke()
+        state.activeTool = Tool.PEN
+        state.dragHandle(WorldPoint(5.0, 5.0), WorldPoint(300.0, -50.0)) // within reach of the handle at (0, 0)
         assertTrue(state.strokes.isEmpty())
         assertEquals(WorldPoint(300.0, -50.0), state.vanishingPoints.single())
     }

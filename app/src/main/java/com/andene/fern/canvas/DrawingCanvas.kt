@@ -377,24 +377,19 @@ fun DrawingCanvas(
                                 }
                                 val downPos = state.unrotateScreen(pointers[0].position, screenCenter)
                                 val world = state.screenToWorld(downPos, screenCenter)
-                                // In guide edit mode a finger moves guides and nothing else; out of it guides never take a touch.
-                                if (state.editingGuides) {
+                                val tool = state.activeTool
+                                selectionReadout = tool == Tool.SELECT
+                                // A handle under the finger takes the press before any tool (roadmap item 171).
+                                val handle = handleAt(state.canvasHandles(), downPos, { state.worldToScreen(it, screenCenter) }, HANDLE_HIT.toPx())
+                                if (handle != null) {
+                                    toolGesture = HandleGesture(handle, world)
+                                } else if (state.editingGuides) {
+                                    // In guide edit mode a finger moves guides and nothing else; out of it guides never take a touch.
                                     editingGuide = true
                                     state.beginGuideEdit(world)
                                 } else {
-                                    val tool = state.activeTool
-                                    selectionReadout = tool == Tool.SELECT
                                     val press = GesturePoint(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
-                                    toolGesture = startToolGesture(state, tool, press) {
-                                        // What a select press caught, in screen space. The shape builder and knife
-                                        // (roadmap item 141) take every drag, handles included.
-                                        val handles = if (state.shapeEditMode == null) selectionHandles(state, screenCenter) else null
-                                        when {
-                                            handles != null && (downPos - handles.scaleHandle).getDistance() <= HANDLE_HIT.toPx() -> SelectionGestureKind.SCALE
-                                            handles != null && (downPos - handles.rotateHandle).getDistance() <= HANDLE_HIT.toPx() -> SelectionGestureKind.ROTATE
-                                            else -> SelectionGestureKind.OTHER
-                                        }
-                                    }
+                                    toolGesture = startToolGesture(state, tool, press)
                                 }
                                 mode = Mode.DRAW
                             } else {
@@ -630,7 +625,8 @@ fun DrawingCanvas(
             }
 
             // Perspective guide: construction lines radiating from each vanishing point, the horizon
-            // through them, and a handle on each to drag it. A guide only: never exported.
+            // through them, and a dot on each (a canvas handle when it can be dragged, roadmap item
+            // 171). A guide only: never exported.
             if (state.perspectiveMode != PerspectiveMode.OFF && state.vanishingPoints.isNotEmpty()) {
                 val reach = hypot(size.width, size.height) * 2f
                 val points = state.vanishingPoints.map { state.worldToScreen(it, screenCenter) }
@@ -648,8 +644,7 @@ fun DrawingCanvas(
                         val angle = 2 * PI * k / PERSPECTIVE_RAYS
                         drawLine(PERSPECTIVE_RAY_COLOR, vp, vp + Offset((cos(angle) * reach).toFloat(), (sin(angle) * reach).toFloat()), strokeWidth = 1f)
                     }
-                    drawCircle(color = DRAWING_GUIDE_COLOR, radius = 12f, center = vp)
-                    drawCircle(color = Color.White, radius = 6f, center = vp)
+                    drawCircle(color = DRAWING_GUIDE_COLOR, radius = 4f, center = vp)
                 }
             }
 
@@ -770,16 +765,6 @@ fun DrawingCanvas(
                 drawPath(trail, color = if (adding) MARQUEE_BORDER_COLOR else SHAPE_CUT_COLOR, style = DrawStyle(width = 2f))
             }
 
-            // Node editing: a square handle on each node of the stroke being edited.
-            state.nodeEditStroke?.let { stroke ->
-                stroke.revision // redraw as nodes are dragged
-                for (index in editNodeIndices(stroke.points.size)) {
-                    val p = state.worldToScreen(stroke.points[index], screenCenter)
-                    drawRect(Color.White, topLeft = p - Offset(6f, 6f), size = Size(12f, 12f))
-                    drawRect(HANDLE_COLOR, topLeft = p - Offset(6f, 6f), size = Size(12f, 12f), style = DrawStyle(width = 2f))
-                }
-            }
-
             // Weight painting: each point of the selected bone's ink as a dot, red where it fully
             // follows the bone, blue where it follows the parent, grey where it's automatic.
             if (state.boneTool.paintingWeights && state.activeTool == Tool.BONE) {
@@ -796,7 +781,7 @@ fun DrawingCanvas(
                 }
             }
 
-            // Warp handles: the mesh's grid lines, the distort's quad, or the puppet's bare pins.
+            // Warp: the mesh's grid lines or the distort's quad; the nodes and pins are canvas handles.
             if (state.meshWarping) {
                 val nodes = state.meshNodes.map { state.worldToScreen(it, screenCenter) }
                 if (state.warpKind == WarpKind.MESH && nodes.size == MESH_SIZE * MESH_SIZE) {
@@ -808,10 +793,6 @@ fun DrawingCanvas(
                 }
                 if (state.warpKind == WarpKind.DISTORT && nodes.size == 4) {
                     for (i in 0 until 4) drawLine(HANDLE_COLOR, nodes[i], nodes[(i + 1) % 4], strokeWidth = 1f)
-                }
-                for (p in nodes) {
-                    drawCircle(Color.White, radius = 8f, center = p)
-                    drawCircle(HANDLE_COLOR, radius = 8f, center = p, style = DrawStyle(width = 2f))
                 }
             }
 
@@ -932,17 +913,17 @@ fun DrawingCanvas(
                 drawLine(GUIDE_COLOR, Offset(0f, sy), Offset(size.width, sy), strokeWidth = 1f)
             }
 
-            if (state.activeTool == Tool.SELECT) {
-                selectionHandles(state, screenCenter)?.let { handles ->
-                    drawLine(color = HANDLE_COLOR, start = handles.topCenter, end = handles.rotateHandle, strokeWidth = 2f)
-                    drawCircle(color = HANDLE_COLOR, radius = 8f, center = handles.scaleHandle)
-                    drawCircle(color = Color.White, radius = 4f, center = handles.scaleHandle)
-                    drawCircle(color = HANDLE_COLOR, radius = 8f, center = handles.rotateHandle)
-                    drawCircle(color = Color.White, radius = 4f, center = handles.rotateHandle)
-                }
-            }
-
             drawGuides(state, screenCenter, state.editingGuides)
+
+            // Every handle that can be dragged now, drawn the one way (roadmap item 171); the
+            // rotate handle hangs from the selection's top edge by a short line.
+            val handles = state.canvasHandles()
+            for (handle in handles) {
+                if (handle.screenOffset == Offset.Zero) continue
+                val anchor = state.worldToScreen(handle.position, screenCenter)
+                drawLine(color = HANDLE_COLOR, start = anchor, end = anchor + handle.screenOffset, strokeWidth = 2f)
+            }
+            drawHandles(handles, { state.worldToScreen(it, screenCenter) }, HANDLE_COLOR)
             if (state.activeTool == Tool.RIG) drawRig(state, screenCenter)
         }
     }
@@ -1611,24 +1592,8 @@ private fun DrawScope.drawOutline(screenPoints: List<Offset>, halfWidths: FloatA
 
 private const val CALLIGRAPHY_NIB_ANGLE = (Math.PI / 4).toFloat() // 45°, a standard calligraphy nib angle
 
-/** The selection's scale handle (bottom-right corner) and rotate handle (above top-center), in screen space. */
-private data class SelectionHandles(val scaleHandle: Offset, val rotateHandle: Offset, val topCenter: Offset)
-
-private fun selectionHandles(state: CanvasState, screenCenter: Offset): SelectionHandles? {
-    // While editing nodes, a node on the bounds' corner must be draggable, not the scale handle.
-    if (state.nodeEditStroke != null) return null
-    val bounds = state.selectionBounds() ?: return null
-    val (min, max) = bounds
-    val scaleHandle = state.worldToScreen(max, screenCenter)
-    val topCenter = state.worldToScreen(WorldPoint((min.x + max.x) / 2.0, min.y), screenCenter)
-    val rotateHandle = Offset(topCenter.x, topCenter.y - ROTATE_HANDLE_OFFSET_SCREEN)
-    return SelectionHandles(scaleHandle, rotateHandle, topCenter)
-}
-
-// Both on the §7 scale (Primary tier).
-// Half a 48 dp touch target around each handle (design roadmap D39).
+// Half a 48 dp touch target around each canvas handle (design roadmap D39); on the §7 scale.
 private val HANDLE_HIT = FernScale.s24
-private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
 private val SELECTION_HIGHLIGHT_COLOR: Color get() = FernColors.current.selection
 private val MARQUEE_BORDER_COLOR: Color get() = FernColors.current.selection
@@ -2293,10 +2258,7 @@ private fun DrawScope.drawGuides(state: CanvasState, screenCenter: Offset, editi
                 drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(GUIDE_LINE_PX))
             }
         }
-        if (editing) for (p in h) {
-            drawCircle(color, radius = GUIDE_HANDLE_PX, center = p)
-            drawCircle(Color.White, radius = GUIDE_HANDLE_PX / 2, center = p)
-        }
+        // In edit mode its handles are canvas handles, drawn with the others (roadmap item 171).
     }
 }
 
@@ -2304,7 +2266,6 @@ private fun DrawScope.drawGuides(state: CanvasState, screenCenter: Offset, editi
 private const val GUIDE_LINE_PX = 2f
 private const val GUIDE_FAINT_PX = 1f
 private const val GUIDE_FAINT_ALPHA = 0.4f
-private const val GUIDE_HANDLE_PX = 12f
 private const val GUIDE_PARALLEL_GAP_PX = 64f
 private const val GUIDE_RING_GAP_PX = 64f
 private const val GUIDE_RINGS = 8

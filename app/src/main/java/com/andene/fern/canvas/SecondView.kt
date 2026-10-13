@@ -102,7 +102,7 @@ fun SecondView(state: CanvasState, modifier: Modifier = Modifier) {
                             // The pen and eraser use the main canvas's gestures (roadmap item 167), at this view's zoom.
                             fun <T> draw(action: () -> T): T = state.withInputScale(viewScale, action)
                             var gesture: ToolGesture? = if (tool == Tool.PEN || tool == Tool.ERASER) {
-                                draw { startToolGesture(state, tool, GesturePoint(world(down.position))) { SelectionGestureKind.OTHER } }
+                                draw { startToolGesture(state, tool, GesturePoint(world(down.position))) }
                             } else {
                                 null
                             }

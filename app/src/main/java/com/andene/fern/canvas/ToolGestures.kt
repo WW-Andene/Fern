@@ -21,9 +21,6 @@ internal class GesturePoint(
     val screenSpeed: Float = 0f,
 )
 
-/** What a press with the select tool caught: the selection's scale or rotate handle, or anything else. */
-internal enum class SelectionGestureKind { SCALE, ROTATE, OTHER }
-
 /** A tool's gesture in progress, begun by [startToolGesture]. */
 internal interface ToolGesture {
     /** The pointer moved. */
@@ -37,10 +34,11 @@ internal interface ToolGesture {
 }
 
 /**
- * Begins [tool]'s gesture at [point] and returns it. [selectionGrab] says what a select-tool
- * press caught; it's worked out in screen space by the canvas and asked only for that tool.
+ * Begins [tool]'s gesture at [point] and returns it. A press on a canvas handle (the selection's
+ * scale and rotate handles among them) never gets here: the canvas gives it to the handle
+ * ([CanvasState.canvasHandles], roadmap item 171).
  */
-internal fun startToolGesture(state: CanvasState, tool: Tool, point: GesturePoint, selectionGrab: () -> SelectionGestureKind): ToolGesture {
+internal fun startToolGesture(state: CanvasState, tool: Tool, point: GesturePoint): ToolGesture {
     val at = point.world
     return when (tool) {
         Tool.PEN -> {
@@ -90,19 +88,9 @@ internal fun startToolGesture(state: CanvasState, tool: Tool, point: GesturePoin
             state.rigEditor.begin(at)
             gesture(move = { state.rigEditor.move(it.world) }, release = { state.rigEditor.end() })
         }
-        Tool.SELECT -> when (selectionGrab()) {
-            SelectionGestureKind.SCALE -> {
-                state.beginScaleSelection(at)
-                gesture(move = { state.continueScaleSelection(it.world) }, release = state::endScaleSelection)
-            }
-            SelectionGestureKind.ROTATE -> {
-                state.beginRotateSelection(at)
-                gesture(move = { state.continueRotateSelection(it.world) }, release = state::endRotateSelection)
-            }
-            SelectionGestureKind.OTHER -> {
-                state.beginSelectGesture(at)
-                gesture(move = { state.continueSelectGesture(it.world) }, release = state::endSelectGesture)
-            }
+        Tool.SELECT -> {
+            state.beginSelectGesture(at)
+            gesture(move = { state.continueSelectGesture(it.world) }, release = state::endSelectGesture)
         }
     }
 }

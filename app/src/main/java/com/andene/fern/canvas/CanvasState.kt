@@ -175,15 +175,10 @@ class CanvasState(
         // Movement under this many screen px still counts as a tap; on the §7 scale.
         internal const val TAP_SLOP_SCREEN = 8.0
 
-        // Touch radius of a vanishing point's handle, and how far a stroke must travel before its
-        // perspective direction is chosen; both on the §7 scale.
-        private const val VANISHING_POINT_HANDLE_SCREEN = 24.0
+        // How far a stroke must travel before its perspective direction is chosen; on the §7 scale.
 
         // How close (screen px) a shape point must come to an object anchor to snap; on the §7 scale.
         internal const val OBJECT_SNAP_RADIUS_SCREEN = 12.0
-
-        // Touch radius of a node handle in node editing; on the §7 scale.
-        private const val NODE_HANDLE_SCREEN = 16.0
 
         // How close (screen px) a press must be to a connector to remove it; on the §7 scale.
         private const val CONNECTOR_HIT_SCREEN = 12.0
@@ -240,19 +235,15 @@ class CanvasState(
         // Width (screen px) of the cut a knife stroke takes out of a closed shape (roadmap item 141).
         private const val KNIFE_GAP_SCREEN = 2.0
 
-        // How close (in screen pixels) a touch must land on a guide's handle to drag it, rather
-        // than moving the whole guide - same scale-dependent conversion as the eraser/fill
-        // tolerances above.
-        private const val GUIDE_HANDLE_RADIUS_SCREEN = 24.0
+        // How close (in screen pixels) a touch must land on a guide's line to move the whole guide
+        // in guide edit mode (its handles are canvas handles, roadmap item 171).
+        private const val GUIDE_HIT_SCREEN = 24.0
 
         // A new guide's size across, in screen pixels (a §7 primary), converted to world units.
         private const val GUIDE_DEFAULT_SIZE_SCREEN = 512.0
 
         // The selection is drawn this big before it is averaged down to a tip, so thin lines survive.
         private const val TIP_RENDER_PX = 256
-
-        // Stands in for a guide id while a vanishing point is dragged in guide edit mode.
-        private const val VANISHING_POINT_GUIDE = "vanishing point"
 
         // A straight guide or ellipse catches strokes starting this close to it (screen px).
         private const val GUIDE_REACH_SCREEN = 48.0
@@ -3109,8 +3100,8 @@ class CanvasState(
     /** Whether strokes snap to the guides; a quick way to draw freely without removing them (roadmap item 341). */
     var guideSnapping by mutableStateOf(true)
 
-    /** The guide and handle being dragged in edit mode (handle -1: the whole guide), or null. */
-    private var guideDrag: Pair<String, Int>? = null
+    /** The guide being moved whole in edit mode, or null; its handles are canvas handles (roadmap item 171). */
+    private var guideDragId: String? = null
     private var guideDragLast = WorldPoint.Zero
 
     /** Currently selected strokes (SELECT tool). Empty when nothing is selected. */
@@ -3598,14 +3589,6 @@ class CanvasState(
     fun beginStroke(worldPoint: WorldPoint, rawPressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
         // The pen's own pressure curve (roadmap item 189).
         val pressure = PressureCurves.shape(activePenType, rawPressure)
-        // Touching a vanishing point's handle moves it instead of drawing (works on locked layers too: it's a guide).
-        if (perspectiveMode != PerspectiveMode.OFF) {
-            val hit = vanishingPoints.indexOfFirst { hypot(it.x - worldPoint.x, it.y - worldPoint.y) * scale <= VANISHING_POINT_HANDLE_SCREEN }
-            if (hit != -1) {
-                draggingVanishingPoint = hit
-                return
-            }
-        }
         strokeConstraint = null
         if (!activeLayerEditable) return
         strokeStartDepth = undoStack.size
@@ -3674,10 +3657,6 @@ class CanvasState(
             activeRaster?.let { rasterDabs(it, worldPoint, pressure) }
             return
         }
-        draggingVanishingPoint?.let { index ->
-            vanishingPoints[index] = worldPoint
-            return
-        }
         val stroke = currentStroke ?: return
         liveShape?.let { live ->
             val adjusted = adjustRecognizedShape(live.clean, live.snappedAt, worldPoint)
@@ -3735,9 +3714,6 @@ class CanvasState(
         }
         perspectiveMode = mode
     }
-
-    // Index into vanishingPoints being dragged by its handle, or null while drawing normally.
-    private var draggingVanishingPoint: Int? = null
 
     // The line the current stroke was straightened onto, once decided: a perspective direction or a guide.
     private var strokeConstraint: ((WorldPoint) -> WorldPoint)? = null
@@ -3870,10 +3846,6 @@ class CanvasState(
     }
 
     fun endStroke() {
-        if (draggingVanishingPoint != null) {
-            draggingVanishingPoint = null
-            return
-        }
         if (rasterLast != null) {
             endRasterStroke()
             countAction(StatsAction.DRAW, strokeStartMillis)
@@ -4365,34 +4337,21 @@ class CanvasState(
         onDrawingGuidesChanged(drawingGuides.toList())
     }
 
-    private val guideHandleRadiusWorld: Double
-        get() = GUIDE_HANDLE_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
-
     /**
-     * Guide edit mode, pointer-down: grabs the handle under [worldPoint], or the guide itself
-     * (to move it whole) when the point is on its line; topmost guide first. Returns whether a
-     * guide was grabbed.
+     * Guide edit mode, pointer-down on a guide's line: grabs the guide to move it whole, topmost
+     * guide first. Returns whether a guide was grabbed. Its handles, and the vanishing points,
+     * are dragged as canvas handles ([canvasHandles]) before this is asked.
      */
     fun beginGuideEdit(worldPoint: WorldPoint): Boolean {
-        val radius = guideHandleRadiusWorld
-        // Vanishing points are guides too (roadmap item 344): dragged the same way.
-        if (perspectiveMode != PerspectiveMode.OFF) {
-            val vp = vanishingPoints.indexOfFirst { hypot(it.x - worldPoint.x, it.y - worldPoint.y) <= radius }
-            if (vp != -1) {
-                guideDrag = VANISHING_POINT_GUIDE to vp
-                guideDragLast = worldPoint
-                return true
-            }
-        }
+        val radius = GUIDE_HIT_SCREEN / scale.coerceAtLeast(1e-300)
         for (guide in drawingGuides.asReversed()) {
-            val handle = guide.handles.indexOfFirst { hypot(it.x - worldPoint.x, it.y - worldPoint.y) <= radius }
-            val onGuide = handle == -1 && guide.constraint(worldPoint, radius)?.let { c ->
+            val onGuide = guide.constraint(worldPoint, radius)?.let { c ->
                 val p = c(worldPoint)
                 (guide.kind == GuideKind.STRAIGHT || guide.kind == GuideKind.ELLIPSE || guide.kind == GuideKind.CURVE) &&
                     hypot(p.x - worldPoint.x, p.y - worldPoint.y) <= radius
             } == true
-            if (handle != -1 || onGuide) {
-                guideDrag = guide.id to handle
+            if (onGuide) {
+                guideDragId = guide.id
                 guideDragLast = worldPoint
                 return true
             }
@@ -4401,26 +4360,24 @@ class CanvasState(
     }
 
     fun continueGuideEdit(worldPoint: WorldPoint) {
-        val (id, handle) = guideDrag ?: return
-        if (id == VANISHING_POINT_GUIDE) {
-            if (handle in vanishingPoints.indices) vanishingPoints[handle] = worldPoint
-            return
-        }
+        val id = guideDragId ?: return
         val i = drawingGuides.indexOfFirst { it.id == id }
         if (i == -1) return
-        val guide = drawingGuides[i]
-        drawingGuides[i] = if (handle == -1) {
-            val delta = worldPoint - guideDragLast
-            guide.copy(handles = guide.handles.map { it + delta })
-        } else {
-            guide.copy(handles = guide.handles.mapIndexed { k, p -> if (k == handle) worldPoint else p })
-        }
+        val delta = worldPoint - guideDragLast
+        drawingGuides[i] = drawingGuides[i].let { guide -> guide.copy(handles = guide.handles.map { it + delta }) }
         guideDragLast = worldPoint
     }
 
     fun endGuideEdit() {
-        if (guideDrag != null && guideDrag?.first != VANISHING_POINT_GUIDE) onDrawingGuidesChanged(drawingGuides.toList())
-        guideDrag = null
+        if (guideDragId != null) onDrawingGuidesChanged(drawingGuides.toList())
+        guideDragId = null
+    }
+
+    /** Puts guide [id]'s handle [index] at [point] (a canvas handle's drag). */
+    private fun moveGuideHandle(id: String, index: Int, point: WorldPoint) {
+        val i = drawingGuides.indexOfFirst { it.id == id }
+        if (i == -1) return
+        drawingGuides[i] = drawingGuides[i].let { guide -> guide.copy(handles = guide.handles.mapIndexed { k, p -> if (k == index) point else p }) }
     }
 
     fun loadDrawingGuides(loaded: List<DrawingGuide>) {
@@ -4469,9 +4426,69 @@ class CanvasState(
         nodeEditing = !nodeEditing && selection.size == 1
     }
 
+    // A node being dragged (node editing): which, the stroke's points when it was grabbed, and where.
     private var nodeDragIndex: Int? = null
     private var nodeDragOriginal: List<WorldPoint> = emptyList()
     private var nodeDragStart = WorldPoint.Zero
+
+    private fun pressEditNode(stroke: Stroke, index: Int, at: WorldPoint) {
+        recordHistory()
+        nodeDragIndex = index
+        nodeDragOriginal = stroke.points.toList()
+        nodeDragStart = at
+    }
+
+    private fun dragEditNode(stroke: Stroke, at: WorldPoint) {
+        val dragged = nodeDragIndex ?: return
+        stroke.setPoints(dragNode(nodeDragOriginal, editNodeIndices(nodeDragOriginal.size), dragged, at - nodeDragStart))
+    }
+
+    private fun releaseEditNode() {
+        if (nodeDragIndex == null) return
+        nodeDragIndex = null
+        nodeDragOriginal = emptyList()
+        strokesChanged()
+    }
+
+    /**
+     * The handles on the canvas right now (roadmap item 171), in the context they belong to:
+     * vanishing points with the pen or in guide edit mode, guide handles in guide edit mode, and
+     * with the select tool the warp's nodes and pins, node editing's nodes, or the selection's
+     * scale and rotate handles. The canvas draws them and gives a press on one to it first.
+     */
+    fun canvasHandles(): List<CanvasHandle> = buildList {
+        // Vanishing points are guides too (roadmap item 344); the pen moves them as well, on a locked layer too.
+        if (perspectiveMode != PerspectiveMode.OFF && (editingGuides || activeTool == Tool.PEN)) {
+            for (i in vanishingPoints.indices) add(CanvasHandle(vanishingPoints[i], drag = { if (i in vanishingPoints.indices) vanishingPoints[i] = it }))
+        }
+        if (editingGuides) {
+            for (guide in drawingGuides) {
+                if (!guide.visible) continue
+                for (k in guide.handles.indices) {
+                    add(CanvasHandle(guide.handles[k], drag = { moveGuideHandle(guide.id, k, it) }, release = { onDrawingGuidesChanged(drawingGuides.toList()) }))
+                }
+            }
+            return@buildList
+        }
+        if (activeTool != Tool.SELECT || shapeEditMode != null) return@buildList
+        val editing = nodeEditStroke
+        when {
+            meshWarping && meshMatchesSelection() -> for (k in meshNodes.indices) {
+                add(CanvasHandle(meshNodes[k], press = { pressMeshNode(k, it) }, drag = ::dragMeshNode, release = ::releaseMeshNode))
+            }
+            editing != null -> {
+                val nodes = editNodeIndices(editing.points.size)
+                for (k in nodes.indices) {
+                    add(CanvasHandle(editing.points[nodes[k]], HandleShape.SQUARE, press = { pressEditNode(editing, k, it) }, drag = { dragEditNode(editing, it) }, release = ::releaseEditNode))
+                }
+            }
+            else -> selectionBounds()?.let { (min, max) ->
+                add(CanvasHandle(max, press = ::beginScaleSelection, drag = ::continueScaleSelection, release = ::endScaleSelection))
+                // Above the top edge's middle, the same distance on screen whatever the zoom.
+                add(CanvasHandle(WorldPoint((min.x + max.x) / 2, min.y), screenOffset = Offset(0f, -ROTATE_HANDLE_OFFSET_SCREEN), press = ::beginRotateSelection, drag = ::continueRotateSelection, release = ::endRotateSelection))
+            }
+        }
+    }
 
     /**
      * Warping the selection or the raster layer (roadmap items 84, 92, 122), in one of the
@@ -4504,6 +4521,54 @@ class CanvasState(
     // Each selected stroke's points when the lattice was laid, which every warp is computed from.
     private var meshOriginals: List<Pair<Stroke, List<WorldPoint>>> = emptyList()
     private var meshDragIndex: Int? = null
+
+    /** Whether the lattice still belongs to the selection it was laid over (a raster warp has no selection to change). */
+    private fun meshMatchesSelection(): Boolean =
+        warpSurface != null || (meshOriginals.size == selection.size && meshOriginals.all { (stroke, _) -> selection.any { it === stroke } })
+
+    private fun pressMeshNode(k: Int, at: WorldPoint) {
+        meshDragIndex = k
+        if (warpKind == WarpKind.PUPPET) {
+            // Maybe a tap to pull the pin out: history waits for the pin to move.
+            pinPressedAt = at
+            pinMoved = false
+        } else {
+            recordHistory()
+        }
+    }
+
+    private fun dragMeshNode(at: WorldPoint) {
+        val k = meshDragIndex ?: return
+        pinPressedAt?.let { pressed ->
+            if (!pinMoved) {
+                if (hypot(at.x - pressed.x, at.y - pressed.y) * scale <= TAP_SLOP_SCREEN) return
+                pinMoved = true
+                recordHistory()
+            }
+        }
+        meshNodes[k] = at
+        if (warpSurface != null) {
+            applyRasterWarp()
+            return
+        }
+        val warp = warpMapping()
+        for ((stroke, original) in meshOriginals) {
+            if (stroke.points.size == original.size) stroke.setPoints(original.map(warp))
+        }
+    }
+
+    private fun releaseMeshNode() {
+        val k = meshDragIndex ?: return
+        meshDragIndex = null
+        if (pinPressedAt != null && !pinMoved) {
+            // A pin tapped without dragging is pulled out; the picture keeps its shape.
+            rebaseWarp()
+            meshNodes.removeAt(k)
+            puppetOrigins.removeAt(k)
+        }
+        pinPressedAt = null
+        strokesChanged()
+    }
 
     // Raster warp (roadmap item 92): the picture being bent, lifted on the first drag (pixels,
     // non-premultiplied ARGB, and their box), and each tile as it was after the lift, so every
@@ -4677,20 +4742,8 @@ class CanvasState(
         if (activeLayerIsRaster && beginMovingSelectedPixels(worldPoint)) return
         // The lattice belongs to the selection it was laid over; a changed selection ends it.
         if (meshWarping && warpSurface == null && (meshOriginals.size != selection.size || meshOriginals.any { (stroke, _) -> selection.none { it === stroke } })) endMeshWarp()
+        // The warp's nodes and pins are canvas handles ([canvasHandles]), caught before this.
         if (meshWarping) {
-            val hit = meshNodes.indices.minByOrNull { k -> hypot(meshNodes[k].x - worldPoint.x, meshNodes[k].y - worldPoint.y) }
-                ?.takeIf { k -> hypot(meshNodes[k].x - worldPoint.x, meshNodes[k].y - worldPoint.y) * scale <= NODE_HANDLE_SCREEN }
-            if (hit != null) {
-                meshDragIndex = hit
-                if (warpKind == WarpKind.PUPPET) {
-                    // Maybe a tap to pull the pin out: history waits for the pin to move.
-                    pinPressedAt = worldPoint
-                    pinMoved = false
-                } else {
-                    recordHistory()
-                }
-                return
-            }
             if (warpKind == WarpKind.PUPPET) {
                 // A tap off the pins sticks a new one in there, ready to drag.
                 rebaseWarp()
@@ -4699,23 +4752,6 @@ class CanvasState(
                 puppetOrigins.add(worldPoint)
                 meshDragIndex = meshNodes.lastIndex
                 pinPressedAt = null
-                return
-            }
-        }
-        nodeEditStroke?.let { stroke ->
-            val nodes = editNodeIndices(stroke.points.size)
-            val hit = nodes.indices.minByOrNull { k ->
-                val p = stroke.points[nodes[k]]
-                hypot(p.x - worldPoint.x, p.y - worldPoint.y)
-            }?.takeIf { k ->
-                val p = stroke.points[nodes[k]]
-                hypot(p.x - worldPoint.x, p.y - worldPoint.y) * scale <= NODE_HANDLE_SCREEN
-            }
-            if (hit != null) {
-                recordHistory()
-                nodeDragIndex = hit
-                nodeDragOriginal = stroke.points.toList()
-                nodeDragStart = worldPoint
                 return
             }
         }
@@ -4759,30 +4795,9 @@ class CanvasState(
             moveSelectedPixels(worldPoint)
             return
         }
-        meshDragIndex?.let { k ->
-            pinPressedAt?.let { pressed ->
-                if (!pinMoved) {
-                    if (hypot(worldPoint.x - pressed.x, worldPoint.y - pressed.y) * scale <= TAP_SLOP_SCREEN) return
-                    pinMoved = true
-                    recordHistory()
-                }
-            }
-            meshNodes[k] = worldPoint
-            if (warpSurface != null) {
-                applyRasterWarp()
-                return
-            }
-            val warp = warpMapping()
-            for ((stroke, original) in meshOriginals) {
-                if (stroke.points.size == original.size) stroke.setPoints(original.map(warp))
-            }
-            return
-        }
-        val dragged = nodeDragIndex
-        val editing = nodeEditStroke
-        if (dragged != null && editing != null) {
-            val nodes = editNodeIndices(nodeDragOriginal.size)
-            editing.setPoints(dragNode(nodeDragOriginal, nodes, dragged, worldPoint - nodeDragStart))
+        // A pin just stuck in by this press (puppet warp) is dragged straight away.
+        if (meshDragIndex != null) {
+            dragMeshNode(worldPoint)
             return
         }
         if (isMovingText) {
@@ -4838,22 +4853,8 @@ class CanvasState(
             }
             return
         }
-        meshDragIndex?.let { k ->
-            meshDragIndex = null
-            if (pinPressedAt != null && !pinMoved) {
-                // A pin tapped without dragging is pulled out; the picture keeps its shape.
-                rebaseWarp()
-                meshNodes.removeAt(k)
-                puppetOrigins.removeAt(k)
-            }
-            pinPressedAt = null
-            strokesChanged()
-            return
-        }
-        if (nodeDragIndex != null) {
-            nodeDragIndex = null
-            nodeDragOriginal = emptyList()
-            strokesChanged()
+        if (meshDragIndex != null) {
+            releaseMeshNode()
             return
         }
         if (isMovingText) {
