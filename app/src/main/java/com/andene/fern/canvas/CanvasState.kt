@@ -6136,6 +6136,33 @@ class CanvasState(
         return true
     }
 
+    /**
+     * Attaches each vector layer's ink on the current frame to the rig as its own slot, named
+     * after the layer, in layer order (roadmap item 281): a drawing made in parts - head, arm,
+     * leg - becomes a rig in one step, each part moving rigidly with its nearest bone. Locked and empty layers are left alone. One undo step.
+     */
+    fun attachLayersToRig(): Int {
+        if (rigEditor.rig.bones.isEmpty()) return 0
+        val perLayer = layers.filter { !it.raster && !it.locked }.mapNotNull { layer ->
+            val ink = strokes.filter { it.layerId == layer.id && it.animFrame == currentAnimFrame && it.points.isNotEmpty() }
+            if (ink.isEmpty()) null else layer to ink
+        }
+        if (perLayer.isEmpty()) return 0
+        recordHistory()
+        val keep = rigEditor.selectedBoneId
+        for ((layer, ink) in perLayer) {
+            // Each part goes to the bone nearest it, not to whichever bone happens to be selected.
+            rigEditor.selectedBoneId = null
+            rigEditor.attach(ink, layer.name, rigid = true)
+        }
+        rigEditor.selectedBoneId = keep
+        val attached = perLayer.flatMap { it.second }.toHashSet()
+        strokes.removeAll { it in attached }
+        clearSelectionState()
+        strokesChanged()
+        return perLayer.size
+    }
+
     /** Deletes the selected rig bone and its children; ink attached to them comes back to the canvas. One undo step. */
     fun deleteSelectedRigBone() {
         if (rigEditor.selectedBoneId == null) return

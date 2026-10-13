@@ -458,7 +458,8 @@ Spine's display model, and rigging your own drawing. Builds on Phase 11.
 - [ ] 279. Skins on attachments: a skin replaces some attachments and leaves the rest; several skins combined (hat, shirt, shoes). Layer skins become this.
 - [~] 280. Slot and attachment panel: the tree of bones, slots and attachments with visibility and draw order.
   Done: `RigPanel.kt`, from the Rig tool: bones as an indented tree (tap to select, rename), slots in draw order with up, down and take off the rig. Left: hiding a slot.
-- [ ] 281. Rig from layers: each layer of an imported PSD becomes a slot with an attachment on a new bone, in place.
+- [~] 281. Rig from layers: each layer of an imported PSD becomes a slot with an attachment on a new bone, in place.
+  Done: "Attach each layer as a part" in the rig panel: every unlocked vector layer's ink on the current frame becomes its own slot, named after the layer, moving rigidly with its nearest bone. Left: raster layers and PSD layers (images in attachments).
 - [ ] 354. **Rigging workflow guide.** The rig tools in the order an artist uses them (cut into parts, place bones, attach, mesh and weight, set the setup pose, animate), shown as steps in the rig panel, so a rig can be built without knowing where each tool lives.
 
 ---

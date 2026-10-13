@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import com.andene.fern.FernPanel
 import com.andene.fern.FernScale
+import com.andene.fern.FernTextButton
 import com.andene.fern.FernTextField
 import com.andene.fern.R
 
@@ -125,6 +126,9 @@ fun RigPanel(state: CanvasState, onDismiss: () -> Unit) {
                     }
                 }
                 Text(stringResource(R.string.rig_slots), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = FernScale.s8))
+                if (rig.bones.isNotEmpty()) {
+                    FernTextButton(onClick = { state.attachLayersToRig() }) { Text(stringResource(R.string.rig_attach_layers)) }
+                }
                 if (rig.slots.isEmpty()) Text(stringResource(R.string.rig_no_slots))
                 // Last drawn on top: listed top first, as a layers list is.
                 for ((index, slot) in rig.slots.withIndex().reversed()) {

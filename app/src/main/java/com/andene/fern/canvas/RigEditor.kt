@@ -390,16 +390,18 @@ class RigEditor(private val host: Host) {
      * Attaches [ink] to the rig (roadmap item 353): it becomes one attachment in a new slot on
      * the selected bone (or the bone nearest its middle), each point following the bones nearest
      * it by weight, so one outline drawn across a joint bends there. The ink is kept exactly as
-     * drawn, in the setup pose. Returns false without bones or ink.
+     * drawn, in the setup pose. [rigid] binds every point to that one bone instead, for a cut-out
+     * part. Returns false without bones or ink.
      */
-    fun attach(ink: List<Stroke>, name: String): Boolean {
+    fun attach(ink: List<Stroke>, name: String, rigid: Boolean = false): Boolean {
         if (rig.bones.isEmpty() || ink.isEmpty()) return false
         val setup = rig.setupPose()
         val center = WorldPoint((ink.minOf { it.minX } + ink.maxOf { it.maxX }) / 2, (ink.minOf { it.minY } + ink.maxOf { it.maxY }) / 2)
         val bone = selectedBoneId?.let { id -> rig.bones.firstOrNull { it.id == id } }
             ?: rig.bones.minBy { b -> setup[b.id]?.let { distanceToPolyline(listOf(boneOrigin(it), boneTip(b, it)), center) } ?: Double.MAX_VALUE }
         val strokes = ink.map { it.deepCopy() }
-        val weights = strokes.map { autoWeights(it.points, rig.bones, setup) }
+        // Rigid: every point follows the one bone, like a cut-out part (Spine's region attachment).
+        val weights = strokes.map { s -> if (rigid) s.points.map { listOf(bone.id to 1.0) } else autoWeights(s.points, rig.bones, setup) }
         val attachment = RigAttachment(UUID.randomUUID().toString(), name, strokes, weights)
         val slot = RigSlot(UUID.randomUUID().toString(), name, bone.id, attachment.id)
         change(rig.copy(slots = rig.slots + slot, attachments = rig.attachments + attachment))

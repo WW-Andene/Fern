@@ -1161,4 +1161,5 @@
     <string name="rig_property_scale_y">hauteur</string>
     <string name="rig_property_shear_x">inclinaison horizontale</string>
     <string name="rig_property_shear_y">inclinaison verticale</string>
+    <string name="rig_attach_layers">Attacher chaque calque comme une partie</string>
 </resources>
