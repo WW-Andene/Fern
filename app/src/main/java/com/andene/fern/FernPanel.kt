@@ -9,6 +9,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.filled.Search
@@ -198,7 +199,31 @@ fun androidx.compose.foundation.layout.BoxScope.FernPanelHost(railOnLeft: Boolea
                         Box(Modifier.width(FernScale.s32).height(FernScale.s4).background(MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small))
                     }
                 }
-                Row(Modifier.fillMaxWidth().padding(start = FernSpace.lg), verticalAlignment = Alignment.CenterVertically) {
+                // Swiping the header sideways brings the next open panel to the front, keeping them all
+                // open (design roadmap D91): layers, brushes and timeline without closing and reopening.
+                val swipePx = with(LocalDensity.current) { FernScale.s64.toPx() }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = FernSpace.lg)
+                        .pointerInput(Unit) {
+                            var dragged = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { dragged = 0f },
+                                onHorizontalDrag = { change, dx ->
+                                    change.consume()
+                                    dragged += dx
+                                },
+                                onDragEnd = {
+                                    val open = FernPanels.open
+                                    if (open.size > 1 && kotlin.math.abs(dragged) >= swipePx) {
+                                        if (dragged < 0) open.add(0, open.removeAt(open.lastIndex)) else open.add(open.removeAt(0))
+                                    }
+                                },
+                            )
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Box(Modifier.weight(1f).semantics { heading() }) {
                         Column {
                             ProvideTextStyle(MaterialTheme.typography.titleMedium) { entry.title() }

@@ -132,8 +132,6 @@ The app's look and layout rebuilt on the CLAUDE.md §7 scale, so every later scr
   Written, not yet compiled or tested: the object panel has tabs Object, States, Rules and Script (the editors were split out of their dialogs as `StateMachineEditor`, `RulesEditor`, `GameScriptEditor`), and chips for every object to switch between them without closing; nothing stacks any more.
 - [ ] D47. **Inspector for the selection.** Transform, style, constraints (roadmap item 144) and
   the measurement for whatever is selected, always in the same place.
-- [ ] D91. **Swipe between panels.** On the phone, swipe sideways inside the bottom sheet to move
-  between the open panels (layers, brushes, timeline) without closing and reopening.
 
 ---
 
