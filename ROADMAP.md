@@ -250,6 +250,253 @@ Shared, multiplayer parts need a server and are deferred ⏸; single-player part
 - [ ] 163. AI logic assistant ⏸
 - [x] 164. Text scripting (sandboxed) — one language, step-limited, no file or network access, with variables, arithmetic, texts, `if`/`else`, `while`, `repeat`, procedures (recursion depth-limited) and maths functions; used by drawing scripts (turtle graphics, ⋮ menu) and by object scripts that run every step of the game, reading the object, input, contacts and properties and moving, showing, removing, scoring and switching states. A script that fails during play stops and shows its line on screen
 
+## Phase 15 — Groundwork for the tool expansion
+
+Goal: make the phases below cheap and safe to build. Every later phase adds tools to the same few files, so they are split first.
+
+- [ ] 167. Split per-tool gesture handling out of `DrawingCanvas.kt` into one handler per tool (press, move, release, cancel), and per-tool state out of `CanvasState.kt` (CLAUDE.md §4.5): both are thousands of lines and every new tool touches the same `when` blocks.
+- [ ] 168. Gesture tests: fingers landing and lifting at different times, a pan becoming a pinch, stylus with a resting palm, long press versus a slow stroke.
+- [ ] 169. Long-press delay and multi-finger tap tolerances in Settings, instead of fixed values.
+- [ ] 170. Screen sampling: read the colour actually shown at a point (all layers, raster, images, fills, paper), or on one layer only. Needed by the eyedropper, colour replace, palette from screen and smart fill.
+- [ ] 171. On-canvas handle framework: one way to draw, hit-test and drag handles (shape parameters, joint limits, gradient stops, vanishing points, IK targets, constraint targets) instead of each tool doing its own.
+- [ ] 172. On-canvas numeric readout and entry: any handle can show its value and accept a typed one.
+
+## Phase 16 — Drawing tool fixes
+
+Goal: the existing tools work fully before new ones arrive. Builds on Phase 15.
+
+- [ ] 173. Eyedropper samples what is shown (screen sampling), with "all layers" or "this layer"; a magnified loupe with old and new colour; sampling size 1, 3 or 5 px; a message when nothing was picked. Today it reads vector strokes only and ignores raster, images, fills and paper.
+- [ ] 174. Eyedropper picks a stroke's whole style (width, pen type) as an option, reusing the style picker; the last 8 picked colours kept in the colour strip.
+- [ ] 175. Shape: live dimensions and angle while drawing, in the document scale; draw from centre or corner with a second finger instead of a keyboard.
+- [ ] 176. Shape stays editable with handles (corner radius, side count, arrowhead size) until the next shape starts.
+- [ ] 177. Fill: preview the region before committing, showing where gaps were closed; a clear "all layers" or "this layer" setting; a tolerance slider for raster flood fill.
+- [ ] 178. Fill reaches areas extending past the view, falling back to the enclosing shapes' bounds (today the visible rectangle limits it).
+- [ ] 179. Eraser: size outline on hover and press; tapered ends when cutting strokes; current-layer-only option; lasso erase removes what is fully inside or anything touched.
+- [ ] 180. Select: on-canvas add, subtract and intersect; size, position and rotation in the readout with typed values; arrow-button nudge by a fixed step.
+- [ ] 181. Select: invert selection; grow and shrink by a distance; flip horizontal and vertical on the selection strip.
+- [ ] 182. Transform: snapping to 15° and to other objects shown on the handles; uniform or free scaling as a visible toggle; interpolation choice for raster (nearest, bilinear, bicubic).
+- [ ] 183. Text: edit in place on the canvas; baseline and bounding-box guides while moving; outline and shadow.
+- [ ] 184. Bezier: tap a node to switch corner and smooth; close the path by tapping the first node; add, delete and split nodes on an existing path.
+- [ ] 185. Ruler and Measure merged: a measurement pinned as a dimension line in real-world units; angle (three points), area and perimeter; copy a measurement into a text label.
+- [ ] 186. View: flip the view horizontally (a mirror to check proportions, the drawing unchanged); greyscale view; zoom presets (fit, 100 %, fill) and tap to reset rotation.
+- [ ] 187. Layers: larger thumbnails with a size setting; swipe a row to hide, lock or alpha-lock; pinch rows to merge; long-press a stroke to jump to its layer; colour labels with a filter.
+- [ ] 188. Colour: a longer history with pinned favourites; hex, RGB and HSB values editable with copy and paste; disc, square and slider pickers; a value (greyscale) check.
+
+## Phase 17 — Ink and brush engine
+
+Goal: brushes as rich as Procreate's and Krita's. Data before editor: the brush model gains its settings first, the studio edits them, import fills them.
+
+- [ ] 189. Pressure curve per pen and brush, edited as a curve (reusing the easing curve editor), with a minimum width so light pressure never vanishes and pressure-to-opacity besides pressure-to-width.
+- [ ] 190. Smoothing modes: streamline (lag), pulled string, average of the last N points, each with its own setting; end smoothing (no hook when the pen lifts); pressure smoothed separately from position; the stabiliser shown as a lag string while drawing.
+- [ ] 191. Custom width profile drawn as a curve, besides uniform and tapered.
+- [ ] 192. Brush taper per brush: length and size at start and end, linked to pressure or not.
+- [ ] 193. Size and opacity remembered per brush, optionally linked; size steps on the rail for quick jumps.
+- [ ] 194. Shape dynamics: tip rotation from direction, tilt or random; roundness from tilt.
+- [ ] 195. Colour dynamics: hue, saturation and brightness jitter per stamp and per stroke, linked to pressure or tilt.
+- [ ] 196. Tilt shading: the stylus flat paints wide and light, upright narrow and dark.
+- [ ] 197. Grain: a paper texture inside the stroke, moving with it or fixed to the canvas, with scale, depth and contrast.
+- [ ] 198. Dual brush: a second tip masking the first, for dry-media edges.
+- [ ] 199. Flow versus opacity (per stamp or per stroke), build-up and wet edges.
+- [ ] 200. Colour mixing: paint picks up and drags what is beneath, extending the wet engine.
+- [ ] 201. Brush studio: every setting above in one editor, in sections, with a test pad using pressure and a live preview of spacing, jitter and scatter; brushes saved as presets and shared as files.
+- [ ] 202. Brush import: tips from Photoshop `.abr` files and shapes and grains from Procreate `.brushset` files.
+- [ ] 203. Vector art and pattern brushes: a shape stretched along the path, or repeated along it with corner pieces.
+- [ ] 204. Vector line cleanup while drawing: cut a stroke's overshoot at the nearest crossing line; a pen that joins a stroke ending near another line.
+
+## Phase 18 — Layers, colour, selection and guides
+
+Goal: the structures the new tools draw into. Groups and adjustment layers come before tools that use them (gradient map, smart fill); soft selections before clone and pattern painting.
+
+- [ ] 205. Layer groups that fold, with group opacity and blend, and clipping to a group.
+- [ ] 206. Adjustment layers: hue/saturation, curves, levels, colour balance and gradient map, non-destructive on the layers beneath.
+- [ ] 207. Layer effects: outline (stroke), drop shadow and glow.
+- [ ] 208. "Select layer contents" as a selection.
+- [ ] 209. Feathered (soft-edged) selections for raster editing.
+- [ ] 210. Selection painting with a brush (quick mask).
+- [ ] 211. Magic wand: select by same colour, width, pen type, layer, or connected strokes; "select similar" on the selection strip.
+- [ ] 212. Smart lasso snapping to stroke edges; named selections saved and reselected.
+- [ ] 213. Colour from anywhere on screen, including the reference window and photos.
+- [ ] 214. Harmony lock: harmony colours follow the main colour as it changes; colour assist showing the complement and the value against neighbours.
+- [ ] 215. Palette sorting by hue or value.
+- [ ] 216. Perspective grids with 1, 2 and 3 points, vanishing points dragged on the canvas, pen snapping to them.
+- [ ] 217. Parallel and concentric (radiating) line guides; an ellipse guide at any angle.
+- [ ] 218. Guides saved with the document and toggled per frame.
+- [ ] 219. Symmetry: mirrored radial (kaleidoscope); axis moved and rotated on the canvas; symmetry limited to a selected frame or region.
+- [ ] 220. Reference window: a floating image or second view kept on screen while drawing.
+
+## Phase 19 — Paths, shapes and text
+
+Goal: vector editing at the level of Illustrator and Affinity. Node editing (Phase 16) comes first; these build on it.
+
+- [ ] 221. New shape kinds: polygon (3–12 sides), star (points and inner radius), rounded rectangle, arc, pie, ring and spiral.
+- [ ] 222. Curvature mode for the Bezier tool: tap points and smooth curves form through them.
+- [ ] 223. Simplify a path with a live slider and node count; join two open paths at their nearest ends; reverse a path.
+- [ ] 224. Offset path (inset or outset), reusing the contour code in `ShapeBuilder.kt`; outline stroke (a stroke becomes an editable filled shape).
+- [ ] 225. Repeat a shape along a line, a grid or a circle, linked to the original.
+- [ ] 226. Comic bubbles: several tails, curved tails, tails attached to the speaker.
+- [ ] 227. Line weight correction: thicker outer contours and thinner interior lines on a selection.
+- [ ] 228. Text inside a shape, sized to fit; text on a path offset along it and flipped to the other side.
+- [ ] 229. Warped text (arc, wave, flag) and text on a curved, distorted baseline for sound effects.
+- [ ] 230. Text style presets (font, size, colour, OpenType features).
+
+## Phase 20 — New drawing tools
+
+Goal: tools Fern doesn't have yet. Each builds on the phases above.
+
+- [ ] 231. Lasso fill: draw a loop and it fills with the current colour.
+- [ ] 232. Colour replace brush: paint over strokes to change their colour without moving them.
+- [ ] 233. Palette from image: 5–8 representative colours from an image or a selection into the saved colours.
+- [ ] 234. Knife on the rail: cut through shapes along a drawn line (the shape builder's knife as a direct tool).
+- [ ] 235. Gradient tool: drag to lay a linear, radial or angular gradient on a raster layer or selection, with stops on the canvas; more than two stops and radial and angular kinds in the gradient fill too.
+- [ ] 236. Pattern and texture fills from stamp-brush tips; fill by reference layer (line art bounds the fill on the current layer); fills grown slightly under the line to remove halos.
+- [ ] 237. Smart fill for colouring: fill every closed area of the line art with flat colours at once, then recolour by tapping.
+- [ ] 238. Width tool: drag on a stroke to thicken or thin it at that point, blending along the stroke.
+- [ ] 239. Blend tool: N in-betweens between two shapes, in shape and colour (`Tweening.kt`).
+- [ ] 240. Vector smudge and push: move stroke points with a soft circular brush (liquify for vector ink).
+- [ ] 241. Line cleanup: replace selected rough strokes with one clean averaged stroke.
+- [ ] 242. Ink trap: tighten rounded corners on a selection of strokes.
+- [ ] 243. Hatching: fill a region with parallel or cross-hatched lines (angle, spacing, wobble).
+- [ ] 244. Perspective pen: strokes snap to the active vanishing points while drawing.
+- [ ] 245. Vector scatter: copies of a symbol or shape scattered along the path with size and rotation jitter.
+- [ ] 246. Pattern stamp: paint a repeating pattern or texture on a raster layer.
+- [ ] 247. Clone and heal brushes on raster layers.
+- [ ] 248. Vector blur and smudge: soften vector ink by rasterising it under the brush, with a confirm.
+- [ ] 249. Annotate: arrows, callouts and comments on their own layer, hidden on export.
+
+## Phase 21 — Rig and animation data model
+
+Goal: the foundation for Spine-level rigging and keyed animation. Today a bone is a head and a tail point, a pose is a full copy of every bone per frame, a stroke belongs to one bone, and only rotation and position exist. Everything in Phases 22–27 depends on this phase.
+
+- [ ] 250. Local bone transform: rotation, x, y, scale x/y and shear x/y relative to the parent, with inherit settings (rotation, scale, reflection) per bone.
+- [ ] 251. Timelines: per bone, separate keyed tracks for rotate, translate, scale and shear, each key with its own curve (linear, stepped, Bézier). The per-frame pose becomes the baked result, and existing documents convert to keys.
+- [ ] 252. Setup pose versus animated pose: a Setup mode edits the rest pose; animations store only differences from it.
+- [ ] 253. Several named animations per rig (idle, walk, jump), each with its own length and timelines.
+- [ ] 254. Bone tree panel: names, colours, folders, hierarchy; tapping ink selects its bone.
+- [ ] 255. The same keyed timelines for non-rig properties: layer and object opacity, position, scale, rotation and colour with easing.
+
+## Phase 22 — Animation on timelines
+
+Goal: animation tools that use the Phase 21 model, before rig-specific tools build on them.
+
+- [ ] 256. Dopesheet with one row per timeline (bone rotate, translate, scale, shear; slot attachment and colour; draw order; events), collapsible per bone; key filters by bone or channel.
+- [ ] 257. Graph editor for every curve, not only angle: separate x and y curves, tangent handles, stepped keys, copy and paste of curves, curve presets.
+- [ ] 258. Auto-key: changing a bone or property records a key; key all channels or only changed ones.
+- [ ] 259. Offset keys in time across several bones with one drag (a tail wave).
+- [ ] 260. Per-layer timing: a layer holds its drawing for its own number of frames.
+- [ ] 261. A camera: a framed view panning, zooming and rotating over time, used by playback and export.
+- [ ] 262. Play range (in and out markers); playback speed; loop helpers (an in-between from the last frame to the first); time remapping of a range (slow, fast, reverse).
+- [ ] 263. Scrubbing with audio, and the soundtrack's waveform under the frames with markers.
+- [ ] 264. Onion skin: separate colours and opacity for past and future, keyframes only; rig ghosting (previous and next poses faint).
+- [ ] 265. Motion paths of selected objects or bone tips across frames, edited by dragging.
+- [ ] 266. In-between preview as ghost outlines before committing; shape-tweening pairs shown as numbered markers and re-paired by hand.
+- [ ] 267. Light table: pin any frames as tracing references, beyond the onion skin's neighbours.
+- [ ] 268. Frame thumbnails that scale with the panel.
+- [ ] 269. Squash and stretch with volume preserved, in one step.
+- [ ] 270. Timing chart: draw the spacing chart on a key and in-betweens follow it.
+- [ ] 271. Motion blur and smear frames: fast ink stretched along its motion, and a smear brush.
+
+## Phase 23 — Slots, attachments and draw order
+
+Goal: Spine's display model. Builds on Phase 21.
+
+- [ ] 272. Slots: a slot hangs from a bone and shows one attachment at a time; ink and images go into slots instead of binding to bones directly. Existing bound ink converts to one slot per bone.
+- [ ] 273. Region attachments (an image or group of strokes) in slots.
+- [ ] 274. Attachment timeline: swap a slot's attachment over time (open hand, fist, pointing).
+- [ ] 275. Draw order timeline: change which slot is in front over time.
+- [ ] 276. Slot colour and alpha timelines, with a second dark tint colour.
+- [ ] 277. Point attachments (a named point on a bone) and bounding-box attachments (polygons usable by game logic for hits).
+- [ ] 278. Clipping attachments: a polygon clipping the slots after it.
+- [ ] 279. Skins on attachments: a skin replaces some attachments and leaves the rest; several skins combined (hat, shirt, shoes). Layer skins become this.
+- [ ] 280. Slot and attachment panel: the tree of bones, slots and attachments with visibility and draw order.
+- [ ] 281. Rig from layers: each layer of an imported PSD becomes a slot with an attachment on a new bone, in place.
+
+## Phase 24 — Meshes and weights
+
+Goal: smooth bending that survives export. Builds on Phase 23.
+
+- [ ] 282. Mesh attachments: a drawing with a hull and inner vertices, triangulated, deforming smoothly.
+- [ ] 283. Mesh tool: add, delete and move vertices, draw edges, triangulate from the outline, trace a hull from the drawing's alpha.
+- [ ] 284. Vertex weights across several bones, with a weights panel per bone and a lock per bone.
+- [ ] 285. Weight tools: paint add, subtract, replace and smooth; automatic weights by distance or by heat (inside the shape, so an arm doesn't pull the torso); normalise; prune small weights; mirror left to right. Today's point weights convert to this.
+- [ ] 286. Deform timeline: vertex offsets keyed over time on top of bone deformation (today's per-frame mesh warp becomes this).
+- [ ] 287. Linked meshes: attachments sharing one mesh, its weights and deform keys.
+
+## Phase 25 — Constraints
+
+Goal: rig behaviour beyond direct posing. Builds on Phases 21 and 24.
+
+- [ ] 288. IK constraint as an object: target bone, one- or two-bone chain, mix, softness and bend direction; an exact two-bone solver with a pole direction (the CCD solver stays for longer chains); IK/FK switch and blend per animation; the IK target dragged on the canvas.
+- [ ] 289. Joint limits shown as arcs on the canvas and dragged at their ends.
+- [ ] 290. Transform constraint: copy rotation, position, scale or shear between bones with offsets and mix.
+- [ ] 291. Path constraint: bones follow a drawn path, with position, spacing (length, fixed, percent) and rotation modes.
+- [ ] 292. Physics constraint: inertia, strength, damping, mass, wind and gravity per bone, in playback and export. Dynamic bones become this, with their settings and a preview while scrubbing.
+- [ ] 293. Constraint order list and keyed constraint mix.
+- [ ] 294. Constraint tool: add each constraint by picking bones on the canvas.
+
+## Phase 26 — Rigging workflow
+
+Goal: rigging fast and reusable. Builds on Phases 21–25.
+
+- [ ] 295. Bone names and side colours (left and right) on the canvas; binding shown and changed by tapping a stroke.
+- [ ] 296. Mirror a rig, its attachments, poses and animations from left to right, matching `_L` and `_R` names.
+- [ ] 297. Pose library: named poses with thumbnails, applied whole or to selected bones.
+- [ ] 298. Rig controls: a slider or on-canvas handle driving several bones (fist, blink, mouth shape), keyed as one value.
+- [ ] 299. Events: named timeline markers with int, float, text and audio payloads, used by export and game logic.
+- [ ] 300. Animation mixing and tracks: preview a crossfade between two animations, or a second track adding a blink or aim over a walk.
+- [ ] 301. Retarget an animation to another rig with a bone map; copy animations between documents.
+- [ ] 302. Rig checker: unbound ink, empty slots, bones without influence, weights not summing to one, joints past their limits.
+- [ ] 303. Auto-rig: biped, quadruped or face templates fitted by dragging markers.
+- [ ] 304. Walk and run cycle generator for a rig, with stride and bounce.
+
+## Phase 27 — Spine and DragonBones round trip
+
+Goal: rigs leave and come back without loss. Today export bakes each bone's ink into one image (bending becomes rigid) and import keeps only rotation and translation.
+
+- [ ] 305. Spine export with slots, attachments, meshes, weights, skins, constraints, events, draw order and colour timelines, and a packed atlas.
+- [ ] 306. Spine import of all of the above (JSON 3.8 and 4.x).
+- [ ] 307. Spine binary (`.skel`) export; export settings (scale, nonessential data, pretty JSON, chosen animations).
+- [ ] 308. DragonBones export and import at the same level.
+- [ ] 309. Runtime preview: play the exported data back as an engine would, before handing it over.
+
+## Phase 28 — Face and 2.5D rigging
+
+Goal: Live2D-style turns from flat art. Builds on meshes, deform keys and rig controls.
+
+- [ ] 310. Parameters (head angle, mouth open) blending between keyed mesh shapes.
+- [ ] 311. Warp and rotation deformers nested on a face.
+- [ ] 312. Blink, breath and lip-sync parameters linked to the mouth chart and soundtrack.
+
+## Phase 29 — 3D
+
+Goal: 3D as a drawing aid and an asset, not only a painted model.
+
+- [ ] 313. Orbit camera: double-tap to frame, reset, snap to front, side and top.
+- [ ] 314. Painting: brush circle on the surface at its painted size; painting past UV seams so no lines show.
+- [ ] 315. Lighting presets (studio, rim, flat).
+- [ ] 316. Placed models re-rendered at a new angle on the canvas without opening the editor (today a placed model is a still image).
+- [ ] 317. Layers for 3D painting with opacity and blend; normal, height and emission channels.
+- [ ] 318. Projection painting: paint on the screen and project it onto the model.
+- [ ] 319. Toon shading and outline rendering.
+- [ ] 320. Turntable export (GIF or MP4).
+- [ ] 321. A model as a drawing reference whose camera matches the canvas perspective guide.
+- [ ] 322. The 3D mannequin and hand posed per animation frame, rendered into each frame as a reference layer.
+- [ ] 323. Extrude and lathe: drawn shapes become 3D objects.
+- [ ] 324. Scene blocks: several primitives placed together to block out a room or prop.
+- [ ] 325. Full-body 3D mannequin, extending the hand and head.
+
+## Phase 30 — Game logic tools
+
+Goal: building and debugging games from drawings. Builds on Phase 14 and on rig events and bounding boxes (Phases 23 and 26).
+
+- [ ] 326. Debug overlay while playing: colliders, hitboxes and object names; the last rule fired per object; step one frame at a time while paused.
+- [ ] 327. Collider tool: draw boxes, circles and polygons directly on an object.
+- [ ] 328. Path follower editor: speed per segment and pauses.
+- [ ] 329. Sound actions from rules, and rig events triggering sounds and rules.
+- [ ] 330. Prefabs: reusable objects whose changes reach every copy.
+- [ ] 331. Particle emitter: drawn particles with speed, spread and lifetime.
+- [ ] 332. Tilemaps: levels painted from tiles cut from a drawing, collision per tile.
+- [ ] 333. Scenes: several levels with transitions.
+
 ## Non prioritaire
 
 What is left of the roadmap that can be built without an external platform, set aside by the
