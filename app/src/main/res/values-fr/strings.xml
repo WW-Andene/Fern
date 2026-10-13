@@ -880,7 +880,6 @@
     <string name="tb_indexed_on">Palette indexée : activée (les pixels n\'utilisent que les couleurs enregistrées)</string>
     <string name="tb_indexed_off">Palette indexée : désactivée</string>
     <string name="tb_reduce_palette">Ramener la sélection aux couleurs enregistrées</string>
-    <string name="tb_mannequin">Insérer un mannequin articulé</string>
     <string name="script_title">Script de dessin</string>
     <string name="script_help">forward d, back d, turn degrés, setheading a, move x y, home, penup, pendown, color #RRVVBB, width l, circle r ; lit xcor, ycor, heading. Aussi set nom valeur, repeat n [ … ], while … [ … ], if … [ … ] else [ … ], to nom a b [ … ], + - * / et des fonctions comme sin(a), random(a, b). // commence un commentaire.</string>
     <string name="rules_title">Règles (blocs)</string>

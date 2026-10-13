@@ -29,7 +29,6 @@ import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material.icons.filled.Interests
 import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.EmojiPeople
 import androidx.compose.material.icons.filled.InvertColors
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.AutoFixHigh
@@ -835,9 +834,6 @@ fun Toolbar(
                         TextButton(onClick = { state.weightPaintValue = ((state.weightPaintValue * 4 + 1) % 5) / 4 }) {
                             Text(stringResource(R.string.tb_weight_value, (state.weightPaintValue * 100).toInt()))
                         }
-                    }
-                    IconButton(onClick = { state.insertMannequin() }) {
-                        Icon(Icons.Filled.EmojiPeople, contentDescription = stringResource(R.string.tb_mannequin))
                     }
                     IconButton(onClick = { state.bindStrokesToNearestBones() }, enabled = state.currentBones.isNotEmpty()) {
                         Icon(Icons.Filled.Link, contentDescription = stringResource(R.string.tb_bones_bind))

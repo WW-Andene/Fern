@@ -878,7 +878,6 @@
     <string name="tb_indexed_on">Indexed palette: on (pixels use saved colours only)</string>
     <string name="tb_indexed_off">Indexed palette: off</string>
     <string name="tb_reduce_palette">Reduce the selection to the saved colours</string>
-    <string name="tb_mannequin">Insert a posable mannequin</string>
     <string name="script_title">Drawing script</string>
     <string name="script_help">forward d, back d, turn degrees, setheading a, move x y, home, penup, pendown, color #RRGGBB, width w, circle r; reads xcor, ycor, heading. Also set name value, repeat n [ … ], while … [ … ], if … [ … ] else [ … ], to name a b [ … ], + - * / and functions like sin(a), random(a, b). // starts a comment.</string>
     <string name="rules_title">Rules (blocks)</string>
