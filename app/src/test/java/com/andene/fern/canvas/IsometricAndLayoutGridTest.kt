@@ -104,9 +104,9 @@ class IsometricAndLayoutGridTest {
         state.loadFrames(listOf(Frame("f", "F", WorldPoint(0.0, 0.0), WorldPoint(1000.0, 500.0), LayoutGrid(4, 0, 20.0, 40.0))))
         state.activeTool = Tool.SHAPE
         state.activeShapeKind = ShapeKind.LINE
-        state.beginShape(WorldPoint(100.0, 100.0))
-        state.continueShape(WorldPoint(263.0, 300.0)) // 8 from the first column's right edge at 40 + (960 - 40 - 3 x 20) / 4 = 255
-        state.endShape()
+        state.shapeTool.begin(WorldPoint(100.0, 100.0))
+        state.shapeTool.move(WorldPoint(263.0, 300.0)) // 8 from the first column's right edge at 40 + (960 - 40 - 3 x 20) / 4 = 255
+        state.shapeTool.end()
         assertEquals(255.0, state.strokes.single().points.last().x, 1e-9)
     }
 }

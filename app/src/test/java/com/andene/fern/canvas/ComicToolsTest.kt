@@ -25,9 +25,9 @@ class ComicToolsTest {
         val state = CanvasState()
         state.activeTool = Tool.SHAPE
         state.activeShapeKind = ShapeKind.THOUGHT_BUBBLE
-        state.beginShape(WorldPoint(0.0, 0.0))
-        state.continueShape(WorldPoint(200.0, 100.0))
-        state.endShape()
+        state.shapeTool.begin(WorldPoint(0.0, 0.0))
+        state.shapeTool.move(WorldPoint(200.0, 100.0))
+        state.shapeTool.end()
         assertEquals(4, state.strokes.size)
         assertEquals(1, state.strokes.map { it.groupId }.distinct().size)
         assertTrue(state.strokes.first().groupId != null)

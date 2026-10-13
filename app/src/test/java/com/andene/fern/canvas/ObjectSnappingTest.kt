@@ -35,10 +35,10 @@ class ObjectSnappingTest {
         val state = CanvasState()
         state.loadStrokes(listOf(polyline(WorldPoint(0.0, 0.0), WorldPoint(100.0, 0.0), WorldPoint(100.0, 100.0))))
         state.activeShapeKind = ShapeKind.LINE
-        state.beginShape(WorldPoint(3.0, -4.0))
-        state.continueShape(WorldPoint(96.0, 103.0))
+        state.shapeTool.begin(WorldPoint(3.0, -4.0))
+        state.shapeTool.move(WorldPoint(96.0, 103.0))
         assertEquals(WorldPoint(100.0, 100.0), state.snapIndicator)
-        state.endShape()
+        state.shapeTool.end()
         assertNull(state.snapIndicator)
         val line = state.strokes.last()
         assertEquals(listOf(WorldPoint(0.0, 0.0), WorldPoint(100.0, 100.0)), line.points.toList())
@@ -50,9 +50,9 @@ class ObjectSnappingTest {
         state.loadStrokes(listOf(polyline(WorldPoint(0.0, 0.0), WorldPoint(100.0, 0.0))))
         state.snapToObjects = false
         state.activeShapeKind = ShapeKind.LINE
-        state.beginShape(WorldPoint(3.0, -4.0))
-        state.continueShape(WorldPoint(60.0, 70.0))
-        state.endShape()
+        state.shapeTool.begin(WorldPoint(3.0, -4.0))
+        state.shapeTool.move(WorldPoint(60.0, 70.0))
+        state.shapeTool.end()
         assertEquals(WorldPoint(3.0, -4.0), state.strokes.last().points.first())
     }
 }

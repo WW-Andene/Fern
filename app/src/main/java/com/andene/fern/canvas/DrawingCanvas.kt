@@ -870,7 +870,7 @@ fun DrawingCanvas(
                 )
             }
 
-            state.shapePreview?.let { (start, end) ->
+            state.shapeTool.preview?.let { (start, end) ->
                 val outlines = listOf(shapeOnPlane(state.activeShapeKind, start, end, state.isometricPlane)) +
                     extrasOnPlane(state.activeShapeKind, start, end, state.isometricPlane)
                 val rawWidthScreen = state.activeWidthWorld

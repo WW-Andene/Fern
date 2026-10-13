@@ -52,8 +52,8 @@ internal fun startToolGesture(state: CanvasState, tool: Tool, point: GesturePoin
             gesture(move = { state.continueErase(it.world) }, release = state::endErase)
         }
         Tool.SHAPE -> {
-            state.beginShape(at)
-            gesture(move = { state.continueShape(it.world) }, release = state::endShape)
+            state.shapeTool.begin(at)
+            gesture(move = { state.shapeTool.move(it.world) }, release = state.shapeTool::end)
         }
         // One-shot on press: nothing to continue or end.
         Tool.FILL -> {

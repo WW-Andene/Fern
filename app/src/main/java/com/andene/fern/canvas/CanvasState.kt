@@ -1350,19 +1350,7 @@ class CanvasState(
         override fun commitPenStroke(points: List<WorldPoint>) {
             if (!activeLayerEditable) return
             recordHistory()
-            val stroke = Stroke(
-                activeColor.copy(alpha = activeColor.alpha * activeOpacity.toFloat()),
-                activeWidthWorld / scale.coerceAtLeast(1e-300),
-                activePenType,
-                blendMode = activeBlendMode,
-                layerId = activeLayerId,
-                animFrame = currentAnimFrame,
-                dashed = activeDashed,
-                lineStyle = activeLineStyle.takeIf { it != LineStyle() },
-                brush = if (activePenType == PenType.STAMP) activeBrush else null,
-            )
-            for (point in points) stroke.addPoint(point)
-            strokes.add(stroke)
+            strokes.add(newPenStroke(points))
             rememberActiveColor()
             strokesChanged()
         }
@@ -3098,11 +3086,45 @@ class CanvasState(
     /** Blend mode applied to new strokes - see [StrokeBlendMode]. */
     var activeBlendMode by mutableStateOf(StrokeBlendMode.NORMAL)
 
-    /** The shape currently being dragged out (SHAPE tool), (start, snappedEnd) in world space. Null when none is in progress. */
-    var shapePreview: Pair<WorldPoint, WorldPoint>? by mutableStateOf(null)
-        private set
+    /** The SHAPE tool and the shape it's dragging out; its state lives there (roadmap item 167). */
+    val shapeTool = ShapeTool(object : ShapeTool.Host {
+        override fun startShape(): Boolean {
+            if (!activeLayerEditable) return false
+            recordHistory()
+            rememberActiveColor()
+            clearSelectionState()
+            return true
+        }
+        override fun snappedToObject(point: WorldPoint) = this@CanvasState.snappedToObject(point)
+        override fun clearSnapIndicator() {
+            snapIndicator = null
+        }
+        override fun snappedToGrid(point: WorldPoint) = this@CanvasState.snappedToGrid(point)
+        override fun snappedShapeEnd(start: WorldPoint, end: WorldPoint) = com.andene.fern.canvas.snappedShapeEnd(activeShapeKind, start, end)
+        override fun commitShape(start: WorldPoint, end: WorldPoint) {
+            // A shape drawn in several outlines (a thought balloon's trail) is one group.
+            val extras = extrasOnPlane(activeShapeKind, start, end, isometricPlane)
+            val group = if (extras.isEmpty()) null else UUID.randomUUID().toString()
+            strokes.add(newPenStroke(shapeOnPlane(activeShapeKind, start, end, isometricPlane), group))
+            for (extra in extras) strokes.add(newPenStroke(extra, group))
+            countAction(StatsAction.DRAW, System.currentTimeMillis())
+            strokesChanged()
+        }
+    })
 
-    private var shapeStart = WorldPoint.Zero
+    /** A stroke through [points] with the current pen settings, on the active layer and frame, in [groupId]'s group. */
+    private fun newPenStroke(points: List<WorldPoint>, groupId: String? = null) = Stroke(
+        activeColor.copy(alpha = activeColor.alpha * activeOpacity.toFloat()),
+        activeWidthWorld / scale.coerceAtLeast(1e-300),
+        activePenType,
+        blendMode = activeBlendMode,
+        layerId = activeLayerId,
+        animFrame = currentAnimFrame,
+        dashed = activeDashed,
+        lineStyle = activeLineStyle.takeIf { it != LineStyle() },
+        brush = if (activePenType == PenType.STAMP) activeBrush else null,
+        groupId = groupId,
+    ).apply { for (point in points) addPoint(point) }
 
     /** Every text label placed on the canvas. */
     val textItems = mutableStateListOf<TextItem>()
@@ -4175,15 +4197,6 @@ class CanvasState(
         }
     }
 
-    fun beginShape(worldPoint: WorldPoint) {
-        if (!activeLayerEditable) return
-        recordHistory()
-        rememberActiveColor()
-        clearSelectionState()
-        shapeStart = snappedToObject(worldPoint) ?: snappedToGrid(worldPoint)
-        shapePreview = shapeStart to shapeStart
-    }
-
     /** Snap shape points to existing strokes' ends and corners (see [nearestSnapAnchor]); a user setting. */
     var snapToObjects by mutableStateOf(true)
 
@@ -4219,45 +4232,6 @@ class CanvasState(
         return WorldPoint(nearest(point.x, layoutGridLines(frames, vertical = true)), nearest(point.y, layoutGridLines(frames, vertical = false)))
     }
 
-    fun continueShape(worldPoint: WorldPoint) {
-        if (shapePreview == null) return
-        // An object anchor wins (an exact join was asked for); then the grid, which already gives
-        // clean geometry; angle/aspect snapping applies only when neither did.
-        snappedToObject(worldPoint)?.let {
-            shapePreview = shapeStart to it
-            return
-        }
-        val end = snappedToGrid(worldPoint)
-        shapePreview = shapeStart to if (end != worldPoint) end else snappedShapeEnd(activeShapeKind, shapeStart, worldPoint)
-    }
-
-    /** Commits the current shape preview as a new stroke. No-op if there was no actual drag (a zero-size shape). */
-    fun endShape() {
-        snapIndicator = null
-        val preview = shapePreview ?: return
-        shapePreview = null
-        val (start, end) = preview
-        if (start == end) return
-        // A shape drawn in several outlines (a thought balloon's trail) is one group.
-        val extras = extrasOnPlane(activeShapeKind, start, end, isometricPlane)
-        val group = if (extras.isEmpty()) null else UUID.randomUUID().toString()
-        fun styled(points: List<WorldPoint>) = Stroke(
-            activeColor.copy(alpha = activeColor.alpha * activeOpacity.toFloat()),
-            activeWidthWorld / scale.coerceAtLeast(1e-300),
-            activePenType,
-            blendMode = activeBlendMode,
-            layerId = activeLayerId,
-            animFrame = currentAnimFrame,
-            dashed = activeDashed,
-            lineStyle = activeLineStyle.takeIf { it != LineStyle() },
-            brush = if (activePenType == PenType.STAMP) activeBrush else null,
-            groupId = group,
-        ).apply { for (point in points) addPoint(point) }
-        strokes.add(styled(shapeOnPlane(activeShapeKind, start, end, isometricPlane)))
-        for (extra in extras) strokes.add(styled(extra))
-        countAction(StatsAction.DRAW, System.currentTimeMillis())
-        strokesChanged()
-    }
 
     /**
      * FILL tool: tapping inside a closed stroke fills its interior with [activeColor]. Since
