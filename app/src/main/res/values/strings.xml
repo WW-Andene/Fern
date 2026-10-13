@@ -1140,4 +1140,6 @@
     <string name="rig_slot_up">Draw above</string>
     <string name="rig_slot_down">Draw below</string>
     <string name="rig_slot_detach">Take off the rig</string>
+    <string name="rig_paint_weights">Painting weights</string>
+    <string name="rig_auto_weights">Weights from the bones</string>
 </resources>

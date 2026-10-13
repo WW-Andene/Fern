@@ -809,12 +809,25 @@ fun Toolbar(
                         modifier = Modifier.padding(end = FernScale.s8),
                     )
                     if (rig.setupMode) {
-                        androidx.compose.material3.FilterChip(
-                            selected = rig.drawingBones,
-                            onClick = { rig.drawingBones = !rig.drawingBones },
-                            label = { Text(stringResource(if (rig.drawingBones) R.string.rig_draw_bones else R.string.rig_adjust_bones)) },
-                            modifier = Modifier.padding(end = FernScale.s4),
-                        )
+                        for ((action, label) in listOf(
+                            RigEditor.SetupAction.DRAW_BONES to R.string.rig_draw_bones,
+                            RigEditor.SetupAction.ADJUST_BONES to R.string.rig_adjust_bones,
+                            RigEditor.SetupAction.PAINT_WEIGHTS to R.string.rig_paint_weights,
+                        )) {
+                            androidx.compose.material3.FilterChip(
+                                selected = rig.setupAction == action,
+                                onClick = { rig.setupAction = action },
+                                label = { Text(stringResource(label)) },
+                                modifier = Modifier.padding(end = FernScale.s4),
+                            )
+                        }
+                        if (rig.setupAction == RigEditor.SetupAction.PAINT_WEIGHTS) {
+                            // The share painted, in quarters (roadmap item 285).
+                            FernTextButton(onClick = { rig.weightValue = ((rig.weightValue * 4 + 1) % 5) / 4 }) {
+                                Text(stringResource(R.string.tb_weight_value, (rig.weightValue * 100).toInt()))
+                            }
+                            FernTextButton(onClick = { rig.recomputeWeights() }) { Text(stringResource(R.string.rig_auto_weights)) }
+                        }
                     } else {
                         var showAnimations by remember { mutableStateOf(false) }
                         val newAnimationName = stringResource(R.string.rig_new_animation_name, rig.rig.animations.size + 1)

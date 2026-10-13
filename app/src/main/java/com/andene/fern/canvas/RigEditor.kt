@@ -37,8 +37,16 @@ class RigEditor(private val host: Host) {
     /** Setup mode (building the skeleton) or animate mode (posing and keying). */
     var setupMode by mutableStateOf(true)
 
-    /** In setup mode: drags draw new bones (true) or adjust existing ones (false). */
-    var drawingBones by mutableStateOf(true)
+    /** What a drag does in setup mode. */
+    enum class SetupAction { DRAW_BONES, ADJUST_BONES, PAINT_WEIGHTS }
+
+    var setupAction by mutableStateOf(SetupAction.DRAW_BONES)
+
+    /**
+     * Weight painting (roadmap item 285): the share of the selected bone given to each attached
+     * point under the brush; the other bones share the rest in their existing proportions.
+     */
+    var weightValue by mutableStateOf(1.0)
 
     var animationId by mutableStateOf<String?>(null)
 
@@ -120,7 +128,7 @@ class RigEditor(private val host: Host) {
 
     // ---- Gestures ----
 
-    private enum class Drag { CREATE, TIP, BODY, NONE }
+    private enum class Drag { CREATE, TIP, BODY, PAINT, NONE }
 
     private var drag = Drag.NONE
     private var dragBoneId: String? = null
@@ -141,7 +149,15 @@ class RigEditor(private val host: Host) {
         dragStart = world
         dragLast = world
         when {
-            setupMode && drawingBones -> {
+            setupMode && setupAction == SetupAction.PAINT_WEIGHTS -> {
+                drag = Drag.PAINT
+                if (selectedBoneId == null) selectedBoneId = bodyHit?.id ?: tipHit?.id
+                if (selectedBoneId != null) {
+                    host.recordHistory()
+                    paintWeights(world)
+                }
+            }
+            setupMode && setupAction == SetupAction.DRAW_BONES -> {
                 drag = Drag.CREATE
                 draftParentId = tipHit?.id
                 selectedBoneId = tipHit?.id
@@ -171,6 +187,7 @@ class RigEditor(private val host: Host) {
             Drag.CREATE -> draft = draft?.first?.let { it to world }
             Drag.TIP -> dragBoneId?.let { pointTipAt(it, world) }
             Drag.BODY -> dragBoneId?.let { moveBody(it, world - dragLast) }
+            Drag.PAINT -> paintWeights(world)
             Drag.NONE -> {}
         }
         dragLast = world
@@ -184,6 +201,44 @@ class RigEditor(private val host: Host) {
         draft = null
         drag = Drag.NONE
         dragBoneId = null
+    }
+
+    /** Sets the selected bone's share to [weightValue] on attached points within the brush around [world]. */
+    private fun paintWeights(world: WorldPoint) {
+        val boneId = selectedBoneId ?: return
+        val radius = WEIGHT_BRUSH_SCREEN / host.viewScale.coerceAtLeast(1e-300)
+        var changed = false
+        val attachments = rig.attachments.map { a ->
+            a.copy(weights = a.weights.mapIndexed { si, stroke ->
+                val points = a.strokes.getOrNull(si)?.points ?: return@mapIndexed stroke
+                stroke.mapIndexed { pi, point ->
+                    val p = points.getOrNull(pi) ?: return@mapIndexed point
+                    if (hypot(p.x - world.x, p.y - world.y) > radius) point else {
+                        changed = true
+                        withShare(point, boneId, weightValue)
+                    }
+                }
+            })
+        }
+        if (changed) change(rig.copy(attachments = attachments))
+    }
+
+    /** [point]'s weights with [boneId] at [share] and the others scaled to fill the rest. */
+    private fun withShare(point: List<Pair<String, Double>>, boneId: String, share: Double): List<Pair<String, Double>> {
+        val others = point.filter { it.first != boneId }
+        val otherTotal = others.sumOf { it.second }
+        val rest = 1.0 - share
+        val scaled = if (otherTotal > 0.0) others.map { it.first to it.second / otherTotal * rest } else emptyList()
+        // With no other bone to take the rest, the point follows this bone fully.
+        return if (scaled.isEmpty()) listOf(boneId to 1.0) else (scaled + (boneId to share)).filter { it.second > 0.0 }
+    }
+
+    /** Weights every attached point afresh from the bones as they are now (after adding bones, say). */
+    fun recomputeWeights() {
+        if (rig.attachments.isEmpty()) return
+        host.recordHistory()
+        val setup = rig.setupPose()
+        change(rig.copy(attachments = rig.attachments.map { a -> a.copy(weights = a.strokes.map { autoWeights(it.points, rig.bones, setup) }) }))
     }
 
     /** Adds a bone from [head] to [tail] in world space, a child of [parentId] when given. */
@@ -402,5 +457,8 @@ class RigEditor(private val host: Host) {
 
         // A drag shorter than this (screen px) draws no bone: it was a tap.
         private const val MIN_BONE_SCREEN = 16.0
+
+        // The weight brush's radius, screen px.
+        private const val WEIGHT_BRUSH_SCREEN = 24.0
     }
 }

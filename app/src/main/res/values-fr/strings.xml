@@ -1144,4 +1144,6 @@
     <string name="rig_slot_up">Dessiner au-dessus</string>
     <string name="rig_slot_down">Dessiner en dessous</string>
     <string name="rig_slot_detach">Retirer du squelette</string>
+    <string name="rig_paint_weights">Peindre les poids</string>
+    <string name="rig_auto_weights">Poids d’après les os</string>
 </resources>

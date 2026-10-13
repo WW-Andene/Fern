@@ -469,7 +469,8 @@ Smooth bending that survives export.
 - [ ] 282. Mesh attachments: a drawing with a hull and inner vertices, triangulated, deforming smoothly.
 - [ ] 283. Mesh tool: add, delete and move vertices, draw edges, triangulate from the outline, trace a hull from the drawing's alpha.
 - [ ] 284. Vertex weights across several bones, with a weights panel per bone and a lock per bone.
-- [ ] 285. Weight tools: paint add, subtract, replace and smooth; automatic weights from the mesh topology, as Spine computes them, rather than distance alone (so an arm doesn't pull the torso; review §3.3); normalise; prune small weights; mirror left to right. Today's point weights convert to this.
+- [~] 285. Weight tools: paint add, subtract, replace and smooth; automatic weights from the mesh topology, as Spine computes them, rather than distance alone (so an arm doesn't pull the torso; review §3.3); normalise; prune small weights; mirror left to right. Today's point weights convert to this.
+  Done: on the Rig tool, Setup > Painting weights: the brush sets the selected bone's share (in quarters) on attached ink, the others keeping their proportions, each point shown as solid as its share; "Weights from the bones" recomputes every attachment's weights. Left: smooth, prune, lock, mirror, and weights from the drawing's shape (topology).
 - [ ] 286. Deform timeline: vertex offsets keyed over time on top of bone deformation (today's per-frame mesh warp becomes this).
 - [ ] 287. Linked meshes: attachments sharing one mesh, its weights and deform keys.
 

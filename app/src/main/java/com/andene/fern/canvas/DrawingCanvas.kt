@@ -2386,6 +2386,19 @@ private fun DrawScope.drawRig(state: CanvasState, screenCenter: Offset) {
         drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(GUIDE_LINE_PX))
         drawCircle(color, radius = RIG_JOINT_PX, center = a)
     }
+    // While painting weights (roadmap item 285): each attached point, as solid as the selected bone's share of it.
+    val selected = editor.selectedBoneId
+    if (editor.setupMode && editor.setupAction == RigEditor.SetupAction.PAINT_WEIGHTS && selected != null) {
+        for (attachment in editor.rig.attachments) {
+            attachment.strokes.forEachIndexed { si, stroke ->
+                val weights = attachment.weights.getOrNull(si) ?: return@forEachIndexed
+                stroke.points.forEachIndexed { pi, p ->
+                    val share = weights.getOrNull(pi)?.firstOrNull { it.first == selected }?.second ?: 0.0
+                    drawCircle(DRAWING_GUIDE_COLOR.copy(alpha = (RIG_WEIGHT_MIN_ALPHA + share * (1 - RIG_WEIGHT_MIN_ALPHA)).toFloat()), radius = RIG_JOINT_PX, center = state.worldToScreen(p, screenCenter))
+                }
+            }
+        }
+    }
     editor.draft?.let { (head, tail) ->
         drawLine(DRAWING_GUIDE_COLOR, state.worldToScreen(head, screenCenter), state.worldToScreen(tail, screenCenter), strokeWidth = GUIDE_LINE_PX * 2)
     }
@@ -2397,3 +2410,4 @@ private const val RIG_BONE_MAX_HALF_WIDTH_PX = 8f
 private const val RIG_BONE_SHOULDER = 0.1f
 private const val RIG_BONE_FILL_ALPHA = 0.3f
 private const val RIG_JOINT_PX = 4f
+private const val RIG_WEIGHT_MIN_ALPHA = 0.12
