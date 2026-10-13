@@ -5,7 +5,8 @@ dependency order, and within a phase items are in build order. It replaces `ROAD
 `DESIGN_ROADMAP.md`. Finished items were removed; their history is in git.
 
 Item numbers are permanent IDs, not positions: numbered items came from the feature roadmap,
-`D` items from the design roadmap, and 334 onward from the October 2026 tool audit. Code
+`D` items from the design roadmap, 334–354 from the October 2026 tool audit, and 355 onward from
+[Product_Review.md](Product_Review.md), which holds the evidence for the rebuild phases. Code
 comments citing "roadmap item N" or "design roadmap DN" still point here.
 
 **Status key:** `[~]` partly done (the note says what exists) · `[ ]` not started ·
@@ -53,6 +54,18 @@ the earlier priority wins.
 Every dimension follows the CLAUDE.md §7 scale. Update this file in the same commit as the
 work that changes an item's status; remove an item once it is done.
 
+
+---
+
+## Phase 0 — Verify and protect
+
+Proposed by [Product_Review.md](Product_Review.md) (findings O1, O8). Work written without being compiled reached `main` and broke the build; nothing in the D15–D46 batch has been tried on a device. Build further only on verified ground.
+
+- [ ] 355. **CI on every branch and pull request**, not only after merging to `main` (`.github/workflows/build-apk.yml` runs on pushes to `main` only). Pending the owner's answer to review Q4, since CLAUDE.md §2 removes tests from the developer's definition of done.
+- [ ] 356. **Primary users and core workflows named by the owner** (review Q1), so the phases below can be ordered by them and usability sessions (D72) test them.
+- [ ] D71. **Real-device passes** on phones first (a small and a large phone), with TalkBack,
+  Switch Access, a stylus and one hand, in English and in French; keyboard and tablet passes after.
+  The results go in the commit that closes each phase.
 
 ---
 
@@ -136,6 +149,7 @@ Make the tool phases cheap and safe to build: every tool currently goes through 
 - [ ] 170. Screen sampling: read the colour actually shown at a point (all layers, raster, images, fills, paper), or on one layer only. Needed by the eyedropper, colour replace, palette from screen and smart fill.
 - [ ] 171. On-canvas handle framework: one way to draw, hit-test and drag handles (shape parameters, joint limits, gradient stops, vanishing points, IK targets, constraint targets) instead of each tool doing its own.
 - [ ] 172. On-canvas numeric readout and entry: any handle can show its value and accept a typed one.
+- [ ] 357. **Performance benchmarks on two phones** (one low-end, one high-end): pen-to-pixel latency, frame time at 100,000 and 1,000,000 strokes, panel opening time, tracked over releases. Needed before the brush engine (Phase 5) adds per-stamp work. Review finding O9.
 
 ---
 
@@ -268,12 +282,13 @@ Guides as professional tools have them: placed, locked and drawn along, many kin
 - [ ] 218. Guides saved with the document and toggled per frame.
 - [ ] 219. Symmetry: mirrored radial (kaleidoscope); axis moved and rotated on the canvas; symmetry limited to a selected frame or region.
 - [ ] 220. Reference window: a floating image or second view kept on screen while drawing.
+- [ ] 358. **A small set of snap targets** (endpoint, midpoint, intersection, centre, perpendicular, tangent) with a per-stroke override and values typed at the cursor, as in CAD tools; no parametric constraint solver. Only if the primary users (356) include designers. Review finding O12.
 
 ---
 
 ## Phase 5 — Pens and brushes (rebuild)
 
-One brush engine with every setting editable, pens made from your own drawing, a brush studio. Data before editor: the engine's settings first (349, 189–200), then the studio (201), then import (202).
+One brush engine with every setting editable, pens made from your own drawing, a brush studio. Data before editor: the engine's settings first (349, 189–200), then the studio (201), then import (202). The stroke format gains an explicit version and a converter with golden-file tests before the brush model changes, so existing documents keep opening (review §6).
 
 - [ ] 349. **Every pen is a brush.** The fixed pen types (marker, pencil, highlighter, calligraphy, airbrush, crayon, pixel, stamp) become presets of one engine whose settings are all editable, duplicable and shareable, instead of hard-coded behaviours.
 - [ ] 189. Pressure curve per pen and brush, edited as a curve (reusing the easing curve editor), with a minimum width so light pressure never vanishes and pressure-to-opacity besides pressure-to-width.
@@ -398,7 +413,7 @@ Tools Fern doesn't have yet, each built on the phases above.
 
 ## Phase 11 — Rig and animation data model (rebuild)
 
-Rigging the way Spine works: the artist's own drawing cut into parts on a skeleton built for it. Today a bone is a head and a tail point, a pose is a full copy of every bone per frame, a stroke belongs to one bone, and only rotation and position exist. Everything in Phases 12–17 depends on this phase.
+Rigging the way Spine works: the artist's own drawing cut into parts on a skeleton built for it. Today a bone is a head and a tail point, a pose is a full copy of every bone per frame, a stroke belongs to one bone, and only rotation and position exist. Everything in Phases 12–17 depends on this phase. The document format gains an explicit version and a converter from per-frame poses and bound strokes before the model changes; the game logic's state machines (item 158) move to the new model with it (review O7, §6).
 
 - [ ] 250. Local bone transform: rotation, x, y, scale x/y and shear x/y relative to the parent, with inherit settings (rotation, scale, reflection) per bone.
 - [ ] 251. Timelines: per bone, separate keyed tracks for rotate, translate, scale and shear, each key with its own curve (linear, stepped, Bézier). The per-frame pose becomes the baked result, and existing documents convert to keys.
@@ -458,7 +473,7 @@ Smooth bending that survives export.
 - [ ] 282. Mesh attachments: a drawing with a hull and inner vertices, triangulated, deforming smoothly.
 - [ ] 283. Mesh tool: add, delete and move vertices, draw edges, triangulate from the outline, trace a hull from the drawing's alpha.
 - [ ] 284. Vertex weights across several bones, with a weights panel per bone and a lock per bone.
-- [ ] 285. Weight tools: paint add, subtract, replace and smooth; automatic weights by distance or by heat (inside the shape, so an arm doesn't pull the torso); normalise; prune small weights; mirror left to right. Today's point weights convert to this.
+- [ ] 285. Weight tools: paint add, subtract, replace and smooth; automatic weights from the mesh topology, as Spine computes them, rather than distance alone (so an arm doesn't pull the torso; review §3.3); normalise; prune small weights; mirror left to right. Today's point weights convert to this.
 - [ ] 286. Deform timeline: vertex offsets keyed over time on top of bone deformation (today's per-frame mesh warp becomes this).
 - [ ] 287. Linked meshes: attachments sharing one mesh, its weights and deform keys.
 
@@ -468,7 +483,7 @@ Smooth bending that survives export.
 
 Rig behaviour beyond direct posing.
 
-- [ ] 288. IK constraint as an object: target bone, one- or two-bone chain, mix, softness and bend direction; an exact two-bone solver with a pole direction (the CCD solver stays for longer chains); IK/FK switch and blend per animation; the IK target dragged on the canvas.
+- [ ] 288. IK constraint as an object: target bone, one- or two-bone chain, mix, softness and bend direction; an exact two-bone solver with a bend direction as the default, as Spine limits IK to one or two bones because longer chains are nondeterministic (the CCD solver stays as an option for longer chains; review §3.3); IK/FK switch and blend per animation; the IK target dragged on the canvas.
 - [ ] 289. Joint limits shown as arcs on the canvas and dragged at their ends.
 - [ ] 290. Transform constraint: copy rotation, position, scale or shear between bones with offsets and mix.
 - [ ] 291. Path constraint: bones follow a drawn path, with position, spacing (length, fixed, percent) and rotation modes.
@@ -519,17 +534,17 @@ Live2D-style turns from flat art.
 
 ## Phase 19 — 3D
 
-3D as a drawing aid and an asset.
+3D as a drawing aid and an asset. Its value for a drawing app is reference, so re-rendering a placed model (316) and matching its camera to the perspective guide (321) come right after the fixes; sculpting and full modeling stay out of scope (review O11).
 
 - [ ] 313. Orbit camera: double-tap to frame, reset, snap to front, side and top.
 - [ ] 314. Painting: brush circle on the surface at its painted size; painting past UV seams so no lines show.
-- [ ] 315. Lighting presets (studio, rim, flat).
 - [ ] 316. Placed models re-rendered at a new angle on the canvas without opening the editor (today a placed model is a still image).
+- [ ] 321. A model as a drawing reference whose camera matches the canvas perspective guide.
+- [ ] 315. Lighting presets (studio, rim, flat).
 - [ ] 317. Layers for 3D painting with opacity and blend; normal, height and emission channels.
 - [ ] 318. Projection painting: paint on the screen and project it onto the model.
 - [ ] 319. Toon shading and outline rendering.
 - [ ] 320. Turntable export (GIF or MP4).
-- [ ] 321. A model as a drawing reference whose camera matches the canvas perspective guide.
 - [ ] 322. The 3D mannequin and hand posed per animation frame, rendered into each frame as a reference layer.
 - [ ] 323. Extrude and lathe: drawn shapes become 3D objects.
 - [ ] 324. Scene blocks: several primitives placed together to block out a room or prop.
@@ -640,9 +655,6 @@ Building and debugging games from drawings.
 - [ ] D70. **Task-time benchmarks.** On a phone, taps and seconds to do the 20 most common tasks (draw, change
   colour, undo, new layer, select and move, export to share, …), measured before and after the
   rework, and kept from regressing.
-- [ ] D71. **Real-device passes** on phones first (a small and a large phone), with TalkBack,
-  Switch Access, a stylus and one hand, in English and in French; keyboard and tablet passes after.
-  The results go in the commit that closes each phase.
 - [ ] D72. **Usability sessions.** A few people new to Fern and a few experienced artists try the
   same scripted tasks after each phase; what made them hesitate becomes items here.
 - [ ] D73. **Friction log.** Every "where is…?" and "how do I…?" found in testing or feedback is
