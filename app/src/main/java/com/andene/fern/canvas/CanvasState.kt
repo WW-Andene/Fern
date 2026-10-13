@@ -145,7 +145,6 @@ class CanvasState(
         // Comic panel borders, in screen px at the zoom they're inserted at; on the §7 scale.
         private const val PANEL_BORDER_SCREEN = 3.0
         // Bone tool reach and the shortest bone an add drag makes, in screen px (§7 scale).
-        private const val BONE_HIT_SCREEN = 24.0
         // Raster brush dabs this fraction of their radius apart: close enough to read as a line.
         private const val RASTER_DAB_SPACING = 0.25
         // Spring of a dynamic bone, per second: stiff enough to keep up within a few frames,
@@ -155,7 +154,6 @@ class CanvasState(
         private const val DYNAMICS_SUBSTEPS = 8
         // Weight-painting brush radius in screen pixels (on the §7 scale).
         private const val WEIGHT_BRUSH_SCREEN = 24.0
-        private const val BONE_MIN_SCREEN = 16.0
         // Smart guides: snap distance (screen px) and how many nearby objects offer guide lines.
         private const val GUIDE_SNAP_SCREEN = 8.0
         private const val MAX_GUIDE_OBJECTS = 2000
@@ -1364,9 +1362,6 @@ class CanvasState(
     /** The bone tapped last with the bone tool, for deleting; null when none. */
     var selectedBoneId by mutableStateOf<String?>(null)
 
-    /** With [Tool.BONE]: true to pose (rotate, move) the skeleton, false to add bones. */
-    var posingBones by mutableStateOf(false)
-
     /**
      * Smooth joints (roadmap item 84): turning a bone bends the ink around its joint instead of
      * moving it rigidly. Each point of a stroke bound to the turned bone or to its parent follows
@@ -1388,39 +1383,35 @@ class CanvasState(
     /** The bones of the frame on screen. */
     val currentBones: List<Bone> get() = bones.filter { it.animFrame == currentAnimFrame }
 
-    /**
-     * Weight painting (roadmap item 84): with the bone tool, dragging over ink bound to the
-     * selected bone sets how much each point under the brush follows that bone rather than its
-     * parent ([Stroke.jointWeights]) to [weightPaintValue], overriding the automatic weights the
-     * next time a joint is turned. Each drag is one undo step.
-     */
-    var paintingWeights by mutableStateOf(false)
-
-    /** The weight painting applies, 0 (follow the parent) to 1 (follow the bone itself). */
-    var weightPaintValue by mutableDoubleStateOf(1.0)
-
-    private enum class BoneGestureKind { ADD, ROTATE, MOVE, REACH, PAINT, NONE }
-
-    private data class BoneGesture(val kind: BoneGestureKind, val boneId: String?, val last: WorldPoint, val parentId: String? = null, val head: WorldPoint = last)
-
-    private var boneGesture: BoneGesture? = null
-
-    // A turn in progress, applied from its start each move: the turned bone's joint and starting
-    // pointer angle, its subtree, the frame's bones then, and each moved stroke's starting points
-    // with per-point weights (null = rigid).
-    private class BoneTurn(
-        val center: WorldPoint,
-        val startAngle: Double,
-        val moved: Set<String>,
-        val startBones: List<Bone>,
-        val strokes: List<Triple<Stroke, List<WorldPoint>, DoubleArray?>>,
-    )
-
-    private var boneTurn: BoneTurn? = null
-
-    /** The bone being drawn by an add drag, for the overlay; null otherwise. */
-    var boneDraft by mutableStateOf<Pair<WorldPoint, WorldPoint>?>(null)
-        private set
+    /** The BONE tool: adding, posing and weight painting, and the gesture in progress (roadmap item 167). */
+    val boneTool = BoneTool(object : BoneTool.Host {
+        override val scale: Double get() = this@CanvasState.scale
+        override val currentBones: List<Bone> get() = this@CanvasState.currentBones
+        override var selectedBoneId: String?
+            get() = this@CanvasState.selectedBoneId
+            set(value) {
+                this@CanvasState.selectedBoneId = value
+            }
+        override val inverseKinematics: Boolean get() = this@CanvasState.inverseKinematics
+        override fun recordHistory() = this@CanvasState.recordHistory()
+        override fun paintWeights(at: WorldPoint, value: Double) = paintWeightsAt(at, value)
+        override fun startTurn(bone: Bone, pointer: WorldPoint) = this@CanvasState.startTurn(bone, pointer)
+        override fun applyTurn(turn: BoneTurn, angle: Double) = this@CanvasState.applyTurn(turn, angle, currentAnimFrame)
+        override fun reachToward(endId: String, target: WorldPoint) = this@CanvasState.reachToward(endId, target)
+        override fun moveSkeleton(rootId: String, delta: WorldPoint) = transformRig(rootId) { it + delta }
+        override fun addBone(parentId: String?, head: WorldPoint, tail: WorldPoint) {
+            this@CanvasState.recordHistory()
+            val bone = Bone(UUID.randomUUID().toString(), parentId, head, tail, currentAnimFrame)
+            bones.add(bone)
+            selectedBoneId = bone.id
+            onBonesChanged(bones.toList())
+        }
+        override fun posed() {
+            onBonesChanged(bones.toList())
+            strokesChanged()
+        }
+        override fun weightsPainted() = strokesChanged()
+    })
 
     fun loadBones(loaded: List<Bone>) {
         bones.clear()
@@ -1448,50 +1439,11 @@ class CanvasState(
         for (i in bones.indices) if (bones[i].animFrame >= from) bones[i] = bones[i].copy(animFrame = bones[i].animFrame + by)
     }
 
-    /**
-     * Bone tool press. Adding: starts a new bone here, chained to a bone whose tail is within
-     * reach (its joint snaps onto that tail). Posing: a press near a bone's tail turns that bone
-     * about its joint; a press elsewhere on a root bone moves its whole skeleton. A press on a
-     * bone also selects it.
-     */
-    fun beginBone(world: WorldPoint) {
-        val reach = BONE_HIT_SCREEN / scale.coerceAtLeast(1e-300)
-        val frameBones = currentBones
-        if (paintingWeights) {
-            if (selectedBoneId == null) selectedBoneId = boneAt(frameBones, world, reach)?.id
-            if (selectedBoneId == null) return
-            recordHistory()
-            boneGesture = BoneGesture(BoneGestureKind.PAINT, selectedBoneId, world)
-            paintWeightsAt(world)
-            return
-        }
-        val hit = boneAt(frameBones, world, reach)
-        selectedBoneId = hit?.id
-        if (!posingBones) {
-            val parent = frameBones.filter { hypot(it.tail.x - world.x, it.tail.y - world.y) <= reach }.minByOrNull { hypot(it.tail.x - world.x, it.tail.y - world.y) }
-            val head = parent?.tail ?: world
-            boneGesture = BoneGesture(BoneGestureKind.ADD, null, world, parent?.id, head)
-            boneDraft = head to world
-            return
-        }
-        val tipBone = frameBones.filter { hypot(it.tail.x - world.x, it.tail.y - world.y) <= reach }.minByOrNull { hypot(it.tail.x - world.x, it.tail.y - world.y) }
-        val gesture = when {
-            tipBone != null && inverseKinematics && tipBone.parentId != null -> BoneGesture(BoneGestureKind.REACH, tipBone.id, world)
-            tipBone != null -> BoneGesture(BoneGestureKind.ROTATE, tipBone.id, world)
-            hit != null && hit.parentId == null -> BoneGesture(BoneGestureKind.MOVE, hit.id, world)
-            hit != null -> BoneGesture(BoneGestureKind.ROTATE, hit.id, world)
-            else -> BoneGesture(BoneGestureKind.NONE, null, world)
-        }
-        if (gesture.kind != BoneGestureKind.NONE) recordHistory()
-        boneGesture = gesture
-        boneTurn = if (gesture.kind == BoneGestureKind.ROTATE) startTurn(frameBones.first { it.id == gesture.boneId }, world) else null
-    }
-
-    /** Sets [weightPaintValue] on the points of the selected bone's ink within the brush of [world]. */
-    private fun paintWeightsAt(world: WorldPoint) {
+    /** Sets weight [weight] on the points of the selected bone's ink within the brush of [world] (roadmap item 84). */
+    private fun paintWeightsAt(world: WorldPoint, weight: Double) {
         val boneId = selectedBoneId ?: return
         val radius = WEIGHT_BRUSH_SCREEN / scale.coerceAtLeast(1e-300)
-        val value = weightPaintValue.toFloat().coerceIn(0f, 1f)
+        val value = weight.toFloat().coerceIn(0f, 1f)
         for (stroke in strokesNear(world.x - radius, world.y - radius, world.x + radius, world.y + radius)) {
             if (stroke.boneId != boneId || stroke.animFrame != currentAnimFrame) continue
             val points = stroke.points
@@ -1536,40 +1488,6 @@ class CanvasState(
                 Triple(stroke, points, weights)
             },
         )
-    }
-
-    fun continueBone(world: WorldPoint) {
-        val gesture = boneGesture ?: return
-        when (gesture.kind) {
-            BoneGestureKind.ADD -> {
-                boneDraft = gesture.head to world
-                boneGesture = gesture.copy(last = world)
-            }
-            BoneGestureKind.ROTATE -> {
-                val turn = boneTurn ?: return
-                val start = turn.startBones.associateBy { it.id }
-                // Joint limits hold for a hand-turned bone as for inverse kinematics.
-                val turned = gesture.boneId?.let { start[it] }
-                val angle = limitedTurn(
-                    turned ?: return,
-                    turned.parentId?.let { start[it] },
-                    normalizeAngle(atan2(world.y - turn.center.y, world.x - turn.center.x) - turn.startAngle),
-                )
-                applyTurn(turn, angle, currentAnimFrame)
-                boneGesture = gesture.copy(last = world)
-            }
-            BoneGestureKind.PAINT -> paintWeightsAt(world)
-            BoneGestureKind.REACH -> {
-                reachToward(gesture.boneId ?: return, world)
-                boneGesture = gesture.copy(last = world)
-            }
-            BoneGestureKind.MOVE -> {
-                val delta = world - gesture.last
-                transformRig(gesture.boneId ?: return) { it + delta }
-                boneGesture = gesture.copy(last = world)
-            }
-            BoneGestureKind.NONE -> {}
-        }
     }
 
     /** Puts [turn]'s bones and ink at [angle] radians from where the turn started, in [frame]. */
@@ -1632,31 +1550,6 @@ class CanvasState(
         }
         onBonesChanged(bones.toList())
         strokesChanged()
-    }
-
-    fun endBone() {
-        val gesture = boneGesture ?: return
-        boneGesture = null
-        boneTurn = null
-        boneDraft = null
-        when (gesture.kind) {
-            BoneGestureKind.ADD -> {
-                val tail = gesture.last
-                // Too short to be a deliberate bone (a tap): nothing is added.
-                if (hypot(tail.x - gesture.head.x, tail.y - gesture.head.y) < BONE_MIN_SCREEN / scale.coerceAtLeast(1e-300)) return
-                recordHistory()
-                val bone = Bone(UUID.randomUUID().toString(), gesture.parentId, gesture.head, tail, currentAnimFrame)
-                bones.add(bone)
-                selectedBoneId = bone.id
-                onBonesChanged(bones.toList())
-            }
-            BoneGestureKind.ROTATE, BoneGestureKind.MOVE, BoneGestureKind.REACH -> {
-                onBonesChanged(bones.toList())
-                strokesChanged()
-            }
-            BoneGestureKind.PAINT -> strokesChanged()
-            BoneGestureKind.NONE -> {}
-        }
     }
 
     /** One move of an IK drag: turns the chain ending at [endId] so its tail nears [target]. */
@@ -6445,10 +6338,7 @@ class CanvasState(
             for (i in bones.indices) bones[i] = bones[i].shiftedBy(offset)
             onBonesChanged(bones.toList())
         }
-        boneGesture = boneGesture?.let { it.copy(last = it.last - offset) }
-        // A turn holds starting geometry in the old coordinates; one-finger drags don't pan, so
-        // this can't normally happen mid-turn, but if it does the turn simply stops.
-        boneTurn = null
+        boneTool.shiftBy(offset)
         if (frames.isNotEmpty()) {
             for (i in frames.indices) frames[i] = frames[i].copy(min = frames[i].min - offset, max = frames[i].max - offset)
             onFramesChanged(frames.toList())

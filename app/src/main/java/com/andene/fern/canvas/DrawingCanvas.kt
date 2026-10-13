@@ -782,7 +782,7 @@ fun DrawingCanvas(
 
             // Weight painting: each point of the selected bone's ink as a dot, red where it fully
             // follows the bone, blue where it follows the parent, grey where it's automatic.
-            if (state.paintingWeights && state.activeTool == Tool.BONE) {
+            if (state.boneTool.paintingWeights && state.activeTool == Tool.BONE) {
                 val boneId = state.selectedBoneId
                 for (stroke in state.strokes) {
                     if (boneId == null || stroke.boneId != boneId || stroke.animFrame != state.currentAnimFrame) continue
@@ -842,7 +842,7 @@ fun DrawingCanvas(
                 for (bone in state.currentBones) {
                     drawBone(state.worldToScreen(bone.head, screenCenter), state.worldToScreen(bone.tail, screenCenter), bone.id == state.selectedBoneId)
                 }
-                state.boneDraft?.let { (head, tail) -> drawBone(state.worldToScreen(head, screenCenter), state.worldToScreen(tail, screenCenter), true) }
+                state.boneTool.draft?.let { (head, tail) -> drawBone(state.worldToScreen(head, screenCenter), state.worldToScreen(tail, screenCenter), true) }
             }
 
             // Connector being dragged out: from its label's box edge to the finger.

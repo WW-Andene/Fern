@@ -20,10 +20,10 @@ class BonesTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
 
     private fun drag(state: CanvasState, from: WorldPoint, to: WorldPoint) {
-        state.beginBone(from)
-        state.continueBone(WorldPoint((from.x + to.x) / 2, (from.y + to.y) / 2))
-        state.continueBone(to)
-        state.endBone()
+        state.boneTool.begin(from)
+        state.boneTool.move(WorldPoint((from.x + to.x) / 2, (from.y + to.y) / 2))
+        state.boneTool.move(to)
+        state.boneTool.end()
     }
 
     /** An arm: upper bone (0,0)-(100,0), forearm chained at its tail to (200,0), a stroke along the forearm. */
@@ -50,12 +50,12 @@ class BonesTest {
     @Test
     fun turningTheUpperArmCarriesTheForearmAndItsInkAndUndoes() {
         val state = arm()
-        state.posingBones = true
+        state.boneTool.posing = true
         // Swing the upper arm's tail from (100,0) down to (0,100): a quarter turn about the shoulder.
-        state.beginBone(WorldPoint(100.0, 0.0))
-        state.continueBone(WorldPoint(70.0, 70.0))
-        state.continueBone(WorldPoint(0.0, 100.0))
-        state.endBone()
+        state.boneTool.begin(WorldPoint(100.0, 0.0))
+        state.boneTool.move(WorldPoint(70.0, 70.0))
+        state.boneTool.move(WorldPoint(0.0, 100.0))
+        state.boneTool.end()
         val fore = state.bones[1]
         assertEquals(0.0, fore.tail.x, 1e-6)
         assertEquals(200.0, fore.tail.y, 1e-6)
@@ -74,10 +74,10 @@ class BonesTest {
         assertEquals(4, state.bones.size)
         assertEquals(setOf(0, 1), state.bones.map { it.animFrame }.toSet())
         // Pose frame 1: the forearm straight down.
-        state.posingBones = true
-        state.beginBone(WorldPoint(200.0, 0.0))
-        state.continueBone(WorldPoint(100.0, 100.0))
-        state.endBone()
+        state.boneTool.posing = true
+        state.boneTool.begin(WorldPoint(200.0, 0.0))
+        state.boneTool.move(WorldPoint(100.0, 100.0))
+        state.boneTool.end()
         state.goToAnimFrame(0)
         state.generateInBetweens(1)
         val mid = state.bones.filter { it.animFrame == 1 }.associateBy { it.parentId != null }
@@ -94,12 +94,12 @@ class BonesTest {
             addPoint(WorldPoint(0.0, 0.0)); addPoint(WorldPoint(100.0, 0.0)); addPoint(WorldPoint(200.0, 0.0))
         }
         state.loadStrokes(listOf(line))
-        state.posingBones = true
+        state.boneTool.posing = true
         state.smoothJoints = smooth
         // A quarter turn of the forearm about the elbow (100,0).
-        state.beginBone(WorldPoint(200.0, 0.0))
-        state.continueBone(WorldPoint(100.0, 100.0))
-        state.endBone()
+        state.boneTool.begin(WorldPoint(200.0, 0.0))
+        state.boneTool.move(WorldPoint(100.0, 100.0))
+        state.boneTool.end()
         return state.strokes.single().points
     }
 
@@ -111,21 +111,21 @@ class BonesTest {
         }
         state.loadStrokes(listOf(line))
         state.selectedBoneId = state.bones[1].id
-        state.paintingWeights = true
-        state.weightPaintValue = 1.0
+        state.boneTool.paintingWeights = true
+        state.boneTool.weightValue = 1.0
         // Paint the far end of the upper arm: it now follows the forearm fully.
-        state.beginBone(WorldPoint(0.0, 0.0))
-        state.endBone()
+        state.boneTool.begin(WorldPoint(0.0, 0.0))
+        state.boneTool.end()
         assertEquals(1f, line.jointWeights!![0])
         assertTrue(line.jointWeights!![2].isNaN())
         // The weights travel through the stroke format.
         val bytes = ByteArrayOutputStream().also { StrokeCodec.write(DataOutputStream(it), listOf(line)) }.toByteArray()
         assertEquals(1f, StrokeCodec.read(DataInputStream(ByteArrayInputStream(bytes))).single().jointWeights!![0])
-        state.paintingWeights = false
-        state.posingBones = true
-        state.beginBone(WorldPoint(200.0, 0.0))
-        state.continueBone(WorldPoint(100.0, 100.0))
-        state.endBone()
+        state.boneTool.paintingWeights = false
+        state.boneTool.posing = true
+        state.boneTool.begin(WorldPoint(200.0, 0.0))
+        state.boneTool.move(WorldPoint(100.0, 100.0))
+        state.boneTool.end()
         val bent = state.strokes.single().points
         assertEquals(100.0, bent[0].x, 1e-6) // painted 1: turned with the forearm about the elbow
         assertEquals(-100.0, bent[0].y, 1e-6)
@@ -138,19 +138,19 @@ class BonesTest {
         val fore = state.bones[1]
         // The elbow may bend 0..45 degrees (downwards on screen, y pointing down).
         state.setJointLimits(fore.id, 0.0, Math.PI / 4)
-        state.posingBones = true
-        state.beginBone(WorldPoint(200.0, 0.0))
-        state.continueBone(WorldPoint(100.0, 100.0)) // asks for 90 degrees
-        state.endBone()
+        state.boneTool.posing = true
+        state.boneTool.begin(WorldPoint(200.0, 0.0))
+        state.boneTool.move(WorldPoint(100.0, 100.0)) // asks for 90 degrees
+        state.boneTool.end()
         assertEquals(Math.PI / 4, relativeAngle(state.bones[1], state.bones[0]), 1e-6)
-        state.beginBone(state.bones[1].tail)
-        state.continueBone(WorldPoint(100.0, -100.0)) // asks to bend backwards
-        state.endBone()
+        state.boneTool.begin(state.bones[1].tail)
+        state.boneTool.move(WorldPoint(100.0, -100.0)) // asks to bend backwards
+        state.boneTool.end()
         assertEquals(0.0, relativeAngle(state.bones[1], state.bones[0]), 1e-6)
         state.inverseKinematics = true
-        state.beginBone(state.bones[1].tail)
-        state.continueBone(WorldPoint(60.0, -60.0)) // reachable only by bending backwards
-        state.endBone()
+        state.boneTool.begin(state.bones[1].tail)
+        state.boneTool.move(WorldPoint(60.0, -60.0)) // reachable only by bending backwards
+        state.boneTool.end()
         val bend = relativeAngle(state.bones[1], state.bones[0])
         assertTrue(bend >= -1e-6 && bend <= Math.PI / 4 + 1e-6)
     }
@@ -163,10 +163,10 @@ class BonesTest {
         state.setBoneDynamic(fore.id, true)
         // Frame 0 at rest; frame 1 the arm swung a quarter turn; then held for several frames.
         state.insertAnimFrame(copyCurrent = true)
-        state.posingBones = true
-        state.beginBone(WorldPoint(100.0, 0.0))
-        state.continueBone(WorldPoint(0.0, 100.0))
-        state.endBone()
+        state.boneTool.posing = true
+        state.boneTool.begin(WorldPoint(100.0, 0.0))
+        state.boneTool.move(WorldPoint(0.0, 100.0))
+        state.boneTool.end()
         repeat(8) { state.insertAnimFrame(copyCurrent = true) }
         state.simulateDynamics()
         fun bend(frame: Int): Double {
@@ -184,10 +184,10 @@ class BonesTest {
     fun blendingAPoseMixesItWithAnotherFrameAndCarriesTheInk() {
         val state = arm()
         state.insertAnimFrame(copyCurrent = true)
-        state.posingBones = true
-        state.beginBone(WorldPoint(200.0, 0.0))
-        state.continueBone(WorldPoint(100.0, 100.0)) // frame 1: forearm a quarter turn down
-        state.endBone()
+        state.boneTool.posing = true
+        state.boneTool.begin(WorldPoint(200.0, 0.0))
+        state.boneTool.move(WorldPoint(100.0, 100.0)) // frame 1: forearm a quarter turn down
+        state.boneTool.end()
         state.goToAnimFrame(0)
         state.blendPoseWith(1, 0.5)
         val fore = state.bones.first { it.animFrame == 0 && it.parentId != null }
@@ -244,13 +244,13 @@ class BonesTest {
     @Test
     fun inverseKinematicsPullsTheChainSoTheHandReachesTheFinger() {
         val state = arm()
-        state.posingBones = true
+        state.boneTool.posing = true
         state.inverseKinematics = true
         val target = WorldPoint(120.0, 80.0) // in reach (arm length 200), so the elbow must bend
-        state.beginBone(WorldPoint(200.0, 0.0))
-        state.continueBone(WorldPoint(170.0, 40.0))
-        state.continueBone(target)
-        state.endBone()
+        state.boneTool.begin(WorldPoint(200.0, 0.0))
+        state.boneTool.move(WorldPoint(170.0, 40.0))
+        state.boneTool.move(target)
+        state.boneTool.end()
         val (upper, fore) = state.bones
         assertEquals(WorldPoint(0.0, 0.0), upper.head) // the shoulder stays put
         assertEquals(0.0, kotlin.math.hypot(fore.head.x - upper.tail.x, fore.head.y - upper.tail.y), 1e-6) // still joined

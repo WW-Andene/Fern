@@ -74,8 +74,8 @@ internal fun startToolGesture(state: CanvasState, tool: Tool, point: GesturePoin
             gesture(move = { state.connectTool.move(it.world) }, release = state.connectTool::end)
         }
         Tool.BONE -> {
-            state.beginBone(at)
-            gesture(move = { state.continueBone(it.world) }, release = state::endBone)
+            state.boneTool.begin(at)
+            gesture(move = { state.boneTool.move(it.world) }, release = state.boneTool::end)
         }
         // A node is placed on press; dragging pulls its handles out.
         Tool.BEZIER -> {

@@ -731,10 +731,10 @@ fun Toolbar(
                     }
                 }
                 if (state.activeTool == Tool.BONE) {
-                    IconButton(onClick = { state.posingBones = !state.posingBones }) {
+                    IconButton(onClick = { state.boneTool.posing = !state.boneTool.posing }) {
                         Icon(
-                            if (state.posingBones) FernIcons.PanTool else FernIcons.AddCircleOutline,
-                            contentDescription = if (state.posingBones) stringResource(R.string.tb_bones_pose) else stringResource(R.string.tb_bones_add),
+                            if (state.boneTool.posing) FernIcons.PanTool else FernIcons.AddCircleOutline,
+                            contentDescription = if (state.boneTool.posing) stringResource(R.string.tb_bones_pose) else stringResource(R.string.tb_bones_add),
                         )
                     }
                     IconButton(onClick = { state.smoothJoints = !state.smoothJoints }) {
@@ -783,17 +783,17 @@ fun Toolbar(
                             Icon(FernIcons.Waves, contentDescription = stringResource(R.string.tb_simulate_dynamics))
                         }
                     }
-                    IconButton(onClick = { state.paintingWeights = !state.paintingWeights }) {
+                    IconButton(onClick = { state.boneTool.paintingWeights = !state.boneTool.paintingWeights }) {
                         Icon(
                             FernIcons.FormatPaint,
-                            contentDescription = if (state.paintingWeights) stringResource(R.string.tb_weights_stop) else stringResource(R.string.tb_weights),
-                            tint = if (state.paintingWeights) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                            contentDescription = if (state.boneTool.paintingWeights) stringResource(R.string.tb_weights_stop) else stringResource(R.string.tb_weights),
+                            tint = if (state.boneTool.paintingWeights) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
-                    if (state.paintingWeights) {
+                    if (state.boneTool.paintingWeights) {
                         // Cycles the painted weight in quarters: how much ink follows the selected bone.
-                        FernTextButton(onClick = { state.weightPaintValue = ((state.weightPaintValue * 4 + 1) % 5) / 4 }) {
-                            Text(stringResource(R.string.tb_weight_value, (state.weightPaintValue * 100).toInt()))
+                        FernTextButton(onClick = { state.boneTool.weightValue = ((state.boneTool.weightValue * 4 + 1) % 5) / 4 }) {
+                            Text(stringResource(R.string.tb_weight_value, (state.boneTool.weightValue * 100).toInt()))
                         }
                     }
                     IconButton(onClick = { state.bindStrokesToNearestBones() }, enabled = state.currentBones.isNotEmpty()) {

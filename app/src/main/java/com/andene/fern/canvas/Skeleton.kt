@@ -123,3 +123,17 @@ fun limitedTurn(bone: Bone, parent: Bone?, turn: Double): Double {
     return wanted.coerceIn(min, max) - current
 }
 
+
+/**
+ * A bone being turned, applied from its start on every move so posing never drifts: the turned
+ * bone's joint and the pointer's starting angle about it, the bones that move with it, the
+ * frame's bones when it started, and each moved stroke's starting points with per-point weights
+ * (null = rigid; see [CanvasState.smoothJoints]).
+ */
+class BoneTurn internal constructor(
+    val center: WorldPoint,
+    val startAngle: Double,
+    val moved: Set<String>,
+    val startBones: List<Bone>,
+    val strokes: List<Triple<Stroke, List<WorldPoint>, DoubleArray?>>,
+)
