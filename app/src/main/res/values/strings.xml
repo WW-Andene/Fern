@@ -1127,4 +1127,7 @@
     <string name="rig_delete_bone">Delete the bone and its children</string>
     <string name="rig_attach_selection">Attach to the rig</string>
     <string name="rig_attachment_name">Drawing</string>
+    <string name="rig_ik">Reach (IK)</string>
+    <string name="rig_bend_one_way">Bend: this way</string>
+    <string name="rig_bend_other_way">Bend: other way</string>
 </resources>

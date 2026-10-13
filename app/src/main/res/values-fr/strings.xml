@@ -1131,4 +1131,7 @@
     <string name="rig_delete_bone">Supprimer l’os et ses enfants</string>
     <string name="rig_attach_selection">Attacher au squelette</string>
     <string name="rig_attachment_name">Dessin</string>
+    <string name="rig_ik">Atteindre (IK)</string>
+    <string name="rig_bend_one_way">Plier : dans ce sens</string>
+    <string name="rig_bend_other_way">Plier : dans l’autre sens</string>
 </resources>

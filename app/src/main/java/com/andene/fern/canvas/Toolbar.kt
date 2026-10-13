@@ -835,6 +835,19 @@ fun Toolbar(
                             }
                         }
                     }
+                    if (!rig.setupMode) {
+                        androidx.compose.material3.FilterChip(
+                            selected = rig.inverseKinematics,
+                            onClick = { rig.inverseKinematics = !rig.inverseKinematics },
+                            label = { Text(stringResource(R.string.rig_ik)) },
+                            modifier = Modifier.padding(end = FernScale.s4),
+                        )
+                        if (rig.inverseKinematics) {
+                            FernTextButton(onClick = { rig.bendPositive = !rig.bendPositive }) {
+                                Text(stringResource(if (rig.bendPositive) R.string.rig_bend_one_way else R.string.rig_bend_other_way))
+                            }
+                        }
+                    }
                     IconButton(onClick = { state.deleteSelectedRigBone() }, enabled = rig.selectedBoneId != null) {
                         Icon(Icons.Filled.DeleteOutline, contentDescription = stringResource(R.string.rig_delete_bone))
                     }

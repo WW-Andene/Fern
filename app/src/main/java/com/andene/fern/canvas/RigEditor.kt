@@ -42,6 +42,14 @@ class RigEditor(private val host: Host) {
 
     var animationId by mutableStateOf<String?>(null)
 
+    /**
+     * Inverse kinematics while animating (roadmap item 288): dragging the tip of a bone that has a
+     * parent turns both so the tip reaches the finger - an exact two-bone solve, Spine's choice,
+     * since longer chains have no single answer. [bendPositive] chooses which way the joint bends.
+     */
+    var inverseKinematics by mutableStateOf(false)
+    var bendPositive by mutableStateOf(true)
+
     var selectedBoneId by mutableStateOf<String?>(null)
 
     /** Bumped whenever the posed drawing may have changed, so cached renders redraw. */
@@ -210,6 +218,11 @@ class RigEditor(private val host: Host) {
         val worldAngle = atan2(world.y - origin.y, world.x - origin.x)
         val parentAngle = bone.parentId?.let { pose[it]?.angle } ?: 0.0
         val localRotation = normalizeAngle(worldAngle - parentAngle)
+        val parent = bone.parentId?.let { id -> rig.bones.firstOrNull { it.id == id } }
+        if (!setupMode && inverseKinematics && parent != null) {
+            reachTwoBones(parent, bone, world, pose)
+            return
+        }
         if (setupMode) {
             val length = hypot(world.x - origin.x, world.y - origin.y) / hypot(w.a, w.b).coerceAtLeast(1e-9) * bone.scaleX
             replaceBone(bone.copy(rotation = localRotation, length = length.coerceAtLeast(1e-9)))
@@ -217,6 +230,33 @@ class RigEditor(private val host: Host) {
             setKey(id, BoneProperty.ROTATE, normalizeAngle(localRotation - bone.rotation))
         }
     }
+
+    /**
+     * Two-bone IK: turns [parent] and [child] so the child's tip lands on [target] (or as near as
+     * their lengths allow), the joint bending the [bendPositive] way, and keys both rotations.
+     */
+    private fun reachTwoBones(parent: RigBone, child: RigBone, target: WorldPoint, pose: Map<String, Affine>) {
+        val pw = pose[parent.id] ?: return
+        val cw = pose[child.id] ?: return
+        val origin = boneOrigin(pw)
+        val l1 = hypot(boneOrigin(cw).x - origin.x, boneOrigin(cw).y - origin.y)
+        val l2 = hypot(boneTip(child, cw).x - boneOrigin(cw).x, boneTip(child, cw).y - boneOrigin(cw).y)
+        if (l1 < 1e-9 || l2 < 1e-9) return
+        val d = hypot(target.x - origin.x, target.y - origin.y).coerceIn(kotlin.math.abs(l1 - l2) + 1e-9, l1 + l2 - 1e-9)
+        val toTarget = atan2(target.y - origin.y, target.x - origin.x)
+        val inner = kotlin.math.acos(((l1 * l1 + d * d - l2 * l2) / (2 * l1 * d)).coerceIn(-1.0, 1.0))
+        val parentWorldAngle = toTarget + if (bendPositive) -inner else inner
+        val joint = WorldPoint(origin.x + l1 * kotlin.math.cos(parentWorldAngle), origin.y + l1 * kotlin.math.sin(parentWorldAngle))
+        val childWorldAngle = atan2(target.y - joint.y, target.x - joint.x)
+        // The child's setup offset from its parent's direction, so a child not at the parent's tip stays where it was.
+        val childSetupOffset = cw.angle - pw.angle - (child.rotation + (currentKey(child.id, BoneProperty.ROTATE) ?: 0.0))
+        val grandAngle = parent.parentId?.let { pose[it]?.angle } ?: 0.0
+        setKey(parent.id, BoneProperty.ROTATE, normalizeAngle(parentWorldAngle - grandAngle - parent.rotation))
+        setKey(child.id, BoneProperty.ROTATE, normalizeAngle(childWorldAngle - parentWorldAngle - childSetupOffset - child.rotation))
+    }
+
+    private fun currentKey(boneId: String, property: BoneProperty): Double? =
+        activeAnimation?.timelines?.firstOrNull { it.boneId == boneId && it.property == property }?.valueAt(host.currentFrame.toDouble())
 
     /** Moves bone [id] by [delta] (world units): its setup position, or a translation key when animating. */
     private fun moveBody(id: String, delta: WorldPoint) {

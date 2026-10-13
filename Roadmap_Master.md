@@ -477,7 +477,8 @@ Smooth bending that survives export.
 
 Rig behaviour beyond direct posing.
 
-- [ ] 288. IK constraint as an object: target bone, one- or two-bone chain, mix, softness and bend direction; an exact two-bone solver with a bend direction as the default, as Spine limits IK to one or two bones because longer chains are nondeterministic (the CCD solver stays as an option for longer chains; review §3.3); IK/FK switch and blend per animation; the IK target dragged on the canvas.
+- [~] 288. IK constraint as an object: target bone, one- or two-bone chain, mix, softness and bend direction; an exact two-bone solver with a bend direction as the default, as Spine limits IK to one or two bones because longer chains are nondeterministic (the CCD solver stays as an option for longer chains; review §3.3); IK/FK switch and blend per animation; the IK target dragged on the canvas.
+  Done: on the Rig tool, "Reach (IK)" in Animate mode: dragging a child bone's tip solves both bones exactly (two-bone IK) with a choice of bend direction, keying both rotations. Left: IK as a stored constraint with mix, softness, stretch and an IK/FK blend per animation.
 - [ ] 289. Joint limits shown as arcs on the canvas and dragged at their ends.
 - [ ] 290. Transform constraint: copy rotation, position, scale or shear between bones with offsets and mix.
 - [ ] 291. Path constraint: bones follow a drawn path, with position, spacing (length, fixed, percent) and rotation modes.
