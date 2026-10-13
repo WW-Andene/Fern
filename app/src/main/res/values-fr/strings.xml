@@ -1087,4 +1087,7 @@
     <string name="more_section_menus">Documents et menus</string>
     <string name="settings_icon_labels">Noms sous les icônes</string>
     <string name="settings_chrome_follows_paper">Barres et panneaux assortis au papier (papier sombre, interface sombre)</string>
+    <string name="eyedropper_nothing">Rien à prélever ici</string>
+    <string name="eyedropper_this_layer">Ce calque seulement</string>
+    <string name="eyedropper_sample_px">%1$d px</string>
 </resources>

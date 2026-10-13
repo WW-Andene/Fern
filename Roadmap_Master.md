@@ -140,7 +140,6 @@ Make the tool phases cheap and safe to build: every tool currently goes through 
 - [ ] 167. Split per-tool gesture handling out of `DrawingCanvas.kt` into one handler per tool (press, move, release, cancel), and per-tool state out of `CanvasState.kt` (CLAUDE.md §4.5): both are thousands of lines and every new tool touches the same `when` blocks.
 - [ ] 168. Gesture tests: fingers landing and lifting at different times, a pan becoming a pinch, stylus with a resting palm, long press versus a slow stroke.
 - [ ] 169. Long-press delay and multi-finger tap tolerances in Settings, instead of fixed values.
-- [ ] 170. Screen sampling: read the colour actually shown at a point (all layers, raster, images, fills, paper), or on one layer only. Needed by the eyedropper, colour replace, palette from screen and smart fill.
 - [ ] 171. On-canvas handle framework: one way to draw, hit-test and drag handles (shape parameters, joint limits, gradient stops, vanishing points, IK targets, constraint targets) instead of each tool doing its own.
 - [ ] 172. On-canvas numeric readout and entry: any handle can show its value and accept a typed one.
 - [ ] 357. **Performance benchmarks on two phones** (one low-end, one high-end): pen-to-pixel latency, frame time at 100,000 and 1,000,000 strokes, panel opening time, tracked over releases. Needed before the brush engine (Phase 5) adds per-stamp work. Review finding O9.
@@ -320,7 +319,8 @@ A real palette system and an eyedropper that sees what is on screen. Builds on s
   action, not a hidden long-press.
   Written, not yet compiled or tested: `ColorStrip.kt` in the properties bar for pen, shape, Bézier and fill: current colour (tap: the full picker as a live, non-blocking panel), saved, recent, five harmonies, the palette. While the current colour is a saved one, "Change everywhere" and "Remove" show as buttons. The toolbar's separate colour rows and button are gone.
 - [ ] 188. Colour: a longer history with pinned favourites; hex, RGB and HSB values editable with copy and paste; disc, square and slider pickers; a value (greyscale) check.
-- [ ] 173. Eyedropper samples what is shown (screen sampling), with "all layers" or "this layer"; a magnified loupe with old and new colour; sampling size 1, 3 or 5 px; a message when nothing was picked. Today it reads vector strokes only and ignores raster, images, fills and paper.
+- [~] 173. Eyedropper samples what is shown (screen sampling), with "all layers" or "this layer"; a magnified loupe with old and new colour; sampling size 1, 3 or 5 px; a message when nothing was picked. Today it reads vector strokes only and ignores raster, images, fills and paper.
+  Done: the eyedropper reads what is shown (PixelCopy of the window: every layer, raster, images, fills, paper), or only the active layer's ink; sample 1, 3 or 5 px; a message when nothing was picked; options in the properties bar. Left: the magnified loupe.
 - [ ] 174. Eyedropper picks a stroke's whole style (width, pen type) as an option, reusing the style picker; the last 8 picked colours kept in the colour strip.
 - [ ] 213. Colour from anywhere on screen, including the reference window and photos.
 - [ ] 214. Harmony lock: harmony colours follow the main colour as it changes; colour assist showing the complement and the value against neighbours.

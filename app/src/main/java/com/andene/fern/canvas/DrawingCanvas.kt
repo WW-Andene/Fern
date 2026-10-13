@@ -24,6 +24,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -122,6 +126,17 @@ fun DrawingCanvas(
     // with the pen instead of trailing it by the display pipeline's latency.
     val view = LocalView.current
     val predictor = remember(view) { MotionEventPredictor.newInstance(view) }
+    // Where the canvas sits in the window, so the eyedropper reads the pixels under the finger (roadmap item 170).
+    var canvasOrigin by remember { mutableStateOf(Offset.Zero) }
+    val nothingToPick = stringResource(R.string.eyedropper_nothing)
+    DisposableEffect(state, view) {
+        state.screenSampler = { at, size, onColor -> sampleWindow(view, canvasOrigin + at, size, onColor) }
+        state.onNothingPicked = { com.andene.fern.FernMessages.show(nothingToPick) }
+        onDispose {
+            state.screenSampler = null
+            state.onNothingPicked = null
+        }
+    }
     var predictedScreen by remember { mutableStateOf<Offset?>(null) }
     val textMeasurer = rememberTextMeasurer()
     val tileCache = remember { SceneTileCache() }
@@ -175,6 +190,7 @@ fun DrawingCanvas(
     }
     Canvas(
         modifier = Modifier.matchParentSize()
+            .onGloballyPositioned { canvasOrigin = it.positionInWindow() }
             // Screen readers otherwise announce nothing for the drawing surface.
             .semantics {
                 contentDescription = context.resources.getQuantityString(R.plurals.canvas_description, state.strokes.size, state.strokes.size)
@@ -2208,4 +2224,52 @@ internal fun toolName(tool: Tool): Int = when (tool) {
     Tool.BONE -> R.string.tool_name_bone
     Tool.BEZIER -> R.string.tool_name_bezier
     Tool.MEASURE -> R.string.tool_name_measure
+}
+
+/**
+ * Reads the pixels shown in the window around [center] (window coordinates), a [size] px square,
+ * and hands their average colour to [onColor] on the main thread; null when they can't be read
+ * (off the window, no activity, or the copy failed). Uses [PixelCopy], so it sees exactly what
+ * the user sees: every layer, raster paint, images, fills and the paper.
+ */
+private fun sampleWindow(view: android.view.View, center: Offset, size: Int, onColor: (Color?) -> Unit) {
+    var context = view.context
+    while (context !is android.app.Activity && context is android.content.ContextWrapper) context = context.baseContext
+    val window = (context as? android.app.Activity)?.window ?: return onColor(null)
+    val half = size / 2
+    val left = center.x.roundToInt() - half
+    val top = center.y.roundToInt() - half
+    if (left < 0 || top < 0 || left + size > view.width || top + size > view.height) return onColor(null)
+    val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+    try {
+        android.view.PixelCopy.request(
+            window,
+            android.graphics.Rect(left, top, left + size, top + size),
+            bitmap,
+            { result ->
+                onColor(if (result == android.view.PixelCopy.SUCCESS) averageColor(bitmap) else null)
+                bitmap.recycle()
+            },
+            android.os.Handler(android.os.Looper.getMainLooper()),
+        )
+    } catch (_: IllegalArgumentException) {
+        bitmap.recycle()
+        onColor(null)
+    }
+}
+
+/** The mean of every pixel of [bitmap], opaque. */
+private fun averageColor(bitmap: android.graphics.Bitmap): Color {
+    val pixels = IntArray(bitmap.width * bitmap.height)
+    bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+    var r = 0L
+    var g = 0L
+    var b = 0L
+    for (p in pixels) {
+        r += (p shr 16) and 0xFF
+        g += (p shr 8) and 0xFF
+        b += p and 0xFF
+    }
+    val n = pixels.size
+    return Color((r / n).toInt(), (g / n).toInt(), (b / n).toInt())
 }

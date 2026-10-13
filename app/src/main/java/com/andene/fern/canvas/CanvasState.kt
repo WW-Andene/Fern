@@ -2913,19 +2913,70 @@ class CanvasState(
     }
 
     /**
-     * EYEDROPPER tool: takes the colour of the topmost stroke under [worldPoint] (fills by
-     * containment, lines by distance within their width), then returns to the pen so the
-     * picked colour can be drawn with immediately. The stroke's alpha is dropped because it
-     * already includes the opacity slider's value; opacity stays a separate setting.
+     * Reads the colour shown on screen (roadmap item 170): everything composited - every layer,
+     * raster paint, images, fills and the paper - averaged over a square [size] px wide around a
+     * raw view-local point, then handed to the callback (null when it couldn't be read). Set by
+     * the canvas view; null where there is no window, as in unit tests.
+     */
+    var screenSampler: ((at: Offset, size: Int, onColor: (Color?) -> Unit) -> Unit)? = null
+
+    /** Called when the eyedropper found nothing to take, so the view can say so. */
+    var onNothingPicked: (() -> Unit)? = null
+
+    /** The eyedropper reads only the active layer's ink instead of what is shown (roadmap item 173). */
+    var eyedropperThisLayerOnly by mutableStateOf(false)
+
+    /** Side of the square the eyedropper averages, in screen px: 1, 3 or 5 (roadmap item 173). */
+    var eyedropperSampleSize by mutableIntStateOf(1)
+
+    /** [world] as a raw view-local point: the inverse of [screenToWorld] then [unrotateScreen]. */
+    private fun worldToRawScreen(world: WorldPoint): Offset {
+        val center = Offset(viewportSize.width / 2f, viewportSize.height / 2f)
+        val unrotated = worldToScreen(world, center)
+        if (rotation == 0.0) return unrotated
+        val dx = (unrotated.x - center.x).toDouble()
+        val dy = (unrotated.y - center.y).toDouble()
+        val c = cos(rotation)
+        val sn = sin(rotation)
+        return Offset(center.x + (dx * c - dy * sn).toFloat(), center.y + (dx * sn + dy * c).toFloat())
+    }
+
+    /**
+     * EYEDROPPER tool (roadmap item 173): takes the colour shown at [worldPoint] - any layer,
+     * raster paint, image, fill or the paper - then returns to the pen so the picked colour can
+     * be drawn with immediately. With [eyedropperThisLayerOnly], or where the screen can't be
+     * read, it takes the topmost stroke of the active layer (or of any layer) under the point
+     * instead: fills by containment, lines by distance within their width. The alpha is dropped
+     * because a stroke's already includes the opacity slider's value; opacity stays a separate
+     * setting. Picking nothing is reported through [onNothingPicked] instead of silently.
      */
     fun pickColorAt(worldPoint: WorldPoint) {
+        val sampler = screenSampler
+        if (sampler != null && !eyedropperThisLayerOnly) {
+            sampler(worldToRawScreen(worldPoint), eyedropperSampleSize) { color ->
+                if (color != null) takePickedColor(color) else pickStrokeColorAt(worldPoint)
+            }
+        } else {
+            pickStrokeColorAt(worldPoint)
+        }
+    }
+
+    private fun pickStrokeColorAt(worldPoint: WorldPoint) {
         val tolerance = EYEDROPPER_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
         val hit = strokes.lastOrNull { stroke ->
-            if (!isVisible(stroke)) false
+            if (!isVisible(stroke) || (eyedropperThisLayerOnly && stroke.layerId != activeLayerId)) false
             else if (stroke.filled) polygonContains(stroke.points, worldPoint)
             else distanceToPolyline(stroke.points, worldPoint) <= stroke.widthWorld / 2 + tolerance
-        } ?: return
-        activeColor = hit.color.copy(alpha = 1f)
+        }
+        if (hit == null) {
+            onNothingPicked?.invoke()
+            return
+        }
+        takePickedColor(hit.color)
+    }
+
+    private fun takePickedColor(color: Color) {
+        activeColor = color.copy(alpha = 1f)
         activeTool = Tool.PEN
     }
 

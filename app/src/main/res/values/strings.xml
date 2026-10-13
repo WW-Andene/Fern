@@ -1083,4 +1083,7 @@
     <string name="more_section_menus">Documents and menus</string>
     <string name="settings_icon_labels">Names under icons</string>
     <string name="settings_chrome_follows_paper">Bars and panels follow the paper (dark paper, dark chrome)</string>
+    <string name="eyedropper_nothing">Nothing to pick there</string>
+    <string name="eyedropper_this_layer">This layer only</string>
+    <string name="eyedropper_sample_px">%1$d px</string>
 </resources>

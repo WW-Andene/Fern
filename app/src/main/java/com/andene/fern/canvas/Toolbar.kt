@@ -620,6 +620,23 @@ fun Toolbar(
                 }
                 if (state.activeLayerIsRaster) RasterBrushControls(state)
                 }
+                // Eyedropper (roadmap item 173): what is shown or only this layer's ink, and how wide it averages.
+                if (state.activeTool == Tool.EYEDROPPER) {
+                    androidx.compose.material3.FilterChip(
+                        selected = state.eyedropperThisLayerOnly,
+                        onClick = { state.eyedropperThisLayerOnly = !state.eyedropperThisLayerOnly },
+                        label = { Text(stringResource(R.string.eyedropper_this_layer)) },
+                        modifier = Modifier.padding(end = FernScale.s8),
+                    )
+                    for (size in EYEDROPPER_SAMPLE_SIZES) {
+                        androidx.compose.material3.FilterChip(
+                            selected = state.eyedropperSampleSize == size,
+                            onClick = { state.eyedropperSampleSize = size },
+                            label = { Text(stringResource(R.string.eyedropper_sample_px, size)) },
+                            modifier = Modifier.padding(end = FernScale.s4),
+                        )
+                    }
+                }
                 if (state.activeTool == Tool.ERASER) {
                     IconButton(onClick = { state.eraseWholeObjects = !state.eraseWholeObjects }) {
                         Icon(
@@ -1333,7 +1350,7 @@ fun Toolbar(
         }
     }
 
-    if (state.activeTool != Tool.TEXT && state.activeTool != Tool.EYEDROPPER && state.activeTool != Tool.RULER) {
+    if (state.activeTool != Tool.TEXT && state.activeTool != Tool.RULER) {
         Surface(modifier = propertiesModifier, shape = MaterialTheme.shapes.large, tonalElevation = FernScale.s4, shadowElevation = FernScale.s4) {
             Column(modifier = Modifier.padding(horizontal = FernScale.s12, vertical = FernScale.s4), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(
@@ -1615,3 +1632,6 @@ private fun MoreSection(title: String, content: @Composable () -> Unit) {
     Text(title, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = FernScale.s8))
     FlowRow(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(FernScale.s4)) { content() }
 }
+
+/** Squares the eyedropper can average over, in screen px (roadmap item 173). */
+private val EYEDROPPER_SAMPLE_SIZES = listOf(1, 3, 5)
