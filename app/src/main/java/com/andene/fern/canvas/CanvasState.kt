@@ -284,8 +284,41 @@ class CanvasState(
             if (value != Tool.SELECT && value != Tool.ERASER) endShapeEdit()
             if (value != Tool.MEASURE) measureTool.clear()
             swapToolSettings(value)
+            if (!borrowing && value != activeToolState) previousTool = activeToolState
             activeToolState = value
         }
+
+    /**
+     * The tool used before this one (design roadmap D80), for [swapToPreviousTool]. Borrowing a
+     * tool for a moment ([borrowTool]: a held key or rail tool, the stylus's eraser end) doesn't
+     * change it.
+     */
+    var previousTool: Tool? by mutableStateOf(null)
+        private set
+
+    private var borrowing = false
+
+    /** Swaps to the previous tool, with its own settings (D81); again swaps back (design roadmap D80). */
+    fun swapToPreviousTool() {
+        previousTool?.let { activeTool = it }
+    }
+
+    /** Switches to [tool] for a moment without it counting as the last tool; returns the tool to go back to with [returnTool]. */
+    fun borrowTool(tool: Tool): Tool {
+        val before = activeTool
+        borrowing = true
+        activeTool = tool
+        borrowing = false
+        return before
+    }
+
+    /** Goes back to [tool] after [borrowTool]; [previous], when given, is what [previousTool] goes back to. */
+    fun returnTool(tool: Tool, previous: Tool? = previousTool) {
+        borrowing = true
+        activeTool = tool
+        borrowing = false
+        previousTool = previous
+    }
 
     /**
      * Per-tool memory (design roadmap D81): what each drawing tool was last set to - colour, size,

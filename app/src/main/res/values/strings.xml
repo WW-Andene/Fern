@@ -19,6 +19,7 @@
     <string name="settings_snap_objects">Snap shapes to objects</string>
     <string name="settings_show_guide">Show the gesture guide</string>
     <string name="action_done">Done</string>
+    <string name="action_last_tool">Last tool</string>
     <string name="history_scrub">Go back through the history</string>
     <plurals name="history_steps_back">
         <item quantity="one">%1$d step back</item>

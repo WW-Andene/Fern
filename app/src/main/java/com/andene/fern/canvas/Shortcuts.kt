@@ -80,6 +80,8 @@ enum class ShortcutAction(@StringRes val label: Int, val default: KeyCombo, val 
     PALETTE(R.string.palette_title, KeyCombo(KeyEvent.KEYCODE_K, ctrl = true)),
     QUICK_MENU(R.string.quick_menu, KeyCombo(KeyEvent.KEYCODE_Q)),
     REPEAT_LAST(R.string.macro_repeat_last, KeyCombo(KeyEvent.KEYCODE_PERIOD, ctrl = true)),
+    // X: a one-key swap, beside the tools' keys, as in several desktop paint apps.
+    LAST_TOOL(R.string.action_last_tool, KeyCombo(KeyEvent.KEYCODE_X)),
     TOGGLE_CHROME(R.string.gesture_action_toggle_chrome, KeyCombo(KeyEvent.KEYCODE_TAB)),
 }
 

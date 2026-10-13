@@ -65,14 +65,19 @@ enum class QuickMenuAction(@StringRes val label: Int, val icon: (CanvasState) ->
     CONNECT(R.string.tool_name_connect, { FernIcons.AccountTree }, { it.activeTool = Tool.CONNECT }),
     BONE(R.string.tool_name_bone, { FernIcons.AccessibilityNew }, { it.activeTool = Tool.BONE }),
     SWAP_ERASER(R.string.gesture_action_toggle_eraser, { FernIcons.SwapHoriz }, { it.toggleEraser() }),
+    LAST_TOOL(R.string.action_last_tool, { FernIcons.ToggleTool }, { it.swapToPreviousTool() }),
     BIGGER(R.string.shortcut_size_up, { FernIcons.AddCircleOutline }, { it.activeWidthWorld = snapToPresetSize(it.activeWidthWorld * 1.25) }),
     SMALLER(R.string.shortcut_size_down, { FernIcons.RemoveCircleOutline }, { it.activeWidthWorld = snapToPresetSize(it.activeWidthWorld / 1.25) }),
 }
 
-/** The ring before the user changes it: tools first, then undo/redo at the bottom where the thumb rests. */
+/**
+ * The ring before the user changes it: tools first, then undo/redo at the bottom where the thumb
+ * rests, and the last-tool swap (design roadmap D80) - one flick back to what was in hand.
+ */
 val DEFAULT_QUICK_MENU = listOf(
     QuickMenuAction.PEN, QuickMenuAction.ERASER, QuickMenuAction.SELECT, QuickMenuAction.SHAPES,
     QuickMenuAction.REDO, QuickMenuAction.UNDO, QuickMenuAction.TEXT, QuickMenuAction.FILL,
+    QuickMenuAction.LAST_TOOL,
 )
 
 /** The most the ring holds: twelve 48 dp buttons fit around its 96 dp radius without overlapping. */

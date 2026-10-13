@@ -309,7 +309,8 @@ class MainActivity : ComponentActivity() {
                     }
                     var minimapShown by remember { mutableStateOf(AppSettings.minimap(context)) }
                     // A tool key being held: the key, the tool before it, when it went down (design roadmap D17).
-                    var toolKeyHold by remember { mutableStateOf<Triple<Key, Tool, Long>?>(null) }
+                    // A tool key down: which key, the tool before it and the one before that (design roadmap D80), and when.
+                    var toolKeyHold by remember { mutableStateOf<ToolKeyHold?>(null) }
                     // True while a document is being read: the canvas is covered so nothing can be
                     // drawn onto (and then autosaved over) a document that isn't loaded yet.
                     var loadingDocument by remember { mutableStateOf(true) }
@@ -1120,8 +1121,9 @@ class MainActivity : ComponentActivity() {
                                 // A tool key held down borrows its tool until released (design roadmap D17).
                                 if (event.type == KeyEventType.KeyUp) {
                                     val hold = toolKeyHold
-                                    if (hold != null && hold.first == event.key) {
-                                        if (SystemClock.uptimeMillis() - hold.third >= TOOL_KEY_HOLD_MILLIS) canvasState.activeTool = hold.second
+                                    if (hold != null && hold.key == event.key) {
+                                        // Held: the tool was only borrowed, so the last-tool swap still means what it did before.
+                                        if (SystemClock.uptimeMillis() - hold.downMillis >= TOOL_KEY_HOLD_MILLIS) canvasState.returnTool(hold.before, hold.previousBefore)
                                         toolKeyHold = null
                                         return@onPreviewKeyEvent true
                                     }
@@ -1144,7 +1146,7 @@ class MainActivity : ComponentActivity() {
                                 val action = ShortcutSettings.actionFor(ShortcutSettings.state(context).value, combo) ?: return@onPreviewKeyEvent false
                                 action.tool?.let { tool ->
                                     if (native.repeatCount == 0) {
-                                        toolKeyHold = Triple(event.key, canvasState.activeTool, SystemClock.uptimeMillis())
+                                        toolKeyHold = ToolKeyHold(event.key, canvasState.activeTool, canvasState.previousTool, SystemClock.uptimeMillis())
                                         canvasState.activeTool = tool
                                     }
                                     return@onPreviewKeyEvent true
@@ -1168,6 +1170,7 @@ class MainActivity : ComponentActivity() {
                                     ShortcutAction.PALETTE -> CommandPaletteState.open = true
                                     ShortcutAction.QUICK_MENU -> showQuickMenu = true
                                     ShortcutAction.REPEAT_LAST -> Macros.repeatLast(canvasState)
+                                    ShortcutAction.LAST_TOOL -> canvasState.swapToPreviousTool()
                                     ShortcutAction.TOGGLE_CHROME -> chromeHidden = !chromeHidden
                                     else -> return@onPreviewKeyEvent false
                                 }
@@ -1930,3 +1933,6 @@ private const val TOOL_KEY_HOLD_MILLIS = 500L
 
 /** How many recent documents the command palette offers (design roadmap D14). */
 private const val RECENT_IN_PALETTE = 8
+
+/** A tool's key pressed (design roadmap D17): held past [TOOL_KEY_HOLD_MILLIS] it only borrows the tool (D80 keeps [previousBefore]). */
+private data class ToolKeyHold(val key: Key, val before: Tool, val previousBefore: Tool?, val downMillis: Long)

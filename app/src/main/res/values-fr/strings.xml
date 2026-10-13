@@ -19,6 +19,7 @@
     <string name="settings_snap_objects">Aimanter les formes aux objets</string>
     <string name="settings_show_guide">Afficher le guide des gestes</string>
     <string name="action_done">Terminé</string>
+    <string name="action_last_tool">Outil précédent</string>
     <string name="history_scrub">Remonter l’historique</string>
     <plurals name="history_steps_back">
         <item quantity="one">%1$d étape en arrière</item>

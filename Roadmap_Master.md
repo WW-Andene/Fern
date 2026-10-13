@@ -162,8 +162,9 @@ Switching, adjusting and arranging without looking. Builds on Phases 1 and 2.
 - [~] D79. **Undo and redo always in thumb reach** on the phone, as buttons as well as gestures,
   with a long-press on undo to scrub back through the history.
   Written, not yet compiled or tested: `UndoRedo.kt`. On a phone held upright with the toolbar at the top, undo and redo leave the top bar for a pill at the bottom of the free hand's side (the minimap moves up above it); wherever they are, a long press on undo opens the history scrubber, a slider over every step that undoes and redoes as it's dragged (`CanvasState.scrubHistoryTo`), everything staying redoable until a new action.
-- [ ] D80. **Last-tool toggle.** One tap (or gesture) swaps between the current and the previous
+- [~] D80. **Last-tool toggle.** One tap (or gesture) swaps between the current and the previous
   tool, with each keeping its own size, colour and settings.
+  Written, not yet compiled or tested: "Last tool" swaps to the previous tool and back, each with its own settings (D81): on the quick menu's ring by default, as a gesture (Settings > Gestures) and on X. Borrowing a tool for a moment (the stylus's eraser end, holding a rail tool or a tool key) doesn't change what the last tool is.
 - [~] D81. **Per-tool memory.** Every tool remembers its last size, opacity, colour and options;
   the eraser never inherits the pen's size by surprise.
   Written, not yet compiled or tested: the drawing tools (pen, eraser, shape, fill, text, Bézier) each keep their colour, size, opacity, pen, brush and line style for the session; switching swaps them. Tools that don't draw (select, eyedropper, measure…) leave the settings with the last drawing tool, so a picked colour goes to it. The eraser has its own size at last (48 px to start, the old fixed size): sizing it on the rail used to change the pen's.

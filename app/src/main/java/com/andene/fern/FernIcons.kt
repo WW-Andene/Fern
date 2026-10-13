@@ -188,6 +188,7 @@ object FernIcons {
     val SwapHoriz: ImageVector by lazy { lucide("SwapHoriz", "arrow-left-right", """<path d="M8 3 4 7l4 4"/> <path d="M4 7h16"/> <path d="m16 21 4-4-4-4"/> <path d="M20 17H4"/>""") }
     val SyncAlt: ImageVector by lazy { lucide("SyncAlt", "arrow-right-left", """<path d="m16 3 4 4-4 4"/> <path d="M20 7H4"/> <path d="m8 21-4-4 4-4"/> <path d="M4 17h16"/>""") }
     val TableRows: ImageVector by lazy { lucide("TableRows", "rows-3", """<rect width="18" height="18" x="3" y="3" rx="2"/> <path d="M21 9H3"/> <path d="M21 15H3"/>""") }
+    val ToggleTool: ImageVector by lazy { lucide("ToggleTool", "toggle-left", """<circle cx="9" cy="12" r="3"/> <rect width="20" height="14" x="2" y="5" rx="7"/>""") }
     val TextFields: ImageVector by lazy { lucide("TextFields", "type", """<path d="M12 4v16"/> <path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2"/> <path d="M9 20h6"/>""") }
     val TextRotationAngleup: ImageVector by lazy { lucide("TextRotationAngleup", "text-cursor", """<path d="M17 22h-1a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4h1"/> <path d="M7 22h1a4 4 0 0 0 4-4"/> <path d="M7 2h1a4 4 0 0 1 4 4"/>""") }
     val Texture: ImageVector by lazy { lucide("Texture", "grid-2x2", """<path d="M12 3v18"/> <path d="M3 12h18"/> <rect x="3" y="3" width="18" height="18" rx="2"/>""") }

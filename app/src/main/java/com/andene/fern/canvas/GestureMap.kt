@@ -58,6 +58,8 @@ enum class GestureAction(@StringRes val label: Int) {
     TOGGLE_CHROME(R.string.gesture_action_toggle_chrome),
     /** Runs the last quick-menu or palette action again (design roadmap D34). */
     REPEAT_LAST(R.string.macro_repeat_last),
+    /** Swaps to the tool used before this one, and back (design roadmap D80). */
+    LAST_TOOL(R.string.action_last_tool),
 }
 
 private const val KEY_GESTURES = "gesture_map"
@@ -123,6 +125,7 @@ fun CanvasState.runGestureAction(action: GestureAction, at: WorldPoint?, onScree
         GestureAction.TOGGLE_ERASER -> toggleEraser()
         GestureAction.FIT_VIEW -> zoomToFit()
         GestureAction.REPEAT_LAST -> Macros.repeatLast(this)
+        GestureAction.LAST_TOOL -> swapToPreviousTool()
         else -> onScreenAction(action)
     }
 }

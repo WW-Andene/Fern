@@ -333,7 +333,7 @@ fun DrawingCanvas(
                         toolGesture = null
                         selectionReadout = false
                         draggedHandle = null
-                        toolBeforeStylusEraser?.let { state.activeTool = it }
+                        toolBeforeStylusEraser?.let { state.returnTool(it) }
                         toolBeforeStylusEraser = null
                     }
 
@@ -403,8 +403,7 @@ fun DrawingCanvas(
                                 // gesture only, then the previous tool comes back - the convention
                                 // of Wacom pens, S Pen apps and most desktop paint programs.
                                 if ((stylusSample.eraserEnd || stylusSample.buttonPressed) && state.activeTool != Tool.ERASER) {
-                                    toolBeforeStylusEraser = state.activeTool
-                                    state.activeTool = Tool.ERASER
+                                    toolBeforeStylusEraser = state.borrowTool(Tool.ERASER)
                                 }
                                 val downPos = state.unrotateScreen(pointers[0].position, screenCenter)
                                 val world = state.screenToWorld(downPos, screenCenter)

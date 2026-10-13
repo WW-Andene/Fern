@@ -240,11 +240,10 @@ private fun RailButton(state: CanvasState, tool: Tool) {
                     } else if (released != null) {
                         state.activeTool = tool
                     } else {
-                        val previous = state.activeTool
-                        state.activeTool = tool
+                        val previous = state.borrowTool(tool)
                         FernHaptics.press(view)
                         waitForUpOrCancellation()
-                        state.activeTool = previous
+                        state.returnTool(previous)
                     }
                 }
             },
