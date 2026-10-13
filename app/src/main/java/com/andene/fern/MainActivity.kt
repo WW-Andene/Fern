@@ -81,7 +81,6 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -1256,9 +1255,10 @@ class MainActivity : ComponentActivity() {
                         } else {
                             // The tool rail (design roadmap D8): along the bottom of an upright phone, in
                             // thumb reach; along the free hand's side otherwise. Other bars keep clear of it.
-                            val portrait = LocalConfiguration.current.let { it.screenHeightDp >= it.screenWidthDp }
-                            val railInset = if (portrait) FernScale.s64 else FernScale.none
-                            val railSide = if (portrait) FernScale.none else FernScale.s64
+                            // The window's width decides which (design roadmap D52), not its orientation.
+                            val railAtBottom = fernLayout().railAtBottom
+                            val railInset = if (railAtBottom) FernScale.s64 else FernScale.none
+                            val railSide = if (railAtBottom) FernScale.none else FernScale.s64
                             Toolbar(
                                 state = canvasState,
                                 hiddenGroups = hiddenToolbarGroups,
@@ -1470,12 +1470,12 @@ class MainActivity : ComponentActivity() {
                             )
                             ToolRail(
                                 state = canvasState,
-                                vertical = !portrait,
+                                vertical = !railAtBottom,
                                 leftHanded = leftHanded,
                                 modifier = Modifier
                                     .align(
                                         when {
-                                            portrait -> Alignment.BottomCenter
+                                            railAtBottom -> Alignment.BottomCenter
                                             leftHanded -> AbsoluteAlignment.CenterRight
                                             else -> AbsoluteAlignment.CenterLeft
                                         },

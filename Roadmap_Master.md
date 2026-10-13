@@ -97,9 +97,10 @@ The app's look and layout rebuilt on the CLAUDE.md §7 scale, so every later scr
 - [~] D59. **Optional sound cues** for the paper feel (pencil, marker) and confirmations, off by
   default.
   Written, not yet compiled or tested: Settings > Accessibility > Sound cues. `SoundSynth` makes the sounds (no audio files): filtered noise for the paper, bright and grainy for pencil and crayon, darker for marker, highlighter and calligraphy, louder as the pen moves faster; a two-note chime for confirmations (messages marked `confirmation`: deleted with Undo, copied, exported, imported). `FernSounds` plays them on one stream that runs only while something sounds.
-- [ ] D52. **Phone layouts first, then responsive.** Phone portrait and landscape are designed first and kept the reference. Then responsive layouts for compact, medium and expanded widths (Material window size
+- [~] D52. **Phone layouts first, then responsive.** Phone portrait and landscape are designed first and kept the reference. Then responsive layouts for compact, medium and expanded widths (Material window size
   classes): a bottom rail and sheets on phones, side rail and docked panels on tablets, several
   panels at once on wide screens.
+  Written, not yet compiled or tested: `FernLayout` decides by the window's width, not its orientation: under 600 dp the bottom rail and sheets (the phone reference, unchanged); wider, the side rail with panels docked beside it; wide windows dock up to three open panels side by side while keeping 384 dp of canvas. A tablet held upright now gets the side rail and docked panel instead of a phone's sheet.
 - [ ] D55. **One-hand mode** (phone priority). Everything reachable in the bottom third of a phone; the rail and
   the quick menu mirrored for the left hand.
 - [ ] D56. **Orientation without loss.** Rotating keeps the view centre, the open panel and the
