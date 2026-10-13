@@ -134,6 +134,16 @@ fun DrawingCanvas(
     var hoverPoint by remember { mutableStateOf<Offset?>(null) }
     // Whether a selection is being moved, scaled or turned: its place and size show beside it (design roadmap D37).
     var selectionReadout by remember { mutableStateOf(false) }
+    // Pinching or panning: the zoom and turn show at the top (design roadmap D38).
+    var navigating by remember { mutableStateOf(false) }
+    // What a tap gesture did, where and when, shown briefly (design roadmap D38).
+    var gestureBadge by remember { mutableStateOf<Triple<String, Offset, Long>?>(null) }
+    gestureBadge?.let { badge ->
+        LaunchedEffect(badge) {
+            delay(GESTURE_BADGE_MILLIS)
+            if (gestureBadge === badge) gestureBadge = null
+        }
+    }
     val imageBitmapCache = remember { mutableMapOf<String, ImageBitmap>() }
     // Low-latency ink (see FrontBufferedInk): a transparent front-buffered surface above the
     // canvas. Placed first in the Box so the canvas, not the surface, receives touches; the
@@ -243,8 +253,11 @@ fun DrawingCanvas(
                     var swipeStartSpan = 0f
                     var swipeSpanChange = 0f
                     val viewAtStart = Triple(state.panWorld, state.scale, state.rotation)
-                    fun runGesture(action: GestureAction, at: Offset) =
+                    fun runGesture(action: GestureAction, at: Offset) {
+                        // A badge where the fingers tapped says what happened (design roadmap D38).
+                        if (action == GestureAction.UNDO || action == GestureAction.REDO) gestureBadge = Triple(context.getString(action.label), at, SystemClock.uptimeMillis())
                         state.runGestureAction(action, state.screenToWorld(state.unrotateScreen(at, screenCenter), screenCenter), onGestureAction)
+                    }
 
                     var mode = Mode.NONE
                     var prevCentroid = Offset.Zero
@@ -432,6 +445,7 @@ fun DrawingCanvas(
                                 prevSpan = span
                                 prevAngle = angle
                                 mode = Mode.NAVIGATE
+                                navigating = true
                             } else {
                                 // Pan and zoom work in unrotated view space, so a drag moves the
                                 // content along with the fingers whatever the canvas angle is.
@@ -453,7 +467,12 @@ fun DrawingCanvas(
                         }
                     }
                     if (mode == Mode.DRAW) endActiveDrawAction()
-                    if (mode == Mode.NAVIGATE) state.snapRotation()
+                    if (mode == Mode.NAVIGATE) {
+                        state.snapRotation()
+                        // The turn snapped back level: a tick to feel it (design roadmap D38).
+                        if (state.rotation == 0.0 && viewAtStart.third != 0.0) FernHaptics.tick(view)
+                    }
+                    navigating = false
                     val tapDuration = (currentEvent.changes.firstOrNull()?.uptimeMillis ?: gestureStartMillis) - gestureStartMillis
                     val swipeFrom = swipeStart
                     if (longPressed) {
@@ -928,6 +947,16 @@ fun DrawingCanvas(
                 }
             }
         }
+    }
+    if (navigating || gestureBadge != null) Canvas(Modifier.matchParentSize()) {
+        fun badge(label: String, at: Offset) {
+            val layout = textMeasurer.measure(label, TextStyle(color = FernColors.current.onScrim, fontSize = FernType.caption))
+            val topLeft = at - Offset(layout.size.width / 2f, layout.size.height / 2f)
+            drawRoundRect(FernColors.current.scrim, topLeft = topLeft - Offset(READOUT_GAP_PX * 2, READOUT_GAP_PX), size = Size(layout.size.width + READOUT_GAP_PX * 4, layout.size.height + READOUT_GAP_PX * 2), cornerRadius = androidx.compose.ui.geometry.CornerRadius(READOUT_GAP_PX * 2))
+            drawText(layout, topLeft = topLeft)
+        }
+        if (navigating) badge("${(state.scale * 100).roundToInt()} % · ${Math.toDegrees(state.rotation).roundToInt()}°", Offset(size.width / 2f, NAV_BADGE_TOP_PX))
+        gestureBadge?.let { (label, at, _) -> badge(label, at) }
     }
     // The selection's position and size while it's dragged (design roadmap D37), in the drawing's units.
     if (selectionReadout) state.selectionBounds()?.let { (min, max) ->
@@ -1736,6 +1765,9 @@ private const val LONG_PRESS_MILLIS = 500L
 private const val PALM_NEAR_MILLIS = 1024L
 // Padding around an on-canvas readout.
 private const val READOUT_GAP_PX = 4f
+// How long a gesture's badge shows, and where the zoom readout sits below the top edge.
+private const val GESTURE_BADGE_MILLIS = 768L
+private const val NAV_BADGE_TOP_PX = 128f
 // Under this footprint radius the hover cursor is a crosshair; its gap and arm lengths.
 private const val CROSSHAIR_BELOW_PX = 4f
 private const val CROSSHAIR_GAP_PX = 4f
