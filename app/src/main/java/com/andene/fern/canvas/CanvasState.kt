@@ -1893,7 +1893,10 @@ class CanvasState(
     }
 
     /** Drawing layers, bottom first. Never empty. */
-    val layers = mutableStateListOf(Layer(DEFAULT_LAYER_ID, "Layer 1"))
+    /** The names new layers get, in the user's language (design roadmap D87); set by the activity. */
+    var names: DefaultNames = DefaultNames()
+
+    val layers = mutableStateListOf(Layer(DEFAULT_LAYER_ID, names.layer(1)))
 
     /** Layer new strokes, shapes and fills go on. */
     var activeLayerId by mutableStateOf(DEFAULT_LAYER_ID)
@@ -1914,7 +1917,7 @@ class CanvasState(
         get() = layers.firstOrNull { it.id == activeLayerId }?.let { it.visible && !it.locked && it.adjustment == null } ?: false
 
     fun addLayer() {
-        val layer = Layer(UUID.randomUUID().toString(), "Layer ${layers.size + 1}")
+        val layer = Layer(UUID.randomUUID().toString(), names.layer(layers.size + 1))
         layers.add(layer)
         activeLayerId = layer.id
         onLayersChanged(layers.toList())
@@ -1946,7 +1949,7 @@ class CanvasState(
     fun addRasterLayer(depth: Int, hdr: Boolean = false) {
         // HDR needs the 16-bit range for its headroom.
         val bits = if (hdr) 16 else depth
-        val layer = Layer(UUID.randomUUID().toString(), (if (hdr) "HDR " else "Raster ") + "${layers.size + 1}", raster = true, depth = bits, hdr = hdr)
+        val layer = Layer(UUID.randomUUID().toString(), if (hdr) names.hdrLayer(layers.size + 1) else names.rasterLayer(layers.size + 1), raster = true, depth = bits, hdr = hdr)
         attachRaster(layer.id, RasterSurface(bits, 1.0 / scale.coerceAtLeast(1e-300)).also { it.hdr = hdr; it.hdrView = hdrView })
         layers.add(layer)
         activeLayerId = layer.id
@@ -2218,7 +2221,7 @@ class CanvasState(
         val box = selectionPixelBox(source) ?: return
         val sourceLayer = layers.firstOrNull { it.id == activeLayerId } ?: return
         val copy = RasterSurface(source.depth, source.pixelWorld, source.originX, source.originY)
-        val layer = Layer(UUID.randomUUID().toString(), "${sourceLayer.name} (copy)", raster = true, depth = source.depth)
+        val layer = Layer(UUID.randomUUID().toString(), names.copyOf(sourceLayer.name), raster = true, depth = source.depth)
         attachRaster(layer.id, copy)
         copy.clip = { x, y -> inRasterSelection(copy, x, y) }
         copy.forEachPixelIn(box[0].toDouble(), box[1].toDouble(), box[2].toDouble(), box[3].toDouble()) { tile, index, px, py ->
@@ -2461,7 +2464,7 @@ class CanvasState(
         val originY = panWorld.y - document.height / 2.0 * pixelWorld
         for (imported in document.layers) {
             val layer = Layer(
-                UUID.randomUUID().toString(), imported.name.ifBlank { "Layer ${layers.size + 1}" },
+                UUID.randomUUID().toString(), imported.name.ifBlank { names.layer(layers.size + 1) },
                 visible = imported.visible, opacity = imported.opacity, blend = imported.blend, raster = true, depth = document.depth,
                 hdr = document.hdr,
             )
@@ -2494,7 +2497,7 @@ class CanvasState(
     fun addFileLayer(name: String, source: String, argb: IntArray, width: Int, height: Int) {
         val pixelWorld = 1.0 / scale.coerceAtLeast(1e-300)
         val surface = RasterSurface(8, pixelWorld, panWorld.x - width / 2.0 * pixelWorld, panWorld.y - height / 2.0 * pixelWorld)
-        val layer = Layer(UUID.randomUUID().toString(), name.ifBlank { "File ${layers.size + 1}" }, locked = true, raster = true, fileSource = source)
+        val layer = Layer(UUID.randomUUID().toString(), name.ifBlank { names.fileLayer(layers.size + 1) }, locked = true, raster = true, fileSource = source)
         attachRaster(layer.id, surface)
         paintImage(surface, argb, width, height)
         layers.add(layer)
@@ -2554,7 +2557,7 @@ class CanvasState(
 
     /** Adds an adjustment layer applying [adjustment] to everything beneath it (roadmap item 93). */
     fun addAdjustmentLayer(adjustment: Adjustment) {
-        val layer = Layer(UUID.randomUUID().toString(), "Adjustment ${layers.size + 1}", adjustment = adjustment)
+        val layer = Layer(UUID.randomUUID().toString(), names.adjustmentLayer(layers.size + 1), adjustment = adjustment)
         layers.add(layer)
         activeLayerId = layer.id
         onLayersChanged(layers.toList())
@@ -2827,7 +2830,7 @@ class CanvasState(
     /** Replaces the layer stack (e.g. from [CanvasStorage.loadLayers]); an empty list means the single default layer. */
     fun loadLayers(loaded: List<Layer>) {
         layers.clear()
-        layers.addAll(loaded.ifEmpty { listOf(Layer(DEFAULT_LAYER_ID, "Layer 1")) })
+        layers.addAll(loaded.ifEmpty { listOf(Layer(DEFAULT_LAYER_ID, names.layer(1))) })
         activeLayerId = layers.last().id
     }
 

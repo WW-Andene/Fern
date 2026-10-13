@@ -123,6 +123,11 @@
     <string name="layers_unlock">Unlock layer</string>
     <string name="layers_lock">Lock layer</string>
     <string name="layers_rename">Rename layer</string>
+    <string name="layer_default_name">Layer %1$d</string>
+    <string name="layer_default_raster">Raster %1$d</string>
+    <string name="layer_default_hdr">HDR %1$d</string>
+    <string name="layer_default_file">File %1$d</string>
+    <string name="layer_default_adjustment">Adjustment %1$d</string>
     <string name="layers_up">Move layer up</string>
     <string name="layers_down">Move layer down</string>
     <string name="layers_merge">Merge into layer below</string>

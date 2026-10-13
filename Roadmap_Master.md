@@ -235,9 +235,10 @@ Switching, adjusting and arranging without looking. Builds on Phases 1 and 2.
   never discards a half-done action (a text being typed, a Bézier path, a selection); it's kept
   or finished.
   Written, not yet compiled or tested: closing the text panel (its ✕ or back) now places or updates the label typed rather than throwing it away (only Cancel does); a layer or group rename in progress is kept when the layers panel closes; switching documents finishes a Bézier path in the document it belongs to (it used to be carried into the next one). Already so: leaving the Bézier pen finishes its path, the selection survives tool switches, and rotating keeps everything (D56).
-- [ ] D87. **Smart defaults.** New documents, layers, exports and objects start with the choice
+- [~] D87. **Smart defaults.** New documents, layers, exports and objects start with the choice
   most people make, named sensibly in the user's language; nothing asks a question it can answer
   itself.
+  Written, not yet compiled or tested: new layers (vector, raster, HDR, file, adjustment, copies) were named in English whatever the language ("Layer 3"); they're now named in the user's language (`DefaultNames`, "Calque 3"). A new document no longer takes a name another one has ("Untitled", then "Untitled 2"). Already so: documents, objects, comps and exports were named from the app's strings, and exports start from the document's name.
 - [ ] D88. **Interruptions handled.** A phone call, a notification or switching apps mid-stroke
   ends the stroke cleanly and saves; returning resumes without a prompt.
 - [~] D34. **Recorded actions and macros.** Repeat the last action, and record a sequence and

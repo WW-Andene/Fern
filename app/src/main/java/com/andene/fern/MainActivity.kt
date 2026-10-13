@@ -153,6 +153,8 @@ import com.andene.fern.canvas.Rulers
 import com.andene.fern.canvas.readFileLayerImage
 import com.andene.fern.canvas.SecondView
 import com.andene.fern.canvas.oneHandModeOn
+import com.andene.fern.canvas.DefaultNames
+import com.andene.fern.canvas.uniqueName
 import com.andene.fern.canvas.UndoRedoControls
 import com.andene.fern.canvas.PinsDialog
 import com.andene.fern.canvas.PresentationControls
@@ -406,6 +408,8 @@ class MainActivity : ComponentActivity() {
                             },
                         )
                     }
+                    // New layers are named in the user's language (design roadmap D87), before any document loads.
+                    remember(canvasState) { canvasState.names = DefaultNames.fromResources(context) }
                     // The paper's tone, for chrome that follows it (design roadmap D60).
                     SideEffect { FernPaper.dark = canvasState.backgroundColor.luminance() < PAPER_DARK_LUMINANCE }
 
@@ -1656,7 +1660,8 @@ class MainActivity : ComponentActivity() {
                             onCreateNew = { template ->
                                 coroutineScope.launch {
                                     val created = withContext(Dispatchers.IO) {
-                                        CanvasStorage.createDocument(context, context.getString(if (template == DocumentTemplate.BLANK) R.string.untitled else template.label))
+                                        // A name no other document has: "Untitled", then "Untitled 2" (design roadmap D87).
+                                        CanvasStorage.createDocument(context, uniqueName(context.getString(if (template == DocumentTemplate.BLANK) R.string.untitled else template.label), documents.map { it.name }))
                                     }
                                     refreshDocuments()
                                     switchToDocument(created.id)

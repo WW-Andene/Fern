@@ -123,6 +123,11 @@
     <string name="layers_unlock">Déverrouiller le calque</string>
     <string name="layers_lock">Verrouiller le calque</string>
     <string name="layers_rename">Renommer le calque</string>
+    <string name="layer_default_name">Calque %1$d</string>
+    <string name="layer_default_raster">Pixels %1$d</string>
+    <string name="layer_default_hdr">HDR %1$d</string>
+    <string name="layer_default_file">Fichier %1$d</string>
+    <string name="layer_default_adjustment">Réglage %1$d</string>
     <string name="layers_up">Monter le calque</string>
     <string name="layers_down">Descendre le calque</string>
     <string name="layers_merge">Fusionner avec le calque inférieur</string>
