@@ -435,6 +435,24 @@ class CanvasState(
         activeTool = Tool.PEN
     }
 
+    /** The active tool's settings as they are now, to save as a named preset (design roadmap D84). */
+    fun currentToolSettings(): ToolPreset =
+        ToolPreset(activePenType, activeColor, activeWidthWorld, activeOpacity, activeBlendMode, activeDashed, activeBrush, activeLineStyle)
+
+    /** Switches to [preset]'s tool with exactly its settings (design roadmap D84); they become that tool's own (D81). */
+    fun applyRailPreset(preset: RailPreset) {
+        activeTool = preset.tool
+        val s = preset.settings
+        activePenType = s.penType
+        activeColor = s.color
+        activeWidthWorld = s.width
+        activeOpacity = s.opacity
+        activeBlendMode = s.blendMode
+        activeDashed = s.dashed
+        activeBrush = s.brush.clamped()
+        activeLineStyle = s.lineStyle
+    }
+
     fun clearToolSlot(index: Int) {
         toolSlots[index] = null
         onToolSlotsChanged(toolSlots.toList())

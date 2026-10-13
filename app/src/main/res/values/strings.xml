@@ -1026,6 +1026,10 @@
     <string name="color_palette">Palette colour</string>
     <string name="layout_title">Arrange the layout</string>
     <string name="layout_rail">Tools pinned to the rail</string>
+    <string name="rail_presets">Tool presets on the rail</string>
+    <string name="rail_preset_name">Name of the preset</string>
+    <string name="rail_preset_save">Save this tool</string>
+    <string name="rail_preset_default_name">%1$s %2$s px</string>
     <string name="layout_toolbar">Toolbar groups</string>
     <string name="layout_drag">Drag to move %1$s</string>
     <string name="layout_remove">Remove %1$s</string>

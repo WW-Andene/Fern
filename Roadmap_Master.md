@@ -185,7 +185,7 @@ Switching, adjusting and arranging without looking. Builds on Phases 1 and 2.
   Written, not yet compiled or tested: `Shortcuts.kt`. Defaults P/B pen, E eraser, V select, U shape, G fill, T text, I eyedropper, N Bézier, M measure, Ctrl+Z/Y and Ctrl+Shift+Z, Ctrl+C/V/D, Del/Backspace, [ ] brush size, Ctrl+= / Ctrl+- zoom, 0 fit, Ctrl+K palette, Tab hide the bars. Each remappable in Settings > Keyboard shortcuts (a key bound elsewhere moves); the cheat sheet shows while Ctrl is held.
 - [~] D19. **On-canvas adjusting.** Drag up or down on a rail tool to change its size, sideways
   for opacity, with a live preview ring at the cursor. Sizes snap to user presets.
-  Written, not yet compiled or tested: dragging up/down on the rail's pen or eraser scales its size (96 px doubles it), sideways sets opacity, with a ring of the brush's size and colour in the middle of the canvas; sizes settle on 1, 2, 4, 8, 12, 16, 24 or 32 when within 8 %. User-defined presets come with D84.
+  Written, not yet compiled or tested: dragging up/down on the rail's pen or eraser scales its size (96 px doubles it), sideways sets opacity, with a ring of the brush's size and colour in the middle of the canvas; sizes settle on 1, 2, 4, 8, 12, 16, 24 or 32 when within 8 %. Sizes of the user's tool presets (D84) are snapped to as well.
 - [~] D21. **The quick menu becomes a radial menu** that opens from any gesture, key or button,
   holds any action, and supports flick selection without looking.
   Written, not yet compiled or tested: the ring opens from its button, a gesture (D15), the stylus button or Q (D18); it can hold any tool, pen/eraser swap and brush size besides the earlier actions; a flick from the button toward an action runs it on release without showing the ring, ticking as each comes under the thumb.
@@ -204,8 +204,9 @@ Switching, adjusting and arranging without looking. Builds on Phases 1 and 2.
 - [~] D83. **Per-workspace layouts.** Each workspace (D11) remembers its own rail, panels and quick
   menu; switching workspace brings them back.
   Written, not yet compiled or tested: a workspace now also holds its quick menu and open docked panels (layers, brushes, palettes, rig: `DockedPanels`), and remembers how it was left: switching saves the layout into the workspace being left, then brings the chosen one back as it was last left (built-in ones keep this as an override). Reset brings the active one back as defined. The quick menu's saved order was being lost on restart (read back in a fixed order); it's kept now.
-- [ ] D84. **Custom tool presets on the rail.** Save a tool with its settings as a named preset
+- [~] D84. **Custom tool presets on the rail.** Save a tool with its settings as a named preset
   ("Ink 2 px blue", "Soft eraser") and pin it like a tool.
+  Written, not yet compiled or tested: `RailPresets.kt`. Arrange the layout > Tool presets saves the tool in hand with its settings under a name ("Eraser 12 px" suggested), reorders and removes them; they sit on the rail after the pinned tools as the tool's icon with a dot of its colour (those that don't fit are in More tools), and a tap switches to the tool with exactly those settings. Presets keep line styles too.
 - [ ] D85. **Reset to defaults** per surface and for everything, with a preview before applying
   and an undo after.
 - [~] D26. **Everything undoable, or warned about.** Bring frames, layers, objects and resizing

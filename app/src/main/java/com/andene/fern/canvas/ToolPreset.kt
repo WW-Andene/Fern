@@ -19,6 +19,6 @@ data class ToolPreset(
     val blendMode: StrokeBlendMode,
     val dashed: Boolean,
     val brush: StampBrush,
-    /** The line's dashes and arrowheads; kept by per-tool memory (design roadmap D81), not saved with a slot. */
+    /** The line's caps, joins and width profile (per-tool memory, design roadmap D81; saved with presets, D84). */
     val lineStyle: LineStyle = LineStyle(),
 )

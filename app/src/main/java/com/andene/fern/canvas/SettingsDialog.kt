@@ -186,22 +186,34 @@ object AppSettings {
     fun toolSlots(context: Context): List<ToolPreset?> {
         val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_TOOL_SLOTS, null) ?: return emptyList()
         val array = try { JSONArray(raw) } catch (e: JSONException) { return emptyList() }
-        return (0 until array.length()).map { i ->
-            val json = array.optJSONObject(i) ?: return@map null
-            try {
-                ToolPreset(
-                    penType = PenType.entries.firstOrNull { it.name == json.getString("penType") } ?: PenType.MARKER,
-                    color = Color(json.getInt("color")),
-                    width = json.getDouble("width"),
-                    opacity = json.getDouble("opacity"),
-                    blendMode = StrokeBlendMode.entries.firstOrNull { it.name == json.optString("blendMode") } ?: StrokeBlendMode.NORMAL,
-                    dashed = json.optBoolean("dashed", false),
-                    brush = json.optJSONObject("brush")?.let(::brushFromJson) ?: StampBrush(),
-                )
-            } catch (e: JSONException) {
-                null
-            }
-        }
+        return (0 until array.length()).map { i -> array.optJSONObject(i)?.let(::toolPresetFromJson) }
+    }
+
+    /** [preset] as JSON, for the tool slots and the rail's named presets (design roadmap D84). */
+    fun toolPresetToJson(preset: ToolPreset): JSONObject = JSONObject()
+        .put("penType", preset.penType.name)
+        .put("color", preset.color.toArgb())
+        .put("width", preset.width)
+        .put("opacity", preset.opacity)
+        .put("blendMode", preset.blendMode.name)
+        .put("dashed", preset.dashed)
+        .put("brush", brushToJson(preset.brush))
+        .put("lineStyle", preset.lineStyle.pack())
+
+    /** A preset read back from [toolPresetToJson]; null when it can't be read. */
+    fun toolPresetFromJson(json: JSONObject): ToolPreset? = try {
+        ToolPreset(
+            penType = PenType.entries.firstOrNull { it.name == json.getString("penType") } ?: PenType.MARKER,
+            color = Color(json.getInt("color")),
+            width = json.getDouble("width"),
+            opacity = json.getDouble("opacity"),
+            blendMode = StrokeBlendMode.entries.firstOrNull { it.name == json.optString("blendMode") } ?: StrokeBlendMode.NORMAL,
+            dashed = json.optBoolean("dashed", false),
+            brush = json.optJSONObject("brush")?.let(::brushFromJson) ?: StampBrush(),
+            lineStyle = if (json.has("lineStyle")) LineStyle.unpack(json.optInt("lineStyle")) else LineStyle(),
+        )
+    } catch (e: JSONException) {
+        null
     }
 
     fun setToolSlots(context: Context, slots: List<ToolPreset?>) {
@@ -211,16 +223,7 @@ object AppSettings {
                 array.put(JSONObject.NULL)
                 continue
             }
-            array.put(
-                JSONObject()
-                    .put("penType", slot.penType.name)
-                    .put("color", slot.color.toArgb())
-                    .put("width", slot.width)
-                    .put("opacity", slot.opacity)
-                    .put("blendMode", slot.blendMode.name)
-                    .put("dashed", slot.dashed)
-                    .put("brush", brushToJson(slot.brush)),
-            )
+            array.put(toolPresetToJson(slot))
         }
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString(KEY_TOOL_SLOTS, array.toString()).apply()
     }

@@ -1029,6 +1029,10 @@
     <string name="color_palette">Couleur de la palette</string>
     <string name="layout_title">Disposer l’interface</string>
     <string name="layout_rail">Outils épinglés au rail</string>
+    <string name="rail_presets">Préréglages d’outils sur le rail</string>
+    <string name="rail_preset_name">Nom du préréglage</string>
+    <string name="rail_preset_save">Enregistrer cet outil</string>
+    <string name="rail_preset_default_name">%1$s %2$s px</string>
     <string name="layout_toolbar">Groupes de la barre d’outils</string>
     <string name="layout_drag">Glisser pour déplacer %1$s</string>
     <string name="layout_remove">Retirer %1$s</string>

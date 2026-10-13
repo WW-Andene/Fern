@@ -4,6 +4,8 @@ import com.andene.fern.FernIcons
 
 import android.content.Context
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -39,6 +41,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import kotlin.math.abs
 import kotlin.math.pow
@@ -120,15 +123,29 @@ fun ToolRail(state: CanvasState, vertical: Boolean, modifier: Modifier = Modifie
             val room = ((if (vertical) maxHeight else maxWidth) / slot).toInt()
             // One place is kept for "More tools".
             val shownPinned = pinned.take((room - RAIL_TOOLS.size - 1).coerceAtLeast(0))
+            // Named tool presets (design roadmap D84) after the pinned tools; those that don't fit go in "More tools".
+            val presets by RailPresets.state(context)
+            val shownPresets = presets.take((room - RAIL_TOOLS.size - shownPinned.size - 1).coerceAtLeast(0))
             // Expert density (design roadmap D90): a second line holds the tools not on the first,
             // each still a full-size button, so they're one tap away instead of behind "More tools".
             val secondLine = if (com.andene.fern.FernDensity.expert) (RAIL_EXTRA_TOOLS - shownPinned.toSet()).take(room) else emptyList()
             val extraLine: @Composable () -> Unit = { for (tool in secondLine) RailButton(state, tool) }
             val content: @Composable () -> Unit = {
                 for (tool in RAIL_TOOLS + shownPinned) RailButton(state, tool, pinned = tool in shownPinned)
+                for (preset in shownPresets) RailPresetButton(state, preset)
                 Box {
                     LabelledIconButton(onClick = { showMore = true }, icon = FernIcons.MoreHoriz, label = stringResource(R.string.rail_more_tools))
                     DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
+                        for (preset in presets - shownPresets.toSet()) {
+                            FernMenuItem(
+                                text = { Text(preset.name) },
+                                leadingIcon = { Icon(railIcon(state, preset.tool), contentDescription = null, tint = preset.settings.color) },
+                                onClick = {
+                                    state.applyRailPreset(preset)
+                                    showMore = false
+                                },
+                            )
+                        }
                         for (tool in RAIL_EXTRA_TOOLS) {
                             val isPinned = tool in pinned
                             FernMenuItem(
@@ -176,6 +193,40 @@ fun ToolRail(state: CanvasState, vertical: Boolean, modifier: Modifier = Modifie
 }
 
 /**
+ * A named tool preset on the rail (design roadmap D84): its tool's icon with a dot of its colour,
+ * announced by its name; a tap switches to the tool with exactly the preset's settings.
+ */
+@Composable
+private fun RailPresetButton(state: CanvasState, preset: RailPreset) {
+    val labelled = iconLabelsShown()
+    Box(
+        modifier = Modifier
+            .size(if (labelled) FernScale.s64 else FernSize.touchTarget)
+            .clip(if (labelled) MaterialTheme.shapes.large else CircleShape)
+            .clickable(role = Role.Button, onClickLabel = preset.name) { state.applyRailPreset(preset) }
+            .clearAndSetSemantics {
+                role = Role.Button
+                contentDescription = preset.name
+                onClick(preset.name) {
+                    state.applyRailPreset(preset)
+                    true
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(railIcon(state, preset.tool), contentDescription = null)
+        // Its colour, at the corner, so two presets of one tool tell apart at a glance.
+        Box(
+            Modifier
+                .align(Alignment.BottomEnd)
+                .padding(FernScale.s8)
+                .size(FernScale.s8)
+                .background(preset.settings.color, CircleShape),
+        )
+    }
+}
+
+/**
  * One tool on the rail, highlighted while it's the active tool. A tap switches to it; holding it
  * uses it only while held, then the previous tool comes back (design roadmap D17) - e.g. hold
  * the eraser with one hand and erase with the other.
@@ -188,6 +239,8 @@ private fun RailButton(state: CanvasState, tool: Tool, pinned: Boolean = false) 
     val labelled = iconLabelsShown()
     // While the layout is being arranged, a pinned tool is dragged off the rail rather than used (design roadmap D22).
     val arranging = pinned && RailArrange.active
+    // Sizes a resize drag settles on include the user's tool presets' (design roadmap D19, D84).
+    val presetSizes by rememberUpdatedState(RailPresets.state(LocalContext.current).value.map { it.settings.width })
     Box(
         modifier = Modifier
             .size(if (labelled) FernScale.s64 else FernSize.touchTarget)
@@ -234,7 +287,7 @@ private fun RailButton(state: CanvasState, tool: Tool, pinned: Boolean = false) 
                             if (!change.pressed) break
                             val d = change.position - down.position
                             if (abs(d.y) >= abs(d.x)) {
-                                state.activeWidthWorld = snapToPresetSize(startWidth * 2.0.pow(-d.y / ADJUST_DOUBLING_PX))
+                                state.activeWidthWorld = snapToPresetSize(startWidth * 2.0.pow(-d.y / ADJUST_DOUBLING_PX), presetSizes)
                             } else {
                                 state.activeOpacity = (startOpacity + d.x / ADJUST_OPACITY_PX).coerceIn(MIN_OPACITY.toDouble(), 1.0)
                             }
@@ -275,10 +328,10 @@ private const val ADJUST_OPACITY_PX = 384.0
 /** Brush sizes a drag settles on when it passes near them (design roadmap D19). */
 val PRESET_SIZES = listOf(1.0, 2.0, 4.0, 8.0, 12.0, 16.0, 24.0, 32.0)
 
-/** [width] snapped to a preset within 8 %, kept within the brush's range. */
-fun snapToPresetSize(width: Double): Double {
+/** [width] snapped to a preset size - the built-in ones or [userSizes], the user's tool presets' (design roadmap D84) - within 8 %, kept within the brush's range. */
+fun snapToPresetSize(width: Double, userSizes: Collection<Double> = emptyList()): Double {
     val clamped = width.coerceIn(MIN_WIDTH_SCREEN.toDouble(), MAX_WIDTH_SCREEN.toDouble())
-    return PRESET_SIZES.firstOrNull { abs(it - clamped) <= it * 0.08 } ?: clamped
+    return (PRESET_SIZES + userSizes).filter { abs(it - clamped) <= it * 0.08 }.minByOrNull { abs(it - clamped) } ?: clamped
 }
 
 /** Whether a rail drag is adjusting the brush, so the canvas shows its size ring. */

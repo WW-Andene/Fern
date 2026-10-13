@@ -128,6 +128,20 @@ fun LayoutEditor(
                             modifier = Modifier.padding(end = FernScale.s8).railToolSource(tool, MaterialTheme.colorScheme.secondaryContainer))
                     }
                 }
+                // Named tool presets on the rail (design roadmap D84): reordered and removed here, made from the tool in hand.
+                Text(stringResource(R.string.rail_presets), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = FernScale.s16))
+                val presets by RailPresets.state(context)
+                ReorderableList(presets, { it.name }, { railIcon(state, it.tool) }) { RailPresets.set(context, it) }
+                val toolLabel = stringResource(toolName(state.activeTool))
+                val suggested = stringResource(R.string.rail_preset_default_name, toolLabel, formatMeasure(state.activeWidthWorld))
+                var presetName by remember(suggested) { mutableStateOf(suggested) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FernTextField(presetName, { presetName = it }, label = { Text(stringResource(R.string.rail_preset_name)) }, singleLine = true, modifier = Modifier.weight(1f))
+                    FernTextButton(enabled = presetName.isNotBlank(), onClick = {
+                        val preset = RailPreset(java.util.UUID.randomUUID().toString(), presetName.trim(), state.activeTool, state.currentToolSettings())
+                        RailPresets.set(context, presets + preset)
+                    }) { Text(stringResource(R.string.rail_preset_save)) }
+                }
                 Text(stringResource(R.string.quick_menu), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = FernScale.s16))
                 ReorderableList(quickMenu, { stringResource(it.label) }, { it.icon(state) }, minimum = 1, onChange = onQuickMenuChange)
                 if (quickMenu.size < QUICK_MENU_MAX_ACTIONS) FlowRow {
