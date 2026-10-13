@@ -1120,4 +1120,15 @@
     <string name="palette_delete">Supprimer la palette %1$s</string>
     <string name="palette_move_earlier">Avancer</string>
     <string name="palette_move_later">Reculer</string>
+    <string name="tool_name_rig">Squelette</string>
+    <string name="rig_setup">Montage</string>
+    <string name="rig_animate">Animer</string>
+    <string name="rig_draw_bones">Tracer des os</string>
+    <string name="rig_adjust_bones">Ajuster les os</string>
+    <string name="rig_no_animation">Aucune animation</string>
+    <string name="rig_new_animation">Nouvelle animation</string>
+    <string name="rig_new_animation_name">Animation %1$d</string>
+    <string name="rig_delete_bone">Supprimer l’os et ses enfants</string>
+    <string name="rig_attach_selection">Attacher au squelette</string>
+    <string name="rig_attachment_name">Dessin</string>
 </resources>

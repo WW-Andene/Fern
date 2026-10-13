@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.AccessibilityNew
+import androidx.compose.material.icons.filled.Animation
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Colorize
 import androidx.compose.material.icons.filled.FormatColorFill
@@ -66,7 +67,7 @@ import com.andene.fern.R
 val RAIL_TOOLS = listOf(Tool.PEN, Tool.ERASER, Tool.SELECT, Tool.SHAPE)
 
 /** The other tools; each can be pinned to the rail after the fixed ones. */
-val RAIL_EXTRA_TOOLS = listOf(Tool.FILL, Tool.TEXT, Tool.EYEDROPPER, Tool.BEZIER, Tool.MEASURE, Tool.CONNECT, Tool.BONE)
+val RAIL_EXTRA_TOOLS = listOf(Tool.FILL, Tool.TEXT, Tool.EYEDROPPER, Tool.BEZIER, Tool.MEASURE, Tool.CONNECT, Tool.BONE, Tool.RIG)
 
 /** Pinned before the user changes anything. */
 val DEFAULT_PINNED_TOOLS = listOf(Tool.FILL, Tool.TEXT, Tool.EYEDROPPER)
@@ -105,6 +106,7 @@ internal fun railIcon(state: CanvasState, tool: Tool): ImageVector = when (tool)
     Tool.MEASURE -> Icons.Filled.SquareFoot
     Tool.CONNECT -> Icons.Filled.AccountTree
     Tool.BONE -> Icons.Filled.AccessibilityNew
+    Tool.RIG -> Icons.Filled.Animation
 }
 
 /**

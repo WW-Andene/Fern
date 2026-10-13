@@ -309,6 +309,7 @@ fun DrawingCanvas(
                             Tool.BONE -> state.endBone()
                             Tool.BEZIER -> {} // a node is placed on press; nothing to end
                             Tool.MEASURE -> state.endMeasure()
+                            Tool.RIG -> state.rigEditor.end()
                             Tool.SELECT -> {
                                 when (selectionGestureKind) {
                                     SelectionGestureKind.SCALE -> state.endScaleSelection()
@@ -406,6 +407,7 @@ fun DrawingCanvas(
                                     Tool.BONE -> state.beginBone(world)
                                     Tool.BEZIER -> state.beginBezierNode(world)
                                     Tool.MEASURE -> state.beginMeasure(world)
+                                    Tool.RIG -> state.rigEditor.begin(world)
                                     Tool.SELECT -> {
                                         // The shape builder and knife (roadmap item 141) take every drag, handles included.
                                         val handles = if (state.shapeEditMode == null) selectionHandles(state, screenCenter) else null
@@ -442,6 +444,7 @@ fun DrawingCanvas(
                                         Tool.BONE -> state.continueBone(world)
                                         Tool.BEZIER -> state.dragBezierHandle(world)
                                         Tool.MEASURE -> state.continueMeasure(world)
+                                        Tool.RIG -> state.rigEditor.move(world)
                                         Tool.SELECT -> when (selectionGestureKind) {
                                             SelectionGestureKind.SCALE -> state.continueScaleSelection(world)
                                             SelectionGestureKind.ROTATE -> state.continueRotateSelection(world)
@@ -984,6 +987,7 @@ fun DrawingCanvas(
             }
 
             drawGuides(state, screenCenter, state.editingGuides)
+            if (state.activeTool == Tool.RIG) drawRig(state, screenCenter)
         }
     }
     if (navigating || gestureBadge != null) Canvas(Modifier.matchParentSize()) {
@@ -1923,6 +1927,10 @@ internal fun DrawScope.drawScene(
     val strokesByLayer = replayed.filter { s ->
         val shown = world?.instanceOf(s.groupId)?.frame ?: state.currentAnimFrame
         s.animFrame == shown
+    }.let { shownStrokes ->
+        // The rig's attached ink, posed (roadmap items 250, 353): drawn on its own layers like any ink.
+        val rigInk = state.rigEditor.posedStrokes()
+        if (rigInk.isEmpty()) shownStrokes else shownStrokes + rigInk
     }.groupBy { layerIndex[it.layerId] ?: 0 }
     // Offscreen bounds for a translucent layer: the square around the screen centre that covers
     // the screen at any canvas rotation.
@@ -2215,6 +2223,7 @@ internal fun toolName(tool: Tool): Int = when (tool) {
     Tool.BONE -> R.string.tool_name_bone
     Tool.BEZIER -> R.string.tool_name_bezier
     Tool.MEASURE -> R.string.tool_name_measure
+    Tool.RIG -> R.string.tool_name_rig
 }
 
 /**
@@ -2347,3 +2356,44 @@ private const val GUIDE_RINGS = 8
 private const val GUIDE_RADIAL_LINES = 24
 private const val GUIDE_ELLIPSE_SEGMENTS = 96
 private const val GUIDE_GRID_MIN_CELL_PX = 8f
+
+/**
+ * The rig's bones (roadmap item 250) while the rig tool is active, posed as shown: each a long
+ * thin diamond from its origin to its tip, Spine's bone shape, the selected one in the accent
+ * colour, with the bone being drawn as a line.
+ */
+private fun DrawScope.drawRig(state: CanvasState, screenCenter: Offset) {
+    val editor = state.rigEditor
+    val pose = editor.pose()
+    for (bone in editor.rig.bones) {
+        val world = pose[bone.id] ?: continue
+        val a = state.worldToScreen(boneOrigin(world), screenCenter)
+        val b = state.worldToScreen(boneTip(bone, world), screenCenter)
+        val d = b - a
+        val len = d.getDistance()
+        if (len < 1f) continue
+        val n = Offset(-d.y, d.x) / len * (len * RIG_BONE_WIDTH_RATIO).coerceAtMost(RIG_BONE_MAX_HALF_WIDTH_PX)
+        val shoulder = a + d * RIG_BONE_SHOULDER
+        val path = androidx.compose.ui.graphics.Path().apply {
+            moveTo(a.x, a.y)
+            lineTo((shoulder + n).x, (shoulder + n).y)
+            lineTo(b.x, b.y)
+            lineTo((shoulder - n).x, (shoulder - n).y)
+            close()
+        }
+        val color = if (bone.id == editor.selectedBoneId) DRAWING_GUIDE_COLOR else FernColors.current.neutral
+        drawPath(path, color.copy(alpha = RIG_BONE_FILL_ALPHA))
+        drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(GUIDE_LINE_PX))
+        drawCircle(color, radius = RIG_JOINT_PX, center = a)
+    }
+    editor.draft?.let { (head, tail) ->
+        drawLine(DRAWING_GUIDE_COLOR, state.worldToScreen(head, screenCenter), state.worldToScreen(tail, screenCenter), strokeWidth = GUIDE_LINE_PX * 2)
+    }
+}
+
+// Rig bone shape, screen px on the §7 scale: widest a tenth of the way along, at most 8 px each side.
+private const val RIG_BONE_WIDTH_RATIO = 0.08f
+private const val RIG_BONE_MAX_HALF_WIDTH_PX = 8f
+private const val RIG_BONE_SHOULDER = 0.1f
+private const val RIG_BONE_FILL_ALPHA = 0.3f
+private const val RIG_JOINT_PX = 4f

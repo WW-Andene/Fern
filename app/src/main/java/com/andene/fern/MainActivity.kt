@@ -130,6 +130,7 @@ import com.andene.fern.canvas.ClipboardContent
 import com.andene.fern.canvas.DocumentLoadingOverlay
 import com.andene.fern.canvas.PressureCurves
 import com.andene.fern.canvas.PaletteStore
+import com.andene.fern.canvas.RigStorage
 import com.andene.fern.canvas.LoadedDocument
 import com.andene.fern.canvas.LinkChoices
 import com.andene.fern.canvas.LinkTarget
@@ -351,6 +352,10 @@ class MainActivity : ComponentActivity() {
                             onStatsChanged = { stats -> CanvasStorage.saveStats(context, currentDocumentId, stats) },
                             onGuidesChanged = { guides -> CanvasStorage.saveGuides(context, currentDocumentId, guides) },
                             onDrawingGuidesChanged = { guides -> CanvasStorage.saveDrawingGuides(context, currentDocumentId, guides) },
+                            onRigChanged = { rig ->
+                                val documentId = currentDocumentId
+                                coroutineScope.launch(Dispatchers.IO) { RigStorage.save(context, documentId, rig) }
+                            },
                             onDrawingScaleChanged = { scale -> CanvasStorage.saveDrawingScale(context, currentDocumentId, scale) },
                             onGameObjectsChanged = { objects, settings -> CanvasStorage.saveGameObjects(context, currentDocumentId, objects, settings) },
                             // Branch snapshots can be large: written off the main thread (roadmap item 153).
@@ -911,6 +916,7 @@ class MainActivity : ComponentActivity() {
                         canvasState.loadStats(loaded.stats)
                         canvasState.loadGuides(loaded.guides)
                         canvasState.loadDrawingGuides(loaded.drawingGuides)
+                        canvasState.rigEditor.load(withContext(Dispatchers.IO) { RigStorage.load(context, documentId) })
                         canvasState.loadDrawingScale(loaded.drawingScale)
                         canvasState.loadBranches(loaded.branches.first, loaded.branches.second)
                         canvasState.loadGameObjects(loaded.gameObjects.first, loaded.gameObjects.second)

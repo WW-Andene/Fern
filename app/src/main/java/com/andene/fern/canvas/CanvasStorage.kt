@@ -194,6 +194,7 @@ object CanvasStorage {
         statsFile(context, id).delete()
         guidesFile(context, id).delete()
         drawingGuidesFile(context, id).delete()
+        RigStorage.delete(context, id)
         symbolInstancesFile(context, id).delete()
         framesFile(context, id).delete()
         drawingScaleFile(context, id).delete()
@@ -220,6 +221,7 @@ object CanvasStorage {
         val layerComps = loadLayerComps(context, id)
         val guides = loadGuides(context, id)
         val drawingGuides = loadDrawingGuides(context, id)
+        val rig = RigStorage.load(context, id)
         val symbolInstances = loadSymbolInstances(context, id)
         val frames = loadFrames(context, id)
         val drawingScale = loadDrawingScale(context, id)
@@ -241,6 +243,7 @@ object CanvasStorage {
         if (layerComps.isNotEmpty()) saveLayerComps(context, meta.id, layerComps)
         if (guides.isNotEmpty()) saveGuides(context, meta.id, guides)
         if (drawingGuides.isNotEmpty()) saveDrawingGuides(context, meta.id, drawingGuides)
+        RigStorage.save(context, meta.id, rig)
         if (symbolInstances.isNotEmpty()) saveSymbolInstances(context, meta.id, symbolInstances)
         if (frames.isNotEmpty()) saveFrames(context, meta.id, frames)
         if (drawingScale != null) saveDrawingScale(context, meta.id, drawingScale)
@@ -1143,6 +1146,7 @@ object CanvasStorage {
         "stats.json" to statsFile(context, documentId),
         "guides.json" to guidesFile(context, documentId),
         "drawing_guides.json" to drawingGuidesFile(context, documentId),
+        "rig.json" to RigStorage.file(context, documentId),
         "symbols.json" to symbolInstancesFile(context, documentId),
         "frames.json" to framesFile(context, documentId),
         "scale.json" to drawingScaleFile(context, documentId),

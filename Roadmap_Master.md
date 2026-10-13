@@ -404,10 +404,14 @@ Tools Fern doesn't have yet, each built on the phases above.
 
 Rigging the way Spine works: the artist's own drawing cut into parts on a skeleton built for it. Today a bone is a head and a tail point, a pose is a full copy of every bone per frame, a stroke belongs to one bone, and only rotation and position exist. Everything in Phases 12–17 depends on this phase. The document format gains an explicit version and a converter from per-frame poses and bound strokes before the model changes; the game logic's state machines (item 158) move to the new model with it (review O7, §6).
 
-- [ ] 250. Local bone transform: rotation, x, y, scale x/y and shear x/y relative to the parent, with inherit settings (rotation, scale, reflection) per bone.
-- [ ] 251. Timelines: per bone, separate keyed tracks for rotate, translate, scale and shear, each key with its own curve (linear, stepped, Bézier). The per-frame pose becomes the baked result, and existing documents convert to keys.
-- [ ] 252. Setup pose versus animated pose: a Setup mode edits the rest pose; animations store only differences from it.
-- [ ] 253. Several named animations per rig (idle, walk, jump), each with its own length and timelines.
+- [~] 250. Local bone transform: rotation, x, y, scale x/y and shear x/y relative to the parent, with inherit settings (rotation, scale, reflection) per bone.
+  Done: `RigBone` in `Rig.kt`: position, rotation, length, scale and shear relative to the parent, with inherit settings. Left: editing scale, shear and inherit in the UI.
+- [~] 251. Timelines: per bone, separate keyed tracks for rotate, translate, scale and shear, each key with its own curve (linear, stepped, Bézier). The per-frame pose becomes the baked result, and existing documents convert to keys.
+  Done: `BoneTimeline` keys per property with linear, stepped or Bézier curves; the Rig tool keys rotation and position at the current frame (auto-key). Left: editing curves and keys in the dopesheet and graph editor; converting old per-frame poses.
+- [~] 252. Setup pose versus animated pose: a Setup mode edits the rest pose; animations store only differences from it.
+  Done: the Rig tool's Setup mode edits the setup pose; animations store only offsets from it.
+- [~] 253. Several named animations per rig (idle, walk, jump), each with its own length and timelines.
+  Done: several named animations per rig, chosen or added from the Rig tool's properties.
 - [ ] 254. Bone tree panel: names, colours, folders, hierarchy; tapping ink selects its bone.
 - [ ] 255. The same keyed timelines for non-rig properties: layer and object opacity, position, scale, rotation and colour with easing.
 
@@ -440,7 +444,8 @@ Animation tools on the Phase 11 model.
 
 Spine's display model, and rigging your own drawing. Builds on Phase 11.
 
-- [ ] 353. **Rig your own drawing.** Select part of the drawing (strokes, raster paint or an image) and make it an attachment on a bone, cut along the selection; a whole layer can be attached the same way. Today "bind to nearest bones" gives each whole stroke to the one bone nearest its centre (`CanvasState.kt:1887`), so an arm drawn as one outline can't bend, and raster paint, images and fills can't be rigged at all.
+- [~] 353. **Rig your own drawing.** Select part of the drawing (strokes, raster paint or an image) and make it an attachment on a bone, cut along the selection; a whole layer can be attached the same way. Today "bind to nearest bones" gives each whole stroke to the one bone nearest its centre (`CanvasState.kt:1887`), so an arm drawn as one outline can't bend, and raster paint, images and fills can't be rigged at all.
+  Done: "Attach to the rig" on the selection strip: the selected ink leaves the canvas and becomes an attachment in a new slot on the selected (or nearest) bone, each point following its nearest two bones by weight, so one outline bends at a joint; it is drawn posed and saved with the document, and deleting its bone returns it to the canvas. Left: raster paint and images.
 - [ ] 272. Slots: a slot hangs from a bone and shows one attachment at a time; ink and images go into slots instead of binding to bones directly. Existing bound ink converts to one slot per bone.
 - [ ] 273. Region attachments (an image or group of strokes) in slots.
 - [ ] 274. Attachment timeline: swap a slot's attachment over time (open hand, fist, pointing).

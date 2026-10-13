@@ -1116,4 +1116,15 @@
     <string name="palette_delete">Delete the palette %1$s</string>
     <string name="palette_move_earlier">Move earlier</string>
     <string name="palette_move_later">Move later</string>
+    <string name="tool_name_rig">Rig</string>
+    <string name="rig_setup">Setup</string>
+    <string name="rig_animate">Animate</string>
+    <string name="rig_draw_bones">Drawing bones</string>
+    <string name="rig_adjust_bones">Adjusting bones</string>
+    <string name="rig_no_animation">No animation</string>
+    <string name="rig_new_animation">New animation</string>
+    <string name="rig_new_animation_name">Animation %1$d</string>
+    <string name="rig_delete_bone">Delete the bone and its children</string>
+    <string name="rig_attach_selection">Attach to the rig</string>
+    <string name="rig_attachment_name">Drawing</string>
 </resources>

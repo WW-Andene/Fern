@@ -792,6 +792,53 @@ fun Toolbar(
                 }
                 }
                 // Skeleton (roadmap item 83): draw bones, then pose them frame by frame.
+                // The rig tool (roadmap items 250-253): setup or animate, draw or adjust bones, the animation, delete a bone.
+                if (state.activeTool == Tool.RIG) {
+                    val rig = state.rigEditor
+                    androidx.compose.material3.FilterChip(
+                        selected = rig.setupMode,
+                        onClick = { rig.setupMode = true },
+                        label = { Text(stringResource(R.string.rig_setup)) },
+                        modifier = Modifier.padding(end = FernScale.s4),
+                    )
+                    androidx.compose.material3.FilterChip(
+                        selected = !rig.setupMode,
+                        onClick = { rig.setupMode = false },
+                        label = { Text(stringResource(R.string.rig_animate)) },
+                        modifier = Modifier.padding(end = FernScale.s8),
+                    )
+                    if (rig.setupMode) {
+                        androidx.compose.material3.FilterChip(
+                            selected = rig.drawingBones,
+                            onClick = { rig.drawingBones = !rig.drawingBones },
+                            label = { Text(stringResource(if (rig.drawingBones) R.string.rig_draw_bones else R.string.rig_adjust_bones)) },
+                            modifier = Modifier.padding(end = FernScale.s4),
+                        )
+                    } else {
+                        var showAnimations by remember { mutableStateOf(false) }
+                        val newAnimationName = stringResource(R.string.rig_new_animation_name, rig.rig.animations.size + 1)
+                        Box {
+                            FernTextButton(onClick = { showAnimations = true }) {
+                                Text(rig.activeAnimation?.name ?: stringResource(R.string.rig_no_animation))
+                            }
+                            DropdownMenu(expanded = showAnimations, onDismissRequest = { showAnimations = false }) {
+                                for (anim in rig.rig.animations) {
+                                    DropdownMenuItem(text = { Text(anim.name) }, onClick = {
+                                        rig.animationId = anim.id
+                                        showAnimations = false
+                                    })
+                                }
+                                DropdownMenuItem(text = { Text(stringResource(R.string.rig_new_animation)) }, onClick = {
+                                    rig.addAnimation(newAnimationName)
+                                    showAnimations = false
+                                })
+                            }
+                        }
+                    }
+                    IconButton(onClick = { state.deleteSelectedRigBone() }, enabled = rig.selectedBoneId != null) {
+                        Icon(Icons.Filled.DeleteOutline, contentDescription = stringResource(R.string.rig_delete_bone))
+                    }
+                }
                 if (state.activeTool == Tool.BONE) {
                     IconButton(onClick = { state.posingBones = !state.posingBones }) {
                         Icon(

@@ -34,7 +34,7 @@ enum class StrokeAlignment(@StringRes val label: Int) {
     DISTRIBUTE_Y(R.string.align_distribute_y),
 }
 
-enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, EYEDROPPER, CONNECT, BONE, BEZIER, MEASURE }
+enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, EYEDROPPER, CONNECT, BONE, BEZIER, MEASURE, RIG }
 
 /**
  * Camera + document model for the infinite canvas.
@@ -98,6 +98,8 @@ class CanvasState(
     private val onGuidesChanged: (List<Guide>) -> Unit = {},
     /** The drawing guides changed (roadmap item 218), to save them with the document. */
     private val onDrawingGuidesChanged: (List<DrawingGuide>) -> Unit = {},
+    /** The rig changed (roadmap items 250-253, 272), to save it with the document. */
+    private val onRigChanged: (Rig) -> Unit = {},
     /** The game objects or the game's world settings changed (roadmap items 155 and 159). */
     private val onGameObjectsChanged: (List<GameObject>, GameSettings) -> Unit = { _, _ -> },
     /** The animation branches changed (roadmap item 153): the branches and the current one's id. */
@@ -3214,6 +3216,8 @@ class CanvasState(
         var layers: List<Layer>? = null,
         var objects: List<GameObject>? = null,
         var game: GameSettings? = null,
+        // The Spine-model rig (roadmap item 250): immutable, so each entry just keeps a reference.
+        var rig: Rig? = null,
     ) {
         val log = Stroke.MutationLog()
 
@@ -3397,7 +3401,7 @@ class CanvasState(
 
     /** What the rendered scene depends on, for [SceneTileCache]; comparing two is O(1). */
     fun sceneVersion() = SceneVersion(
-        listOf(strokes.toList(), geometryEpoch, rasterRevision, layers.toList(), textItems.toList(), imageItems.toList(), connectors.toList(), backgroundColor, backgroundStyle, currentAnimFrame),
+        listOf(strokes.toList(), geometryEpoch, rasterRevision, layers.toList(), textItems.toList(), imageItems.toList(), connectors.toList(), backgroundColor, backgroundStyle, currentAnimFrame, rigEditor.revision, rigEditor.setupMode, rigEditor.animationId),
     )
 
     /** Arrows between text labels and sticky notes; see [Connector]. */
@@ -3511,6 +3515,7 @@ class CanvasState(
         it.layers = layers.toList()
         it.objects = gameObjects.toList()
         it.game = gameSettings
+        it.rig = rigEditor.rig
     }
 
     /** Called at the start of every stroke-changing action; also invalidates redo, standard editor semantics. */
@@ -3584,6 +3589,7 @@ class CanvasState(
             connectors.addAll(savedConnectors)
             onConnectorsChanged(connectors.toList())
         }
+        entry.rig?.let { rigEditor.restore(it) }
         val savedHolds = entry.holds
         if (savedHolds != null && savedHolds != frameHolds.toMap()) {
             frameHolds.clear()
@@ -6100,6 +6106,47 @@ class CanvasState(
         pasteStrokes(drawn)
     }
 
+    /**
+     * The Spine-model rig and its editing (roadmap items 250-253, 272, 353), for [Tool.RIG].
+     * Its attached ink is drawn posed by the scene; see [RigEditor].
+     */
+    val rigEditor = RigEditor(object : RigEditor.Host {
+        override val currentFrame: Int get() = currentAnimFrame
+        override val viewScale: Double get() = scale
+        override fun recordHistory() = this@CanvasState.recordHistory()
+        override fun rigChanged(rig: Rig) {
+            geometryEpoch++
+            onRigChanged(rig)
+        }
+    })
+
+    /**
+     * Attaches the selected ink to the rig (roadmap item 353): it leaves the canvas and becomes an
+     * attachment on the selected bone (or the nearest), following its bones by weight. One undo step.
+     */
+    fun attachSelectionToRig(name: String): Boolean {
+        val ink = selection.filter { it.points.isNotEmpty() }
+        if (ink.isEmpty() || rigEditor.rig.bones.isEmpty()) return false
+        recordHistory()
+        if (!rigEditor.attach(ink, name)) return false
+        val attached = ink.toHashSet()
+        strokes.removeAll { it in attached }
+        clearSelectionState()
+        strokesChanged()
+        return true
+    }
+
+    /** Deletes the selected rig bone and its children; ink attached to them comes back to the canvas. One undo step. */
+    fun deleteSelectedRigBone() {
+        if (rigEditor.selectedBoneId == null) return
+        recordHistory()
+        val returned = rigEditor.deleteSelectedBone()
+        if (returned.isNotEmpty()) {
+            strokes.addAll(returned.map { it.deepCopy() })
+            strokesChanged()
+        }
+    }
+
     fun deleteSelection() {
         val textId = selectedTextId
         if (textId != null) {
@@ -6442,6 +6489,7 @@ class CanvasState(
         }
         if (drawingGuides.isNotEmpty()) {
             for (i in drawingGuides.indices) drawingGuides[i] = drawingGuides[i].shiftedBy(offset)
+            rigEditor.shiftBy(offset)
             onDrawingGuidesChanged(drawingGuides.toList())
         }
         if (guides.isNotEmpty()) {
