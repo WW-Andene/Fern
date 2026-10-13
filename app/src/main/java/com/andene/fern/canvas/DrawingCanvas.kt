@@ -145,6 +145,7 @@ fun DrawingCanvas(
     // Decoded lazily and cached by file name: re-decoding from disk every frame would be
     // wasteful, and images never change once placed (a new image is a new ImageItem/file).
     val gestures by GestureSettings.state(context)
+    val touchTiming by TouchTimingSettings.state(context)
     val palm by PalmSettings.state(context)
     // Where a hovering stylus is (design roadmap D16): the brush's footprint shows there before it touches.
     var hoverPoint by remember { mutableStateOf<Offset?>(null) }
@@ -318,7 +319,7 @@ fun DrawingCanvas(
                     while (true) {
                         val holding = longPressArmed && maxPointers <= 1
                         val event = if (holding) {
-                            withTimeoutOrNull((LONG_PRESS_MILLIS - (SystemClock.uptimeMillis() - downClock)).coerceAtLeast(1L)) { awaitPointerEvent(PointerEventPass.Main) }
+                            withTimeoutOrNull((touchTiming.holdMillis - (SystemClock.uptimeMillis() - downClock)).coerceAtLeast(1L)) { awaitPointerEvent(PointerEventPass.Main) }
                         } else {
                             awaitPointerEvent(PointerEventPass.Main)
                         }
@@ -504,7 +505,7 @@ fun DrawingCanvas(
                     val swipeFrom = swipeStart
                     if (longPressed) {
                         // Handled when it fired.
-                    } else if (maxPointers in 2..4 && tapDuration <= MULTI_FINGER_TAP_MAX_MILLIS && navigationTravel <= MULTI_FINGER_TAP_SLOP_PX) {
+                    } else if (maxPointers in 2..4 && tapDuration <= touchTiming.tapMaxMillis && navigationTravel <= touchTiming.tapSlopPx) {
                         // The first finger may have begun a stroke before the others landed; that wasn't drawing.
                         state.discardActionsSince(historyDepthAtStart)
                         val gesture = when (maxPointers) {
@@ -1798,11 +1799,6 @@ private fun mixArgb(from: Int, to: Int, t: Float): Int {
 private const val WHEEL_PAN_PX = 64f
 private const val WHEEL_ZOOM_STEP = 1.1
 
-// Two/three-finger tap to undo/redo, the convention of Procreate and most iPad/Android drawing apps.
-private const val MULTI_FINGER_TAP_MAX_MILLIS = 250L
-private const val MULTI_FINGER_TAP_SLOP_PX = 24f // on the §7 scale
-// A finger held this long within this distance is a long press (design roadmap D15); Android's own long-press time.
-private const val LONG_PRESS_MILLIS = 500L
 // After a stylus was last seen, strict palm rejection ignores touches this long.
 private const val PALM_NEAR_MILLIS = 1024L
 // Padding around an on-canvas readout.

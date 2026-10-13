@@ -1086,4 +1086,8 @@
     <string name="eyedropper_nothing">Nothing to pick there</string>
     <string name="eyedropper_this_layer">This layer only</string>
     <string name="eyedropper_sample_px">%1$d px</string>
+    <string name="touch_timing_title">Touch timing (hold and taps)</string>
+    <string name="touch_timing_quick">Quick</string>
+    <string name="touch_timing_normal">Normal</string>
+    <string name="touch_timing_relaxed">Relaxed</string>
 </resources>

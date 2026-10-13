@@ -139,7 +139,6 @@ Make the tool phases cheap and safe to build: every tool currently goes through 
 
 - [ ] 167. Split per-tool gesture handling out of `DrawingCanvas.kt` into one handler per tool (press, move, release, cancel), and per-tool state out of `CanvasState.kt` (CLAUDE.md §4.5): both are thousands of lines and every new tool touches the same `when` blocks.
 - [ ] 168. Gesture tests: fingers landing and lifting at different times, a pan becoming a pinch, stylus with a resting palm, long press versus a slow stroke.
-- [ ] 169. Long-press delay and multi-finger tap tolerances in Settings, instead of fixed values.
 - [ ] 171. On-canvas handle framework: one way to draw, hit-test and drag handles (shape parameters, joint limits, gradient stops, vanishing points, IK targets, constraint targets) instead of each tool doing its own.
 - [ ] 172. On-canvas numeric readout and entry: any handle can show its value and accept a typed one.
 - [ ] 357. **Performance benchmarks on two phones** (one low-end, one high-end): pen-to-pixel latency, frame time at 100,000 and 1,000,000 strokes, panel opening time, tracked over releases. Needed before the brush engine (Phase 5) adds per-stamp work. Review finding O9.

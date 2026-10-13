@@ -1090,4 +1090,8 @@
     <string name="eyedropper_nothing">Rien à prélever ici</string>
     <string name="eyedropper_this_layer">Ce calque seulement</string>
     <string name="eyedropper_sample_px">%1$d px</string>
+    <string name="touch_timing_title">Rythme du toucher (appui et tapes)</string>
+    <string name="touch_timing_quick">Rapide</string>
+    <string name="touch_timing_normal">Normal</string>
+    <string name="touch_timing_relaxed">Détendu</string>
 </resources>

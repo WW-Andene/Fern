@@ -288,6 +288,7 @@ fun SettingsDialog(
                 SettingsSection(R.string.settings_section_input)
                 GestureMapEditor(filter = ::shows)
                 if (shows(stringResource(R.string.palm_title))) PalmRejectionEditor()
+                if (shows(stringResource(R.string.touch_timing_title))) TouchTimingEditor()
                 ShortcutEditor(filter = ::shows)
                 // Appearance.
                 SettingsSection(R.string.settings_section_appearance)
