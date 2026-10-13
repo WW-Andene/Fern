@@ -53,6 +53,8 @@ import androidx.compose.runtime.setValue
 import kotlin.math.abs
 import kotlin.math.pow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import com.andene.fern.FernScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -181,6 +183,7 @@ private fun RailButton(state: CanvasState, tool: Tool) {
             .toolSelected(active)
             .semantics(mergeDescendants = true) {
                 role = Role.Button
+                contentDescription = label
                 onClick(label) {
                     state.activeTool = tool
                     true
@@ -240,10 +243,10 @@ private fun RailButton(state: CanvasState, tool: Tool) {
         if (labelled) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(railIcon(state, tool), contentDescription = null, tint = tint)
-                Text(label, style = MaterialTheme.typography.labelSmall, color = tint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(label, style = MaterialTheme.typography.labelSmall, color = tint, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.clearAndSetSemantics {})
             }
         } else {
-            Icon(railIcon(state, tool), contentDescription = label, tint = tint)
+            Icon(railIcon(state, tool), contentDescription = null, tint = tint)
         }
     }
 }

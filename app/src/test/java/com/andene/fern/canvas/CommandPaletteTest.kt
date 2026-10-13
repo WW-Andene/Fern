@@ -45,7 +45,7 @@ class CommandPaletteTest {
                 FernPanelHost(railOnLeft = true, railInset = FernScale.none, railSide = FernScale.none)
             }
         }
-        compose.onNodeWithContentDescription("Find a command").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Find a command").performClick()
         compose.onNodeWithText("Tool, action, setting, document…").performTextInput("measure")
         compose.onNodeWithText("Measure").performClick()
         assertEquals(Tool.MEASURE, state.activeTool)
