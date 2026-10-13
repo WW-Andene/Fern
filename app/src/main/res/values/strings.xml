@@ -5,8 +5,8 @@
     <string name="welcome_tip_shapes">Hold the pen still at the end of a stroke to snap it into a clean line, box or circle.</string>
     <string name="welcome_tip_eyedropper">Touch and hold without moving to pick up the colour underneath.</string>
     <string name="welcome_tip_erase">Flip your stylus or hold its button to erase.</string>
-    <string name="welcome_tip_toolbar">Scroll the toolbar sideways for more tools; the ⋮ menu holds images, PDFs, frames, pins and settings.</string>
-    <string name="welcome_title">Welcome to Fern</string>
+    <string name="welcome_tip_toolbar">Find any action by name with the search button or Ctrl+K; the Insert, Import, Document and App menus hold the rest.</string>
+    <string name="welcome_title">Tips</string>
     <string name="welcome_start">Start drawing</string>
     <string name="settings_title">Settings</string>
     <string name="settings_left_handed">Left-handed layout</string>
@@ -1028,4 +1028,19 @@
     <string name="pins_empty">No pins yet. A pin remembers this view (place and zoom) so you can jump back to it: name one below.</string>
     <string name="states_empty">No states yet. Add one per animation (idle, run, jump), then transitions between them.</string>
     <string name="rules_empty">No rules yet. Add one, pick when it fires, then what it does.</string>
+    <string name="tip_pen">Drag up or down on the pen in the rail to change its size, sideways for opacity.</string>
+    <string name="tip_eraser">Hold the eraser in the rail to erase only while you hold it.</string>
+    <string name="tip_select">Draw around things to select them; then move, turn or style them from the bar below.</string>
+    <string name="tip_fill">Tap inside a closed shape to fill it; small gaps are closed for you.</string>
+    <string name="tip_text">Tap to type a label, drag to make a text box.</string>
+    <string name="tip_bezier">Tap for corners, drag for curves, tap the first point to close.</string>
+    <string name="tip_measure">Drag to measure a distance and angle; tap a shape for its size.</string>
+    <string name="tip_bone">Drag to draw a bone; draw the next from its end to chain them.</string>
+    <string name="tip_connect">Drag from one label to another to link them with an arrow.</string>
+    <string name="tips_got_it">Got it</string>
+    <string name="tips_off">No more tips</string>
+    <string name="tips_show_in_context">Show tips as I go</string>
+    <string name="tips_practice">Practice page</string>
+    <string name="tips_practice_name">Practice</string>
+    <string name="tips_practice_ready">A practice page: try anything, your work is untouched.</string>
 </resources>

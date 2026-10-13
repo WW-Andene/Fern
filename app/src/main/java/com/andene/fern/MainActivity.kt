@@ -186,7 +186,7 @@ import com.andene.fern.canvas.markWelcomeSeen
 import com.andene.fern.canvas.isAdobeSwatchExchange
 import com.andene.fern.canvas.parseAdobeSwatchExchange
 import com.andene.fern.canvas.parseGimpPalette
-import com.andene.fern.canvas.shouldShowWelcome
+import com.andene.fern.canvas.CoachMarkHost
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
@@ -268,7 +268,8 @@ class MainActivity : ComponentActivity() {
                     var pins by remember { mutableStateOf(emptyList<PinMeta>()) }
                     var showPinsDialog by remember { mutableStateOf(false) }
                     var showFramesDialog by remember { mutableStateOf(false) }
-                    var showWelcome by remember { mutableStateOf(shouldShowWelcome(context)) }
+                    // First-run teaching is in context now (design roadmap D29); the full list opens from Settings.
+                    var showWelcome by remember { mutableStateOf(false) }
                     var showSettings by remember { mutableStateOf(false) }
                     var showQuickMenu by remember { mutableStateOf(false) }
                     // Every bar and panel hidden for a clear canvas (design roadmap D15 and D78).
@@ -1396,6 +1397,14 @@ class MainActivity : ComponentActivity() {
                                     .padding(FernScale.s8),
                             )
                             if (ShortcutCapture.cheatSheet) ShortcutCheatSheet(Modifier.align(Alignment.Center))
+                            // Tips in context (design roadmap D29), away from the toolbar and the rail.
+                            CoachMarkHost(
+                                canvasState,
+                                Modifier
+                                    .align(if (toolbarAtBottom) Alignment.TopCenter else Alignment.Center)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(FernScale.s16),
+                            )
                             // Panels (design roadmap D10): beside the rail, never covering the canvas.
                             FernPanelHost(railOnLeft = !leftHanded, railInset = railInset, railSide = railSide)
                             if (showQuickMenu) QuickMenuOverlay(state = canvasState, onDismiss = { showQuickMenu = false }, actions = quickMenuActions)
@@ -1652,10 +1661,22 @@ class MainActivity : ComponentActivity() {
                     }
 
                     if (showWelcome) {
-                        WelcomeDialog(onDismiss = {
-                            markWelcomeSeen(context)
-                            showWelcome = false
-                        })
+                        WelcomeDialog(
+                            onDismiss = {
+                                markWelcomeSeen(context)
+                                showWelcome = false
+                            },
+                            onPractice = {
+                                showWelcome = false
+                                coroutineScope.launch {
+                                    val created = withContext(Dispatchers.IO) { CanvasStorage.createDocument(context, context.getString(R.string.tips_practice_name)) }
+                                    refreshDocuments()
+                                    switchToDocument(created.id)
+                                    canvasState.resetView()
+                                    FernMessages.show(context.getString(R.string.tips_practice_ready))
+                                }
+                            },
+                        )
                     }
 
                     if (showFramesDialog) {

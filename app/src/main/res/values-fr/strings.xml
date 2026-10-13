@@ -5,8 +5,8 @@
     <string name="welcome_tip_shapes">Gardez le stylet immobile à la fin d\'un trait pour le transformer en ligne, rectangle ou cercle nets.</string>
     <string name="welcome_tip_eyedropper">Touchez longuement sans bouger pour prélever la couleur en dessous.</string>
     <string name="welcome_tip_erase">Retournez le stylet ou maintenez son bouton pour gommer.</string>
-    <string name="welcome_tip_toolbar">Faites défiler la barre d\'outils pour plus d\'outils ; le menu ⋮ contient images, PDF, cadres, épingles et réglages.</string>
-    <string name="welcome_title">Bienvenue dans Fern</string>
+    <string name="welcome_tip_toolbar">Trouvez n’importe quelle action par son nom avec le bouton de recherche ou Ctrl+K ; les menus Insérer, Importer, Document et Appli contiennent le reste.</string>
+    <string name="welcome_title">Astuces</string>
     <string name="welcome_start">Commencer à dessiner</string>
     <string name="settings_title">Réglages</string>
     <string name="settings_left_handed">Disposition pour gaucher</string>
@@ -1031,4 +1031,19 @@
     <string name="pins_empty">Aucun repère. Un repère retient cette vue (endroit et zoom) pour y revenir : nommez-en un ci-dessous.</string>
     <string name="states_empty">Aucun état. Ajoutez-en un par animation (repos, course, saut), puis les transitions entre eux.</string>
     <string name="rules_empty">Aucune règle. Ajoutez-en une, choisissez quand elle s’applique, puis ce qu’elle fait.</string>
+    <string name="tip_pen">Glissez vers le haut ou le bas sur le stylo du rail pour changer sa taille, sur le côté pour l’opacité.</string>
+    <string name="tip_eraser">Maintenez la gomme du rail pour gommer seulement pendant que vous la tenez.</string>
+    <string name="tip_select">Entourez des éléments pour les sélectionner, puis déplacez-les, tournez-les ou changez leur style depuis la barre du bas.</string>
+    <string name="tip_fill">Touchez l’intérieur d’une forme fermée pour la remplir ; les petits trous sont comblés pour vous.</string>
+    <string name="tip_text">Touchez pour écrire une étiquette, glissez pour une zone de texte.</string>
+    <string name="tip_bezier">Touchez pour un angle, glissez pour une courbe, touchez le premier point pour fermer.</string>
+    <string name="tip_measure">Glissez pour mesurer une distance et un angle ; touchez une forme pour sa taille.</string>
+    <string name="tip_bone">Glissez pour tracer un os ; partez de son extrémité pour enchaîner le suivant.</string>
+    <string name="tip_connect">Glissez d’une étiquette à une autre pour les relier par une flèche.</string>
+    <string name="tips_got_it">Compris</string>
+    <string name="tips_off">Plus d’astuces</string>
+    <string name="tips_show_in_context">Afficher les astuces au fil de l’eau</string>
+    <string name="tips_practice">Page d’entraînement</string>
+    <string name="tips_practice_name">Entraînement</string>
+    <string name="tips_practice_ready">Une page d’entraînement : essayez tout, votre travail n’est pas touché.</string>
 </resources>
