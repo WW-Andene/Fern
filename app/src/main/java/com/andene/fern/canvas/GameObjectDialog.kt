@@ -1,10 +1,12 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSwitch
+import com.andene.fern.FernTextField
 import com.andene.fern.FernPanel
 
 import com.andene.fern.FernScale
 
-import androidx.compose.material3.Switch
 import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -26,9 +28,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -85,7 +85,7 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                 2 -> RulesEditor(state, current.id)
                 3 -> GameScriptEditor(state, current.id)
                 else -> Column(Modifier.heightIn(max = FernScale.s512).verticalScroll(rememberScrollState())) {
-                OutlinedTextField(current.name, { save(current.copy(name = it)) }, label = { Text(stringResource(R.string.object_name)) }, singleLine = true)
+                FernTextField(current.name, { save(current.copy(name = it)) }, label = { Text(stringResource(R.string.object_name)) }, singleLine = true)
                 Text(stringResource(R.string.object_properties), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = FernScale.s8))
                 for ((key, value) in current.properties) key(key) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -97,8 +97,8 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(newProperty, { newProperty = it.filter { c -> c.isLetterOrDigit() || c == '_' } }, label = { Text(stringResource(R.string.object_new_property)) }, singleLine = true, modifier = Modifier.weight(1f))
-                    TextButton(onClick = {
+                    FernTextField(newProperty, { newProperty = it.filter { c -> c.isLetterOrDigit() || c == '_' } }, label = { Text(stringResource(R.string.object_new_property)) }, singleLine = true, modifier = Modifier.weight(1f))
+                    FernTextButton(onClick = {
                         save(current.copy(properties = current.properties + (newProperty to 0.0)))
                         newProperty = ""
                     }, enabled = newProperty.isNotEmpty() && newProperty !in current.properties) { Text(stringResource(R.string.object_add)) }
@@ -126,7 +126,7 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                             if (behaviour.path == null) stringResource(R.string.object_path_missing) else stringResource(R.string.object_path_points, behaviour.path.size),
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        if (path != null) TextButton(onClick = {
+                        if (path != null) FernTextButton(onClick = {
                             save(current.copy(behaviours = current.behaviours.mapIndexed { i, b -> if (i == index) b.copy(path = path) else b }))
                         }) { Text(stringResource(R.string.object_use_path)) }
                     }
@@ -135,11 +135,11 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                 HorizontalDivider(Modifier.padding(vertical = FernScale.s8))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.object_show_in_hud), modifier = Modifier.weight(1f))
-                    Switch(checked = current.showInHud, onCheckedChange = { save(current.copy(showInHud = it)) })
+                    FernSwitch(checked = current.showInHud, onCheckedChange = { save(current.copy(showInHud = it)) })
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.object_camera_follows), modifier = Modifier.weight(1f))
-                    Switch(
+                    FernSwitch(
                         checked = state.gameSettings.cameraTarget == current.id,
                         onCheckedChange = { follow -> state.changeGameSettings(state.gameSettings.copy(cameraTarget = if (follow) current.id else null)) },
                     )
@@ -150,7 +150,7 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                     // Drawn hitbox and links (roadmap item 157).
                     HorizontalDivider(Modifier.padding(vertical = FernScale.s8))
                     Text(stringResource(if (current.hitbox == null) R.string.object_no_hitbox else R.string.object_has_hitbox), style = MaterialTheme.typography.bodySmall)
-                    if (current.hitbox != null) TextButton(onClick = { save(current.copy(hitbox = null)) }) { Text(stringResource(R.string.object_clear_hitbox)) }
+                    if (current.hitbox != null) FernTextButton(onClick = { save(current.copy(hitbox = null)) }) { Text(stringResource(R.string.object_clear_hitbox)) }
                     for (link in state.gameSettings.links.filter { it.from == current.id || it.to == current.id }) {
                         val other = state.gameObjects.firstOrNull { it.id == (if (link.from == current.id) link.to else link.from) }?.name ?: "?"
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -160,7 +160,7 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                     }
                 }
                 Box {
-                    TextButton(onClick = { showBehaviours = true }) { Text(stringResource(R.string.object_add_behaviour)) }
+                    FernTextButton(onClick = { showBehaviours = true }) { Text(stringResource(R.string.object_add_behaviour)) }
                     DropdownMenu(expanded = showBehaviours, onDismissRequest = { showBehaviours = false }) {
                         for (kind in BehaviourKind.entries) {
                             DropdownMenuItem(text = { Text(stringResource(kind.label)) }, onClick = {
@@ -175,7 +175,7 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
             }
         },
         dismissButton = {
-            TextButton(onClick = {
+            FernTextButton(onClick = {
                 state.removeObject(current.id)
                 onDismiss()
             }) { Text(stringResource(R.string.object_not_object)) }
@@ -191,7 +191,7 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
 @Composable
 internal fun NumberField(value: Double, onChange: (Double) -> Unit) {
     var text by remember { mutableStateOf(plainNumber(value)) }
-    OutlinedTextField(
+    FernTextField(
         text,
         { typed ->
             text = typed
@@ -236,7 +236,7 @@ private fun PhysicsSection(state: CanvasState, body: PhysicsBody, onChange: (Phy
     LabelledNumber(R.string.physics_gravity_across, world.gravityX) { state.changeGameSettings(world.copy(gravityX = it)) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.physics_walls), modifier = Modifier.weight(1f))
-        Switch(checked = world.walls, onCheckedChange = { state.changeGameSettings(world.copy(walls = it)) })
+        FernSwitch(checked = world.walls, onCheckedChange = { state.changeGameSettings(world.copy(walls = it)) })
     }
     SceneChooser(state)
 }

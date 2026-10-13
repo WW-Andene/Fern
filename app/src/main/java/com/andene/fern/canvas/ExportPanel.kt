@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
 import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
@@ -15,7 +16,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -72,7 +72,8 @@ enum class ExportFormat(
     REPLAY_MP4(ExportPurpose.ANIMATION, R.string.tb_export_replay_mp4),
     SPRITE_SHEET(ExportPurpose.GAME, R.string.tb_export_sprites, recommended = true, available = { it.animFrameCount > 1 }),
     SPRITE_ATLAS(ExportPurpose.GAME, R.string.tb_export_sprite_atlas, available = { it.animFrameCount > 1 }),
-    SPINE(ExportPurpose.GAME, R.string.tb_export_spine, available = { it.animFrameCount > 1 && it.bones.isNotEmpty() }),
+    // The Spine-model rig exports from its setup pose, so it needs bones but no animation frames.
+    SPINE(ExportPurpose.GAME, R.string.tb_export_spine, available = { it.rigEditor.rig.bones.isNotEmpty() || (it.animFrameCount > 1 && it.bones.isNotEmpty()) }),
     DRAGON_BONES(ExportPurpose.GAME, R.string.tb_export_dragonbones, available = { it.animFrameCount > 1 && it.bones.isNotEmpty() }),
 }
 
@@ -108,7 +109,7 @@ fun ExportPanel(state: CanvasState, run: (ExportFormat) -> Unit, onDismiss: () -
         text = {
             Column {
                 if (last != null) {
-                    TextButton(onClick = { export(last) }) {
+                    FernTextButton(onClick = { export(last) }) {
                         Icon(Icons.Filled.Replay, contentDescription = null, modifier = Modifier.padding(end = FernScale.s8))
                         Text(stringResource(R.string.export_again, stringResource(last.label)))
                     }

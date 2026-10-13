@@ -1,12 +1,12 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSlider
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -27,13 +27,14 @@ import kotlin.math.roundToInt
 fun RotatePixelsDialog(state: CanvasState, onDismiss: () -> Unit) {
     var degrees by remember { mutableFloatStateOf(45f) }
     var rotSprite by remember { mutableStateOf(true) }
-    AlertDialog(
+    FernPanel(
+        scrollContent = true,
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.rotate_pixels_title)) },
         text = {
             Column {
                 Text(stringResource(R.string.rotate_pixels_angle, degrees.roundToInt()))
-                Slider(value = degrees, onValueChange = { degrees = it.roundToInt().toFloat() }, valueRange = -180f..180f)
+                FernSlider(value = degrees, onValueChange = { degrees = it.roundToInt().toFloat() }, valueRange = -180f..180f)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = rotSprite, onCheckedChange = { rotSprite = it })
                     Text(stringResource(R.string.rotate_pixels_rotsprite))
@@ -41,11 +42,11 @@ fun RotatePixelsDialog(state: CanvasState, onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            FernTextButton(onClick = {
                 state.rotateRasterPixels(degrees.toDouble(), rotSprite)
                 onDismiss()
             }) { Text(stringResource(R.string.action_apply)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

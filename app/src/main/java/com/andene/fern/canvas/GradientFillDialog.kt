@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
 import com.andene.fern.FernPanel
 
 import com.andene.fern.FernScale
@@ -23,7 +24,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -130,11 +130,11 @@ fun GradientFillDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            FernTextButton(onClick = {
                 onApply(mode, if (mode == GradientMode.TWO_COLOURS) FillGradient(endColor, angle) else null)
             }) { Text(stringResource(R.string.action_apply)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 
     if (pickingEndColor) {

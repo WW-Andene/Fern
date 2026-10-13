@@ -85,7 +85,7 @@ could do.
 - `canvas/Toolbar.kt` and `*Dialog.kt` — UI.
 - `CrashReporter.kt`, `MainActivity.kt` — app wiring.
 
-The full feature roadmap, with the status of every item, is in [ROADMAP.md](ROADMAP.md).
+Everything left to build, features and design together, is in [Roadmap_Master.md](Roadmap_Master.md).
 
 ## Building
 

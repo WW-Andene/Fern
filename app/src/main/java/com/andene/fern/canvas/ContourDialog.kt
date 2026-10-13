@@ -1,15 +1,15 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSlider
 import com.andene.fern.FernScale
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -31,13 +31,14 @@ import kotlin.math.roundToInt
 fun ContourDialog(state: CanvasState, onDismiss: () -> Unit) {
     var distance by remember { mutableFloatStateOf(16f) }
     var join by remember { mutableStateOf(ContourJoin.ROUND) }
-    AlertDialog(
+    FernPanel(
+        scrollContent = true,
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.contour_title)) },
         text = {
             Column {
                 Text(stringResource(R.string.contour_distance, distance.roundToInt()))
-                Slider(value = distance, onValueChange = { distance = it.roundToInt().toFloat() }, valueRange = -64f..64f)
+                FernSlider(value = distance, onValueChange = { distance = it.roundToInt().toFloat() }, valueRange = -64f..64f)
                 Row {
                     for ((option, label) in listOf(
                         ContourJoin.ROUND to R.string.contour_round,
@@ -50,11 +51,11 @@ fun ContourDialog(state: CanvasState, onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            FernTextButton(onClick = {
                 state.contourSelection(distance.toDouble() / state.scale, join)
                 onDismiss()
             }, enabled = distance != 0f) { Text(stringResource(R.string.action_apply)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

@@ -1,15 +1,16 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernTextField
 import com.andene.fern.FernScale
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,12 +34,13 @@ fun QrCodeDialog(state: CanvasState, onDismiss: () -> Unit) {
     var correction by remember { mutableStateOf(QrErrorCorrection.MEDIUM) }
     var lightBackground by remember { mutableStateOf(true) }
     var tooLong by remember { mutableStateOf(false) }
-    AlertDialog(
+    FernPanel(
+        scrollContent = true,
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.qr_title)) },
         text = {
             Column {
-                OutlinedTextField(
+                FernTextField(
                     text,
                     {
                         text = it
@@ -64,16 +66,16 @@ fun QrCodeDialog(state: CanvasState, onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            FernTextButton(onClick = {
                 val qr = qrOutlines(text, correction)
                 if (qr == null) {
                     tooLong = true
-                    return@TextButton
+                    return@FernTextButton
                 }
                 state.insertQrCode(qr, lightBackground)
                 onDismiss()
             }, enabled = text.isNotEmpty()) { Text(stringResource(R.string.qr_insert)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

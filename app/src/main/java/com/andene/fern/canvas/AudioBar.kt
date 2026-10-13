@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernSlider
 import com.andene.fern.FernColors
 
 import com.andene.fern.FernScale
@@ -18,7 +19,6 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -98,7 +98,7 @@ fun AudioBar(audio: AudioNotes, state: CanvasState, playing: File?, onClosePlayb
                     contentDescription = stringResource(if (paused) R.string.action_play else R.string.audio_pause),
                 )
             }
-            Slider(
+            FernSlider(
                 value = if (duration > 0) position.toFloat() / duration else 0f,
                 onValueChange = { fraction ->
                     position = (fraction * duration).toLong()

@@ -1,10 +1,10 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSlider
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -22,27 +22,28 @@ fun BlendPoseDialog(state: CanvasState, onDismiss: () -> Unit) {
     val current = state.currentAnimFrame
     var other by remember { mutableIntStateOf(if (current + 1 < count) current + 1 else maxOf(0, current - 1)) }
     var weight by remember { mutableFloatStateOf(0.5f) }
-    AlertDialog(
+    FernPanel(
+        scrollContent = true,
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.blend_pose_title)) },
         text = {
             Column {
                 Text(stringResource(R.string.blend_pose_frame, other + 1))
-                Slider(
+                FernSlider(
                     value = other.toFloat(),
                     onValueChange = { other = it.roundToInt() },
                     valueRange = 0f..(count - 1).coerceAtLeast(1).toFloat(),
                     steps = (count - 2).coerceAtLeast(0),
                 )
                 Text(stringResource(R.string.blend_pose_weight, (weight * 100).roundToInt()))
-                Slider(value = weight, onValueChange = { weight = it }, valueRange = 0f..1f)
+                FernSlider(value = weight, onValueChange = { weight = it }, valueRange = 0f..1f)
             }
         },
         confirmButton = {
-            TextButton(onClick = { state.blendPoseWith(other, weight.toDouble()); onDismiss() }, enabled = other != current) {
+            FernTextButton(onClick = { state.blendPoseWith(other, weight.toDouble()); onDismiss() }, enabled = other != current) {
                 Text(stringResource(R.string.blend_pose_apply))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

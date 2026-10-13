@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSlider
 import com.andene.fern.FernPanel
 
 import com.andene.fern.FernScale
@@ -15,9 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -149,16 +149,16 @@ fun AdjustmentsDialog(initial: Adjustment?, onPreview: (Adjustment) -> Unit, onA
             }
         },
         confirmButton = {
-            TextButton(onClick = { onApply(current) }) { Text(stringResource(R.string.adjust_apply)) }
+            FernTextButton(onClick = { onApply(current) }) { Text(stringResource(R.string.adjust_apply)) }
         },
-        dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { FernTextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
 @Composable
 private fun LabeledSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit) {
     Text("$label: ${"%.2f".format(value)}", style = MaterialTheme.typography.bodySmall)
-    Slider(value = value, onValueChange = onChange, valueRange = range)
+    FernSlider(value = value, onValueChange = onChange, valueRange = range)
 }
 
 /**

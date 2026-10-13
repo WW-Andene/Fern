@@ -34,7 +34,7 @@ enum class StrokeAlignment(@StringRes val label: Int) {
     DISTRIBUTE_Y(R.string.align_distribute_y),
 }
 
-enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER, EYEDROPPER, CONNECT, BONE, BEZIER, MEASURE }
+enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, EYEDROPPER, CONNECT, BONE, BEZIER, MEASURE, RIG }
 
 /**
  * Camera + document model for the infinite canvas.
@@ -86,7 +86,8 @@ class CanvasState(
     /** Raster pixels changed; [takeDirtyRasterTiles] has what to save. */
     private val onRasterChanged: () -> Unit = {},
     private val onFramesChanged: (List<Frame>) -> Unit = {},
-    private val onSavedColorsChanged: (List<Color>) -> Unit = {},
+    /** The palettes or the active one changed (roadmap item 350), to save them. */
+    private val onPalettesChanged: (List<Palette>, String?) -> Unit = { _, _ -> },
     private val onBrushChanged: (StampBrush) -> Unit = {},
     private val onToolSlotsChanged: (List<ToolPreset?>) -> Unit = {},
     private val onBrushPresetsChanged: (List<BrushPreset>) -> Unit = {},
@@ -95,6 +96,10 @@ class CanvasState(
     private val onLayerCompsChanged: (List<LayerComp>) -> Unit = {},
     private val onStatsChanged: (DocumentStats) -> Unit = {},
     private val onGuidesChanged: (List<Guide>) -> Unit = {},
+    /** The drawing guides changed (roadmap item 218), to save them with the document. */
+    private val onDrawingGuidesChanged: (List<DrawingGuide>) -> Unit = {},
+    /** The rig changed (roadmap items 250-253, 272), to save it with the document. */
+    private val onRigChanged: (Rig) -> Unit = {},
     /** The game objects or the game's world settings changed (roadmap items 155 and 159). */
     private val onGameObjectsChanged: (List<GameObject>, GameSettings) -> Unit = { _, _ -> },
     /** The animation branches changed (roadmap item 153): the branches and the current one's id. */
@@ -119,9 +124,6 @@ class CanvasState(
 
         // Passes per Smooth tap: visibly smoother without collapsing small details in one tap.
         private const val SMOOTH_PASSES = 3
-
-        // A full row of small swatches on a phone; 16 is on the §7 scale.
-        private const val MAX_SAVED_COLORS = 16
 
         // 8 swatches fit beside the fixed palette without crowding the toolbar; on the §7 scale.
         private const val MAX_RECENT_COLORS = 8
@@ -243,14 +245,22 @@ class CanvasState(
         // Width (screen px) of the cut a knife stroke takes out of a closed shape (roadmap item 141).
         private const val KNIFE_GAP_SCREEN = 2.0
 
-        // How close (in screen pixels) a touch must land on the ruler's endpoint to grab it
-        // for resizing, rather than translating the whole guide - same scale-dependent
-        // conversion as the eraser/fill tolerances above.
-        private const val RULER_HANDLE_RADIUS_SCREEN = 24.0
+        // How close (in screen pixels) a touch must land on a guide's handle to drag it, rather
+        // than moving the whole guide - same scale-dependent conversion as the eraser/fill
+        // tolerances above.
+        private const val GUIDE_HANDLE_RADIUS_SCREEN = 24.0
 
-        // Default ruler length when first placed: half a screen-width on each side of the tap,
-        // in screen pixels (Secondary tier on the §7 scale), converted to world units.
-        private const val RULER_DEFAULT_HALF_LENGTH_SCREEN = 300.0
+        // A new guide's size across, in screen pixels (a §7 primary), converted to world units.
+        private const val GUIDE_DEFAULT_SIZE_SCREEN = 512.0
+
+        // The selection is drawn this big before it is averaged down to a tip, so thin lines survive.
+        private const val TIP_RENDER_PX = 256
+
+        // Stands in for a guide id while a vanishing point is dragged in guide edit mode.
+        private const val VANISHING_POINT_GUIDE = "vanishing point"
+
+        // A straight guide or ellipse catches strokes starting this close to it (screen px).
+        private const val GUIDE_REACH_SCREEN = 48.0
     }
 
     // World-space point currently at the center of the screen.
@@ -1463,61 +1473,6 @@ class CanvasState(
     /** The bone being drawn by an add drag, for the overlay; null otherwise. */
     var boneDraft by mutableStateOf<Pair<WorldPoint, WorldPoint>?>(null)
         private set
-
-    /**
-     * A posable mannequin (roadmap item 108, in 2D): a rigged figure standing in the middle of
-     * the view, about 0.6 of its height, on the current frame. Bones from the hips: spine, neck
-     * and head; upper and lower arms from the shoulders; thighs and shins. Each bone carries a
-     * limb drawn as a thick round-ended line (the head a circle) in the active colour, bound to
-     * it, so the bone tool poses it straight away. One undo step.
-     */
-    fun insertMannequin() {
-        if (!activeLayerEditable || viewportSize.height <= 0f) return
-        recordHistory()
-        val s = scale.coerceAtLeast(1e-300)
-        val unit = viewportSize.height * 0.6 / s / 8 // the figure is 8 head-heights tall
-        val hips = WorldPoint(panWorld.x, panWorld.y + unit * 0.5)
-        fun at(dx: Double, dy: Double) = WorldPoint(hips.x + dx * unit, hips.y + dy * unit)
-        val frame = currentAnimFrame
-        val added = ArrayList<Bone>()
-        val joints = ArrayList<Bone>()
-        fun bone(parent: Bone?, head: WorldPoint, tail: WorldPoint) =
-            Bone(UUID.randomUUID().toString(), parent?.id, head, tail, frame).also { added.add(it) }
-        val spine = bone(null, hips, at(0.0, -2.5))
-        val neck = bone(spine, spine.tail, at(0.0, -3.0))
-        val head = bone(neck, neck.tail, at(0.0, -4.0))
-        for (side in listOf(-1.0, 1.0)) {
-            val shoulder = bone(spine, spine.tail, at(side * 1.0, -2.5)).also { joints.add(it) }
-            val upperArm = bone(shoulder, shoulder.tail, at(side * 1.2, -1.0))
-            bone(upperArm, upperArm.tail, at(side * 1.3, 0.3))
-            val hip = bone(spine, hips, at(side * 0.5, 0.0)).also { joints.add(it) }
-            val thigh = bone(hip, hip.tail, at(side * 0.6, 1.8))
-            bone(thigh, thigh.tail, at(side * 0.6, 3.5))
-        }
-        bones.addAll(added)
-        val ink = activeColor.copy(alpha = activeColor.alpha * activeOpacity.toFloat())
-        for (b in added) {
-            // The head is a circle round its bone; shoulder and hip bones are joints, not limbs.
-            if (b in joints) continue
-            val limb = if (b === head) {
-                Stroke(ink, unit * 0.12, PenType.MARKER, layerId = activeLayerId, animFrame = frame, boneId = b.id).apply {
-                    val c = WorldPoint((b.head.x + b.tail.x) / 2, (b.head.y + b.tail.y) / 2)
-                    for (p in generateShapePoints(ShapeKind.ELLIPSE, WorldPoint(c.x - unit * 0.4, c.y - unit * 0.5), WorldPoint(c.x + unit * 0.4, c.y + unit * 0.5))) addPoint(p)
-                }
-            } else {
-                val width = if (b === spine) unit * 0.9 else if (b === neck) unit * 0.3 else unit * 0.4
-                Stroke(ink, width, PenType.MARKER, layerId = activeLayerId, animFrame = frame, boneId = b.id).apply {
-                    addPoint(b.head)
-                    addPoint(b.tail)
-                }
-            }
-            strokes.add(limb)
-        }
-        activeTool = Tool.BONE
-        posingBones = true
-        onBonesChanged(bones.toList())
-        strokesChanged()
-    }
 
     fun loadBones(loaded: List<Bone>) {
         bones.clear()
@@ -2877,14 +2832,71 @@ class CanvasState(
         activeLayerId = layers.last().id
     }
 
-    /** The user's saved palette (app-wide, not per document), oldest first. */
+    /** The active palette's colours (app-wide, not per document), in the palette's order. */
     val savedColors = mutableStateListOf<Color>()
 
+    /** Every palette (roadmap item 350); [savedColors] is the active one's colours. */
+    val palettes = mutableStateListOf<Palette>()
+
+    var activePaletteId by mutableStateOf<String?>(null)
+        private set
+
+    /** Writes [savedColors] back into the active palette and reports the change. */
+    private fun palettesChanged() {
+        val i = palettes.indexOfFirst { it.id == activePaletteId }
+        if (i != -1) palettes[i] = palettes[i].copy(colors = savedColors.toList())
+        onPalettesChanged(palettes.toList(), activePaletteId)
+    }
+
+    fun loadPalettes(loaded: List<Palette>, activeId: String?) {
+        palettes.clear()
+        palettes.addAll(loaded)
+        activePaletteId = activeId?.takeIf { id -> loaded.any { it.id == id } } ?: loaded.firstOrNull()?.id
+        savedColors.clear()
+        savedColors.addAll(palettes.firstOrNull { it.id == activePaletteId }?.colors.orEmpty())
+    }
+
+    /** Makes [id] the active palette: its colours fill the colour row. */
+    fun selectPalette(id: String) {
+        val palette = palettes.firstOrNull { it.id == id } ?: return
+        activePaletteId = id
+        savedColors.clear()
+        savedColors.addAll(palette.colors)
+        onPalettesChanged(palettes.toList(), activePaletteId)
+    }
+
+    /** Adds a palette named [name] with [colors] and makes it active. */
+    fun addPalette(name: String, colors: List<Color> = emptyList()) {
+        val palette = Palette(UUID.randomUUID().toString(), name, colors.distinct().take(MAX_PALETTE_COLORS))
+        palettes.add(palette)
+        selectPalette(palette.id)
+    }
+
+    fun renamePalette(id: String, name: String) {
+        val i = palettes.indexOfFirst { it.id == id }
+        if (i == -1 || name.isBlank()) return
+        palettes[i] = palettes[i].copy(name = name)
+        onPalettesChanged(palettes.toList(), activePaletteId)
+    }
+
+    /** Deletes palette [id]; the last one left is never deleted, so there is always a palette. */
+    fun deletePalette(id: String) {
+        if (palettes.size <= 1) return
+        palettes.removeAll { it.id == id }
+        if (activePaletteId == id) selectPalette(palettes.first().id) else onPalettesChanged(palettes.toList(), activePaletteId)
+    }
+
+    /** Moves the active palette's colour at [from] to [to] (drag to reorder in the palette panel). */
+    fun moveSavedColor(from: Int, to: Int) {
+        if (from !in savedColors.indices || to !in savedColors.indices || from == to) return
+        savedColors.add(to, savedColors.removeAt(from))
+        palettesChanged()
+    }
+
     fun addSavedColor(color: Color) {
-        if (color in savedColors) return
+        if (color in savedColors || savedColors.size >= MAX_PALETTE_COLORS) return
         savedColors.add(color)
-        while (savedColors.size > MAX_SAVED_COLORS) savedColors.removeAt(0)
-        onSavedColorsChanged(savedColors.toList())
+        palettesChanged()
     }
 
     /**
@@ -2915,7 +2927,7 @@ class CanvasState(
         val index = savedColors.indexOf(old)
         if (index != -1) {
             savedColors[index] = new
-            onSavedColorsChanged(savedColors.toList())
+            palettesChanged()
         }
         if (same(activeColor)) activeColor = new.copy(alpha = activeColor.alpha)
     }
@@ -2949,12 +2961,7 @@ class CanvasState(
     }
 
     fun removeSavedColor(color: Color) {
-        if (savedColors.remove(color)) onSavedColorsChanged(savedColors.toList())
-    }
-
-    fun loadSavedColors(loaded: List<Color>) {
-        savedColors.clear()
-        savedColors.addAll(loaded)
+        if (savedColors.remove(color)) palettesChanged()
     }
 
     /** Colours most recently drawn with, newest first, for quick re-picking from the toolbar. */
@@ -2968,19 +2975,70 @@ class CanvasState(
     }
 
     /**
-     * EYEDROPPER tool: takes the colour of the topmost stroke under [worldPoint] (fills by
-     * containment, lines by distance within their width), then returns to the pen so the
-     * picked colour can be drawn with immediately. The stroke's alpha is dropped because it
-     * already includes the opacity slider's value; opacity stays a separate setting.
+     * Reads the colour shown on screen (roadmap item 170): everything composited - every layer,
+     * raster paint, images, fills and the paper - averaged over a square [size] px wide around a
+     * raw view-local point, then handed to the callback (null when it couldn't be read). Set by
+     * the canvas view; null where there is no window, as in unit tests.
+     */
+    var screenSampler: ((at: Offset, size: Int, onColor: (Color?) -> Unit) -> Unit)? = null
+
+    /** Called when the eyedropper found nothing to take, so the view can say so. */
+    var onNothingPicked: (() -> Unit)? = null
+
+    /** The eyedropper reads only the active layer's ink instead of what is shown (roadmap item 173). */
+    var eyedropperThisLayerOnly by mutableStateOf(false)
+
+    /** Side of the square the eyedropper averages, in screen px: 1, 3 or 5 (roadmap item 173). */
+    var eyedropperSampleSize by mutableIntStateOf(1)
+
+    /** [world] as a raw view-local point: the inverse of [screenToWorld] then [unrotateScreen]. */
+    private fun worldToRawScreen(world: WorldPoint): Offset {
+        val center = Offset(viewportSize.width / 2f, viewportSize.height / 2f)
+        val unrotated = worldToScreen(world, center)
+        if (rotation == 0.0) return unrotated
+        val dx = (unrotated.x - center.x).toDouble()
+        val dy = (unrotated.y - center.y).toDouble()
+        val c = cos(rotation)
+        val sn = sin(rotation)
+        return Offset(center.x + (dx * c - dy * sn).toFloat(), center.y + (dx * sn + dy * c).toFloat())
+    }
+
+    /**
+     * EYEDROPPER tool (roadmap item 173): takes the colour shown at [worldPoint] - any layer,
+     * raster paint, image, fill or the paper - then returns to the pen so the picked colour can
+     * be drawn with immediately. With [eyedropperThisLayerOnly], or where the screen can't be
+     * read, it takes the topmost stroke of the active layer (or of any layer) under the point
+     * instead: fills by containment, lines by distance within their width. The alpha is dropped
+     * because a stroke's already includes the opacity slider's value; opacity stays a separate
+     * setting. Picking nothing is reported through [onNothingPicked] instead of silently.
      */
     fun pickColorAt(worldPoint: WorldPoint) {
+        val sampler = screenSampler
+        if (sampler != null && !eyedropperThisLayerOnly) {
+            sampler(worldToRawScreen(worldPoint), eyedropperSampleSize) { color ->
+                if (color != null) takePickedColor(color) else pickStrokeColorAt(worldPoint)
+            }
+        } else {
+            pickStrokeColorAt(worldPoint)
+        }
+    }
+
+    private fun pickStrokeColorAt(worldPoint: WorldPoint) {
         val tolerance = EYEDROPPER_TOLERANCE_SCREEN / scale.coerceAtLeast(1e-300)
         val hit = strokes.lastOrNull { stroke ->
-            if (!isVisible(stroke)) false
+            if (!isVisible(stroke) || (eyedropperThisLayerOnly && stroke.layerId != activeLayerId)) false
             else if (stroke.filled) polygonContains(stroke.points, worldPoint)
             else distanceToPolyline(stroke.points, worldPoint) <= stroke.widthWorld / 2 + tolerance
-        } ?: return
-        activeColor = hit.color.copy(alpha = 1f)
+        }
+        if (hit == null) {
+            onNothingPicked?.invoke()
+            return
+        }
+        takePickedColor(hit.color)
+    }
+
+    private fun takePickedColor(color: Color) {
+        activeColor = color.copy(alpha = 1f)
         activeTool = Tool.PEN
     }
 
@@ -3038,6 +3096,14 @@ class CanvasState(
     var pendingTextEdit: PendingTextEdit? by mutableStateOf(null)
         private set
 
+    /**
+     * View checks (roadmap item 186), shown only on screen, never in the drawing: the view
+     * mirrored left to right, the way artists flip a canvas to catch proportions their eye has
+     * grown used to, and the view in greys, to judge values without colour.
+     */
+    var viewMirrored by mutableStateOf(false)
+    var viewGreyscale by mutableStateOf(false)
+
     /** Every placed image on the canvas. */
     val imageItems = mutableStateListOf<ImageItem>()
 
@@ -3072,21 +3138,21 @@ class CanvasState(
         backgroundStyle = style
     }
 
+    /** Guides on the page (roadmap items 340-343); see [DrawingGuide]. Strokes snap to them while [guideSnapping]. */
+    val drawingGuides = mutableStateListOf<DrawingGuide>()
+
     /**
-     * The ruler guide's two endpoints in world space, or null if never placed. Visible and
-     * draggable only while [rulerActive]; a real drafting ruler stays on the page and can be
-     * put away, so toggling it off hides it without discarding its position.
+     * Guide edit mode: one-finger touches move guides and their handles instead of drawing. Off,
+     * the guides are locked and never take a touch, so drawing along them needs no tool switch.
      */
-    var rulerLine: Pair<WorldPoint, WorldPoint>? by mutableStateOf(null)
-        private set
+    var editingGuides by mutableStateOf(false)
 
-    /** Whether the ruler guide is currently placed/visible and snapping pen strokes to it. */
-    var rulerActive by mutableStateOf(false)
-        private set
+    /** Whether strokes snap to the guides; a quick way to draw freely without removing them (roadmap item 341). */
+    var guideSnapping by mutableStateOf(true)
 
-    private enum class RulerDragMode { NONE, START, END, TRANSLATE }
-    private var rulerDragMode = RulerDragMode.NONE
-    private var rulerDragLast = WorldPoint.Zero
+    /** The guide and handle being dragged in edit mode (handle -1: the whole guide), or null. */
+    private var guideDrag: Pair<String, Int>? = null
+    private var guideDragLast = WorldPoint.Zero
 
     /** Currently selected strokes (SELECT tool). Empty when nothing is selected. */
     val selection = mutableStateListOf<Stroke>()
@@ -3158,6 +3224,8 @@ class CanvasState(
         var layers: List<Layer>? = null,
         var objects: List<GameObject>? = null,
         var game: GameSettings? = null,
+        // The Spine-model rig (roadmap item 250): immutable, so each entry just keeps a reference.
+        var rig: Rig? = null,
     ) {
         val log = Stroke.MutationLog()
 
@@ -3341,7 +3409,7 @@ class CanvasState(
 
     /** What the rendered scene depends on, for [SceneTileCache]; comparing two is O(1). */
     fun sceneVersion() = SceneVersion(
-        listOf(strokes.toList(), geometryEpoch, rasterRevision, layers.toList(), textItems.toList(), imageItems.toList(), connectors.toList(), backgroundColor, backgroundStyle, currentAnimFrame),
+        listOf(strokes.toList(), geometryEpoch, rasterRevision, layers.toList(), textItems.toList(), imageItems.toList(), connectors.toList(), backgroundColor, backgroundStyle, currentAnimFrame, rigEditor.revision, rigEditor.setupMode, rigEditor.animationId),
     )
 
     /** Arrows between text labels and sticky notes; see [Connector]. */
@@ -3455,6 +3523,7 @@ class CanvasState(
         it.layers = layers.toList()
         it.objects = gameObjects.toList()
         it.game = gameSettings
+        it.rig = rigEditor.rig
     }
 
     /** Called at the start of every stroke-changing action; also invalidates redo, standard editor semantics. */
@@ -3528,6 +3597,7 @@ class CanvasState(
             connectors.addAll(savedConnectors)
             onConnectorsChanged(connectors.toList())
         }
+        entry.rig?.let { rigEditor.restore(it) }
         val savedHolds = entry.holds
         if (savedHolds != null && savedHolds != frameHolds.toMap()) {
             frameHolds.clear()
@@ -3587,7 +3657,9 @@ class CanvasState(
         )
     }
 
-    fun beginStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
+    fun beginStroke(worldPoint: WorldPoint, rawPressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
+        // The pen's own pressure curve (roadmap item 189).
+        val pressure = PressureCurves.shape(activePenType, rawPressure)
         // Touching a vanishing point's handle moves it instead of drawing (works on locked layers too: it's a guide).
         if (perspectiveMode != PerspectiveMode.OFF) {
             val hit = vanishingPoints.indexOfFirst { hypot(it.x - worldPoint.x, it.y - worldPoint.y) * scale <= VANISHING_POINT_HANDLE_SCREEN }
@@ -3596,7 +3668,7 @@ class CanvasState(
                 return
             }
         }
-        perspectiveDirection = null
+        strokeConstraint = null
         if (!activeLayerEditable) return
         strokeStartDepth = undoStack.size
         strokeStartMillis = System.currentTimeMillis()
@@ -3620,7 +3692,7 @@ class CanvasState(
             lineStyle = activeLineStyle.takeIf { it != LineStyle() },
             brush = if (activePenType == PenType.STAMP) activeBrush else null,
         )
-        stroke.addPoint(snappedToActiveGuide(worldPoint), pressure, tilt, orientation)
+        stroke.addPoint(guidedStart(worldPoint), pressure, tilt, orientation)
         stroke.setDrawnAt(strokeStartMillis)
         rememberActiveColor()
         lastStrokeMoveMillis = System.currentTimeMillis()
@@ -3658,7 +3730,8 @@ class CanvasState(
         for ((copy, transform) in symmetryCopies) copy.addPoint(transform(point), pressure, tilt, orientation)
     }
 
-    fun extendStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
+    fun extendStroke(worldPoint: WorldPoint, rawPressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
+        val pressure = PressureCurves.shape(activePenType, rawPressure)
         if (rasterLast != null) {
             activeRaster?.let { rasterDabs(it, worldPoint, pressure) }
             return
@@ -3692,7 +3765,7 @@ class CanvasState(
         // Exponential smoothing: move only part of the way from the last point toward the pen.
         val smoothed = if (previous == null || activeStabilization <= 0.0) worldPoint
         else previous + (worldPoint - previous) * (1.0 - activeStabilization)
-        decidePerspectiveDirection(stroke, smoothed)
+        decideStrokeConstraint(stroke, smoothed)
         addStrokePoint(stroke, guided(smoothed), effectivePressure, tilt, orientation)
     }
 
@@ -3714,9 +3787,11 @@ class CanvasState(
             val halfSpread = (viewportSize.width.takeIf { it > 0f } ?: DEFAULT_VIEW_WIDTH_SCREEN) * 0.4 / scale.coerceAtLeast(1e-300)
             when (mode.pointCount) {
                 1 -> vanishingPoints.add(panWorld)
-                2 -> {
+                2, 3 -> {
                     vanishingPoints.add(WorldPoint(panWorld.x - halfSpread, panWorld.y))
                     vanishingPoints.add(WorldPoint(panWorld.x + halfSpread, panWorld.y))
+                    // The third point below the horizon, as far below as the others are apart: a tower seen from above.
+                    if (mode.pointCount == 3) vanishingPoints.add(WorldPoint(panWorld.x, panWorld.y + halfSpread * 2))
                 }
             }
         }
@@ -3726,32 +3801,53 @@ class CanvasState(
     // Index into vanishingPoints being dragged by its handle, or null while drawing normally.
     private var draggingVanishingPoint: Int? = null
 
-    // The perspective direction the current stroke was straightened onto, once decided.
-    private var perspectiveDirection: WorldPoint? = null
+    // The line the current stroke was straightened onto, once decided: a perspective direction or a guide.
+    private var strokeConstraint: ((WorldPoint) -> WorldPoint)? = null
+
+    /** The constraints that could apply to a stroke starting at [start]: each perspective direction and each guide. */
+    private fun strokeConstraints(start: WorldPoint): List<(WorldPoint) -> WorldPoint> = buildList {
+        if (perspectiveMode != PerspectiveMode.OFF) {
+            for (direction in perspectiveDirections(perspectiveMode, vanishingPoints, start)) add { p: WorldPoint -> projectOntoLine(start, direction, p) }
+        }
+        if (guideSnapping) {
+            val reach = GUIDE_REACH_SCREEN / scale.coerceAtLeast(1e-300)
+            for (guide in drawingGuides) addAll(guide.constraints(start, reach))
+        }
+    }
 
     /**
-     * Assisted perspective drawing: once a stroke has moved [PERSPECTIVE_DECIDE_SCREEN] px from
-     * where it started, the perspective direction closest to that movement is chosen for the
-     * rest of the stroke, and the points drawn so far are straightened onto it too. Off while
-     * the ruler is active (the ruler wins: it's the more specific guide).
+     * Assisted drawing with perspective and guides (roadmap items 340-344): once a stroke has
+     * moved [PERSPECTIVE_DECIDE_SCREEN] px from where it started, the constraint whose line its
+     * movement so far is nearest to is chosen for the rest of the stroke - a perspective
+     * direction, a ruler, a parallel, radial or concentric field, an ellipse - and the points
+     * drawn so far are moved onto it too. Several guides and perspective work together: each
+     * stroke follows the one that matches how it starts.
      */
-    private fun decidePerspectiveDirection(stroke: Stroke, point: WorldPoint) {
-        if (perspectiveMode == PerspectiveMode.OFF || rulerActive || perspectiveDirection != null) return
+    private fun decideStrokeConstraint(stroke: Stroke, point: WorldPoint) {
+        if (strokeConstraint != null) return
         val start = stroke.points.first()
         if (hypot(point.x - start.x, point.y - start.y) * scale < PERSPECTIVE_DECIDE_SCREEN) return
-        val direction = closestDirection(perspectiveDirections(perspectiveMode, vanishingPoints, start), start, point) ?: return
-        perspectiveDirection = direction
-        val straightened = stroke.points.map { projectOntoLine(start, direction, it) }
+        val chosen = strokeConstraints(start).minByOrNull { c -> c(point).let { hypot(it.x - point.x, it.y - point.y) } } ?: return
+        strokeConstraint = chosen
+        val straightened = stroke.points.map(chosen)
         stroke.setPoints(straightened)
         for ((copy, transform) in symmetryCopies) copy.setPoints(straightened.map(transform))
     }
 
-    /** [point] on the current stroke's perspective line when one was chosen, else on the ruler (if active). */
-    private fun guided(point: WorldPoint): WorldPoint {
-        val direction = perspectiveDirection
-        val stroke = currentStroke
-        if (direction != null && stroke != null) return projectOntoLine(stroke.points.first(), direction, point)
-        return snappedToActiveGuide(point)
+    /** [point] on the current stroke's chosen line, once there is one. */
+    private fun guided(point: WorldPoint): WorldPoint = strokeConstraint?.invoke(point) ?: point
+
+    /**
+     * Where a stroke starting at [point] begins: on a straight guide or ellipse when it starts
+     * within reach of one, so a line drawn against a ruler touches its edge from the first point.
+     */
+    private fun guidedStart(point: WorldPoint): WorldPoint {
+        if (!guideSnapping) return point
+        val reach = GUIDE_REACH_SCREEN / scale.coerceAtLeast(1e-300)
+        return drawingGuides.asSequence()
+            .filter { it.kind == GuideKind.STRAIGHT || it.kind == GuideKind.ELLIPSE || it.kind == GuideKind.CURVE }
+            .mapNotNull { it.constraint(point, reach)?.invoke(point) }
+            .minByOrNull { hypot(it.x - point.x, it.y - point.y) } ?: point
     }
 
     /**
@@ -3833,22 +3929,6 @@ class CanvasState(
         // Copies get the same clean shape, transformed, so symmetry still holds.
         symmetryCopies = symmetryCopies.map { (copy, transform) -> (replaceWithShape(copy, clean.map(transform)) ?: copy) to transform }
         geometryEpoch++ // redraw; autosave waits for the lift (endStroke)
-    }
-
-    /**
-     * Projects [point] onto the ruler guide's infinite line when it's active and placed,
-     * otherwise returns [point] unchanged. Lets pen strokes drawn against the ruler come out
-     * perfectly straight along it, the way tracing along a physical ruler's edge works.
-     */
-    private fun snappedToActiveGuide(point: WorldPoint): WorldPoint {
-        if (!rulerActive) return point
-        val (start, end) = rulerLine ?: return point
-        val dx = end.x - start.x
-        val dy = end.y - start.y
-        val lengthSq = dx * dx + dy * dy
-        if (lengthSq < 1e-12) return point
-        val t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSq
-        return WorldPoint(start.x + t * dx, start.y + t * dy)
     }
 
     fun endStroke() {
@@ -4437,54 +4517,91 @@ class CanvasState(
     }
 
     /**
-     * Toggles the ruler guide on/off. The first time it's turned on with no prior position, it
-     * appears as a horizontal line through the current viewport center - after that, toggling
-     * off and back on restores wherever it was left, matching a physical ruler you set aside
-     * rather than one that resets each time you pick it up.
+     * Places a new guide of [kind] in the middle of the view and opens guide edit mode, so it can
+     * be dragged into place straight away; Done (or [editingGuides] = false) locks it.
      */
-    fun toggleRuler() {
-        rulerActive = !rulerActive
-        if (rulerActive && rulerLine == null) {
-            val halfLength = RULER_DEFAULT_HALF_LENGTH_SCREEN / scale.coerceAtLeast(1e-300)
-            rulerLine = WorldPoint(panWorld.x - halfLength, panWorld.y) to WorldPoint(panWorld.x + halfLength, panWorld.y)
-        }
+    fun addGuide(kind: GuideKind) {
+        val size = GUIDE_DEFAULT_SIZE_SCREEN / scale.coerceAtLeast(1e-300)
+        drawingGuides.add(DrawingGuide(UUID.randomUUID().toString(), kind, newGuideHandles(kind, panWorld, size)))
+        onDrawingGuidesChanged(drawingGuides.toList())
+        guideSnapping = true
+        editingGuides = true
     }
 
-    private val rulerHandleRadiusWorld: Double
-        get() = RULER_HANDLE_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
+    fun removeDrawingGuide(id: String) {
+        drawingGuides.removeAll { it.id == id }
+        if (drawingGuides.isEmpty()) editingGuides = false
+        onDrawingGuidesChanged(drawingGuides.toList())
+    }
+
+    fun setGuideVisible(id: String, visible: Boolean) {
+        val i = drawingGuides.indexOfFirst { it.id == id }
+        if (i != -1) drawingGuides[i] = drawingGuides[i].copy(visible = visible)
+        onDrawingGuidesChanged(drawingGuides.toList())
+    }
+
+    private val guideHandleRadiusWorld: Double
+        get() = GUIDE_HANDLE_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
 
     /**
-     * RULER tool, pointer-down: grabs whichever endpoint [worldPoint] landed near (to resize/
-     * re-angle the guide), or starts translating the whole line otherwise. No-op if the ruler
-     * isn't placed.
+     * Guide edit mode, pointer-down: grabs the handle under [worldPoint], or the guide itself
+     * (to move it whole) when the point is on its line; topmost guide first. Returns whether a
+     * guide was grabbed.
      */
-    fun beginRulerGesture(worldPoint: WorldPoint) {
-        val (start, end) = rulerLine ?: return
-        val handleRadius = rulerHandleRadiusWorld
-        rulerDragMode = when {
-            hypot(worldPoint.x - start.x, worldPoint.y - start.y) <= handleRadius -> RulerDragMode.START
-            hypot(worldPoint.x - end.x, worldPoint.y - end.y) <= handleRadius -> RulerDragMode.END
-            else -> RulerDragMode.TRANSLATE
-        }
-        rulerDragLast = worldPoint
-    }
-
-    fun continueRulerGesture(worldPoint: WorldPoint) {
-        val (start, end) = rulerLine ?: return
-        when (rulerDragMode) {
-            RulerDragMode.START -> rulerLine = worldPoint to end
-            RulerDragMode.END -> rulerLine = start to worldPoint
-            RulerDragMode.TRANSLATE -> {
-                val delta = worldPoint - rulerDragLast
-                rulerLine = (start + delta) to (end + delta)
-                rulerDragLast = worldPoint
+    fun beginGuideEdit(worldPoint: WorldPoint): Boolean {
+        val radius = guideHandleRadiusWorld
+        // Vanishing points are guides too (roadmap item 344): dragged the same way.
+        if (perspectiveMode != PerspectiveMode.OFF) {
+            val vp = vanishingPoints.indexOfFirst { hypot(it.x - worldPoint.x, it.y - worldPoint.y) <= radius }
+            if (vp != -1) {
+                guideDrag = VANISHING_POINT_GUIDE to vp
+                guideDragLast = worldPoint
+                return true
             }
-            RulerDragMode.NONE -> {}
         }
+        for (guide in drawingGuides.asReversed()) {
+            val handle = guide.handles.indexOfFirst { hypot(it.x - worldPoint.x, it.y - worldPoint.y) <= radius }
+            val onGuide = handle == -1 && guide.constraint(worldPoint, radius)?.let { c ->
+                val p = c(worldPoint)
+                (guide.kind == GuideKind.STRAIGHT || guide.kind == GuideKind.ELLIPSE || guide.kind == GuideKind.CURVE) &&
+                    hypot(p.x - worldPoint.x, p.y - worldPoint.y) <= radius
+            } == true
+            if (handle != -1 || onGuide) {
+                guideDrag = guide.id to handle
+                guideDragLast = worldPoint
+                return true
+            }
+        }
+        return false
     }
 
-    fun endRulerGesture() {
-        rulerDragMode = RulerDragMode.NONE
+    fun continueGuideEdit(worldPoint: WorldPoint) {
+        val (id, handle) = guideDrag ?: return
+        if (id == VANISHING_POINT_GUIDE) {
+            if (handle in vanishingPoints.indices) vanishingPoints[handle] = worldPoint
+            return
+        }
+        val i = drawingGuides.indexOfFirst { it.id == id }
+        if (i == -1) return
+        val guide = drawingGuides[i]
+        drawingGuides[i] = if (handle == -1) {
+            val delta = worldPoint - guideDragLast
+            guide.copy(handles = guide.handles.map { it + delta })
+        } else {
+            guide.copy(handles = guide.handles.mapIndexed { k, p -> if (k == handle) worldPoint else p })
+        }
+        guideDragLast = worldPoint
+    }
+
+    fun endGuideEdit() {
+        if (guideDrag != null && guideDrag?.first != VANISHING_POINT_GUIDE) onDrawingGuidesChanged(drawingGuides.toList())
+        guideDrag = null
+    }
+
+    fun loadDrawingGuides(loaded: List<DrawingGuide>) {
+        drawingGuides.clear()
+        drawingGuides.addAll(loaded)
+        editingGuides = false
     }
 
     /**
@@ -4976,6 +5093,63 @@ class CanvasState(
     }
 
     /** The current selection's combined bounding box, or null if nothing is selected. */
+    /**
+     * Makes the selected ink the brush tip (roadmap item 347), the way Clip Studio and Krita
+     * register a brush tip from the canvas: the selection is drawn in black, fitted into a
+     * square, and its coverage becomes the tip of both the stamp pen and the raster brushes.
+     * Switches to the stamp pen so the new tip can be tried at once. Returns false when nothing
+     * with ink is selected.
+     */
+    fun brushTipFromSelection(): Boolean {
+        val ink = selection.filter { it.points.isNotEmpty() }
+        if (ink.isEmpty()) return false
+        val minX = ink.minOf { it.minX - it.widthWorld / 2 }
+        val minY = ink.minOf { it.minY - it.widthWorld / 2 }
+        val maxX = ink.maxOf { it.maxX + it.widthWorld / 2 }
+        val maxY = ink.maxOf { it.maxY + it.widthWorld / 2 }
+        val extent = maxOf(maxX - minX, maxY - minY)
+        if (extent <= 0.0) return false
+        val side = TIP_RENDER_PX
+        val k = side / extent
+        val bitmap = android.graphics.Bitmap.createBitmap(side, side, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        // Centred in the square, like a picked tip image.
+        val dx = (side - (maxX - minX) * k) / 2
+        val dy = (side - (maxY - minY) * k) / 2
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.BLACK
+            strokeCap = android.graphics.Paint.Cap.ROUND
+            strokeJoin = android.graphics.Paint.Join.ROUND
+        }
+        for (stroke in ink) {
+            val path = android.graphics.Path()
+            stroke.points.forEachIndexed { i, p ->
+                val x = ((p.x - minX) * k + dx).toFloat()
+                val y = ((p.y - minY) * k + dy).toFloat()
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            paint.alpha = (stroke.color.alpha * 255).toInt()
+            if (stroke.filled) {
+                path.close()
+                paint.style = android.graphics.Paint.Style.FILL
+            } else {
+                paint.style = android.graphics.Paint.Style.STROKE
+                paint.strokeWidth = (stroke.widthWorld * k).toFloat().coerceAtLeast(1f)
+                if (stroke.points.size == 1) path.lineTo(((stroke.points[0].x - minX) * k + dx).toFloat() + 0.01f, ((stroke.points[0].y - minY) * k + dy).toFloat())
+            }
+            canvas.drawPath(path, paint)
+        }
+        val pixels = IntArray(side * side)
+        bitmap.getPixels(pixels, 0, side, 0, 0, side, side)
+        bitmap.recycle()
+        val mask = tipMaskFromArgb(pixels, side, side)
+        activeBrush = activeBrush.copy(tip = StampTip.IMAGE, mask = mask)
+        rasterBrush = rasterBrush.copy(tip = mask)
+        activePenType = PenType.STAMP
+        activeTool = Tool.PEN
+        return true
+    }
+
     fun selectionBounds(): Pair<WorldPoint, WorldPoint>? {
         if (selection.isEmpty()) return null
         val left = selection.minOf { it.minX }
@@ -5653,6 +5827,25 @@ class CanvasState(
         selection.addAll(strokes.filter { it.layerId == activeLayerId && isEditable(it) })
     }
 
+    /** Selects every editable stroke on the active layer that isn't selected, and deselects the rest (roadmap item 181). */
+    fun invertSelection() {
+        val was = selection.toHashSet()
+        clearSelectionState()
+        selection.addAll(strokes.filter { it.layerId == activeLayerId && isEditable(it) && it !in was })
+    }
+
+    /** Mirrors the selected ink left to right ([horizontal]) or top to bottom about its middle (roadmap item 181). One undo step. */
+    fun flipSelection(horizontal: Boolean) {
+        val (min, max) = selectionBounds() ?: return
+        recordHistory()
+        val cx = (min.x + max.x) / 2
+        val cy = (min.y + max.y) / 2
+        for (stroke in selection) {
+            stroke.setPoints(stroke.points.map { p -> if (horizontal) WorldPoint(2 * cx - p.x, p.y) else WorldPoint(p.x, 2 * cy - p.y) })
+        }
+        strokesChanged()
+    }
+
     /**
      * Selects every editable stroke with the same colour as the first selected stroke, or as
      * the current drawing colour when nothing is selected. Compared without alpha, so the
@@ -5938,6 +6131,84 @@ class CanvasState(
         }
         activeTool = Tool.SELECT
         pasteStrokes(drawn)
+    }
+
+    /**
+     * The Spine-model rig and its editing (roadmap items 250-253, 272, 353), for [Tool.RIG].
+     * Its attached ink is drawn posed by the scene; see [RigEditor].
+     */
+    val rigEditor = RigEditor(object : RigEditor.Host {
+        override val currentFrame: Int get() = currentAnimFrame
+        override val viewScale: Double get() = scale
+        override fun recordHistory() = this@CanvasState.recordHistory()
+        override fun rigChanged(rig: Rig) {
+            geometryEpoch++
+            onRigChanged(rig)
+        }
+    })
+
+    /**
+     * Attaches the selected ink to the rig (roadmap item 353): it leaves the canvas and becomes an
+     * attachment on the selected bone (or the nearest), following its bones by weight. One undo step.
+     */
+    fun attachSelectionToRig(name: String): Boolean {
+        val ink = selection.filter { it.points.isNotEmpty() }
+        if (ink.isEmpty() || rigEditor.rig.bones.isEmpty()) return false
+        recordHistory()
+        if (!rigEditor.attach(ink, name)) return false
+        val attached = ink.toHashSet()
+        strokes.removeAll { it in attached }
+        clearSelectionState()
+        strokesChanged()
+        return true
+    }
+
+    /**
+     * Attaches each vector layer's ink on the current frame to the rig as its own slot, named
+     * after the layer, in layer order (roadmap item 281): a drawing made in parts - head, arm,
+     * leg - becomes a rig in one step, each part moving rigidly with its nearest bone. Locked and empty layers are left alone. One undo step.
+     */
+    fun attachLayersToRig(): Int {
+        if (rigEditor.rig.bones.isEmpty()) return 0
+        val perLayer = layers.filter { !it.raster && !it.locked }.mapNotNull { layer ->
+            val ink = strokes.filter { it.layerId == layer.id && it.animFrame == currentAnimFrame && it.points.isNotEmpty() }
+            if (ink.isEmpty()) null else layer to ink
+        }
+        if (perLayer.isEmpty()) return 0
+        recordHistory()
+        val keep = rigEditor.selectedBoneId
+        for ((layer, ink) in perLayer) {
+            // Each part goes to the bone nearest it, not to whichever bone happens to be selected.
+            rigEditor.selectedBoneId = null
+            rigEditor.attach(ink, layer.name, rigid = true)
+        }
+        rigEditor.selectedBoneId = keep
+        val attached = perLayer.flatMap { it.second }.toHashSet()
+        strokes.removeAll { it in attached }
+        clearSelectionState()
+        strokesChanged()
+        return perLayer.size
+    }
+
+    /** Deletes the selected rig bone and its children; ink attached to them comes back to the canvas. One undo step. */
+    fun deleteSelectedRigBone() {
+        if (rigEditor.selectedBoneId == null) return
+        recordHistory()
+        val returned = rigEditor.deleteSelectedBone()
+        if (returned.isNotEmpty()) {
+            strokes.addAll(returned.map { it.deepCopy() })
+            strokesChanged()
+        }
+    }
+
+    /** Takes slot [id]'s ink off the rig and back onto the canvas, as drawn. One undo step. */
+    fun detachRigSlot(id: String) {
+        recordHistory()
+        val returned = rigEditor.detachSlot(id)
+        if (returned.isNotEmpty()) {
+            strokes.addAll(returned.map { it.deepCopy() })
+            strokesChanged()
+        }
     }
 
     fun deleteSelection() {
@@ -6280,7 +6551,11 @@ class CanvasState(
             for (i in frames.indices) frames[i] = frames[i].copy(min = frames[i].min - offset, max = frames[i].max - offset)
             onFramesChanged(frames.toList())
         }
-        rulerLine = rulerLine?.let { (start, end) -> (start - offset) to (end - offset) }
+        if (drawingGuides.isNotEmpty()) {
+            for (i in drawingGuides.indices) drawingGuides[i] = drawingGuides[i].shiftedBy(offset)
+            rigEditor.shiftBy(offset)
+            onDrawingGuidesChanged(drawingGuides.toList())
+        }
         if (guides.isNotEmpty()) {
             for (i in guides.indices) guides[i] = guides[i].let { it.copy(position = it.position - if (it.vertical) offset.x else offset.y) }
             onGuidesChanged(guides.toList())

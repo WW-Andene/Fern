@@ -1,13 +1,14 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSlider
 import com.andene.fern.FernScale
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -31,7 +32,8 @@ fun SwayDialog(state: CanvasState, onDismiss: () -> Unit) {
     var degrees by remember { mutableFloatStateOf(15f) }
     var period by remember { mutableFloatStateOf(8f) }
     val boneId = state.selectedBoneId
-    AlertDialog(
+    FernPanel(
+        scrollContent = true,
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.sway_title)) },
         text = {
@@ -46,14 +48,14 @@ fun SwayDialog(state: CanvasState, onDismiss: () -> Unit) {
                     }
                 }
                 Text(stringResource(R.string.sway_amplitude, degrees.toInt()))
-                Slider(value = degrees, onValueChange = { degrees = it }, valueRange = 1f..90f)
+                FernSlider(value = degrees, onValueChange = { degrees = it }, valueRange = 1f..90f)
                 Text(stringResource(R.string.sway_period, period.toInt()))
-                Slider(value = period, onValueChange = { period = it }, valueRange = 2f..48f)
+                FernSlider(value = period, onValueChange = { period = it }, valueRange = 2f..48f)
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                val id = boneId ?: return@TextButton
+            FernTextButton(onClick = {
+                val id = boneId ?: return@FernTextButton
                 val amplitude = Math.toRadians(degrees.toDouble())
                 val chosen = kind
                 val frames = period.toInt().toDouble()
@@ -61,6 +63,6 @@ fun SwayDialog(state: CanvasState, onDismiss: () -> Unit) {
                 onDismiss()
             }, enabled = boneId != null) { Text(stringResource(R.string.action_apply)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

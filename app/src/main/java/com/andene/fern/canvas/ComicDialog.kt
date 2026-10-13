@@ -1,5 +1,8 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSlider
 import com.andene.fern.FernScale
 
 import androidx.annotation.StringRes
@@ -9,13 +12,10 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -42,7 +42,7 @@ fun ComicDialog(state: CanvasState, onDismiss: () -> Unit) {
     var count by remember { mutableFloatStateOf(64f) }
     var inner by remember { mutableFloatStateOf(0.4f) }
     var angle by remember { mutableFloatStateOf(0f) }
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.comic_title)) },
         text = {
@@ -58,7 +58,7 @@ fun ComicDialog(state: CanvasState, onDismiss: () -> Unit) {
                         FilterChip(selected = layout == option, onClick = { layout = option }, label = { Text(stringResource(layoutLabel(option))) }, modifier = Modifier.padding(end = FernScale.s8))
                     }
                 }
-                TextButton(onClick = {
+                FernTextButton(onClick = {
                     state.insertComicPage(size, layout)
                     onDismiss()
                 }) { Text(stringResource(R.string.comic_add_page)) }
@@ -70,20 +70,20 @@ fun ComicDialog(state: CanvasState, onDismiss: () -> Unit) {
                     }
                 }
                 Text(stringResource(R.string.comic_line_count, count.roundToInt()))
-                Slider(value = count, onValueChange = { count = it.roundToInt().toFloat() }, valueRange = 8f..256f)
+                FernSlider(value = count, onValueChange = { count = it.roundToInt().toFloat() }, valueRange = 8f..256f)
                 Text(stringResource(if (lineKind == ComicLineKind.FOCUS) R.string.comic_focus_inner else R.string.comic_speed_length, (inner * 100).roundToInt()))
-                Slider(value = inner, onValueChange = { inner = it }, valueRange = 0.05f..0.95f)
+                FernSlider(value = inner, onValueChange = { inner = it }, valueRange = 0.05f..0.95f)
                 if (lineKind == ComicLineKind.SPEED) {
                     Text(stringResource(R.string.comic_speed_angle, angle.roundToInt()))
-                    Slider(value = angle, onValueChange = { angle = it.roundToInt().toFloat() }, valueRange = -90f..90f)
+                    FernSlider(value = angle, onValueChange = { angle = it.roundToInt().toFloat() }, valueRange = -90f..90f)
                 }
-                TextButton(onClick = {
+                FernTextButton(onClick = {
                     state.addComicLines(lineKind, count.roundToInt(), inner.toDouble(), angle.toDouble())
                     onDismiss()
                 }) { Text(stringResource(R.string.comic_add_lines)) }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
 }
 

@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
 import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
@@ -12,7 +13,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -99,7 +99,7 @@ fun GestureMapEditor(filter: (String) -> Boolean = { true }) {
                 }
             }
             Box {
-                TextButton(onClick = { open = true }) { Text(stringResource(map.getValue(gesture).label)) }
+                FernTextButton(onClick = { open = true }) { Text(stringResource(map.getValue(gesture).label)) }
                 DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
                     for (action in GestureAction.entries) {
                         DropdownMenuItem(text = { Text(stringResource(action.label)) }, onClick = {
@@ -152,6 +152,52 @@ object PalmSettings {
     }
 }
 
+/**
+ * How patient the canvas is with touches (roadmap item 169): how long a finger must stay still to
+ * count as held, and how long and how far a multi-finger tap may last and drift. Hands differ, so
+ * the fixed values become a choice.
+ */
+enum class TouchTiming(@StringRes val label: Int, val holdMillis: Long, val tapMaxMillis: Long, val tapSlopPx: Float) {
+    QUICK(R.string.touch_timing_quick, 384L, 192L, 16f),
+    NORMAL(R.string.touch_timing_normal, 500L, 250L, 24f),
+    RELAXED(R.string.touch_timing_relaxed, 768L, 384L, 48f),
+}
+
+private const val KEY_TOUCH_TIMING = "touch_timing"
+
+object TouchTimingSettings {
+    private var loaded: MutableState<TouchTiming>? = null
+
+    fun state(context: Context): MutableState<TouchTiming> = loaded ?: mutableStateOf(
+        AppSettings.prefs(context).getString(KEY_TOUCH_TIMING, null)?.let { n -> TouchTiming.entries.firstOrNull { it.name == n } } ?: TouchTiming.NORMAL,
+    ).also { loaded = it }
+
+    fun set(context: Context, value: TouchTiming) {
+        AppSettings.prefs(context).edit().putString(KEY_TOUCH_TIMING, value.name).apply()
+        state(context).value = value
+    }
+}
+
+/** The touch timing choice (Settings > Input, roadmap item 169). */
+@Composable
+fun TouchTimingEditor() {
+    val context = LocalContext.current
+    val current by TouchTimingSettings.state(context)
+    var open by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.touch_timing_title), modifier = Modifier.weight(1f))
+        Box {
+            FernTextButton(onClick = { open = true }) { Text(stringResource(current.label)) }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                for (t in TouchTiming.entries) DropdownMenuItem(text = { Text(stringResource(t.label)) }, onClick = {
+                    TouchTimingSettings.set(context, t)
+                    open = false
+                })
+            }
+        }
+    }
+}
+
 /** The palm rejection choice (Settings, design roadmap D16). */
 @Composable
 fun PalmRejectionEditor() {
@@ -161,7 +207,7 @@ fun PalmRejectionEditor() {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.palm_title), modifier = Modifier.weight(1f))
         Box {
-            TextButton(onClick = { open = true }) { Text(stringResource(current.label)) }
+            FernTextButton(onClick = { open = true }) { Text(stringResource(current.label)) }
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
                 for (p in PalmRejection.entries) DropdownMenuItem(text = { Text(stringResource(p.label)) }, onClick = {
                     PalmSettings.set(context, p)

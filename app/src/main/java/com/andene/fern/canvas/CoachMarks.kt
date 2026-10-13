@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
 import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
@@ -9,7 +10,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -91,11 +91,11 @@ fun CoachMarkHost(state: CanvasState, modifier: Modifier = Modifier) {
         Column(Modifier.padding(start = FernSpace.lg, end = FernSpace.sm, top = FernSpace.md)) {
             Text(stringResource(tip.text), style = MaterialTheme.typography.bodyMedium)
             Row {
-                TextButton(onClick = {
+                FernTextButton(onClick = {
                     Tips.setOff(context, true)
                     off = true
                 }) { Text(stringResource(R.string.tips_off), color = MaterialTheme.colorScheme.inversePrimary) }
-                TextButton(onClick = {
+                FernTextButton(onClick = {
                     Tips.markSeen(context, tip)
                     seen = seen + tip.name
                 }) { Text(stringResource(R.string.tips_got_it), color = MaterialTheme.colorScheme.inversePrimary) }

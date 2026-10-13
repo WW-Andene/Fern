@@ -1,5 +1,8 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernTextField
 import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
@@ -7,15 +10,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -156,12 +156,13 @@ fun WorkspaceSwitcher(hiddenGroups: Set<ToolbarGroup>, onHiddenGroups: (Set<Tool
     }
     if (naming) {
         var name by remember { mutableStateOf("") }
-        AlertDialog(
+        FernPanel(
+            scrollContent = true,
             onDismissRequest = { naming = false },
             title = { Text(stringResource(R.string.workspace_save_new)) },
-            text = { OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.workspace_name)) }, singleLine = true) },
+            text = { FernTextField(name, { name = it }, label = { Text(stringResource(R.string.workspace_name)) }, singleLine = true) },
             confirmButton = {
-                TextButton(enabled = name.isNotBlank(), onClick = {
+                FernTextButton(enabled = name.isNotBlank(), onClick = {
                     val created = Workspace(UUID.randomUUID().toString(), hiddenGroups, pinned, name = name.trim())
                     custom = custom + created
                     WorkspaceStore.setCustom(context, custom)
@@ -170,7 +171,7 @@ fun WorkspaceSwitcher(hiddenGroups: Set<ToolbarGroup>, onHiddenGroups: (Set<Tool
                     naming = false
                 }) { Text(stringResource(R.string.action_save)) }
             },
-            dismissButton = { TextButton(onClick = { naming = false }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { FernTextButton(onClick = { naming = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }

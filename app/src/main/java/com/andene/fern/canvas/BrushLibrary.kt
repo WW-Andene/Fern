@@ -66,6 +66,7 @@ fun BrushLibrary(state: CanvasState, onEditStamp: () -> Unit, onDismiss: () -> U
     FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.brush_library)) },
+        peek = { Text(stringResource(penTypeLabel(state.activePenType))) },
         onFilter = { query = it },
         text = {
             Column(Modifier.heightIn(max = FernSize.dialogMaxHeight).verticalScroll(rememberScrollState())) {

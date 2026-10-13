@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
 import android.content.Context
 import android.view.KeyEvent
 import androidx.annotation.StringRes
@@ -24,7 +25,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -156,7 +156,7 @@ fun ShortcutEditor(filter: (String) -> Boolean = { true }) {
                         Icon(Icons.Filled.RestartAlt, contentDescription = stringResource(R.string.settings_reset, name))
                     }
                 }
-                TextButton(onClick = {
+                FernTextButton(onClick = {
                     capturing = if (capturing == action) null else action
                     runCatching { focus.requestFocus() }
                 }) {

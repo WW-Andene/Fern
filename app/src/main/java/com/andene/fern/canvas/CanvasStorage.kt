@@ -193,6 +193,8 @@ object CanvasStorage {
         layerCompsFile(context, id).delete()
         statsFile(context, id).delete()
         guidesFile(context, id).delete()
+        drawingGuidesFile(context, id).delete()
+        RigStorage.delete(context, id)
         symbolInstancesFile(context, id).delete()
         framesFile(context, id).delete()
         drawingScaleFile(context, id).delete()
@@ -218,6 +220,8 @@ object CanvasStorage {
         val layers = loadLayers(context, id)
         val layerComps = loadLayerComps(context, id)
         val guides = loadGuides(context, id)
+        val drawingGuides = loadDrawingGuides(context, id)
+        val rig = RigStorage.load(context, id)
         val symbolInstances = loadSymbolInstances(context, id)
         val frames = loadFrames(context, id)
         val drawingScale = loadDrawingScale(context, id)
@@ -238,6 +242,8 @@ object CanvasStorage {
         if (layers.isNotEmpty()) saveLayers(context, meta.id, layers)
         if (layerComps.isNotEmpty()) saveLayerComps(context, meta.id, layerComps)
         if (guides.isNotEmpty()) saveGuides(context, meta.id, guides)
+        if (drawingGuides.isNotEmpty()) saveDrawingGuides(context, meta.id, drawingGuides)
+        RigStorage.save(context, meta.id, rig)
         if (symbolInstances.isNotEmpty()) saveSymbolInstances(context, meta.id, symbolInstances)
         if (frames.isNotEmpty()) saveFrames(context, meta.id, frames)
         if (drawingScale != null) saveDrawingScale(context, meta.id, drawingScale)
@@ -664,14 +670,10 @@ object CanvasStorage {
         }
     }
 
-    /** The user's saved colour palette, shared by all documents. */
+    /** The single saved palette of earlier versions, read once to become the "My colours" palette (see [PaletteStore]). */
     fun loadSavedColors(context: Context): List<Color> {
         val root = readStored(File(context.filesDir, PALETTE_FILE_NAME)) { it as JSONArray } ?: return emptyList()
         return (0 until root.length()).map { Color(root.getInt(it)) }
-    }
-
-    fun saveSavedColors(context: Context, colors: List<Color>) {
-        writeStored(File(context.filesDir, PALETTE_FILE_NAME), JSONArray().apply { colors.forEach { put(it.toArgb()) } })
     }
 
     fun saveFrames(context: Context, documentId: String, frames: List<Frame>) {
@@ -803,6 +805,28 @@ object CanvasStorage {
         return (0 until root.length()).map { i ->
             val e = root.getJSONObject(i)
             Guide(e.getString("id"), e.getBoolean("vertical"), e.getDouble("position"))
+        }
+    }
+
+    /** Saves the document's drawing guides (roadmap item 218): kind, handles and visibility. */
+    fun saveDrawingGuides(context: Context, documentId: String, guides: List<DrawingGuide>) {
+        val root = JSONArray()
+        for (g in guides) {
+            val handles = JSONArray()
+            for (p in g.handles) handles.put(p.x).put(p.y)
+            root.put(JSONObject().put("id", g.id).put("kind", g.kind.name).put("handles", handles).put("visible", g.visible))
+        }
+        writeStored(drawingGuidesFile(context, documentId), root)
+    }
+
+    fun loadDrawingGuides(context: Context, documentId: String): List<DrawingGuide> {
+        val root = readStored(drawingGuidesFile(context, documentId)) { it as JSONArray } ?: return emptyList()
+        return (0 until root.length()).mapNotNull { i ->
+            val e = root.getJSONObject(i)
+            val kind = GuideKind.entries.firstOrNull { it.name == e.optString("kind") } ?: return@mapNotNull null
+            val h = e.getJSONArray("handles")
+            val handles = (0 until h.length() / 2).map { k -> WorldPoint(h.getDouble(2 * k), h.getDouble(2 * k + 1)) }
+            if (handles.size != kind.handleCount) null else DrawingGuide(e.getString("id"), kind, handles, e.optBoolean("visible", true))
         }
     }
 
@@ -1121,6 +1145,8 @@ object CanvasStorage {
         "layercomps.json" to layerCompsFile(context, documentId),
         "stats.json" to statsFile(context, documentId),
         "guides.json" to guidesFile(context, documentId),
+        "drawing_guides.json" to drawingGuidesFile(context, documentId),
+        "rig.json" to RigStorage.file(context, documentId),
         "symbols.json" to symbolInstancesFile(context, documentId),
         "frames.json" to framesFile(context, documentId),
         "scale.json" to drawingScaleFile(context, documentId),
@@ -1171,6 +1197,7 @@ object CanvasStorage {
     private fun statsFile(context: Context, documentId: String) = File(context.filesDir, "stats_$documentId.json")
 
     private fun guidesFile(context: Context, documentId: String) = File(context.filesDir, "guides_$documentId.json")
+    private fun drawingGuidesFile(context: Context, documentId: String) = File(context.filesDir, "drawing_guides_$documentId.json")
 
     private fun symbolInstancesFile(context: Context, documentId: String) = File(context.filesDir, "symbolinstances_$documentId.json")
 

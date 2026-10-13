@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+import com.andene.fern.FernTextButton
 import com.andene.fern.FernScale
 
 import com.andene.fern.R
@@ -13,11 +15,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,7 +42,7 @@ fun AudioNotesDialog(audio: AudioNotes, documentId: String, onPlay: (File) -> Un
     var failed by remember { mutableStateOf(false) }
     val format = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
 
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.audio_title)) },
         text = {
@@ -68,7 +68,7 @@ fun AudioNotesDialog(audio: AudioNotes, documentId: String, onPlay: (File) -> Un
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            FernTextButton(onClick = {
                 if (recording) {
                     audio.stop()
                     notes = audio.list(documentId)
@@ -80,7 +80,7 @@ fun AudioNotesDialog(audio: AudioNotes, documentId: String, onPlay: (File) -> Un
             }) { Text(if (recording) stringResource(R.string.audio_stop_recording) else stringResource(R.string.audio_record)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
+            FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         },
     )
 }

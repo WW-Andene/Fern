@@ -1,5 +1,9 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+import com.andene.fern.FernTextField
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSlider
 import androidx.compose.ui.platform.LocalView
 
 import com.andene.fern.FernHaptics
@@ -29,7 +33,6 @@ import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material.icons.filled.Interests
 import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.EmojiPeople
 import androidx.compose.material.icons.filled.InvertColors
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.AutoFixHigh
@@ -140,6 +143,18 @@ import androidx.compose.material.icons.filled.LineStyle
 import androidx.compose.material.icons.filled.LineWeight
 import androidx.compose.material.icons.filled.LinearScale
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Cyclone
+import androidx.compose.material.icons.filled.StarOutline
+import androidx.compose.material.icons.filled.Hexagon
+import androidx.compose.material.icons.filled.Rectangle
+import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.Flip
+import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.filled.PanoramaFishEye
+import androidx.compose.material.icons.filled.TripOrigin
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.Reorder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Opacity
@@ -170,10 +185,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -181,19 +194,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-
-private val palette = listOf(
-    Color(0xFF1B1B1B),
-    Color(0xFFE53935),
-    Color(0xFF1E88E5),
-    Color(0xFF43A047),
-    Color(0xFFFB8C00),
-)
 
 // Screen-pixel pen width range: matches CanvasState's default of 4.0 and stays reasonable
 // across the full slider (a 1px pen is barely visible; 32px is a thick marker).
@@ -211,8 +217,6 @@ fun Toolbar(
     modifier: Modifier = Modifier,
     /** Button groups the user turned off in Settings (roadmap item 71); see [ToolbarGroup]. */
     hiddenGroups: Set<ToolbarGroup> = emptySet(),
-    /** Wrap the tools onto several rows instead of scrolling them sideways: for wide windows (roadmap item 74). */
-    wrap: Boolean = false,
     onOpenDocuments: () -> Unit = {},
     onOpenPins: () -> Unit = {},
     onOpenVersions: () -> Unit = {},
@@ -273,6 +277,7 @@ fun Toolbar(
 ) {
     val dragOutLabel = stringResource(R.string.tb_drag_out)
     var showExportMenu by remember { mutableStateOf(false) }
+    var showMore by remember { mutableStateOf(false) }
     var showWidthSlider by remember { mutableStateOf(false) }
     var showColorPicker by remember { mutableStateOf(false) }
     var showBrushLibrary by remember { mutableStateOf(false) }
@@ -480,6 +485,9 @@ fun Toolbar(
     var showBackgroundStyleMenu by remember { mutableStateOf(false) }
     var showBackgroundColorPicker by remember { mutableStateOf(false) }
     var showBrushEditor by remember { mutableStateOf(false) }
+    var showPressureCurve by remember { mutableStateOf(false) }
+    var showPalettes by remember { mutableStateOf(false) }
+    var showRigPanel by remember { mutableStateOf(false) }
     var showGradientDialog by remember { mutableStateOf(false) }
     var showPerspectiveMenu by remember { mutableStateOf(false) }
 
@@ -517,18 +525,19 @@ fun Toolbar(
     val macroLocation = stringResource(R.string.macro_location)
     namingMacro?.let { steps ->
         var name by remember { mutableStateOf("") }
-        androidx.compose.material3.AlertDialog(
+        FernPanel(
+            scrollContent = true,
             onDismissRequest = { namingMacro = null },
             title = { Text(stringResource(R.string.macro_name_title, steps.size)) },
-            text = { androidx.compose.material3.OutlinedTextField(name, { name = it }, singleLine = true) },
+            text = { FernTextField(name, { name = it }, singleLine = true) },
             confirmButton = {
-                TextButton(enabled = name.isNotBlank(), onClick = {
+                FernTextButton(enabled = name.isNotBlank(), onClick = {
                     macros = macros + Macro(name.trim(), steps)
                     Macros.setSaved(context0, macros)
                     namingMacro = null
                 }) { Text(stringResource(R.string.action_save)) }
             },
-            dismissButton = { TextButton(onClick = { namingMacro = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { FernTextButton(onClick = { namingMacro = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
     val appItems = listOf<Triple<Int, androidx.compose.ui.graphics.vector.ImageVector, () -> Unit>>(
@@ -570,7 +579,7 @@ fun Toolbar(
     val labels = rememberCommandLabels()
     val paletteCommands = buildList {
         val toolShortcuts = mapOf(Tool.PEN to "P", Tool.ERASER to "E", Tool.SELECT to "V")
-        for (tool in Tool.entries - Tool.RULER) add(labels.command(toolName(tool), R.string.palette_location_rail, toolShortcuts[tool]) {
+        for (tool in Tool.entries) add(labels.command(toolName(tool), R.string.palette_location_rail, toolShortcuts[tool]) {
             state.activeTool = tool
             UsageHints.toolReachedIndirectly(context0, tool)
         })
@@ -595,7 +604,7 @@ fun Toolbar(
     val properties: @Composable () -> Unit = {
                 // One colour strip for every tool that draws in colour (design roadmap D20).
                 if (state.activeTool == Tool.PEN || state.activeTool == Tool.SHAPE || state.activeTool == Tool.BEZIER || state.activeTool == Tool.FILL) {
-                    ColorStrip(state, palette, ToolbarGroup.PALETTE !in hiddenGroups, onOpenPicker = { showColorPicker = true }, onChangeEverywhere = { editingSavedColor = it })
+                    ColorStrip(state, ToolbarGroup.PALETTE !in hiddenGroups, onOpenPicker = { showColorPicker = true }, onOpenPalettes = { showPalettes = true }, onChangeEverywhere = { editingSavedColor = it })
                 }
                 if (state.activeTool == Tool.PEN || state.activeTool == Tool.SHAPE || state.activeTool == Tool.BEZIER) {
                 // Pen kinds and saved brushes in one library (design roadmap D44).
@@ -611,12 +620,33 @@ fun Toolbar(
                         )
                     }
                 }
+                // The pen's pressure curve (roadmap item 189).
+                IconButton(onClick = { showPressureCurve = true }) {
+                    Icon(Icons.Filled.ShowChart, contentDescription = stringResource(R.string.pressure_curve_title))
+                }
                 if (state.activePenType == PenType.STAMP) {
                     IconButton(onClick = { showBrushEditor = true }) {
                         Icon(Icons.Filled.Tune, contentDescription = stringResource(R.string.brush_settings))
                     }
                 }
                 if (state.activeLayerIsRaster) RasterBrushControls(state)
+                }
+                // Eyedropper (roadmap item 173): what is shown or only this layer's ink, and how wide it averages.
+                if (state.activeTool == Tool.EYEDROPPER) {
+                    androidx.compose.material3.FilterChip(
+                        selected = state.eyedropperThisLayerOnly,
+                        onClick = { state.eyedropperThisLayerOnly = !state.eyedropperThisLayerOnly },
+                        label = { Text(stringResource(R.string.eyedropper_this_layer)) },
+                        modifier = Modifier.padding(end = FernScale.s8),
+                    )
+                    for (size in EYEDROPPER_SAMPLE_SIZES) {
+                        androidx.compose.material3.FilterChip(
+                            selected = state.eyedropperSampleSize == size,
+                            onClick = { state.eyedropperSampleSize = size },
+                            label = { Text(stringResource(R.string.eyedropper_sample_px, size)) },
+                            modifier = Modifier.padding(end = FernScale.s4),
+                        )
+                    }
                 }
                 if (state.activeTool == Tool.ERASER) {
                     IconButton(onClick = { state.eraseWholeObjects = !state.eraseWholeObjects }) {
@@ -673,8 +703,16 @@ fun Toolbar(
                 }
                 // Measure (roadmap item 143): drag for a distance and angle, tap a shape for its
                 // perimeter and area, tap a line for its length; the scale button sets real units.
+                // Sides of a polygon, points of a star (roadmap item 221): a tap steps through 3 to 12.
+                if (state.activeTool == Tool.SHAPE && (state.activeShapeKind == ShapeKind.POLYGON || state.activeShapeKind == ShapeKind.STAR)) {
+                    FernTextButton(onClick = {
+                        ShapeOptions.sides = if (ShapeOptions.sides >= ShapeOptions.MAX_SIDES) ShapeOptions.MIN_SIDES else ShapeOptions.sides + 1
+                    }) {
+                        Text(stringResource(if (state.activeShapeKind == ShapeKind.STAR) R.string.shape_points else R.string.shape_sides, ShapeOptions.sides))
+                    }
+                }
                 if (state.activeTool == Tool.MEASURE) {
-                    TextButton(onClick = { showDrawingScaleDialog = true }) {
+                    FernTextButton(onClick = { showDrawingScaleDialog = true }) {
                         Text(stringResource(R.string.scale_button, state.drawingScale.symbol))
                     }
                 }
@@ -770,6 +808,82 @@ fun Toolbar(
                 }
                 }
                 // Skeleton (roadmap item 83): draw bones, then pose them frame by frame.
+                // The rig tool (roadmap items 250-253): setup or animate, draw or adjust bones, the animation, delete a bone.
+                if (state.activeTool == Tool.RIG) {
+                    val rig = state.rigEditor
+                    androidx.compose.material3.FilterChip(
+                        selected = rig.setupMode,
+                        onClick = { rig.setupMode = true },
+                        label = { Text(stringResource(R.string.rig_setup)) },
+                        modifier = Modifier.padding(end = FernScale.s4),
+                    )
+                    androidx.compose.material3.FilterChip(
+                        selected = !rig.setupMode,
+                        onClick = { rig.setupMode = false },
+                        label = { Text(stringResource(R.string.rig_animate)) },
+                        modifier = Modifier.padding(end = FernScale.s8),
+                    )
+                    if (rig.setupMode) {
+                        for ((action, label) in listOf(
+                            RigEditor.SetupAction.DRAW_BONES to R.string.rig_draw_bones,
+                            RigEditor.SetupAction.ADJUST_BONES to R.string.rig_adjust_bones,
+                            RigEditor.SetupAction.PAINT_WEIGHTS to R.string.rig_paint_weights,
+                        )) {
+                            androidx.compose.material3.FilterChip(
+                                selected = rig.setupAction == action,
+                                onClick = { rig.setupAction = action },
+                                label = { Text(stringResource(label)) },
+                                modifier = Modifier.padding(end = FernScale.s4),
+                            )
+                        }
+                        if (rig.setupAction == RigEditor.SetupAction.PAINT_WEIGHTS) {
+                            // The share painted, in quarters (roadmap item 285).
+                            FernTextButton(onClick = { rig.weightValue = ((rig.weightValue * 4 + 1) % 5) / 4 }) {
+                                Text(stringResource(R.string.tb_weight_value, (rig.weightValue * 100).toInt()))
+                            }
+                            FernTextButton(onClick = { rig.recomputeWeights() }) { Text(stringResource(R.string.rig_auto_weights)) }
+                        }
+                    } else {
+                        var showAnimations by remember { mutableStateOf(false) }
+                        val newAnimationName = stringResource(R.string.rig_new_animation_name, rig.rig.animations.size + 1)
+                        Box {
+                            FernTextButton(onClick = { showAnimations = true }) {
+                                Text(rig.activeAnimation?.name ?: stringResource(R.string.rig_no_animation))
+                            }
+                            DropdownMenu(expanded = showAnimations, onDismissRequest = { showAnimations = false }) {
+                                for (anim in rig.rig.animations) {
+                                    DropdownMenuItem(text = { Text(anim.name) }, onClick = {
+                                        rig.animationId = anim.id
+                                        showAnimations = false
+                                    })
+                                }
+                                DropdownMenuItem(text = { Text(stringResource(R.string.rig_new_animation)) }, onClick = {
+                                    rig.addAnimation(newAnimationName)
+                                    showAnimations = false
+                                })
+                            }
+                        }
+                    }
+                    if (!rig.setupMode) {
+                        androidx.compose.material3.FilterChip(
+                            selected = rig.inverseKinematics,
+                            onClick = { rig.inverseKinematics = !rig.inverseKinematics },
+                            label = { Text(stringResource(R.string.rig_ik)) },
+                            modifier = Modifier.padding(end = FernScale.s4),
+                        )
+                        if (rig.inverseKinematics) {
+                            FernTextButton(onClick = { rig.bendPositive = !rig.bendPositive }) {
+                                Text(stringResource(if (rig.bendPositive) R.string.rig_bend_one_way else R.string.rig_bend_other_way))
+                            }
+                        }
+                    }
+                    IconButton(onClick = { showRigPanel = true }) {
+                        Icon(Icons.Filled.AccountTree, contentDescription = stringResource(R.string.rig_panel_title))
+                    }
+                    IconButton(onClick = { state.deleteSelectedRigBone() }, enabled = rig.selectedBoneId != null) {
+                        Icon(Icons.Filled.DeleteOutline, contentDescription = stringResource(R.string.rig_delete_bone))
+                    }
+                }
                 if (state.activeTool == Tool.BONE) {
                     IconButton(onClick = { state.posingBones = !state.posingBones }) {
                         Icon(
@@ -832,12 +946,9 @@ fun Toolbar(
                     }
                     if (state.paintingWeights) {
                         // Cycles the painted weight in quarters: how much ink follows the selected bone.
-                        TextButton(onClick = { state.weightPaintValue = ((state.weightPaintValue * 4 + 1) % 5) / 4 }) {
+                        FernTextButton(onClick = { state.weightPaintValue = ((state.weightPaintValue * 4 + 1) % 5) / 4 }) {
                             Text(stringResource(R.string.tb_weight_value, (state.weightPaintValue * 100).toInt()))
                         }
-                    }
-                    IconButton(onClick = { state.insertMannequin() }) {
-                        Icon(Icons.Filled.EmojiPeople, contentDescription = stringResource(R.string.tb_mannequin))
                     }
                     IconButton(onClick = { state.bindStrokesToNearestBones() }, enabled = state.currentBones.isNotEmpty()) {
                         Icon(Icons.Filled.Link, contentDescription = stringResource(R.string.tb_bones_bind))
@@ -931,6 +1042,15 @@ fun Toolbar(
                     }
                     IconButton(onClick = { state.selectAllOnActiveLayer() }) {
                         Icon(Icons.Filled.ViewModule, contentDescription = stringResource(R.string.tb_select_layer))
+                    }
+                    IconButton(onClick = { state.invertSelection() }) {
+                        Icon(Icons.Filled.FlipToBack, contentDescription = stringResource(R.string.tb_select_invert))
+                    }
+                    IconButton(onClick = { state.flipSelection(horizontal = true) }, enabled = state.selection.isNotEmpty()) {
+                        Icon(Icons.Filled.Flip, contentDescription = stringResource(R.string.tb_flip_horizontal))
+                    }
+                    IconButton(onClick = { state.flipSelection(horizontal = false) }, enabled = state.selection.isNotEmpty()) {
+                        Icon(Icons.Filled.Flip, contentDescription = stringResource(R.string.tb_flip_vertical), modifier = Modifier.rotate(90f))
                     }
                     IconButton(onClick = { state.selectSameColor() }) {
                         Icon(Icons.Filled.ColorLens, contentDescription = stringResource(R.string.tb_select_colour))
@@ -1151,217 +1271,233 @@ fun Toolbar(
             // Every tool, in toolbar order. On a phone they scroll sideways: they add up to far
             // more than its width, and without scrolling everything past the edge was unreachable.
             // On a wide window (roadmap item 74) they wrap onto further rows instead, all in view.
+            // The top bar (roadmap items 338, 339): a fixed set that never scrolls - undo, redo,
+            // layers, play (once there is a game), search, export and "More". Everything else is
+            // in the More panel, in labelled sections, so the bar can't grow with each feature.
             val tools: @Composable () -> Unit = {
-                WorkspaceSwitcher(hiddenGroups, onHiddenGroupsChange)
-                IconButton(onClick = { CommandPaletteState.open = true }) {
-                    Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.palette_title))
-                }
-                if (ToolbarGroup.FAVOURITES !in hiddenGroups) {
-                    for (index in 0 until TOOL_SLOT_COUNT) ToolSlotButton(state, index)
-                }
-
-                if (ToolbarGroup.GUIDES !in hiddenGroups) {
-                    Box {
-                        IconButton(onClick = { showSymmetryMenu = true }) {
-                            Icon(
-                                Icons.Filled.Flare,
-                                contentDescription = stringResource(R.string.tb_symmetry, stringResource(state.symmetryMode.label)),
-                                tint = if (state.symmetryMode != SymmetryMode.OFF) MaterialTheme.colorScheme.primary
-                                else LocalContentColor.current,
-                            )
-                        }
-                        DropdownMenu(expanded = showSymmetryMenu, onDismissRequest = { showSymmetryMenu = false }) {
-                            for (mode in SymmetryMode.entries) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(mode.label)) },
-                                    onClick = {
-                                        state.setSymmetry(mode)
-                                        showSymmetryMenu = false
-                                    },
-                                )
-                            }
-                        }
-                    }
-                    Box {
-                        IconButton(onClick = { showPerspectiveMenu = true }) {
-                            Icon(
-                                Icons.Filled.ViewInAr,
-                                contentDescription = stringResource(R.string.tb_perspective, stringResource(state.perspectiveMode.label)),
-                                tint = if (state.perspectiveMode != PerspectiveMode.OFF) MaterialTheme.colorScheme.primary
-                                else LocalContentColor.current,
-                            )
-                        }
-                        DropdownMenu(expanded = showPerspectiveMenu, onDismissRequest = { showPerspectiveMenu = false }) {
-                            for (mode in PerspectiveMode.entries) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(mode.label)) },
-                                    onClick = {
-                                        state.setPerspective(mode)
-                                        showPerspectiveMenu = false
-                                    },
-                                )
-                            }
-                        }
-                    }
-                }
-                if (ToolbarGroup.ANIMATION !in hiddenGroups) {
-                    IconButton(onClick = {
-                        state.animationMode = !state.animationMode
-                        state.playing = false
-                    }) {
-                        Icon(
-                            Icons.Filled.Movie,
-                            contentDescription = if (state.animationMode) stringResource(R.string.tb_anim_on) else stringResource(R.string.tb_anim_off),
-                            tint = if (state.animationMode) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                        )
-                    }
-                }
-                if (ToolbarGroup.LAYERS !in hiddenGroups) {
-                    IconButton(onClick = { showLayersDialog = true }) {
-                        Icon(Icons.Filled.Layers, contentDescription = stringResource(R.string.layers_title))
-                    }
-                    Box {
-                        IconButton(onClick = { showBlendModeMenu = true }) {
-                            Icon(
-                                // Was the Layers icon before layers existed; that icon now opens the layer panel.
-                                Icons.Filled.Tonality,
-                                contentDescription = stringResource(R.string.tb_blend, stringResource(blendModeLabel(state.activeBlendMode))),
-                                tint = if (state.activeBlendMode != StrokeBlendMode.NORMAL) MaterialTheme.colorScheme.primary
-                                else LocalContentColor.current,
-                            )
-                        }
-                        DropdownMenu(expanded = showBlendModeMenu, onDismissRequest = { showBlendModeMenu = false }) {
-                            for (mode in StrokeBlendMode.entries) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(blendModeLabel(mode))) },
-                                    onClick = {
-                                        state.activeBlendMode = mode
-                                        showBlendModeMenu = false
-                                    },
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Play the game (roadmap item 155) once something is an object.
-                if (state.gameObjects.isNotEmpty()) {
-                    IconButton(onClick = { state.startPlay() }) {
-                        Icon(Icons.Filled.SportsEsports, contentDescription = stringResource(R.string.play_start))
-                    }
-                    // The game's controls (roadmap item 160).
-                    IconButton(onClick = { showControls = true }) {
-                        Icon(Icons.Filled.Gamepad, contentDescription = stringResource(R.string.controls_title))
-                    }
-                }
                 IconButton(onClick = { state.undo() }) {
                     Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.action_undo))
                 }
                 IconButton(onClick = { state.redo() }) {
                     Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = stringResource(R.string.action_redo))
                 }
-                if (ToolbarGroup.VIEW !in hiddenGroups) {
-                    IconButton(onClick = {
-                        state.clear()
-                        FernMessages.show(clearedMessage, undoLabel) { state.undo() }
-                    }) {
-                        Icon(Icons.Filled.DeleteSweep, contentDescription = stringResource(R.string.tb_clear_all))
-                    }
-                    IconButton(onClick = { state.resetView() }) {
-                        Icon(Icons.Filled.ZoomOutMap, contentDescription = stringResource(R.string.tb_reset_view))
-                    }
-                    IconButton(onClick = { state.zoomToFit() }) {
-                        Icon(Icons.Filled.CenterFocusStrong, contentDescription = stringResource(R.string.tb_fit))
+                if (ToolbarGroup.LAYERS !in hiddenGroups) {
+                    IconButton(onClick = { showLayersDialog = true }) {
+                        Icon(Icons.Filled.Layers, contentDescription = stringResource(R.string.layers_title))
                     }
                 }
-                IconButton(onClick = onOpenDocuments) {
-                    Icon(Icons.Filled.Description, contentDescription = stringResource(R.string.documents_title))
-                }
-                // Occasional actions, grouped by purpose behind labelled menus, each one level deep (design roadmap D12).
-                MenuButton(R.string.menu_group_insert, Icons.Filled.AddBox, insertItems)
-                MenuButton(R.string.menu_group_import, Icons.Filled.FileOpen, importItems)
-                MenuButton(R.string.menu_group_document, Icons.Filled.Description, documentItems)
-                MenuButton(R.string.menu_group_app, Icons.Filled.Settings, appItems)
-                if (ToolbarGroup.REPLAY !in hiddenGroups) {
-                    IconButton(onClick = { state.replayCount = if (state.replayCount == null) 0 else null }) {
-                        Icon(
-                            Icons.Filled.Replay,
-                            contentDescription = if (state.replayCount == null) stringResource(R.string.tb_replay) else stringResource(R.string.tb_stop_replay),
-                            tint = if (state.replayCount != null) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                        )
+                // Play the game (roadmap item 155) once something is an object.
+                if (state.gameObjects.isNotEmpty()) {
+                    IconButton(onClick = { state.startPlay() }) {
+                        Icon(Icons.Filled.SportsEsports, contentDescription = stringResource(R.string.play_start))
                     }
+                }
+                IconButton(onClick = { CommandPaletteState.open = true }) {
+                    Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.palette_title))
                 }
                 // Export by purpose, then format (design roadmap D13).
                 IconButton(onClick = { showExportMenu = true }) {
                     Icon(Icons.Filled.IosShare, contentDescription = stringResource(R.string.tb_export))
                 }
+                IconButton(onClick = { showMore = true }) {
+                    Icon(Icons.Filled.MoreHoriz, contentDescription = stringResource(R.string.more_title))
+                }
                 if (showExportMenu) {
                     ExportPanel(state, onDismiss = { showExportMenu = false }, run = runExport)
                 }
-                if (ToolbarGroup.BACKGROUND !in hiddenGroups) {
-                    Box {
-                        IconButton(onClick = { showBackgroundStyleMenu = true }) {
-                            Icon(Icons.Filled.GridOn, contentDescription = stringResource(R.string.tb_background, stringResource(backgroundStyleLabel(state.backgroundStyle))))
-                        }
-                        DropdownMenu(expanded = showBackgroundStyleMenu, onDismissRequest = { showBackgroundStyleMenu = false }) {
-                            for (style in BackgroundStyle.entries) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(backgroundStyleLabel(style))) },
-                                    onClick = {
-                                        state.setBackground(state.backgroundColor, style)
-                                        showBackgroundStyleMenu = false
-                                    },
-                                )
-                            }
-                            for (paper in PaperPreset.entries) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(paper.label)) },
-                                    onClick = {
-                                        state.applyPaperPreset(paper)
-                                        showBackgroundStyleMenu = false
-                                    },
-                                )
-                            }
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.tb_background_color)) },
-                                onClick = {
-                                    showBackgroundStyleMenu = false
-                                    showBackgroundColorPicker = true
-                                },
-                            )
-                        }
-                    }
-                }
-                if (ToolbarGroup.GUIDES !in hiddenGroups) {
-                    IconButton(onClick = {
-                        state.toggleRuler()
-                        state.activeTool = if (state.rulerActive) Tool.RULER
-                        else if (state.activeTool == Tool.RULER) Tool.PEN else state.activeTool
-                    }) {
-                        Icon(
-                            Icons.Filled.Straighten,
-                            contentDescription = stringResource(R.string.tb_ruler),
-                            tint = if (state.rulerActive) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                        )
-                    }
-                }
             }
-            if (wrap) {
-                FlowRow(
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(FernScale.s8),
-                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(FernScale.s8),
-                ) { tools() }
-            } else {
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(FernScale.s8),
-                ) { tools() }
+            if (showMore) {
+                FernPanel(
+                    scrollContent = true,
+                    onDismissRequest = { showMore = false },
+                    title = { Text(stringResource(R.string.more_title)) },
+                    text = {
+                        Column {
+                            MoreSection(stringResource(R.string.more_section_workspace)) {
+                                WorkspaceSwitcher(hiddenGroups, onHiddenGroupsChange)
+                            }
+                            MoreSection(stringResource(R.string.more_section_mode)) {
+                                if (ToolbarGroup.ANIMATION !in hiddenGroups) {
+                                    LabelledIconButton(onClick = {
+                                        state.animationMode = !state.animationMode
+                                        state.playing = false
+                                    }, icon = Icons.Filled.Movie, label = if (state.animationMode) stringResource(R.string.tb_anim_on) else stringResource(R.string.tb_anim_off), tint = if (state.animationMode) MaterialTheme.colorScheme.primary else LocalContentColor.current)
+                                }
+                                if (state.gameObjects.isNotEmpty()) {
+                                    // The game's controls (roadmap item 160).
+                                    LabelledIconButton(onClick = { showControls = true }, icon = Icons.Filled.Gamepad, label = stringResource(R.string.controls_title))
+                                }
+                                if (ToolbarGroup.REPLAY !in hiddenGroups) {
+                                    LabelledIconButton(onClick = { state.replayCount = if (state.replayCount == null) 0 else null }, icon = Icons.Filled.Replay, label = if (state.replayCount == null) stringResource(R.string.tb_replay) else stringResource(R.string.tb_stop_replay), tint = if (state.replayCount != null) MaterialTheme.colorScheme.primary else LocalContentColor.current)
+                                }
+                            }
+                            MoreSection(stringResource(R.string.more_section_guides)) {
+                                if (ToolbarGroup.GUIDES !in hiddenGroups) {
+                                    Box {
+                                        LabelledIconButton(onClick = { showSymmetryMenu = true }, icon = Icons.Filled.Flare, label = stringResource(R.string.tb_symmetry, stringResource(state.symmetryMode.label)), tint = if (state.symmetryMode != SymmetryMode.OFF) MaterialTheme.colorScheme.primary
+                                                else LocalContentColor.current)
+                                        DropdownMenu(expanded = showSymmetryMenu, onDismissRequest = { showSymmetryMenu = false }) {
+                                            for (mode in SymmetryMode.entries) {
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(mode.label)) },
+                                                    onClick = {
+                                                        state.setSymmetry(mode)
+                                                        showSymmetryMenu = false
+                                                    },
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Box {
+                                        LabelledIconButton(onClick = { showPerspectiveMenu = true }, icon = Icons.Filled.ViewInAr, label = stringResource(R.string.tb_perspective, stringResource(state.perspectiveMode.label)), tint = if (state.perspectiveMode != PerspectiveMode.OFF) MaterialTheme.colorScheme.primary
+                                                else LocalContentColor.current)
+                                        DropdownMenu(expanded = showPerspectiveMenu, onDismissRequest = { showPerspectiveMenu = false }) {
+                                            for (mode in PerspectiveMode.entries) {
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(mode.label)) },
+                                                    onClick = {
+                                                        state.setPerspective(mode)
+                                                        showPerspectiveMenu = false
+                                                    },
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                if (ToolbarGroup.GUIDES !in hiddenGroups) {
+                                    // Guides (roadmap items 340-343): add one of each kind, edit them, pause snapping.
+                                    for (kind in GuideKind.entries) {
+                                        LabelledIconButton(onClick = { state.addGuide(kind) }, icon = guideKindIcon(kind), label = stringResource(kind.label))
+                                    }
+                                    if (state.drawingGuides.isNotEmpty() || state.perspectiveMode != PerspectiveMode.OFF) {
+                                        LabelledIconButton(
+                                            onClick = { state.editingGuides = !state.editingGuides },
+                                            icon = Icons.Filled.Edit,
+                                            label = stringResource(if (state.editingGuides) R.string.guide_editing_done else R.string.guide_edit),
+                                            tint = if (state.editingGuides) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                        )
+                                        LabelledIconButton(
+                                            onClick = { state.guideSnapping = !state.guideSnapping },
+                                            icon = Icons.Filled.Straighten,
+                                            label = stringResource(R.string.guide_snapping),
+                                            tint = if (state.guideSnapping) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                        )
+                                    }
+                                }
+                            }
+                            if (ToolbarGroup.GUIDES !in hiddenGroups && state.drawingGuides.isNotEmpty()) MoreSection(stringResource(R.string.guide_list)) {
+                                // Every guide on the page: tap to show or hide it, the cross to remove it (roadmap item 343).
+                                for (guide in state.drawingGuides) {
+                                    androidx.compose.material3.InputChip(
+                                        selected = guide.visible,
+                                        onClick = { state.setGuideVisible(guide.id, !guide.visible) },
+                                        label = { Text(stringResource(guide.kind.label)) },
+                                        trailingIcon = {
+                                            Icon(
+                                                Icons.Filled.Close,
+                                                contentDescription = stringResource(R.string.guide_remove, stringResource(guide.kind.label)),
+                                                modifier = Modifier.clickable { state.removeDrawingGuide(guide.id) },
+                                            )
+                                        },
+                                        modifier = Modifier.padding(end = FernScale.s4),
+                                    )
+                                }
+                            }
+                            MoreSection(stringResource(R.string.more_section_canvas)) {
+                                // View checks (roadmap item 186).
+                                LabelledIconButton(
+                                    onClick = { state.viewMirrored = !state.viewMirrored },
+                                    icon = Icons.Filled.Flip,
+                                    label = stringResource(R.string.view_mirror),
+                                    tint = if (state.viewMirrored) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                )
+                                LabelledIconButton(
+                                    onClick = { state.viewGreyscale = !state.viewGreyscale },
+                                    icon = Icons.Filled.Contrast,
+                                    label = stringResource(R.string.view_greyscale),
+                                    tint = if (state.viewGreyscale) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                )
+                                if (ToolbarGroup.LAYERS !in hiddenGroups) {
+                                    Box {
+                                        LabelledIconButton(onClick = { showBlendModeMenu = true }, icon = Icons.Filled.Tonality, label = stringResource(R.string.tb_blend, stringResource(blendModeLabel(state.activeBlendMode))), tint = if (state.activeBlendMode != StrokeBlendMode.NORMAL) MaterialTheme.colorScheme.primary
+                                                else LocalContentColor.current)
+                                        DropdownMenu(expanded = showBlendModeMenu, onDismissRequest = { showBlendModeMenu = false }) {
+                                            for (mode in StrokeBlendMode.entries) {
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(blendModeLabel(mode))) },
+                                                    onClick = {
+                                                        state.activeBlendMode = mode
+                                                        showBlendModeMenu = false
+                                                    },
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (ToolbarGroup.BACKGROUND !in hiddenGroups) {
+                                    Box {
+                                        LabelledIconButton(onClick = { showBackgroundStyleMenu = true }, icon = Icons.Filled.GridOn, label = stringResource(R.string.tb_background, stringResource(backgroundStyleLabel(state.backgroundStyle))))
+                                        DropdownMenu(expanded = showBackgroundStyleMenu, onDismissRequest = { showBackgroundStyleMenu = false }) {
+                                            for (style in BackgroundStyle.entries) {
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(backgroundStyleLabel(style))) },
+                                                    onClick = {
+                                                        state.setBackground(state.backgroundColor, style)
+                                                        showBackgroundStyleMenu = false
+                                                    },
+                                                )
+                                            }
+                                            for (paper in PaperPreset.entries) {
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(paper.label)) },
+                                                    onClick = {
+                                                        state.applyPaperPreset(paper)
+                                                        showBackgroundStyleMenu = false
+                                                    },
+                                                )
+                                            }
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(R.string.tb_background_color)) },
+                                                onClick = {
+                                                    showBackgroundStyleMenu = false
+                                                    showBackgroundColorPicker = true
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                                if (ToolbarGroup.VIEW !in hiddenGroups) {
+                                    LabelledIconButton(onClick = {
+                                        state.clear()
+                                        FernMessages.show(clearedMessage, undoLabel) { state.undo() }
+                                    }, icon = Icons.Filled.DeleteSweep, label = stringResource(R.string.tb_clear_all))
+                                    LabelledIconButton(onClick = { state.resetView() }, icon = Icons.Filled.ZoomOutMap, label = stringResource(R.string.tb_reset_view))
+                                    LabelledIconButton(onClick = { state.zoomToFit() }, icon = Icons.Filled.CenterFocusStrong, label = stringResource(R.string.tb_fit))
+                                }
+                            }
+                            MoreSection(stringResource(R.string.more_section_tool_slots)) {
+                                if (ToolbarGroup.FAVOURITES !in hiddenGroups) {
+                                    for (index in 0 until TOOL_SLOT_COUNT) ToolSlotButton(state, index)
+                                }
+                            }
+                            MoreSection(stringResource(R.string.more_section_menus)) {
+                                LabelledIconButton(onClick = onOpenDocuments, icon = Icons.Filled.Description, label = stringResource(R.string.documents_title))
+                                // Occasional actions, grouped by purpose behind labelled menus, each one level deep (design roadmap D12).
+                                MenuButton(R.string.menu_group_insert, Icons.Filled.AddBox, insertItems)
+                                MenuButton(R.string.menu_group_import, Icons.Filled.FileOpen, importItems)
+                                MenuButton(R.string.menu_group_document, Icons.Filled.Description, documentItems)
+                                MenuButton(R.string.menu_group_app, Icons.Filled.Settings, appItems)
+                            }
+                        }
+                    },
+                )
             }
+            Row(verticalAlignment = Alignment.CenterVertically) { tools() }
         }
     }
 
-    if (state.activeTool != Tool.TEXT && state.activeTool != Tool.EYEDROPPER && state.activeTool != Tool.RULER) {
+    if (state.activeTool != Tool.TEXT) {
         Surface(modifier = propertiesModifier, shape = MaterialTheme.shapes.large, tonalElevation = FernScale.s4, shadowElevation = FernScale.s4) {
             Column(modifier = Modifier.padding(horizontal = FernScale.s12, vertical = FernScale.s4), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(
@@ -1369,7 +1505,7 @@ fun Toolbar(
                     verticalAlignment = Alignment.CenterVertically,
                 ) { properties() }
                 if (showWidthSlider) {
-                    Slider(
+                    FernSlider(
                         value = state.activeWidthWorld.toFloat(),
                         onValueChange = { state.activeWidthWorld = it.toDouble() },
                         valueRange = MIN_WIDTH_SCREEN..MAX_WIDTH_SCREEN,
@@ -1379,7 +1515,7 @@ fun Toolbar(
                     )
                 }
                 if (showOpacitySlider) {
-                    Slider(
+                    FernSlider(
                         value = state.activeOpacity.toFloat(),
                         onValueChange = { state.activeOpacity = it.toDouble() },
                         valueRange = MIN_OPACITY..1f,
@@ -1389,7 +1525,7 @@ fun Toolbar(
                     )
                 }
                 if (showStabilizationSlider) {
-                    Slider(
+                    FernSlider(
                         value = state.activeStabilization.toFloat(),
                         onValueChange = { state.activeStabilization = it.toDouble() },
                         valueRange = 0f..CanvasState.MAX_STABILIZATION.toFloat(),
@@ -1400,6 +1536,26 @@ fun Toolbar(
                 }
             }
         }
+    }
+
+    if (showRigPanel) RigPanel(state, onDismiss = { showRigPanel = false })
+
+    if (showPalettes) {
+        PalettePanel(state, onImport = onImportPalette, onChangeEverywhere = { editingSavedColor = it }, onDismiss = { showPalettes = false })
+    }
+
+    if (showPressureCurve) {
+        val context = LocalContext.current
+        val penType = state.activePenType
+        EasingCurveDialog(
+            initial = PressureCurves.curveFor(penType),
+            onApply = {
+                PressureCurves.set(context, penType, it)
+                showPressureCurve = false
+            },
+            onDismiss = { showPressureCurve = false },
+            title = stringResource(R.string.pressure_curve_for, stringResource(penTypeLabel(penType))),
+        )
     }
 
     if (showSearchDialog) {
@@ -1566,6 +1722,10 @@ internal fun shapeKindIcon(kind: ShapeKind) = when (kind) {
     ShapeKind.SPEECH_BUBBLE -> Icons.Filled.ChatBubbleOutline
     ShapeKind.THOUGHT_BUBBLE -> Icons.Filled.Cloud
     ShapeKind.SHOUT_BUBBLE -> Icons.Filled.Flare
+    ShapeKind.ROUNDED_RECTANGLE -> Icons.Filled.Rectangle
+    ShapeKind.POLYGON -> Icons.Filled.Hexagon
+    ShapeKind.STAR -> Icons.Filled.StarOutline
+    ShapeKind.SPIRAL -> Icons.Filled.Cyclone
 }
 
 @StringRes
@@ -1577,6 +1737,10 @@ private fun shapeKindLabel(kind: ShapeKind) = when (kind) {
     ShapeKind.SPEECH_BUBBLE -> R.string.shape_bubble
     ShapeKind.THOUGHT_BUBBLE -> R.string.shape_thought
     ShapeKind.SHOUT_BUBBLE -> R.string.shape_shout
+    ShapeKind.ROUNDED_RECTANGLE -> R.string.shape_rounded_rectangle
+    ShapeKind.POLYGON -> R.string.shape_polygon
+    ShapeKind.STAR -> R.string.shape_star
+    ShapeKind.SPIRAL -> R.string.shape_spiral
 }
 
 @StringRes
@@ -1617,7 +1781,7 @@ private val STROKE_TOOLS = setOf(Tool.PEN, Tool.SHAPE, Tool.BEZIER, Tool.ERASER)
 private fun MenuButton(@androidx.annotation.StringRes label: Int, icon: androidx.compose.ui.graphics.vector.ImageVector, items: List<Triple<Int, androidx.compose.ui.graphics.vector.ImageVector, () -> Unit>>) {
     var open by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { open = true }) {
+        FernTextButton(onClick = { open = true }) {
             Icon(icon, contentDescription = null, modifier = Modifier.padding(end = FernScale.s4))
             Text(stringResource(label))
         }
@@ -1634,4 +1798,26 @@ private fun MenuButton(@androidx.annotation.StringRes label: Int, icon: androidx
             }
         }
     }
+}
+
+/** One labelled section of the More panel: its title, then its controls wrapping onto rows. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun MoreSection(title: String, content: @Composable () -> Unit) {
+    Text(title, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = FernScale.s8))
+    FlowRow(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(FernScale.s4)) { content() }
+}
+
+/** Squares the eyedropper can average over, in screen px (roadmap item 173). */
+private val EYEDROPPER_SAMPLE_SIZES = listOf(1, 3, 5)
+
+/** The icon of a guide kind in the More panel. */
+private fun guideKindIcon(kind: GuideKind): androidx.compose.ui.graphics.vector.ImageVector = when (kind) {
+    GuideKind.STRAIGHT -> Icons.Filled.Straighten
+    GuideKind.PARALLEL -> Icons.Filled.Reorder
+    GuideKind.RADIAL -> Icons.Filled.WbSunny
+    GuideKind.CONCENTRIC -> Icons.Filled.TripOrigin
+    GuideKind.ELLIPSE -> Icons.Filled.PanoramaFishEye
+    GuideKind.GRID -> Icons.Filled.GridOn
+    GuideKind.CURVE -> Icons.Filled.Gesture
 }

@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+import com.andene.fern.FernTextButton
 import com.andene.fern.FernScale
 
 import androidx.compose.foundation.Canvas
@@ -7,10 +9,8 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -33,14 +33,16 @@ import com.andene.fern.R
  * for anticipation and overshoot, so the graph leaves room above and below.
  */
 @Composable
-fun EasingCurveDialog(initial: CubicEasing, onApply: (CubicEasing) -> Unit, onDismiss: () -> Unit) {
+fun EasingCurveDialog(initial: CubicEasing, onApply: (CubicEasing) -> Unit, onDismiss: () -> Unit, title: String? = null) {
     var curve by remember { mutableStateOf(initial) }
     // Which handle a drag moves: 1 or 2, chosen by the nearer one when it starts.
     var dragging by remember { mutableIntStateOf(0) }
     val lineColor = MaterialTheme.colorScheme.onSurface
     val accent = MaterialTheme.colorScheme.primary
-    val description = stringResource(R.string.easing_curve_title)
-    AlertDialog(
+    // Also the pressure curve editor (roadmap item 189), which names its own title.
+    val description = title ?: stringResource(R.string.easing_curve_title)
+    FernPanel(
+        // Not scrolled: a scroll would take the drags meant for the drawing area.
         onDismissRequest = onDismiss,
         title = { Text(description) },
         text = {
@@ -94,8 +96,8 @@ fun EasingCurveDialog(initial: CubicEasing, onApply: (CubicEasing) -> Unit, onDi
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onApply(curve) }) { Text(stringResource(R.string.action_done)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        confirmButton = { FernTextButton(onClick = { onApply(curve) }) { Text(stringResource(R.string.action_done)) } },
+        dismissButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 

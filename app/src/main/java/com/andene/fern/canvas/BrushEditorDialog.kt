@@ -1,5 +1,9 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSlider
+import com.andene.fern.FernSwitch
+import com.andene.fern.FernTextField
 import com.andene.fern.FernPanel
 
 import com.andene.fern.FernScale
@@ -16,7 +20,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,10 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -138,14 +138,14 @@ fun BrushEditorDialog(
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(
+                        FernTextField(
                             value = newTag,
                             onValueChange = { newTag = it },
                             label = { Text(stringResource(R.string.brush_add_tag)) },
                             singleLine = true,
                             modifier = Modifier.weight(1f),
                         )
-                        TextButton(onClick = {
+                        FernTextButton(onClick = {
                             if (newTag.isNotBlank()) onSetPresetTags(loaded.name, loaded.tags + newTag.trim())
                             newTag = ""
                         }) { Text(stringResource(R.string.brush_tag_add_button)) }
@@ -163,7 +163,7 @@ fun BrushEditorDialog(
                     }
                 }
                 if (brush.tip == StampTip.IMAGE) {
-                    TextButton(onClick = { pickTipImage.launch("image/*") }) { Text(stringResource(R.string.brush_pick_image)) }
+                    FernTextButton(onClick = { pickTipImage.launch("image/*") }) { Text(stringResource(R.string.brush_pick_image)) }
                 }
                 BrushSlider(stringResource(R.string.brush_spacing), brush.spacing, StampBrush.MIN_SPACING..StampBrush.MAX_SPACING) { brush = brush.copy(spacing = it) }
                 BrushSlider(stringResource(R.string.brush_scatter), brush.scatter, 0f..StampBrush.MAX_SCATTER) { brush = brush.copy(scatter = it) }
@@ -174,22 +174,22 @@ fun BrushEditorDialog(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(stringResource(R.string.brush_follow), modifier = Modifier.weight(1f))
-                    Switch(checked = brush.followDirection, onCheckedChange = { brush = brush.copy(followDirection = it) })
+                    FernSwitch(checked = brush.followDirection, onCheckedChange = { brush = brush.copy(followDirection = it) })
                 }
                 Row {
-                    TextButton(onClick = { brush = StampBrush() }) { Text(stringResource(R.string.brush_reset)) }
-                    TextButton(onClick = { namingPreset = true }) { Text(stringResource(R.string.brush_save_preset)) }
+                    FernTextButton(onClick = { brush = StampBrush() }) { Text(stringResource(R.string.brush_reset)) }
+                    FernTextButton(onClick = { namingPreset = true }) { Text(stringResource(R.string.brush_save_preset)) }
                 }
                 if (namingPreset) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(
+                        FernTextField(
                             value = presetName,
                             onValueChange = { presetName = it },
                             label = { Text(stringResource(R.string.brush_preset_name)) },
                             singleLine = true,
                             modifier = Modifier.weight(1f),
                         )
-                        TextButton(
+                        FernTextButton(
                             onClick = {
                                 onSavePreset(presetName, brush)
                                 presetName = ""
@@ -201,15 +201,15 @@ fun BrushEditorDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onApply(brush) }) { Text(stringResource(R.string.action_apply)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        confirmButton = { FernTextButton(onClick = { onApply(brush) }) { Text(stringResource(R.string.action_apply)) } },
+        dismissButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
 @Composable
 private fun BrushSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit) {
     Text(stringResource(R.string.brush_slider_value, label, value), style = MaterialTheme.typography.bodySmall)
-    Slider(value = value, onValueChange = onChange, valueRange = range)
+    FernSlider(value = value, onValueChange = onChange, valueRange = range)
 }
 
 /** A sample S-curve drawn with [brush] in [color], redrawn on every change. */

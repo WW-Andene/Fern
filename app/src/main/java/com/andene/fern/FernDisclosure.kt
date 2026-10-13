@@ -6,7 +6,6 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,7 +25,7 @@ import androidx.compose.ui.Modifier
 fun MoreOptions(key: String, content: @Composable () -> Unit) {
     var open by rememberSaveable(key) { mutableStateOf(false) }
     val state = stringResource(if (open) R.string.more_open else R.string.more_closed)
-    TextButton(onClick = { open = !open }, modifier = Modifier.semantics { stateDescription = state }) {
+    FernTextButton(onClick = { open = !open }, modifier = Modifier.semantics { stateDescription = state }) {
         Icon(if (open) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, contentDescription = null)
         Text(stringResource(if (open) R.string.more_less else R.string.more_more))
     }
@@ -38,7 +37,7 @@ fun MoreOptions(key: String, content: @Composable () -> Unit) {
 fun MoreInline(key: String, content: @Composable () -> Unit) {
     var open by rememberSaveable(key) { mutableStateOf(false) }
     val state = stringResource(if (open) R.string.more_open else R.string.more_closed)
-    TextButton(onClick = { open = !open }, modifier = Modifier.semantics { stateDescription = state }) {
+    FernTextButton(onClick = { open = !open }, modifier = Modifier.semantics { stateDescription = state }) {
         Text(stringResource(if (open) R.string.more_less else R.string.more_more))
     }
     if (open) content()

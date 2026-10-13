@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
 import com.andene.fern.FernPanel
 
 import com.andene.fern.FernScale
@@ -23,7 +24,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -165,11 +165,11 @@ fun DopesheetDialog(state: CanvasState, onDismiss: () -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
+        confirmButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
         dismissButton = {
             // Hold: this frame repeats the one before, for the selected bone.
             val previous = selected?.angles?.getOrNull(frame - 1)
-            TextButton(
+            FernTextButton(
                 onClick = { if (selected != null && previous != null) state.setBoneAngle(selected.boneId, frame, previous) },
                 enabled = previous != null && selected?.angles?.getOrNull(frame) != null,
             ) { Text(stringResource(R.string.dopesheet_hold)) }

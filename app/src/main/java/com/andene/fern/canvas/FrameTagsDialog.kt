@@ -1,5 +1,10 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSlider
+import com.andene.fern.FernSwitch
+import com.andene.fern.FernTextField
 import com.andene.fern.FernScale
 
 import androidx.compose.foundation.background
@@ -18,17 +23,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -57,7 +57,7 @@ fun FrameTagsDialog(state: CanvasState, onDismiss: () -> Unit) {
     var to by remember { mutableFloatStateOf(state.currentAnimFrame.toFloat()) }
     var color by remember { mutableIntStateOf(TAG_COLORS[state.frameTags.size % TAG_COLORS.size]) }
     var direction by remember { mutableStateOf(TagDirection.FORWARD) }
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.tags_title)) },
         text = {
@@ -78,12 +78,12 @@ fun FrameTagsDialog(state: CanvasState, onDismiss: () -> Unit) {
                     }
                 }
                 HorizontalDivider(Modifier.padding(vertical = FernScale.s8))
-                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.tags_name)) }, singleLine = true)
+                FernTextField(name, { name = it }, label = { Text(stringResource(R.string.tags_name)) }, singleLine = true)
                 if (last > 0) {
                     Text(stringResource(R.string.tags_from, from.roundToInt() + 1))
-                    Slider(value = from, onValueChange = { from = it.roundToInt().toFloat(); if (to < from) to = from }, valueRange = 0f..last.toFloat(), steps = (last - 1).coerceAtLeast(0))
+                    FernSlider(value = from, onValueChange = { from = it.roundToInt().toFloat(); if (to < from) to = from }, valueRange = 0f..last.toFloat(), steps = (last - 1).coerceAtLeast(0))
                     Text(stringResource(R.string.tags_to, to.roundToInt() + 1))
-                    Slider(value = to, onValueChange = { to = it.roundToInt().toFloat(); if (from > to) from = to }, valueRange = 0f..last.toFloat(), steps = (last - 1).coerceAtLeast(0))
+                    FernSlider(value = to, onValueChange = { to = it.roundToInt().toFloat(); if (from > to) from = to }, valueRange = 0f..last.toFloat(), steps = (last - 1).coerceAtLeast(0))
                 }
                 Row {
                     for (option in TAG_COLORS) {
@@ -101,13 +101,13 @@ fun FrameTagsDialog(state: CanvasState, onDismiss: () -> Unit) {
                         FilterChip(selected = direction == option, onClick = { direction = option }, label = { Text(stringResource(directionLabel(option))) }, modifier = Modifier.padding(end = FernScale.s8))
                     }
                 }
-                TextButton(onClick = {
+                FernTextButton(onClick = {
                     state.putFrameTag(FrameTag(name.trim(), from.roundToInt(), to.roundToInt(), color, direction))
                     name = ""
                 }, enabled = name.isNotBlank()) { Text(stringResource(R.string.tags_add)) }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
 }
 
@@ -117,22 +117,22 @@ fun FrameTagsDialog(state: CanvasState, onDismiss: () -> Unit) {
  */
 @Composable
 fun OnionSkinDialog(state: CanvasState, onDismiss: () -> Unit) {
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.onion_title)) },
         text = {
             Column {
                 Text(stringResource(R.string.onion_before, state.onionBefore))
-                Slider(value = state.onionBefore.toFloat(), onValueChange = { state.onionBefore = it.roundToInt() }, valueRange = 0f..MAX_ONION_FRAMES.toFloat(), steps = MAX_ONION_FRAMES - 1)
+                FernSlider(value = state.onionBefore.toFloat(), onValueChange = { state.onionBefore = it.roundToInt() }, valueRange = 0f..MAX_ONION_FRAMES.toFloat(), steps = MAX_ONION_FRAMES - 1)
                 Text(stringResource(R.string.onion_after, state.onionAfter))
-                Slider(value = state.onionAfter.toFloat(), onValueChange = { state.onionAfter = it.roundToInt() }, valueRange = 0f..MAX_ONION_FRAMES.toFloat(), steps = MAX_ONION_FRAMES - 1)
+                FernSlider(value = state.onionAfter.toFloat(), onValueChange = { state.onionAfter = it.roundToInt() }, valueRange = 0f..MAX_ONION_FRAMES.toFloat(), steps = MAX_ONION_FRAMES - 1)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.onion_tinted), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                    Switch(checked = state.onionTinted, onCheckedChange = { state.onionTinted = it })
+                    FernSwitch(checked = state.onionTinted, onCheckedChange = { state.onionTinted = it })
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
 }
 

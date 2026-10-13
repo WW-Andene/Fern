@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSlider
 import com.andene.fern.FernMessages
 
 import com.andene.fern.FernScale
@@ -34,10 +36,8 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -224,22 +224,22 @@ fun Model3dEditor(model: Model3d, initialColor: Color, onSave: (Model3d) -> Unit
                     handPose?.let { pose -> HandPoseControls(pose) { handPose = it } }
                     if (channel != SurfaceChannel.COLOR) {
                         Text(stringResource(if (channel == SurfaceChannel.ROUGHNESS) R.string.model_roughness_value else R.string.model_metallic_value, (level * 100).roundToInt()))
-                        Slider(value = level, onValueChange = { level = it })
+                        FernSlider(value = level, onValueChange = { level = it })
                     }
                     Text(stringResource(R.string.model_brush_size, brush.roundToInt()))
-                    Slider(value = brush, onValueChange = { brush = it.roundToInt().toFloat() }, valueRange = 2f..128f)
+                    FernSlider(value = brush, onValueChange = { brush = it.roundToInt().toFloat() }, valueRange = 2f..128f)
                     Text(stringResource(R.string.model_brush_softness, (softness * 100).roundToInt()))
-                    Slider(value = softness, onValueChange = { softness = it })
+                    FernSlider(value = softness, onValueChange = { softness = it })
                     Text(stringResource(R.string.model_brush_opacity, (opacity * 100).roundToInt()))
-                    Slider(value = opacity, onValueChange = { opacity = it }, valueRange = 0.05f..1f)
+                    FernSlider(value = opacity, onValueChange = { opacity = it }, valueRange = 0.05f..1f)
                     Text(stringResource(R.string.model_light_direction, Math.toDegrees(light.yaw).roundToInt()))
-                    Slider(value = light.yaw.toFloat(), onValueChange = { light = light.copy(yaw = it.toDouble()) }, valueRange = -Math.PI.toFloat()..Math.PI.toFloat())
+                    FernSlider(value = light.yaw.toFloat(), onValueChange = { light = light.copy(yaw = it.toDouble()) }, valueRange = -Math.PI.toFloat()..Math.PI.toFloat())
                     Text(stringResource(R.string.model_light_height, Math.toDegrees(light.pitch).roundToInt()))
-                    Slider(value = light.pitch.toFloat(), onValueChange = { light = light.copy(pitch = it.toDouble()) }, valueRange = -1.5f..1.5f)
+                    FernSlider(value = light.pitch.toFloat(), onValueChange = { light = light.copy(pitch = it.toDouble()) }, valueRange = -1.5f..1.5f)
                     Text(stringResource(R.string.model_light_strength, (light.intensity * 100).roundToInt()))
-                    Slider(value = light.intensity.toFloat(), onValueChange = { light = light.copy(intensity = it.toDouble()) }, valueRange = 0f..1.5f)
+                    FernSlider(value = light.intensity.toFloat(), onValueChange = { light = light.copy(intensity = it.toDouble()) }, valueRange = 0f..1.5f)
                     Text(stringResource(R.string.model_light_ambient, (light.ambient * 100).roundToInt()))
-                    Slider(value = light.ambient.toFloat(), onValueChange = { light = light.copy(ambient = it.toDouble()) }, valueRange = 0f..1f)
+                    FernSlider(value = light.ambient.toFloat(), onValueChange = { light = light.copy(ambient = it.toDouble()) }, valueRange = 0f..1f)
                     // The light's colour and the exposure (roadmap item 147).
                     FlowRow {
                         for ((tint, label) in LIGHT_TINTS) {
@@ -247,7 +247,7 @@ fun Model3dEditor(model: Model3d, initialColor: Color, onSave: (Model3d) -> Unit
                         }
                     }
                     Text(stringResource(R.string.model_exposure, (light.exposure * 100).roundToInt()))
-                    Slider(value = light.exposure.toFloat(), onValueChange = { light = light.copy(exposure = it.toDouble()) }, valueRange = 0.25f..2.5f)
+                    FernSlider(value = light.exposure.toFloat(), onValueChange = { light = light.copy(exposure = it.toDouble()) }, valueRange = 0.25f..2.5f)
                     ModelFileActions(
                         current = { Model3d(mesh, maps, camera, light, handPose) },
                         onTextureImported = { argb, w, h ->
@@ -258,8 +258,8 @@ fun Model3dEditor(model: Model3d, initialColor: Color, onSave: (Model3d) -> Unit
                         },
                     )
                     Row(Modifier.fillMaxWidth()) {
-                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-                        TextButton(onClick = { onSave(Model3d(mesh, maps, camera, light, handPose)) }) { Text(stringResource(R.string.model_done)) }
+                        FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+                        FernTextButton(onClick = { onSave(Model3d(mesh, maps, camera, light, handPose)) }) { Text(stringResource(R.string.model_done)) }
                     }
                 }
             }
@@ -311,19 +311,19 @@ private fun HandPoseControls(pose: HandPose, onChange: (HandPose) -> Unit) {
         if (uri != null) scope.launch { scan(withContext(Dispatchers.IO) { decodeDownsampled(context, uri, SCAN_MAX_EDGE_PX) }) }
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        TextButton(onClick = { takePhoto.launch(null) }, enabled = !scanning) { Text(stringResource(R.string.model_scan_camera)) }
-        TextButton(onClick = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !scanning) {
+        FernTextButton(onClick = { takePhoto.launch(null) }, enabled = !scanning) { Text(stringResource(R.string.model_scan_camera)) }
+        FernTextButton(onClick = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !scanning) {
             Text(stringResource(R.string.model_scan_photo))
         }
     }
     for (finger in Finger.entries) {
         Text(stringResource(R.string.model_finger_curl, stringResource(fingerLabel(finger)), (pose.curl(finger) * 100).roundToInt()))
-        Slider(value = pose.curl(finger).toFloat(), onValueChange = { onChange(pose.withCurl(finger, it.toDouble())) })
+        FernSlider(value = pose.curl(finger).toFloat(), onValueChange = { onChange(pose.withCurl(finger, it.toDouble())) })
         Text(stringResource(R.string.model_finger_spread, stringResource(fingerLabel(finger)), (pose.spread(finger) * 100).roundToInt()))
-        Slider(value = pose.spread(finger).toFloat(), onValueChange = { onChange(pose.withSpread(finger, it.toDouble())) }, valueRange = -1f..1f)
+        FernSlider(value = pose.spread(finger).toFloat(), onValueChange = { onChange(pose.withSpread(finger, it.toDouble())) }, valueRange = -1f..1f)
     }
     Text(stringResource(R.string.model_thumb_across, (pose.thumbAcross * 100).roundToInt()))
-    Slider(value = pose.thumbAcross.toFloat(), onValueChange = { onChange(pose.copy(thumbAcross = it.toDouble())) })
+    FernSlider(value = pose.thumbAcross.toFloat(), onValueChange = { onChange(pose.copy(thumbAcross = it.toDouble())) })
 }
 
 private fun fingerLabel(finger: Finger) = when (finger) {
@@ -375,10 +375,10 @@ private fun ModelFileActions(current: () -> Model3d, onTextureImported: (IntArra
     }
     @OptIn(ExperimentalLayoutApi::class)
     FlowRow {
-        TextButton(onClick = { glb.launch("model.glb") }) { Text(stringResource(R.string.model_export_glb)) }
-        TextButton(onClick = { usdz.launch("model.usdz") }) { Text(stringResource(R.string.model_export_usdz)) }
-        TextButton(onClick = { mapsZip.launch("model maps.zip") }) { Text(stringResource(R.string.model_export_maps)) }
-        TextButton(onClick = { texture.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { Text(stringResource(R.string.model_import_texture)) }
+        FernTextButton(onClick = { glb.launch("model.glb") }) { Text(stringResource(R.string.model_export_glb)) }
+        FernTextButton(onClick = { usdz.launch("model.usdz") }) { Text(stringResource(R.string.model_export_usdz)) }
+        FernTextButton(onClick = { mapsZip.launch("model maps.zip") }) { Text(stringResource(R.string.model_export_maps)) }
+        FernTextButton(onClick = { texture.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { Text(stringResource(R.string.model_import_texture)) }
     }
 }
 

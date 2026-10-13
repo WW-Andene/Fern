@@ -2,13 +2,21 @@ package com.andene.fern
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 
 /**
@@ -51,7 +59,9 @@ fun FernTheme(highContrast: Boolean, colorBlindSafe: Boolean = false, uiSize: Ui
             else -> FernColorMode.STANDARD
         },
     )
-    val dark = isSystemInDarkTheme()
+    // Dark or light chrome: the system's, or the paper's when the user asks (design roadmap D60).
+    val systemDark = isSystemInDarkTheme()
+    val dark = if (FernPaper.chromeFollowsPaper) FernPaper.dark ?: systemDark else systemDark
     val scheme = when {
         highContrast && dark -> HighContrastDark
         highContrast -> HighContrastLight
@@ -61,9 +71,64 @@ fun FernTheme(highContrast: Boolean, colorBlindSafe: Boolean = false, uiSize: Ui
     // The UI size (design roadmap D25) scales every dp; text keeps following the system's own font size on top.
     val density = LocalDensity.current
     CompositionLocalProvider(LocalDensity provides Density(density.density * uiSize.factor, density.fontScale)) {
-        MaterialTheme(colorScheme = scheme, content = content)
+        MaterialTheme(colorScheme = scheme, typography = FernTypography, shapes = FernShapes, content = content)
     }
 }
+
+/**
+ * The open document's paper, for chrome that follows it (design roadmap D60): with the option on,
+ * a dark paper gives dark bars and panels and a light paper light ones, so painting at night on
+ * dark paper isn't framed by glaring white chrome. The canvas sets [dark]; Settings sets
+ * [chromeFollowsPaper].
+ */
+object FernPaper {
+    var dark: Boolean? by mutableStateOf(null)
+    var chromeFollowsPaper: Boolean by mutableStateOf(false)
+}
+
+/**
+ * Material's type scale moved onto the CLAUDE.md §7 scale (roadmap item 334). Material's own
+ * defaults include 11, 22, 28, 36, 45 and 57 sp text and 20, 28, 36, 44, 52 and 64 sp line
+ * heights; each size and line height here is rounded by §7.1 (a tie goes to the primary, so a
+ * 20 sp line height becomes 16). Several styles collapse onto the same size; that is the
+ * accepted cost of the scale. Nothing is under 12 sp (design roadmap D5). Letter spacing and
+ * weights stay Material's.
+ */
+val FernTypography: Typography = Typography().run {
+    fun TextStyle.on(size: Int, lineHeight: Int) = copy(fontSize = size.sp, lineHeight = lineHeight.sp)
+    Typography(
+        displayLarge = displayLarge.on(48, 64),
+        displayMedium = displayMedium.on(48, 48),
+        displaySmall = displaySmall.on(32, 48),
+        headlineLarge = headlineLarge.on(32, 32),
+        headlineMedium = headlineMedium.on(30, 32),
+        headlineSmall = headlineSmall.on(24, 32),
+        titleLarge = titleLarge.on(24, 32),
+        titleMedium = titleMedium.on(16, 24),
+        titleSmall = titleSmall.on(14, 16),
+        bodyLarge = bodyLarge.on(16, 24),
+        bodyMedium = bodyMedium.on(14, 16),
+        bodySmall = bodySmall.on(12, 16),
+        labelLarge = labelLarge.on(14, 16),
+        labelMedium = labelMedium.on(12, 16),
+        labelSmall = labelSmall.on(12, 16),
+    )
+}
+
+/**
+ * Corner radii by CLAUDE.md §7.3 (roadmap item 335): 0.24 × the height of the elements each
+ * Material size class rounds - extra small for 24 dp elements (tooltips, small badges), small
+ * for 32 dp (chips, menus' items), medium for 48 dp (fields, buttons, cards), large for 64 dp
+ * (panels, sheets) and extra large for 96 dp and taller (dialogs). Material's defaults
+ * (4, 8, 12, 16 and 28 dp) follow no height rule.
+ */
+val FernShapes: Shapes = Shapes(
+    extraSmall = RoundedCornerShape(fernRadius(FernScale.s24)),
+    small = RoundedCornerShape(fernRadius(FernScale.s32)),
+    medium = RoundedCornerShape(fernRadius(FernScale.s48)),
+    large = RoundedCornerShape(fernRadius(FernScale.s64)),
+    extraLarge = RoundedCornerShape(fernRadius(FernScale.s96)),
+)
 
 /**
  * How big the whole UI is drawn (design roadmap D25), separate from the system font size. The

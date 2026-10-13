@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+import com.andene.fern.FernTextButton
 import android.media.MediaPlayer
 import android.widget.MediaController
 import android.widget.VideoView
@@ -9,11 +11,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -39,8 +39,10 @@ fun VideoPlayerDialog(video: ImageItem, onDismiss: () -> Unit) {
     var muted by remember { mutableStateOf(false) }
     var view by remember { mutableStateOf<VideoView?>(null) }
     DisposableEffect(Unit) { onDispose { view?.stopPlayback() } }
-    AlertDialog(
+    FernPanel(
+        scrollContent = true,
         onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.video_play)) },
         text = {
             Column {
                 if (file == null || !file.exists()) {
@@ -76,6 +78,6 @@ fun VideoPlayerDialog(video: ImageItem, onDismiss: () -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
 }

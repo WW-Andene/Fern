@@ -1,12 +1,18 @@
 package com.andene.fern
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.input.pointer.pointerInput
@@ -17,6 +23,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -69,7 +76,11 @@ class PanelEntry internal constructor(
     actions: @Composable () -> Unit,
     headerAction: (@Composable () -> Unit)? = null,
     onFilter: ((String) -> Unit)? = null,
+    scrollContent: Boolean = false,
+    peek: (@Composable () -> Unit)? = null,
 ) {
+    var scrollContent by mutableStateOf(scrollContent)
+    var peek by mutableStateOf(peek)
     var headerAction by mutableStateOf(headerAction)
     var onFilter by mutableStateOf(onFilter)
     var title by mutableStateOf(title)
@@ -99,6 +110,14 @@ fun FernPanel(
     headerAction: (@Composable () -> Unit)? = null,
     /** When set, a filter field under the header; called as the text changes. */
     onFilter: ((String) -> Unit)? = null,
+    /**
+     * Scroll [text] inside the panel. On by default only where the content doesn't scroll itself:
+     * a phone's sheet is half the screen, so longer content would be cut off. Off for content
+     * holding its own vertical scroll or lazy list, which can't sit inside another scroll.
+     */
+    scrollContent: Boolean = false,
+    /** What the panel still shows in its header while collapsed (design roadmap D92): the active layer, the brush. */
+    peek: (@Composable () -> Unit)? = null,
 ) {
     val key = remember { Any() }
     val actions: @Composable () -> Unit = {
@@ -106,7 +125,7 @@ fun FernPanel(
         confirmButton()
     }
     DisposableEffect(key) {
-        FernPanels.open.add(PanelEntry(key, title, onDismissRequest, text, actions, headerAction, onFilter))
+        FernPanels.open.add(PanelEntry(key, title, onDismissRequest, text, actions, headerAction, onFilter, scrollContent, peek))
         onDispose { FernPanels.open.removeAll { it.key === key } }
     }
     SideEffect {
@@ -117,6 +136,8 @@ fun FernPanel(
             it.actions = actions
             it.headerAction = headerAction
             it.onFilter = onFilter
+            it.scrollContent = scrollContent
+            it.peek = peek
         }
     }
 }
@@ -124,12 +145,16 @@ fun FernPanel(
 /** Shows the top panel; place once, in the screen's root box. */
 @Composable
 fun androidx.compose.foundation.layout.BoxScope.FernPanelHost(railOnLeft: Boolean, railInset: androidx.compose.ui.unit.Dp, railSide: androidx.compose.ui.unit.Dp) {
-    val entry = FernPanels.open.lastOrNull() ?: return
+    val current = FernPanels.open.lastOrNull()
+    // The last panel shown stays composed while it slides away (design roadmap D57).
+    val lastShown = remember { arrayOfNulls<PanelEntry>(1) }
+    if (current != null) lastShown[0] = current
+    val entry = lastShown[0] ?: return
     var collapsed by remember(entry.key) { mutableStateOf(false) }
     var filter by remember(entry.key) { mutableStateOf("") }
     // How much of the screen the sheet may take; dragged at its handle (design roadmap D42).
     var share by remember { mutableFloatStateOf(DEFAULT_SHEET_SHARE) }
-    BackHandler { entry.onDismissRequest() }
+    BackHandler(enabled = current != null) { entry.onDismissRequest() }
     val configuration = LocalConfiguration.current
     val portrait = configuration.screenHeightDp >= configuration.screenWidthDp
     val modifier = if (portrait) {
@@ -145,63 +170,102 @@ fun androidx.compose.foundation.layout.BoxScope.FernPanelHost(railOnLeft: Boolea
             .width(FernScale.s384)
             .heightIn(max = configuration.screenHeightDp.dp - FernScale.s32)
     }
-    Surface(modifier.padding(FernSpace.sm), shape = MaterialTheme.shapes.large, tonalElevation = FernSpace.xs, shadowElevation = FernSpace.sm) {
-        Column {
-            if (portrait) {
-                // The handle: drag up or down to give the sheet more or less of the screen.
-                val screenPx = with(LocalDensity.current) { configuration.screenHeightDp.dp.toPx() }
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(FernScale.s16)
-                        .pointerInput(Unit) {
-                            detectVerticalDragGestures { change, dy ->
-                                change.consume()
-                                share = (share - dy / screenPx).coerceIn(MIN_SHEET_SHARE, MAX_SHEET_SHARE)
-                            }
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Box(Modifier.width(FernScale.s32).height(FernScale.s4).background(MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small))
-                }
-            }
-            Row(Modifier.fillMaxWidth().padding(start = FernSpace.lg), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f).semantics { heading() }) {
-                    ProvideTextStyle(MaterialTheme.typography.titleMedium) { entry.title() }
-                }
-                entry.headerAction?.invoke()
-                IconButton(onClick = { collapsed = !collapsed }) {
-                    Icon(
-                        if (collapsed) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                        contentDescription = stringResource(if (collapsed) R.string.panel_expand else R.string.panel_collapse),
-                    )
-                }
-                IconButton(onClick = { entry.onDismissRequest() }) {
-                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_close))
-                }
-            }
-            if (!collapsed) {
-                entry.onFilter?.let { onFilter ->
-                    OutlinedTextField(
-                        filter,
-                        {
-                            filter = it
-                            onFilter(it)
-                        },
-                        placeholder = { Text(stringResource(R.string.panel_filter)) },
-                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = FernSpace.lg, vertical = FernSpace.xs),
-                    )
-                }
-                HorizontalDivider()
-                Box(Modifier.weight(1f, fill = false).padding(horizontal = FernSpace.lg, vertical = FernSpace.sm)) {
-                    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-                        ProvideTextStyle(MaterialTheme.typography.bodyMedium) { entry.content() }
+    // Panels slide in from where they dock and back out (design roadmap D57); Compose follows
+    // the system's animation scale, so "remove animations" turns this off (D5).
+    val slide = tween<IntOffset>(FernMotion.MEDIUM)
+    androidx.compose.animation.AnimatedVisibility(
+        visible = current != null,
+        modifier = modifier,
+        enter = if (portrait) slideInVertically(slide) { it } else slideInHorizontally(slide) { if (railOnLeft) -it else it },
+        exit = if (portrait) slideOutVertically(slide) { it } else slideOutHorizontally(slide) { if (railOnLeft) -it else it },
+    ) {
+        Surface(Modifier.padding(FernSpace.sm), shape = MaterialTheme.shapes.large, tonalElevation = FernSpace.xs, shadowElevation = FernSpace.sm) {
+            Column {
+                if (portrait) {
+                    // The handle: drag up or down to give the sheet more or less of the screen.
+                    val screenPx = with(LocalDensity.current) { configuration.screenHeightDp.dp.toPx() }
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(FernScale.s16)
+                            .pointerInput(Unit) {
+                                detectVerticalDragGestures { change, dy ->
+                                    change.consume()
+                                    share = (share - dy / screenPx).coerceIn(MIN_SHEET_SHARE, MAX_SHEET_SHARE)
+                                }
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(Modifier.width(FernScale.s32).height(FernScale.s4).background(MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small))
                     }
                 }
-                // Actions scroll sideways rather than squeeze on a phone (the layers panel has several).
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = FernSpace.sm), horizontalArrangement = Arrangement.End) { entry.actions() }
+                // Swiping the header sideways brings the next open panel to the front, keeping them all
+                // open (design roadmap D91): layers, brushes and timeline without closing and reopening.
+                val swipePx = with(LocalDensity.current) { FernScale.s64.toPx() }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = FernSpace.lg)
+                        .pointerInput(Unit) {
+                            var dragged = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { dragged = 0f },
+                                onHorizontalDrag = { change, dx ->
+                                    change.consume()
+                                    dragged += dx
+                                },
+                                onDragEnd = {
+                                    val open = FernPanels.open
+                                    if (open.size > 1 && kotlin.math.abs(dragged) >= swipePx) {
+                                        if (dragged < 0) open.add(0, open.removeAt(open.lastIndex)) else open.add(open.removeAt(0))
+                                    }
+                                },
+                            )
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.weight(1f).semantics { heading() }) {
+                        Column {
+                            ProvideTextStyle(MaterialTheme.typography.titleMedium) { entry.title() }
+                            if (collapsed) entry.peek?.let { peek -> ProvideTextStyle(MaterialTheme.typography.bodySmall) { peek() } }
+                        }
+                    }
+                    entry.headerAction?.invoke()
+                    IconButton(onClick = { collapsed = !collapsed }) {
+                        Icon(
+                            if (collapsed) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                            contentDescription = stringResource(if (collapsed) R.string.panel_expand else R.string.panel_collapse),
+                        )
+                    }
+                    IconButton(onClick = { entry.onDismissRequest() }) {
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_close))
+                    }
+                }
+                if (!collapsed) {
+                    entry.onFilter?.let { onFilter ->
+                        FernTextField(
+                            filter,
+                            {
+                                filter = it
+                                onFilter(it)
+                            },
+                            placeholder = { Text(stringResource(R.string.panel_filter)) },
+                            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = FernSpace.lg, vertical = FernSpace.xs),
+                        )
+                    }
+                    HorizontalDivider()
+                    Box(Modifier.weight(1f, fill = false).padding(horizontal = FernSpace.lg, vertical = FernSpace.sm)) {
+                        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
+                            ProvideTextStyle(MaterialTheme.typography.bodyMedium) {
+                                if (entry.scrollContent) Box(Modifier.verticalScroll(rememberScrollState())) { entry.content() } else entry.content()
+                            }
+                        }
+                    }
+                    // Actions scroll sideways rather than squeeze on a phone (the layers panel has several).
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = FernSpace.sm), horizontalArrangement = Arrangement.End) { entry.actions() }
+                }
             }
         }
     }

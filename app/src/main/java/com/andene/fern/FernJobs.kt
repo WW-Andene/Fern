@@ -9,7 +9,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,7 +54,7 @@ fun FernJobHost(modifier: Modifier = Modifier) {
         Column(Modifier.padding(start = FernSpace.lg, top = FernSpace.md, end = FernSpace.sm)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(running.label, modifier = Modifier.weight(1f))
-                TextButton(onClick = FernJobs::cancel) { Text(stringResource(R.string.action_cancel)) }
+                FernTextButton(onClick = FernJobs::cancel) { Text(stringResource(R.string.action_cancel)) }
             }
             LinearProgressIndicator(Modifier.fillMaxWidth().padding(end = FernSpace.sm, bottom = FernSpace.md))
         }

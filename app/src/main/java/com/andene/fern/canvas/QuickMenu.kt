@@ -73,7 +73,8 @@ enum class QuickMenuAction(@StringRes val label: Int, val icon: (CanvasState) ->
     TEXT(R.string.text_label, { Icons.Filled.TextFields }, { it.activeTool = Tool.TEXT }),
     FILL(R.string.tb_fill, { Icons.Filled.FormatColorFill }, { it.activeTool = Tool.FILL }),
     EYEDROPPER(R.string.tb_eyedropper, { Icons.Filled.Colorize }, { it.activeTool = Tool.EYEDROPPER }),
-    RULER(R.string.tb_ruler, { Icons.Filled.Straighten }, { it.toggleRuler() }),
+    // Named RULER for saved quick menus: it once toggled the ruler, and now pauses or resumes snapping to the guides.
+    RULER(R.string.guide_snapping, { Icons.Filled.Straighten }, { it.guideSnapping = !it.guideSnapping }),
     ZOOM_TO_FIT(R.string.tb_fit, { Icons.Filled.CenterFocusStrong }, { it.zoomToFit() }),
     DUPLICATE(R.string.tb_duplicate, { Icons.Filled.ContentCopy }, { it.duplicateSelection() }),
     DELETE(R.string.tb_delete, { Icons.Filled.Delete }, { it.deleteSelection() }),

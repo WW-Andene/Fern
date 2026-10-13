@@ -1,5 +1,9 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSwitch
+import com.andene.fern.FernTextField
 import com.andene.fern.FernMessages
 
 import com.andene.fern.FernScale
@@ -13,7 +17,6 @@ import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,10 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +45,7 @@ private const val KEY_TOOL_SLOTS = "tool_slots"
 private const val KEY_SNAP_TO_OBJECTS = "snap_to_objects"
 private const val KEY_BRUSH_PRESETS = "brush_presets"
 private const val KEY_HIGH_CONTRAST = "high_contrast"
+private const val KEY_CHROME_FOLLOWS_PAPER = "chrome_follows_paper"
 private const val KEY_COLOR_BLIND_SAFE = "color_blind_safe"
 private const val KEY_HAPTICS = "haptics"
 private const val KEY_UI_SIZE = "ui_size"
@@ -69,6 +70,13 @@ object AppSettings {
 
     fun setToolbarAtBottom(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_TOOLBAR_BOTTOM, value).apply()
+    }
+
+    fun chromeFollowsPaper(context: Context): Boolean = prefs(context).getBoolean(KEY_CHROME_FOLLOWS_PAPER, false)
+
+    fun setChromeFollowsPaper(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean(KEY_CHROME_FOLLOWS_PAPER, value).apply()
+        com.andene.fern.FernPaper.chromeFollowsPaper = value
     }
 
     fun highContrast(context: Context): Boolean =
@@ -264,12 +272,12 @@ fun SettingsDialog(
     var query by remember { mutableStateOf("") }
     // A row shows when the search is empty or its label holds every word typed (design roadmap D24).
     fun shows(label: String) = query.isBlank() || matchCommands(listOf(PaletteCommand(label, label, "") {}), query).isNotEmpty()
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.settings_title)) },
         text = {
             Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-                OutlinedTextField(
+                FernTextField(
                     query, { query = it },
                     placeholder = { Text(stringResource(R.string.settings_search)) },
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
@@ -280,11 +288,15 @@ fun SettingsDialog(
                 SettingsSection(R.string.settings_section_input)
                 GestureMapEditor(filter = ::shows)
                 if (shows(stringResource(R.string.palm_title))) PalmRejectionEditor()
+                if (shows(stringResource(R.string.touch_timing_title))) TouchTimingEditor()
                 ShortcutEditor(filter = ::shows)
                 // Appearance.
                 SettingsSection(R.string.settings_section_appearance)
                 SwitchSetting(stringResource(R.string.settings_left_handed), leftHanded, false, ::shows, onLeftHandedChange)
                 SwitchSetting(stringResource(R.string.settings_toolbar_bottom), toolbarAtBottom, false, ::shows, onToolbarAtBottomChange)
+                val context = androidx.compose.ui.platform.LocalContext.current
+                SwitchSetting(stringResource(R.string.settings_icon_labels), iconLabelsShown(), true, ::shows) { IconLabels.set(context, it) }
+                SwitchSetting(stringResource(R.string.settings_chrome_follows_paper), com.andene.fern.FernPaper.chromeFollowsPaper, false, ::shows) { AppSettings.setChromeFollowsPaper(context, it) }
                 if (shows(stringResource(R.string.ui_size_title))) {
                     Text(stringResource(R.string.ui_size_title), modifier = Modifier.padding(top = FernScale.s8))
                     Row {
@@ -293,7 +305,7 @@ fun SettingsDialog(
                         }
                     }
                 }
-                if (shows(stringResource(R.string.layout_title))) TextButton(onClick = onArrangeLayout) { Text(stringResource(R.string.layout_title)) }
+                if (shows(stringResource(R.string.layout_title))) FernTextButton(onClick = onArrangeLayout) { Text(stringResource(R.string.layout_title)) }
                 // Accessibility.
                 SettingsSection(R.string.settings_section_accessibility)
                 SwitchSetting(stringResource(R.string.settings_high_contrast), highContrast, false, ::shows, onHighContrastChange)
@@ -306,11 +318,11 @@ fun SettingsDialog(
                 SettingsSection(R.string.settings_section_files)
                 if (shows(stringResource(R.string.settings_cmyk_profile, ""))) CmykProfileRow()
                 // Help.
-                if (shows(stringResource(R.string.settings_show_guide))) TextButton(onClick = onShowGuide) { Text(stringResource(R.string.settings_show_guide)) }
+                if (shows(stringResource(R.string.settings_show_guide))) FernTextButton(onClick = onShowGuide) { Text(stringResource(R.string.settings_show_guide)) }
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) }
+            FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) }
         },
     )
 }
@@ -335,7 +347,7 @@ private fun SwitchSetting(label: String, checked: Boolean, default: Boolean, sho
         if (checked != default) {
             IconButton(onClick = { onChange(default) }) { Icon(Icons.Filled.RestartAlt, contentDescription = stringResource(R.string.settings_reset, label)) }
         }
-        Switch(checked = checked, onCheckedChange = onChange)
+        FernSwitch(checked = checked, onCheckedChange = onChange)
     }
 }
 
@@ -357,7 +369,7 @@ private fun CmykProfileRow() {
             stringResource(R.string.settings_cmyk_profile, profile?.description?.ifEmpty { "ICC" } ?: stringResource(R.string.settings_cmyk_none)),
             modifier = Modifier.weight(1f),
         )
-        TextButton(onClick = { pick.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.settings_cmyk_load)) }
-        if (profile != null) TextButton(onClick = { ColorManagement.removeProfile(context) }) { Text(stringResource(R.string.settings_cmyk_remove)) }
+        FernTextButton(onClick = { pick.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.settings_cmyk_load)) }
+        if (profile != null) FernTextButton(onClick = { ColorManagement.removeProfile(context) }) { Text(stringResource(R.string.settings_cmyk_remove)) }
     }
 }

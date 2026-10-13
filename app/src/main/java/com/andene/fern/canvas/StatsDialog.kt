@@ -1,14 +1,14 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+import com.andene.fern.FernTextButton
 import com.andene.fern.FernScale
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -37,7 +37,8 @@ fun StatsDialog(state: CanvasState, onDismiss: () -> Unit) {
         R.string.stats_layers to state.layers.size.toString(),
         R.string.stats_frames to state.animFrameCount.toString(),
     )
-    AlertDialog(
+    FernPanel(
+        scrollContent = true,
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.stats_title)) },
         text = {
@@ -51,7 +52,7 @@ fun StatsDialog(state: CanvasState, onDismiss: () -> Unit) {
                 Text(stringResource(R.string.stats_note), modifier = Modifier.padding(top = FernScale.s8))
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
 }
 

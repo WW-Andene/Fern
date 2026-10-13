@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernSlider
 import com.andene.fern.FernScale
 
 import androidx.compose.material.icons.filled.AccountTree
@@ -18,7 +20,6 @@ import androidx.compose.material.icons.filled.Merge
 import com.andene.fern.R
 import com.andene.fern.MoreInline
 import kotlin.math.roundToInt
-import androidx.compose.material3.Slider
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Row
@@ -41,7 +42,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -91,7 +91,7 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
         if (state.animFrameCount > 1) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = FernScale.s12)) {
                 Text(stringResource(R.string.anim_frame_of, state.currentAnimFrame + 1, state.animFrameCount), style = MaterialTheme.typography.labelMedium)
-                Slider(
+                FernSlider(
                     value = state.currentAnimFrame.toFloat(),
                     onValueChange = { state.goToAnimFrame(it.roundToInt()) },
                     valueRange = 0f..(state.animFrameCount - 1).toFloat(),
@@ -133,7 +133,7 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
             }
             // Frame tags (roadmap item 145): the current frame's tag, tap to manage them all.
             val currentTag = state.frameTags.lastOrNull { state.currentAnimFrame in it }
-            TextButton(onClick = { showTags = true }) {
+            FernTextButton(onClick = { showTags = true }) {
                 Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null, tint = currentTag?.let { Color(it.color) } ?: LocalContentColor.current)
                 Text(currentTag?.name ?: stringResource(R.string.tags_title), modifier = Modifier.padding(start = FernScale.s4))
             }
@@ -175,13 +175,13 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
                 Icon(Icons.Filled.TableRows, contentDescription = stringResource(R.string.xsheet_title))
             }
             // Timing of the generated in-betweens and motion paths; tap to cycle.
-            TextButton(onClick = { state.motionEasing = Easing.entries[(state.motionEasing.ordinal + 1) % Easing.entries.size] }) {
+            FernTextButton(onClick = { state.motionEasing = Easing.entries[(state.motionEasing.ordinal + 1) % Easing.entries.size] }) {
                 Text(stringResource(state.motionEasing.label))
             }
             if (state.motionEasing == Easing.CUSTOM) {
-                TextButton(onClick = { editingCurve = true }) { Text(stringResource(R.string.easing_edit_curve)) }
+                FernTextButton(onClick = { editingCurve = true }) { Text(stringResource(R.string.easing_edit_curve)) }
             }
-            TextButton(onClick = {
+            FernTextButton(onClick = {
                 state.animFps = FPS_CHOICES[(FPS_CHOICES.indexOf(state.animFps) + 1) % FPS_CHOICES.size]
             }) {
                 Text(stringResource(R.string.anim_fps, state.animFps))

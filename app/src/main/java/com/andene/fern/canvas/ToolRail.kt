@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.AccessibilityNew
+import androidx.compose.material.icons.filled.Animation
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Colorize
 import androidx.compose.material.icons.filled.FormatColorFill
@@ -52,6 +53,8 @@ import androidx.compose.runtime.setValue
 import kotlin.math.abs
 import kotlin.math.pow
 import androidx.compose.ui.Modifier
+import com.andene.fern.FernScale
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -64,7 +67,7 @@ import com.andene.fern.R
 val RAIL_TOOLS = listOf(Tool.PEN, Tool.ERASER, Tool.SELECT, Tool.SHAPE)
 
 /** The other tools; each can be pinned to the rail after the fixed ones. */
-val RAIL_EXTRA_TOOLS = listOf(Tool.FILL, Tool.TEXT, Tool.EYEDROPPER, Tool.BEZIER, Tool.MEASURE, Tool.CONNECT, Tool.BONE)
+val RAIL_EXTRA_TOOLS = listOf(Tool.FILL, Tool.TEXT, Tool.EYEDROPPER, Tool.BEZIER, Tool.MEASURE, Tool.CONNECT, Tool.BONE, Tool.RIG)
 
 /** Pinned before the user changes anything. */
 val DEFAULT_PINNED_TOOLS = listOf(Tool.FILL, Tool.TEXT, Tool.EYEDROPPER)
@@ -103,7 +106,7 @@ internal fun railIcon(state: CanvasState, tool: Tool): ImageVector = when (tool)
     Tool.MEASURE -> Icons.Filled.SquareFoot
     Tool.CONNECT -> Icons.Filled.AccountTree
     Tool.BONE -> Icons.Filled.AccessibilityNew
-    Tool.RULER -> Icons.Filled.SquareFoot
+    Tool.RIG -> Icons.Filled.Animation
 }
 
 /**
@@ -119,15 +122,15 @@ fun ToolRail(state: CanvasState, vertical: Boolean, modifier: Modifier = Modifie
     var showMore by remember { mutableStateOf(false) }
     Surface(modifier = modifier, shape = MaterialTheme.shapes.large, tonalElevation = FernSpace.xs, shadowElevation = FernSpace.xs) {
         BoxWithConstraints {
-            val room = ((if (vertical) maxHeight else maxWidth) / FernSize.touchTarget).toInt()
+            // Labelled buttons are wider and taller (design roadmap D95), so fewer fit.
+            val slot = if (iconLabelsShown()) FernScale.s64 else FernSize.touchTarget
+            val room = ((if (vertical) maxHeight else maxWidth) / slot).toInt()
             // One place is kept for "More tools".
             val shownPinned = pinned.take((room - RAIL_TOOLS.size - 1).coerceAtLeast(0))
             val content: @Composable () -> Unit = {
                 for (tool in RAIL_TOOLS + shownPinned) RailButton(state, tool)
                 Box {
-                    IconButton(onClick = { showMore = true }) {
-                        Icon(Icons.Filled.MoreHoriz, contentDescription = stringResource(R.string.rail_more_tools))
-                    }
+                    LabelledIconButton(onClick = { showMore = true }, icon = Icons.Filled.MoreHoriz, label = stringResource(R.string.rail_more_tools))
                     DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
                         for (tool in RAIL_EXTRA_TOOLS) {
                             val isPinned = tool in pinned
@@ -169,10 +172,11 @@ private fun RailButton(state: CanvasState, tool: Tool) {
     val active = state.activeTool == tool
     val view = LocalView.current
     val label = stringResource(toolName(tool))
+    val labelled = iconLabelsShown()
     Box(
         modifier = Modifier
-            .size(FernSize.touchTarget)
-            .clip(CircleShape)
+            .size(if (labelled) FernScale.s64 else FernSize.touchTarget)
+            .clip(if (labelled) MaterialTheme.shapes.large else CircleShape)
             .background(if (active) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
             .toolSelected(active)
             .semantics(mergeDescendants = true) {
@@ -232,11 +236,15 @@ private fun RailButton(state: CanvasState, tool: Tool) {
             },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            railIcon(state, tool),
-            contentDescription = label,
-            tint = if (active) MaterialTheme.colorScheme.onSecondaryContainer else LocalContentColor.current,
-        )
+        val tint = if (active) MaterialTheme.colorScheme.onSecondaryContainer else LocalContentColor.current
+        if (labelled) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(railIcon(state, tool), contentDescription = null, tint = tint)
+                Text(label, style = MaterialTheme.typography.labelSmall, color = tint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        } else {
+            Icon(railIcon(state, tool), contentDescription = label, tint = tint)
+        }
     }
 }
 

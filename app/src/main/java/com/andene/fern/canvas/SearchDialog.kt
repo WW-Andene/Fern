@@ -1,5 +1,8 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernTextField
 import com.andene.fern.FernScale
 
 import com.andene.fern.R
@@ -11,10 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,12 +32,12 @@ fun SearchDialog(textItems: List<TextItem>, onJump: (TextItem) -> Unit, onDismis
     var query by remember { mutableStateOf("") }
     val matches = if (query.isBlank()) emptyList() else textItems.filter { it.text.contains(query.trim(), ignoreCase = true) }
 
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.search_title)) },
         text = {
             Column {
-                OutlinedTextField(
+                FernTextField(
                     value = query,
                     onValueChange = { query = it },
                     singleLine = true,
@@ -68,7 +68,7 @@ fun SearchDialog(textItems: List<TextItem>, onJump: (TextItem) -> Unit, onDismis
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
+            FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         },
     )
 }

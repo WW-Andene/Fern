@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
+import com.andene.fern.FernTextField
 import com.andene.fern.FernPanel
 
 import com.andene.fern.FernScale
@@ -16,9 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,13 +68,13 @@ fun SymbolsDialog(
                 }
                 selectedInstanceOf?.let { symbol ->
                     // A selected instance (roadmap item 100): redefine its symbol everywhere, or unlink it.
-                    TextButton(onClick = onRedefine) { Text(stringResource(R.string.symbols_redefine, symbol.name)) }
-                    TextButton(onClick = onDetach) { Text(stringResource(R.string.symbols_detach)) }
+                    FernTextButton(onClick = onRedefine) { Text(stringResource(R.string.symbols_redefine, symbol.name)) }
+                    FernTextButton(onClick = onDetach) { Text(stringResource(R.string.symbols_detach)) }
                 }
                 if (canSaveSelection) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = FernScale.s8)) {
-                        OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.symbols_name)) }, singleLine = true, modifier = Modifier.weight(1f))
-                        TextButton(onClick = {
+                        FernTextField(name, { name = it }, label = { Text(stringResource(R.string.symbols_name)) }, singleLine = true, modifier = Modifier.weight(1f))
+                        FernTextButton(onClick = {
                             onSaveSelection(name)
                             name = ""
                         }) { Text(stringResource(R.string.action_save)) }

@@ -24,6 +24,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -122,6 +126,17 @@ fun DrawingCanvas(
     // with the pen instead of trailing it by the display pipeline's latency.
     val view = LocalView.current
     val predictor = remember(view) { MotionEventPredictor.newInstance(view) }
+    // Where the canvas sits in the window, so the eyedropper reads the pixels under the finger (roadmap item 170).
+    var canvasOrigin by remember { mutableStateOf(Offset.Zero) }
+    val nothingToPick = stringResource(R.string.eyedropper_nothing)
+    DisposableEffect(state, view) {
+        state.screenSampler = { at, size, onColor -> sampleWindow(view, canvasOrigin + at, size, onColor) }
+        state.onNothingPicked = { com.andene.fern.FernMessages.show(nothingToPick) }
+        onDispose {
+            state.screenSampler = null
+            state.onNothingPicked = null
+        }
+    }
     var predictedScreen by remember { mutableStateOf<Offset?>(null) }
     val textMeasurer = rememberTextMeasurer()
     val tileCache = remember { SceneTileCache() }
@@ -130,6 +145,7 @@ fun DrawingCanvas(
     // Decoded lazily and cached by file name: re-decoding from disk every frame would be
     // wasteful, and images never change once placed (a new image is a new ImageItem/file).
     val gestures by GestureSettings.state(context)
+    val touchTiming by TouchTimingSettings.state(context)
     val palm by PalmSettings.state(context)
     // Where a hovering stylus is (design roadmap D16): the brush's footprint shows there before it touches.
     var hoverPoint by remember { mutableStateOf<Offset?>(null) }
@@ -175,6 +191,7 @@ fun DrawingCanvas(
     }
     Canvas(
         modifier = Modifier.matchParentSize()
+            .onGloballyPositioned { canvasOrigin = it.positionInWindow() }
             // Screen readers otherwise announce nothing for the drawing surface.
             .semantics {
                 contentDescription = context.resources.getQuantityString(R.plurals.canvas_description, state.strokes.size, state.strokes.size)
@@ -208,7 +225,8 @@ fun DrawingCanvas(
                     stylusSample.eraserEnd = event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER
                     stylusSample.buttonPressed = isStylus && (event.buttonState and MotionEvent.BUTTON_STYLUS_PRIMARY) != 0
                     predictor.record(event)
-                    frontInk?.onTouchEvent(event, state.strokeInProgress?.takeIf { state.activeStabilization <= 0.0 && !state.isAdjustingShape }, state.scale)
+                    // The front buffer is a separate surface the view checks (roadmap item 186) can't mirror or grey, so it rests while they're on.
+                    frontInk?.onTouchEvent(event, state.strokeInProgress?.takeIf { state.activeStabilization <= 0.0 && !state.isAdjustingShape && !state.viewMirrored && !state.viewGreyscale }, state.scale)
                     predictedScreen = when (event.actionMasked) {
                         MotionEvent.ACTION_MOVE -> predictor.predict()?.let { predicted ->
                             Offset(predicted.x, predicted.y).also { predicted.recycle() }
@@ -272,8 +290,15 @@ fun DrawingCanvas(
                     var wasStylusActive = false
                     // Tool to return to after a gesture that the stylus temporarily switched to the eraser.
                     var toolBeforeStylusEraser: Tool? = null
+                    // This gesture is moving a guide (guide edit mode, roadmap item 340), not using the tool.
+                    var editingGuide = false
 
                     fun endActiveDrawAction() {
+                        if (editingGuide) {
+                            state.endGuideEdit()
+                            editingGuide = false
+                            return
+                        }
                         when (state.activeTool) {
                             Tool.PEN -> state.endStroke()
                             Tool.ERASER -> state.endErase()
@@ -284,8 +309,8 @@ fun DrawingCanvas(
                             Tool.CONNECT -> state.endConnect()
                             Tool.BONE -> state.endBone()
                             Tool.BEZIER -> {} // a node is placed on press; nothing to end
-                            Tool.RULER -> state.endRulerGesture()
                             Tool.MEASURE -> state.endMeasure()
+                            Tool.RIG -> state.rigEditor.end()
                             Tool.SELECT -> {
                                 when (selectionGestureKind) {
                                     SelectionGestureKind.SCALE -> state.endScaleSelection()
@@ -302,7 +327,7 @@ fun DrawingCanvas(
                     while (true) {
                         val holding = longPressArmed && maxPointers <= 1
                         val event = if (holding) {
-                            withTimeoutOrNull((LONG_PRESS_MILLIS - (SystemClock.uptimeMillis() - downClock)).coerceAtLeast(1L)) { awaitPointerEvent(PointerEventPass.Main) }
+                            withTimeoutOrNull((touchTiming.holdMillis - (SystemClock.uptimeMillis() - downClock)).coerceAtLeast(1L)) { awaitPointerEvent(PointerEventPass.Main) }
                         } else {
                             awaitPointerEvent(PointerEventPass.Main)
                         }
@@ -368,7 +393,11 @@ fun DrawingCanvas(
                                 }
                                 val downPos = state.unrotateScreen(pointers[0].position, screenCenter)
                                 val world = state.screenToWorld(downPos, screenCenter)
-                                when (state.activeTool) {
+                                // In guide edit mode a finger moves guides and nothing else; out of it guides never take a touch.
+                                if (state.editingGuides) {
+                                    editingGuide = true
+                                    state.beginGuideEdit(world)
+                                } else when (state.activeTool) {
                                     Tool.PEN -> state.beginStroke(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
                                     Tool.ERASER -> state.beginErase(world)
                                     Tool.SHAPE -> state.beginShape(world)
@@ -378,8 +407,8 @@ fun DrawingCanvas(
                                     Tool.CONNECT -> state.beginConnect(world)
                                     Tool.BONE -> state.beginBone(world)
                                     Tool.BEZIER -> state.beginBezierNode(world)
-                                    Tool.RULER -> state.beginRulerGesture(world)
                                     Tool.MEASURE -> state.beginMeasure(world)
+                                    Tool.RIG -> state.rigEditor.begin(world)
                                     Tool.SELECT -> {
                                         // The shape builder and knife (roadmap item 141) take every drag, handles included.
                                         val handles = if (state.shapeEditMode == null) selectionHandles(state, screenCenter) else null
@@ -405,7 +434,7 @@ fun DrawingCanvas(
                                 val change = pointers[0]
                                 if (change.positionChanged()) {
                                     val world = state.screenToWorld(state.unrotateScreen(change.position, screenCenter), screenCenter)
-                                    when (state.activeTool) {
+                                    if (editingGuide) state.continueGuideEdit(world) else when (state.activeTool) {
                                         Tool.PEN -> state.extendStroke(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
                                         Tool.ERASER -> state.continueErase(world)
                                         Tool.SHAPE -> state.continueShape(world)
@@ -415,8 +444,8 @@ fun DrawingCanvas(
                                         Tool.CONNECT -> state.continueConnect(world)
                                         Tool.BONE -> state.continueBone(world)
                                         Tool.BEZIER -> state.dragBezierHandle(world)
-                                        Tool.RULER -> state.continueRulerGesture(world)
                                         Tool.MEASURE -> state.continueMeasure(world)
+                                        Tool.RIG -> state.rigEditor.move(world)
                                         Tool.SELECT -> when (selectionGestureKind) {
                                             SelectionGestureKind.SCALE -> state.continueScaleSelection(world)
                                             SelectionGestureKind.ROTATE -> state.continueRotateSelection(world)
@@ -488,7 +517,7 @@ fun DrawingCanvas(
                     val swipeFrom = swipeStart
                     if (longPressed) {
                         // Handled when it fired.
-                    } else if (maxPointers in 2..4 && tapDuration <= MULTI_FINGER_TAP_MAX_MILLIS && navigationTravel <= MULTI_FINGER_TAP_SLOP_PX) {
+                    } else if (maxPointers in 2..4 && tapDuration <= touchTiming.tapMaxMillis && navigationTravel <= touchTiming.tapSlopPx) {
                         // The first finger may have begun a stroke before the others landed; that wasn't drawing.
                         state.discardActionsSince(historyDepthAtStart)
                         val gesture = when (maxPointers) {
@@ -651,8 +680,8 @@ fun DrawingCanvas(
                 val reach = hypot(size.width, size.height) * 2f
                 val points = state.vanishingPoints.map { state.worldToScreen(it, screenCenter) }
                 val horizonY = points.first().y
-                if (points.size == 2) {
-                    // The horizon is the line through both points, extended across the screen.
+                if (points.size >= 2) {
+                    // The horizon is the line through the first two points, extended across the screen.
                     val d = points[1] - points[0]
                     val unit = d / d.getDistance().coerceAtLeast(1e-3f)
                     drawLine(PERSPECTIVE_HORIZON_COLOR, points[0] - unit * reach, points[0] + unit * reach, strokeWidth = 2f)
@@ -664,7 +693,7 @@ fun DrawingCanvas(
                         val angle = 2 * PI * k / PERSPECTIVE_RAYS
                         drawLine(PERSPECTIVE_RAY_COLOR, vp, vp + Offset((cos(angle) * reach).toFloat(), (sin(angle) * reach).toFloat()), strokeWidth = 1f)
                     }
-                    drawCircle(color = RULER_COLOR, radius = 12f, center = vp)
+                    drawCircle(color = DRAWING_GUIDE_COLOR, radius = 12f, center = vp)
                     drawCircle(color = Color.White, radius = 6f, center = vp)
                 }
             }
@@ -958,19 +987,8 @@ fun DrawingCanvas(
                 }
             }
 
-            if (state.rulerActive) {
-                state.rulerLine?.let { (start, end) ->
-                    val startScreen = state.worldToScreen(start, screenCenter)
-                    val endScreen = state.worldToScreen(end, screenCenter)
-                    drawLine(color = RULER_COLOR, start = startScreen, end = endScreen, strokeWidth = 4f)
-                    if (state.activeTool == Tool.RULER) {
-                        drawCircle(color = RULER_COLOR, radius = 10f, center = startScreen)
-                        drawCircle(color = Color.White, radius = 5f, center = startScreen)
-                        drawCircle(color = RULER_COLOR, radius = 10f, center = endScreen)
-                        drawCircle(color = Color.White, radius = 5f, center = endScreen)
-                    }
-                }
-            }
+            drawGuides(state, screenCenter, state.editingGuides)
+            if (state.activeTool == Tool.RIG) drawRig(state, screenCenter)
         }
     }
     if (navigating || gestureBadge != null) Canvas(Modifier.matchParentSize()) {
@@ -1782,11 +1800,6 @@ private fun mixArgb(from: Int, to: Int, t: Float): Int {
 private const val WHEEL_PAN_PX = 64f
 private const val WHEEL_ZOOM_STEP = 1.1
 
-// Two/three-finger tap to undo/redo, the convention of Procreate and most iPad/Android drawing apps.
-private const val MULTI_FINGER_TAP_MAX_MILLIS = 250L
-private const val MULTI_FINGER_TAP_SLOP_PX = 24f // on the §7 scale
-// A finger held this long within this distance is a long press (design roadmap D15); Android's own long-press time.
-private const val LONG_PRESS_MILLIS = 500L
 // After a stylus was last seen, strict palm rejection ignores touches this long.
 private const val PALM_NEAR_MILLIS = 1024L
 // Padding around an on-canvas readout.
@@ -1816,7 +1829,7 @@ private const val PERSPECTIVE_RAYS = 24
 private val FRAME_COLOR: Color get() = FernColors.current.frame
 private val MARQUEE_FILL_COLOR: Color get() = FernColors.current.selection.copy(alpha = 0.1f)
 private val HANDLE_COLOR: Color get() = FernColors.current.selection
-private val RULER_COLOR: Color get() = FernColors.current.active
+private val DRAWING_GUIDE_COLOR: Color get() = FernColors.current.active
 
 private enum class Mode { NONE, DRAW, NAVIGATE }
 private enum class SelectionGestureKind { SCALE, ROTATE, OTHER }
@@ -1915,6 +1928,10 @@ internal fun DrawScope.drawScene(
     val strokesByLayer = replayed.filter { s ->
         val shown = world?.instanceOf(s.groupId)?.frame ?: state.currentAnimFrame
         s.animFrame == shown
+    }.let { shownStrokes ->
+        // The rig's attached ink, posed (roadmap items 250, 353): drawn on its own layers like any ink.
+        val rigInk = state.rigEditor.posedStrokes()
+        if (rigInk.isEmpty()) shownStrokes else shownStrokes + rigInk
     }.groupBy { layerIndex[it.layerId] ?: 0 }
     // Offscreen bounds for a translucent layer: the square around the screen centre that covers
     // the screen at any canvas rotation.
@@ -2202,10 +2219,196 @@ internal fun toolName(tool: Tool): Int = when (tool) {
     Tool.SHAPE -> R.string.tool_name_shape
     Tool.FILL -> R.string.tool_name_fill
     Tool.TEXT -> R.string.tool_name_text
-    Tool.RULER -> R.string.tool_name_ruler
     Tool.EYEDROPPER -> R.string.tool_name_eyedropper
     Tool.CONNECT -> R.string.tool_name_connect
     Tool.BONE -> R.string.tool_name_bone
     Tool.BEZIER -> R.string.tool_name_bezier
     Tool.MEASURE -> R.string.tool_name_measure
+    Tool.RIG -> R.string.tool_name_rig
 }
+
+/**
+ * Reads the pixels shown in the window around [center] (window coordinates), a [size] px square,
+ * and hands their average colour to [onColor] on the main thread; null when they can't be read
+ * (off the window, no activity, or the copy failed). Uses [PixelCopy], so it sees exactly what
+ * the user sees: every layer, raster paint, images, fills and the paper.
+ */
+private fun sampleWindow(view: android.view.View, center: Offset, size: Int, onColor: (Color?) -> Unit) {
+    var context = view.context
+    while (context !is android.app.Activity && context is android.content.ContextWrapper) context = context.baseContext
+    val window = (context as? android.app.Activity)?.window ?: return onColor(null)
+    val half = size / 2
+    val left = center.x.roundToInt() - half
+    val top = center.y.roundToInt() - half
+    if (left < 0 || top < 0 || left + size > view.width || top + size > view.height) return onColor(null)
+    val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+    try {
+        android.view.PixelCopy.request(
+            window,
+            android.graphics.Rect(left, top, left + size, top + size),
+            bitmap,
+            { result ->
+                onColor(if (result == android.view.PixelCopy.SUCCESS) averageColor(bitmap) else null)
+                bitmap.recycle()
+            },
+            android.os.Handler(android.os.Looper.getMainLooper()),
+        )
+    } catch (_: IllegalArgumentException) {
+        bitmap.recycle()
+        onColor(null)
+    }
+}
+
+/** The mean of every pixel of [bitmap], opaque. */
+private fun averageColor(bitmap: android.graphics.Bitmap): Color {
+    val pixels = IntArray(bitmap.width * bitmap.height)
+    bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+    var r = 0L
+    var g = 0L
+    var b = 0L
+    for (p in pixels) {
+        r += (p shr 16) and 0xFF
+        g += (p shr 8) and 0xFF
+        b += p and 0xFF
+    }
+    val n = pixels.size
+    return Color((r / n).toInt(), (g / n).toInt(), (b / n).toInt())
+}
+
+/**
+ * The guides (roadmap items 340-342), in view space: straight edges as lines across the view,
+ * parallel guides as their direction line, radial and concentric guides as their centre with a
+ * few lines or rings, ellipses as the curve. Handles show only in guide edit mode.
+ */
+private fun DrawScope.drawGuides(state: CanvasState, screenCenter: Offset, editing: Boolean) {
+    val color = DRAWING_GUIDE_COLOR
+    fun screen(p: WorldPoint) = state.worldToScreen(p, screenCenter)
+    val reach = size.width + size.height
+    for (guide in state.drawingGuides) {
+        if (!guide.visible) continue
+        val h = guide.handles.map(::screen)
+        when (guide.kind) {
+            GuideKind.STRAIGHT, GuideKind.PARALLEL -> {
+                val d = h[1] - h[0]
+                val len = d.getDistance()
+                if (len > 0f) {
+                    val u = d / len
+                    drawLine(color, h[0] - u * reach, h[0] + u * reach, strokeWidth = GUIDE_LINE_PX)
+                    if (guide.kind == GuideKind.PARALLEL) {
+                        val n = Offset(-u.y, u.x) * GUIDE_PARALLEL_GAP_PX
+                        for (k in listOf(-2, -1, 1, 2)) drawLine(color.copy(alpha = GUIDE_FAINT_ALPHA), h[0] + n * k.toFloat() - u * reach, h[0] + n * k.toFloat() + u * reach, strokeWidth = GUIDE_FAINT_PX)
+                    }
+                }
+            }
+            GuideKind.RADIAL -> for (k in 0 until GUIDE_RADIAL_LINES) {
+                val a = k * 2 * Math.PI / GUIDE_RADIAL_LINES
+                drawLine(color.copy(alpha = GUIDE_FAINT_ALPHA), h[0], h[0] + Offset(cos(a).toFloat(), sin(a).toFloat()) * reach, strokeWidth = GUIDE_FAINT_PX)
+            }
+            GuideKind.CONCENTRIC -> for (k in 1..GUIDE_RINGS) {
+                drawCircle(color.copy(alpha = GUIDE_FAINT_ALPHA), radius = k * GUIDE_RING_GAP_PX, center = h[0], style = androidx.compose.ui.graphics.drawscope.Stroke(GUIDE_FAINT_PX))
+            }
+            GuideKind.GRID -> {
+                val cw = kotlin.math.abs(h[1].x - h[0].x)
+                val ch = kotlin.math.abs(h[1].y - h[0].y)
+                // Only while its cells are big enough on screen to read; denser grids would be noise.
+                if (cw >= GUIDE_GRID_MIN_CELL_PX && ch >= GUIDE_GRID_MIN_CELL_PX) {
+                    val faint = color.copy(alpha = GUIDE_FAINT_ALPHA)
+                    var x = h[0].x - kotlin.math.floor(h[0].x / cw) * cw
+                    while (x <= size.width) { drawLine(faint, Offset(x, 0f), Offset(x, size.height), strokeWidth = GUIDE_FAINT_PX); x += cw }
+                    var y = h[0].y - kotlin.math.floor(h[0].y / ch) * ch
+                    while (y <= size.height) { drawLine(faint, Offset(0f, y), Offset(size.width, y), strokeWidth = GUIDE_FAINT_PX); y += ch }
+                }
+            }
+            GuideKind.CURVE -> {
+                val path = androidx.compose.ui.graphics.Path()
+                curvePoints(guide.handles).map(::screen).forEachIndexed { k, p -> if (k == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y) }
+                drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(GUIDE_LINE_PX))
+                // The control arms, so the handles read as a Bézier's.
+                if (editing) {
+                    drawLine(color.copy(alpha = GUIDE_FAINT_ALPHA), h[0], h[1], strokeWidth = GUIDE_FAINT_PX)
+                    drawLine(color.copy(alpha = GUIDE_FAINT_ALPHA), h[3], h[2], strokeWidth = GUIDE_FAINT_PX)
+                }
+            }
+            GuideKind.ELLIPSE -> {
+                val e = ellipseOf(guide.handles)
+                val path = androidx.compose.ui.graphics.Path()
+                for (k in 0..GUIDE_ELLIPSE_SEGMENTS) {
+                    val p = screen(e.at(k * 2 * Math.PI / GUIDE_ELLIPSE_SEGMENTS))
+                    if (k == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y)
+                }
+                drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(GUIDE_LINE_PX))
+            }
+        }
+        if (editing) for (p in h) {
+            drawCircle(color, radius = GUIDE_HANDLE_PX, center = p)
+            drawCircle(Color.White, radius = GUIDE_HANDLE_PX / 2, center = p)
+        }
+    }
+}
+
+// Guide drawing sizes, screen px on the §7 scale.
+private const val GUIDE_LINE_PX = 2f
+private const val GUIDE_FAINT_PX = 1f
+private const val GUIDE_FAINT_ALPHA = 0.4f
+private const val GUIDE_HANDLE_PX = 12f
+private const val GUIDE_PARALLEL_GAP_PX = 64f
+private const val GUIDE_RING_GAP_PX = 64f
+private const val GUIDE_RINGS = 8
+private const val GUIDE_RADIAL_LINES = 24
+private const val GUIDE_ELLIPSE_SEGMENTS = 96
+private const val GUIDE_GRID_MIN_CELL_PX = 8f
+
+/**
+ * The rig's bones (roadmap item 250) while the rig tool is active, posed as shown: each a long
+ * thin diamond from its origin to its tip, Spine's bone shape, the selected one in the accent
+ * colour, with the bone being drawn as a line.
+ */
+private fun DrawScope.drawRig(state: CanvasState, screenCenter: Offset) {
+    val editor = state.rigEditor
+    val pose = editor.pose()
+    for (bone in editor.rig.bones) {
+        val world = pose[bone.id] ?: continue
+        val a = state.worldToScreen(boneOrigin(world), screenCenter)
+        val b = state.worldToScreen(boneTip(bone, world), screenCenter)
+        val d = b - a
+        val len = d.getDistance()
+        if (len < 1f) continue
+        val n = Offset(-d.y, d.x) / len * (len * RIG_BONE_WIDTH_RATIO).coerceAtMost(RIG_BONE_MAX_HALF_WIDTH_PX)
+        val shoulder = a + d * RIG_BONE_SHOULDER
+        val path = androidx.compose.ui.graphics.Path().apply {
+            moveTo(a.x, a.y)
+            lineTo((shoulder + n).x, (shoulder + n).y)
+            lineTo(b.x, b.y)
+            lineTo((shoulder - n).x, (shoulder - n).y)
+            close()
+        }
+        val color = if (bone.id == editor.selectedBoneId) DRAWING_GUIDE_COLOR else FernColors.current.neutral
+        drawPath(path, color.copy(alpha = RIG_BONE_FILL_ALPHA))
+        drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(GUIDE_LINE_PX))
+        drawCircle(color, radius = RIG_JOINT_PX, center = a)
+    }
+    // While painting weights (roadmap item 285): each attached point, as solid as the selected bone's share of it.
+    val selected = editor.selectedBoneId
+    if (editor.setupMode && editor.setupAction == RigEditor.SetupAction.PAINT_WEIGHTS && selected != null) {
+        for (attachment in editor.rig.attachments) {
+            attachment.strokes.forEachIndexed { si, stroke ->
+                val weights = attachment.weights.getOrNull(si) ?: return@forEachIndexed
+                stroke.points.forEachIndexed { pi, p ->
+                    val share = weights.getOrNull(pi)?.firstOrNull { it.first == selected }?.second ?: 0.0
+                    drawCircle(DRAWING_GUIDE_COLOR.copy(alpha = (RIG_WEIGHT_MIN_ALPHA + share * (1 - RIG_WEIGHT_MIN_ALPHA)).toFloat()), radius = RIG_JOINT_PX, center = state.worldToScreen(p, screenCenter))
+                }
+            }
+        }
+    }
+    editor.draft?.let { (head, tail) ->
+        drawLine(DRAWING_GUIDE_COLOR, state.worldToScreen(head, screenCenter), state.worldToScreen(tail, screenCenter), strokeWidth = GUIDE_LINE_PX * 2)
+    }
+}
+
+// Rig bone shape, screen px on the §7 scale: widest a tenth of the way along, at most 8 px each side.
+private const val RIG_BONE_WIDTH_RATIO = 0.08f
+private const val RIG_BONE_MAX_HALF_WIDTH_PX = 8f
+private const val RIG_BONE_SHOULDER = 0.1f
+private const val RIG_BONE_FILL_ALPHA = 0.3f
+private const val RIG_JOINT_PX = 4f
+private const val RIG_WEIGHT_MIN_ALPHA = 0.12

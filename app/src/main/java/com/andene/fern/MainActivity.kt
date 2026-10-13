@@ -51,7 +51,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.DisposableEffect
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.collectLatest
@@ -66,6 +65,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -127,6 +131,10 @@ import com.andene.fern.canvas.Frame
 import com.andene.fern.canvas.FramesDialog
 import com.andene.fern.canvas.ClipboardContent
 import com.andene.fern.canvas.DocumentLoadingOverlay
+import com.andene.fern.canvas.PressureCurves
+import com.andene.fern.canvas.PaletteStore
+import com.andene.fern.canvas.RigStorage
+import com.andene.fern.canvas.exportSpineRig
 import com.andene.fern.canvas.LoadedDocument
 import com.andene.fern.canvas.LinkChoices
 import com.andene.fern.canvas.LinkTarget
@@ -209,10 +217,8 @@ import kotlinx.coroutines.withContext
 // memory. 2048 is on the project size scale.
 private const val MAX_IMAGE_EDGE_PX = 2048
 
-// Window width from which the toolbar wraps instead of scrolling (tablets, unfolded foldables,
-// wide split windows). Material's "expanded" class starts at 840dp; this is that, put on the §7
-// scale (512 + 256), which also takes in a portrait tablet.
-private const val WIDE_WINDOW_DP = 768
+// Below this relative luminance a paper counts as dark: the midpoint between black and white.
+private const val PAPER_DARK_LUMINANCE = 0.5f
 
 class MainActivity : ComponentActivity() {
     private val powerMonitor by lazy { PowerMonitor(applicationContext) }
@@ -259,6 +265,8 @@ class MainActivity : ComponentActivity() {
             var highContrast by remember { mutableStateOf(AppSettings.highContrast(this)) }
             var colorBlindSafe by remember { mutableStateOf(AppSettings.colorBlindSafe(this)) }
             remember { FernHaptics.enabled = AppSettings.haptics(this) }
+            remember { FernPaper.chromeFollowsPaper = AppSettings.chromeFollowsPaper(this) }
+            remember { PressureCurves.load(this) }
             var uiSize by remember { mutableStateOf(AppSettings.uiSize(this)) }
             FernTheme(highContrast = highContrast, colorBlindSafe = colorBlindSafe, uiSize = uiSize) {
                 Surface(color = Color(0xFFF7F5F0)) {
@@ -339,7 +347,7 @@ class MainActivity : ComponentActivity() {
                             onTextChanged = { snapshot -> CanvasStorage.saveTextItems(context, currentDocumentId, snapshot) },
                             onImageChanged = { snapshot -> CanvasStorage.saveImageItems(context, currentDocumentId, snapshot) },
                             onBackgroundChanged = { color, style -> CanvasStorage.saveBackground(context, currentDocumentId, color, style) },
-                            onSavedColorsChanged = { colors -> CanvasStorage.saveSavedColors(context, colors) },
+                            onPalettesChanged = { palettes, activeId -> coroutineScope.launch(Dispatchers.IO) { PaletteStore.save(context, palettes, activeId) } },
                             onBrushChanged = { brush -> AppSettings.setStampBrush(context, brush) },
                             onToolSlotsChanged = { slots -> AppSettings.setToolSlots(context, slots) },
                             onBrushPresetsChanged = { presets -> AppSettings.setBrushPresets(context, presets) },
@@ -347,6 +355,11 @@ class MainActivity : ComponentActivity() {
                             onLayerCompsChanged = { comps -> CanvasStorage.saveLayerComps(context, currentDocumentId, comps) },
                             onStatsChanged = { stats -> CanvasStorage.saveStats(context, currentDocumentId, stats) },
                             onGuidesChanged = { guides -> CanvasStorage.saveGuides(context, currentDocumentId, guides) },
+                            onDrawingGuidesChanged = { guides -> CanvasStorage.saveDrawingGuides(context, currentDocumentId, guides) },
+                            onRigChanged = { rig ->
+                                val documentId = currentDocumentId
+                                coroutineScope.launch(Dispatchers.IO) { RigStorage.save(context, documentId, rig) }
+                            },
                             onDrawingScaleChanged = { scale -> CanvasStorage.saveDrawingScale(context, currentDocumentId, scale) },
                             onGameObjectsChanged = { objects, settings -> CanvasStorage.saveGameObjects(context, currentDocumentId, objects, settings) },
                             // Branch snapshots can be large: written off the main thread (roadmap item 153).
@@ -369,6 +382,8 @@ class MainActivity : ComponentActivity() {
                             },
                         )
                     }
+                    // The paper's tone, for chrome that follows it (design roadmap D60).
+                    SideEffect { FernPaper.dark = canvasState.backgroundColor.luminance() < PAPER_DARK_LUMINANCE }
 
                     // Raster pixels: changed tiles are copied here on the main thread, then written off it.
                     fun saveRasters(documentId: String) {
@@ -559,7 +574,12 @@ class MainActivity : ComponentActivity() {
                     val spineExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("application/zip"),
                     ) { uri ->
-                        if (uri != null) writeExport(uri) { exportSpine(canvasState, textMeasurer, density, imageForExport) }
+                        if (uri != null) writeExport(uri) {
+                            // The Spine-model rig when there is one (roadmap item 305); the frame-by-frame bones otherwise.
+                            val rig = canvasState.rigEditor.rig
+                            if (rig.bones.isNotEmpty()) exportSpineRig(canvasState, rig, canvasState.animFps, textMeasurer, density, imageForExport)
+                            else exportSpine(canvasState, textMeasurer, density, imageForExport)
+                        }
                     }
                     val dragonBonesExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("application/zip"),
@@ -675,7 +695,8 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }.getOrNull().orEmpty()
                             }
-                            colors.forEach { canvasState.addSavedColor(it) }
+                            // An imported palette becomes a palette of its own (roadmap item 350), not more saved colours.
+                            if (colors.isNotEmpty()) canvasState.addPalette(context.getString(R.string.palette_imported), colors)
                             FernMessages.show(if (colors.isEmpty()) context.getString(R.string.toast_bad_palette) else context.resources.getQuantityString(R.plurals.toast_imported_colours, colors.size, colors.size))
                         }
                     }
@@ -871,6 +892,7 @@ class MainActivity : ComponentActivity() {
                                 layerComps = CanvasStorage.loadLayerComps(context, documentId),
                                 stats = CanvasStorage.loadStats(context, documentId),
                                 guides = CanvasStorage.loadGuides(context, documentId),
+                                drawingGuides = CanvasStorage.loadDrawingGuides(context, documentId),
                                 symbolInstances = CanvasStorage.loadSymbolInstances(context, documentId),
                                 rasters = CanvasStorage.loadLayers(context, documentId).let { layers ->
                                     // Raster layers' pixels and every layer mask (roadmap items 89, 91).
@@ -902,6 +924,8 @@ class MainActivity : ComponentActivity() {
                         }
                         canvasState.loadStats(loaded.stats)
                         canvasState.loadGuides(loaded.guides)
+                        canvasState.loadDrawingGuides(loaded.drawingGuides)
+                        canvasState.rigEditor.load(withContext(Dispatchers.IO) { RigStorage.load(context, documentId) })
                         canvasState.loadDrawingScale(loaded.drawingScale)
                         canvasState.loadBranches(loaded.branches.first, loaded.branches.second)
                         canvasState.loadGameObjects(loaded.gameObjects.first, loaded.gameObjects.second)
@@ -960,7 +984,10 @@ class MainActivity : ComponentActivity() {
                     }
 
                     LaunchedEffect(Unit) {
-                        canvasState.loadSavedColors(withContext(Dispatchers.IO) { CanvasStorage.loadSavedColors(context) })
+                        val (palettes, activePalette) = withContext(Dispatchers.IO) {
+                            PaletteStore.load(context, context.getString(R.string.palette_basic), context.getString(R.string.palette_mine))
+                        }
+                        canvasState.loadPalettes(palettes, activePalette)
                         canvasState.loadBrush(AppSettings.stampBrush(context))
                         canvasState.loadToolSlots(AppSettings.toolSlots(context))
                         canvasState.loadBrushPresets(AppSettings.brushPresets(context))
@@ -1129,6 +1156,23 @@ class MainActivity : ComponentActivity() {
                             state = canvasState,
                             modifier = Modifier
                                 .fillMaxSize()
+                                // View checks (roadmap item 186): mirrored or in greys on screen only. The layer
+                                // mirrors touches too, so a stroke still lands under the finger.
+                                .graphicsLayer { scaleX = if (canvasState.viewMirrored) -1f else 1f }
+                                .drawWithContent {
+                                    if (!canvasState.viewGreyscale) {
+                                        drawContent()
+                                    } else {
+                                        val paint = androidx.compose.ui.graphics.Paint().apply {
+                                            colorFilter = androidx.compose.ui.graphics.ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(0f) })
+                                        }
+                                        drawIntoCanvas { canvas ->
+                                            canvas.saveLayer(androidx.compose.ui.geometry.Rect(androidx.compose.ui.geometry.Offset.Zero, size), paint)
+                                            drawContent()
+                                            canvas.restore()
+                                        }
+                                    }
+                                }
                                 .dragAndDropTarget(
                                     shouldStartDragAndDrop = { event ->
                                         event.mimeTypes().any { it.startsWith("image/") || it.startsWith("text/") }
@@ -1229,7 +1273,6 @@ class MainActivity : ComponentActivity() {
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(bottom = railInset + FernScale.s8, start = railSide, end = railSide)
                                     .padding(horizontal = FernScale.s8),
-                                wrap = LocalConfiguration.current.screenWidthDp >= WIDE_WINDOW_DP,
                                 modifier = Modifier
                                     .align(if (toolbarAtBottom) Alignment.BottomCenter else Alignment.TopCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
@@ -1573,7 +1616,7 @@ class MainActivity : ComponentActivity() {
                             title = { Text(stringResource(R.string.crash_title)) },
                             text = { Text(stringResource(R.string.crash_text)) },
                             confirmButton = {
-                                TextButton(onClick = {
+                                FernTextButton(onClick = {
                                     val send = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
                                         putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.crash_subject))
@@ -1585,7 +1628,7 @@ class MainActivity : ComponentActivity() {
                                 }) { Text(stringResource(R.string.crash_share)) }
                             },
                             dismissButton = {
-                                TextButton(onClick = {
+                                FernTextButton(onClick = {
                                     CrashReporter.clearPendingReport(context)
                                     crashReport = null
                                 }) { Text(stringResource(R.string.action_dismiss)) }

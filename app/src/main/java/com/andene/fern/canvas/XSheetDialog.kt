@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernTextButton
 import com.andene.fern.FernPanel
 
 import com.andene.fern.FernScale
@@ -17,7 +18,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,16 +66,16 @@ fun XSheetDialog(state: CanvasState, onDismiss: () -> Unit) {
         text = {
             Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { pickSoundtrack.launch(arrayOf("audio/*")) }) {
+                FernTextButton(onClick = { pickSoundtrack.launch(arrayOf("audio/*")) }) {
                     Text(stringResource(if (state.soundtrack == null) R.string.xsheet_add_soundtrack else R.string.xsheet_replace_soundtrack))
                 }
                 val soundtrack = state.soundtrack
                 if (soundtrack != null) {
-                    TextButton(onClick = {
+                    FernTextButton(onClick = {
                         CanvasStorage.deleteSoundtrack(context, soundtrack)
                         state.setSoundtrackFile(null)
                     }) { Text(stringResource(R.string.xsheet_remove_soundtrack)) }
-                    TextButton(enabled = !working, onClick = {
+                    FernTextButton(enabled = !working, onClick = {
                         working = true
                         scope.launch {
                             val starts = (0..state.animFrameCount).map { state.frameStartMillis(it) }
@@ -109,7 +109,7 @@ fun XSheetDialog(state: CanvasState, onDismiss: () -> Unit) {
                         }
                         // Mouth chart: cycles through the shapes, then back to none.
                         val mouth = state.frameMouths[frame]
-                        TextButton(onClick = {
+                        FernTextButton(onClick = {
                             val next = if (mouth == null) MouthShape.entries.first() else MouthShape.entries.getOrNull(mouth.ordinal + 1)
                             state.setMouth(frame, next)
                         }) {
@@ -120,6 +120,6 @@ fun XSheetDialog(state: CanvasState, onDismiss: () -> Unit) {
             }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
+        confirmButton = { FernTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
     )
 }
