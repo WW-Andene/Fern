@@ -1,5 +1,10 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+import com.andene.fern.FernPanelHost
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
 import android.content.Context
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -40,13 +45,17 @@ class TextLinksTest {
         val events = mutableListOf<String>()
         var confirmed: TextEditResult? = null
         compose.setContent {
-            TextEditDialog(
-                pending = CanvasState.PendingTextEdit(null, WorldPoint.Zero, "Go to kitchen"),
-                onConfirm = { confirmed = it; events += "confirm" },
-                onDismiss = {},
-                linkChoices = LinkChoices(listOf(pin), listOf(document)),
-                onFollowLink = { events += "follow $it" },
-            )
+            Box(Modifier.fillMaxSize()) {
+                TextEditDialog(
+                    pending = CanvasState.PendingTextEdit(null, WorldPoint.Zero, "Go to kitchen"),
+                    onConfirm = { confirmed = it; events += "confirm" },
+                    onDismiss = {},
+                    linkChoices = LinkChoices(listOf(pin), listOf(document)),
+                    onFollowLink = { events += "follow $it" },
+                )
+                // The editor is a panel (design roadmap D42), shown through its host.
+                FernPanelHost(railOnLeft = true, railInset = FernScale.none, railSide = FernScale.none)
+            }
         }
         compose.onNodeWithText("Pin").performScrollTo().performClick()
         compose.onNodeWithText("Kitchen").performClick()
@@ -59,12 +68,16 @@ class TextLinksTest {
     @Test
     fun aDeletedTargetIsReported() {
         compose.setContent {
-            TextEditDialog(
-                pending = CanvasState.PendingTextEdit("x", WorldPoint.Zero, "Old", initialLink = LinkTarget.Document("gone")),
-                onConfirm = {},
-                onDismiss = {},
-                linkChoices = LinkChoices(listOf(pin), listOf(document)),
-            )
+            Box(Modifier.fillMaxSize()) {
+                TextEditDialog(
+                    pending = CanvasState.PendingTextEdit("x", WorldPoint.Zero, "Old", initialLink = LinkTarget.Document("gone")),
+                    onConfirm = {},
+                    onDismiss = {},
+                    linkChoices = LinkChoices(listOf(pin), listOf(document)),
+                )
+                // The editor is a panel (design roadmap D42), shown through its host.
+                FernPanelHost(railOnLeft = true, railInset = FernScale.none, railSide = FernScale.none)
+            }
         }
         compose.onNodeWithText("Links to something that no longer exists").performScrollTo()
     }

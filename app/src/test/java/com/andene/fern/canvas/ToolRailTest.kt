@@ -15,9 +15,13 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /** Design roadmap D8: the tool rail's fixed tools, selection and pinned tools. */
+// A screen as wide as the rail the tests lay out: with names under icons each tool takes 64 dp,
+// and Robolectric's default 320 dp screen would leave no room for pinned tools.
 @RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = "w768dp-h1024dp")
 class ToolRailTest {
     @get:Rule
     val compose = createComposeRule()

@@ -28,6 +28,10 @@ class CanvasGesturesTest {
     fun aHeldFingerPicksAColourWithoutDrawing() {
         val state = CanvasState()
         compose.setContent { DrawingCanvas(state, Modifier.fillMaxSize()) }
+        compose.waitForIdle()
+        // Robolectric has no real window surface to read pixels from, so the eyedropper uses its
+        // stroke fallback, as it does wherever the screen can't be read (roadmap item 170).
+        state.screenSampler = null
         // Ink to pick from: the eyedropper leaves the colour alone over an empty canvas.
         state.activeColor = Color.Red
         compose.onRoot().performTouchInput { swipe(centerLeft, centerRight) }
