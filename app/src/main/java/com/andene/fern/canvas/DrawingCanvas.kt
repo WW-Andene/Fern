@@ -68,6 +68,11 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
@@ -946,6 +951,35 @@ fun DrawingCanvas(
         gestureBadge?.let { (label, at, _) -> badge(label, at) }
     }
     // The selection's position and size while it's dragged (design roadmap D37), in the drawing's units.
+    // Each handle for screen readers (roadmap item 172): announced with its value, and activating it
+    // opens the value to type, as holding it does. Touch passes through: these hold no pointer input.
+    if (state.viewportSize.width > 0f) {
+        val typeLabel = stringResource(R.string.handle_entry_title)
+        val hitPx = with(LocalDensity.current) { HANDLE_HIT.toPx() }
+        val screenCenter = Offset(state.viewportSize.width / 2f, state.viewportSize.height / 2f)
+        for (handle in state.canvasHandles()) {
+            val description = handleReadout(handle.typedValue(state.drawingScale))
+            // Where it's drawn: the canvas turns the view about the screen's centre (see unrotateScreen).
+            val flat = state.worldToScreen(handle.position, screenCenter) + handle.screenOffset - screenCenter
+            val turn = state.rotation
+            val at = screenCenter + Offset(
+                (flat.x * cos(turn) - flat.y * sin(turn)).toFloat(),
+                (flat.x * sin(turn) + flat.y * cos(turn)).toFloat(),
+            )
+            Box(
+                Modifier
+                    .offset { IntOffset((at.x - hitPx).roundToInt(), (at.y - hitPx).roundToInt()) }
+                    .size(HANDLE_HIT * 2)
+                    .clearAndSetSemantics {
+                        contentDescription = description
+                        onClick(typeLabel) {
+                            heldHandle = handle
+                            true
+                        }
+                    },
+            )
+        }
+    }
     draggedHandle?.let { handle ->
         // Beside the handle, above it, in the scrim's colours like the selection's readout.
         val label = handleReadout(handle.typedValue(state.drawingScale))
