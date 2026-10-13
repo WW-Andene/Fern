@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernTextField
 import com.andene.fern.FernPanel
 
@@ -12,9 +14,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -62,7 +61,7 @@ fun PinsDialog(
                                 .clickable { onJump(pin) },
                         )
                         IconButton(onClick = { onDelete(pin) }) {
-                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.pins_delete))
+                            Icon(FernIcons.Delete, contentDescription = stringResource(R.string.pins_delete))
                         }
                     }
                 }
@@ -83,7 +82,7 @@ fun PinsDialog(
                             newPinName = ""
                         }
                     }) {
-                        Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.pins_add))
+                        Icon(FernIcons.Add, contentDescription = stringResource(R.string.pins_add))
                     }
                 }
             }

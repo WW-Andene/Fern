@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernPanel
 
@@ -11,9 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -101,11 +100,11 @@ fun XSheetDialog(state: CanvasState, onDismiss: () -> Unit) {
                                 .padding(vertical = FernScale.s12),
                         )
                         IconButton(onClick = { state.setHold(frame, hold - 1) }, enabled = hold > 1) {
-                            Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.xsheet_shorter, frame + 1))
+                            Icon(FernIcons.Remove, contentDescription = stringResource(R.string.xsheet_shorter, frame + 1))
                         }
                         Text(stringResource(R.string.xsheet_hold, hold), style = MaterialTheme.typography.bodyMedium)
                         IconButton(onClick = { state.setHold(frame, hold + 1) }, enabled = hold < CanvasState.MAX_FRAME_HOLD) {
-                            Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.xsheet_longer, frame + 1))
+                            Icon(FernIcons.Add, contentDescription = stringResource(R.string.xsheet_longer, frame + 1))
                         }
                         // Mouth chart: cycles through the shapes, then back to none.
                         val mouth = state.frameMouths[frame]

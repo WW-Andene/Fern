@@ -44,8 +44,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -1252,7 +1250,7 @@ class MainActivity : ComponentActivity() {
                                     .align(if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(FernScale.s8),
-                            ) { Icon(Icons.Filled.FullscreenExit, contentDescription = stringResource(R.string.chrome_show)) }
+                            ) { Icon(FernIcons.FullscreenExit, contentDescription = stringResource(R.string.chrome_show)) }
                             if (showQuickMenu) QuickMenuOverlay(state = canvasState, onDismiss = { showQuickMenu = false }, actions = quickMenuActions)
                         } else {
                             // The tool rail (design roadmap D8): along the bottom of an upright phone, in

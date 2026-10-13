@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import androidx.compose.foundation.clickable
 import com.andene.fern.FernMenuItem
 import androidx.compose.material3.DropdownMenu
@@ -11,10 +13,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Undo
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -149,13 +147,13 @@ fun RigPanel(state: CanvasState, onDismiss: () -> Unit) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(R.string.rig_slot_on_bone, slot.name, boneName), modifier = Modifier.weight(1f))
                         IconButton(onClick = { editor.moveSlot(slot.id, 1) }, enabled = index < rig.slots.lastIndex) {
-                            Icon(Icons.Filled.KeyboardArrowUp, contentDescription = stringResource(R.string.rig_slot_up))
+                            Icon(FernIcons.KeyboardArrowUp, contentDescription = stringResource(R.string.rig_slot_up))
                         }
                         IconButton(onClick = { editor.moveSlot(slot.id, -1) }, enabled = index > 0) {
-                            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = stringResource(R.string.rig_slot_down))
+                            Icon(FernIcons.KeyboardArrowDown, contentDescription = stringResource(R.string.rig_slot_down))
                         }
                         IconButton(onClick = { state.detachRigSlot(slot.id) }) {
-                            Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.rig_slot_detach))
+                            Icon(FernIcons.Undo, contentDescription = stringResource(R.string.rig_slot_detach))
                         }
                     }
                 }

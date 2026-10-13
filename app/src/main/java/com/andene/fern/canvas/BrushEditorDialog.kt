@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSlider
 import com.andene.fern.FernSwitch
@@ -15,8 +17,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
@@ -111,7 +111,7 @@ fun BrushEditorDialog(
                                 trailingIcon = if (loaded) {
                                     {
                                         Icon(
-                                            Icons.Filled.Close,
+                                            FernIcons.Close,
                                             contentDescription = stringResource(R.string.brush_delete_preset, preset.name),
                                             modifier = Modifier.minimumInteractiveComponentSize().size(FernScale.s16).clickable { onDeletePreset(preset.name) },
                                         )
@@ -132,7 +132,7 @@ fun BrushEditorDialog(
                                 selected = false,
                                 onClick = { onSetPresetTags(loaded.name, loaded.tags - tag) },
                                 label = { Text(tag) },
-                                trailingIcon = { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.brush_remove_tag, tag), modifier = Modifier.size(FernScale.s16)) },
+                                trailingIcon = { Icon(FernIcons.Close, contentDescription = stringResource(R.string.brush_remove_tag, tag), modifier = Modifier.size(FernScale.s16)) },
                                 modifier = Modifier.padding(end = FernScale.s4),
                             )
                         }

@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSlider
 import com.andene.fern.FernMessages
@@ -30,8 +32,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -219,7 +219,7 @@ fun Model3dEditor(model: Model3d, initialColor: Color, onSave: (Model3d) -> Unit
                                 previous.metallic.copyInto(maps.metallic)
                                 revision++
                             }
-                        }) { Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.action_undo)) }
+                        }) { Icon(FernIcons.Undo, contentDescription = stringResource(R.string.action_undo)) }
                     }
                     handPose?.let { pose -> HandPoseControls(pose) { handPose = it } }
                     if (channel != SurfaceChannel.COLOR) {

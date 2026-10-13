@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernSlider
 import com.andene.fern.FernColors
 
@@ -10,12 +12,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.FiberManualRecord
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -58,10 +54,10 @@ fun AudioBar(audio: AudioNotes, state: CanvasState, playing: File?, onClosePlayb
         }
         Surface(modifier = modifier, shape = MaterialTheme.shapes.large, tonalElevation = FernScale.s4, shadowElevation = FernScale.s4) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = FernScale.s12)) {
-                Icon(Icons.Filled.FiberManualRecord, contentDescription = null, tint = RECORDING_COLOR)
+                Icon(FernIcons.FiberManualRecord, contentDescription = null, tint = RECORDING_COLOR)
                 Text(stringResource(R.string.audio_recording_for, clock(now - since)), modifier = Modifier.padding(start = FernScale.s8))
                 IconButton(onClick = { audio.stop() }) {
-                    Icon(Icons.Filled.Stop, contentDescription = stringResource(R.string.audio_stop_recording))
+                    Icon(FernIcons.Stop, contentDescription = stringResource(R.string.audio_stop_recording))
                 }
             }
         }
@@ -94,7 +90,7 @@ fun AudioBar(audio: AudioNotes, state: CanvasState, playing: File?, onClosePlayb
                 paused = !paused
             }) {
                 Icon(
-                    if (paused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                    if (paused) FernIcons.PlayArrow else FernIcons.Pause,
                     contentDescription = stringResource(if (paused) R.string.action_play else R.string.audio_pause),
                 )
             }
@@ -108,7 +104,7 @@ fun AudioBar(audio: AudioNotes, state: CanvasState, playing: File?, onClosePlayb
             )
             Text(clock(position), modifier = Modifier.padding(horizontal = FernScale.s8))
             IconButton(onClick = onClosePlayback) {
-                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.audio_close_playback))
+                Icon(FernIcons.Close, contentDescription = stringResource(R.string.audio_close_playback))
             }
         }
     }

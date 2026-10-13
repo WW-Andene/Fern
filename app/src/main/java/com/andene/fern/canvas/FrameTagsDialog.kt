@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSlider
@@ -20,9 +22,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -73,8 +72,8 @@ fun FrameTagsDialog(state: CanvasState, onDismiss: () -> Unit) {
                         IconButton(onClick = {
                             state.playTag(tag.name)
                             onDismiss()
-                        }) { Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.tags_play)) }
-                        IconButton(onClick = { state.removeFrameTag(tag.name) }) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.tags_delete)) }
+                        }) { Icon(FernIcons.PlayArrow, contentDescription = stringResource(R.string.tags_play)) }
+                        IconButton(onClick = { state.removeFrameTag(tag.name) }) { Icon(FernIcons.Delete, contentDescription = stringResource(R.string.tags_delete)) }
                     }
                 }
                 HorizontalDivider(Modifier.padding(vertical = FernScale.s8))

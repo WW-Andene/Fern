@@ -1,11 +1,12 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSlider
 import com.andene.fern.FernTextField
 import com.andene.fern.ConfirmIrreversible
 import com.andene.fern.FernPanel
-import androidx.compose.material.icons.filled.Add
 import com.andene.fern.PanelRow
 import kotlin.math.roundToInt
 import androidx.compose.ui.semantics.stateDescription
@@ -19,7 +20,6 @@ import com.andene.fern.FernMessages
 import com.andene.fern.FernScale
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material.icons.filled.Refresh
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -31,7 +31,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import android.net.Uri
 import android.content.Intent
 import androidx.compose.material3.LocalContentColor
-import androidx.compose.material.icons.filled.FormatColorFill
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
@@ -42,22 +41,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Opacity
-import androidx.compose.material.icons.filled.SubdirectoryArrowRight
-import androidx.compose.material.icons.filled.Brush
-import androidx.compose.material.icons.filled.Gradient
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.MergeType
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import com.andene.fern.FernMenuItem
@@ -150,7 +133,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
         peek = { state.layers.firstOrNull { it.id == state.activeLayerId }?.let { Text(it.name) } },
         // The panel's main action in its header, and a filter by name (design roadmap D42, D43).
         headerAction = {
-            IconButton(onClick = { state.addLayer() }) { Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.layers_new)) }
+            IconButton(onClick = { state.addLayer() }) { Icon(FernIcons.Add, contentDescription = stringResource(R.string.layers_new)) }
         },
         onFilter = { layerFilter = it },
         text = {
@@ -188,20 +171,20 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                         LayerThumbnail(state, layer.id)
                         IconButton(onClick = { state.updateLayer(layer.id) { it.copy(visible = !it.visible) } }) {
                             Icon(
-                                if (layer.visible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                if (layer.visible) FernIcons.Visibility else FernIcons.VisibilityOff,
                                 contentDescription = if (layer.visible) stringResource(R.string.layers_hide) else stringResource(R.string.layers_show),
                             )
                         }
                         IconButton(onClick = { state.updateLayer(layer.id) { it.copy(reference = !it.reference) } }) {
                             Icon(
-                                Icons.Filled.FormatColorFill,
+                                FernIcons.FormatColorFill,
                                 contentDescription = if (layer.reference) stringResource(R.string.layers_reference_on) else stringResource(R.string.layers_reference_off),
                                 tint = if (layer.reference) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                             )
                         }
                         IconButton(onClick = { state.updateLayer(layer.id) { it.copy(locked = !it.locked) } }) {
                             Icon(
-                                if (layer.locked) Icons.Filled.Lock else Icons.Filled.LockOpen,
+                                if (layer.locked) FernIcons.Lock else FernIcons.LockOpen,
                                 contentDescription = if (layer.locked) stringResource(R.string.layers_unlock) else stringResource(R.string.layers_lock),
                             )
                         }
@@ -216,7 +199,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                                 if (renameText.isNotBlank()) state.updateLayer(layer.id) { it.copy(name = renameText.trim()) }
                                 renamingId = null
                             }) {
-                                Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.action_confirm_rename))
+                                Icon(FernIcons.Check, contentDescription = stringResource(R.string.action_confirm_rename))
                             }
                         } else {
                             // Drag sideways on the name to set the layer's opacity, shown beside it (design roadmap D43).
@@ -239,27 +222,27 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                                 renamingId = layer.id
                                 renameText = layer.name
                             }) {
-                                Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.layers_rename))
+                                Icon(FernIcons.Edit, contentDescription = stringResource(R.string.layers_rename))
                             }
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (layer.fileSource != null) {
                             IconButton(onClick = { reload(layer) }) {
-                                Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.layers_reload_file))
+                                Icon(FernIcons.Refresh, contentDescription = stringResource(R.string.layers_reload_file))
                             }
                         }
                         IconButton(onClick = { state.moveLayer(layer.id, up = true) }, enabled = layer != state.layers.last()) {
-                            Icon(Icons.Filled.ArrowUpward, contentDescription = stringResource(R.string.layers_up))
+                            Icon(FernIcons.ArrowUpward, contentDescription = stringResource(R.string.layers_up))
                         }
                         IconButton(onClick = { state.moveLayer(layer.id, up = false) }, enabled = layer != state.layers.first()) {
-                            Icon(Icons.Filled.ArrowDownward, contentDescription = stringResource(R.string.layers_down))
+                            Icon(FernIcons.ArrowDownward, contentDescription = stringResource(R.string.layers_down))
                         }
                         IconButton(onClick = { state.mergeLayerDown(layer.id) }, enabled = layer != state.layers.first()) {
-                            Icon(Icons.Filled.MergeType, contentDescription = stringResource(R.string.layers_merge))
+                            Icon(FernIcons.MergeType, contentDescription = stringResource(R.string.layers_merge))
                         }
                         IconButton(onClick = { delete(layer) }, enabled = state.layers.size > 1) {
-                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.layers_delete))
+                            Icon(FernIcons.Delete, contentDescription = stringResource(R.string.layers_delete))
                         }
                     }
                     if (active) {
@@ -291,7 +274,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { if (layer.masked) state.removeLayerMask(layer.id) else state.addLayerMask(layer.id) }) {
                                 Icon(
-                                    Icons.Filled.Gradient,
+                                    FernIcons.Gradient,
                                     contentDescription = stringResource(if (layer.masked) R.string.layers_mask_remove else R.string.layers_mask_add),
                                     tint = if (layer.masked) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                                 )
@@ -299,7 +282,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                             if (layer.masked) {
                                 IconButton(onClick = { state.editingMask = !state.editingMask }) {
                                     Icon(
-                                        Icons.Filled.Brush,
+                                        FernIcons.Brush,
                                         contentDescription = stringResource(if (state.editingMask) R.string.layers_mask_edit_stop else R.string.layers_mask_edit),
                                         tint = if (state.editingMask) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                                     )
@@ -307,7 +290,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                             }
                             IconButton(onClick = { state.updateLayer(layer.id) { it.copy(clipped = !it.clipped) } }, enabled = layer != state.layers.first()) {
                                 Icon(
-                                    Icons.Filled.SubdirectoryArrowRight,
+                                    FernIcons.SubdirectoryArrowRight,
                                     contentDescription = stringResource(if (layer.clipped) R.string.layers_clip_off else R.string.layers_clip_on),
                                     tint = if (layer.clipped) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                                 )
@@ -315,7 +298,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                             if (layer.raster) {
                                 IconButton(onClick = { state.updateLayer(layer.id) { it.copy(alphaLocked = !it.alphaLocked) } }) {
                                     Icon(
-                                        Icons.Filled.Opacity,
+                                        FernIcons.Opacity,
                                         contentDescription = stringResource(if (layer.alphaLocked) R.string.layers_alpha_unlock else R.string.layers_alpha_lock),
                                         tint = if (layer.alphaLocked) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                                     )
@@ -395,10 +378,10 @@ private fun LayerCompsSection(state: CanvasState) {
             modifier = Modifier.weight(1f),
         )
         IconButton(onClick = { state.updateLayerComp(chosen.id) }, enabled = chosen.id != current) {
-            Icon(Icons.Filled.Save, contentDescription = stringResource(R.string.layers_comp_update))
+            Icon(FernIcons.Save, contentDescription = stringResource(R.string.layers_comp_update))
         }
         IconButton(onClick = { state.deleteLayerComp(chosen.id); chosenId = null }) {
-            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.layers_comp_delete))
+            Icon(FernIcons.Delete, contentDescription = stringResource(R.string.layers_comp_delete))
         }
     }
 }

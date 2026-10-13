@@ -1,13 +1,13 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernTextButton
 import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -95,7 +95,7 @@ fun GestureMapEditor(filter: (String) -> Boolean = { true }) {
             Text(name, modifier = Modifier.weight(1f))
             if (map.getValue(gesture) != gesture.default) {
                 IconButton(onClick = { GestureSettings.set(context, gesture, gesture.default) }) {
-                    Icon(Icons.Filled.RestartAlt, contentDescription = stringResource(R.string.settings_reset, name))
+                    Icon(FernIcons.RestartAlt, contentDescription = stringResource(R.string.settings_reset, name))
                 }
             }
             Box {

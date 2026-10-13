@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernColors
 
 import com.andene.fern.FernScale
@@ -18,11 +20,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.RestartAlt
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -108,12 +105,12 @@ fun PlayOverlay(state: CanvasState, modifier: Modifier = Modifier) {
             Row {
                 IconButton(onClick = { state.playPaused = !state.playPaused }) {
                     Icon(
-                        if (state.playPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                        if (state.playPaused) FernIcons.PlayArrow else FernIcons.Pause,
                         contentDescription = stringResource(if (state.playPaused) R.string.play_resume else R.string.play_pause),
                     )
                 }
-                IconButton(onClick = { state.restartPlay() }) { Icon(Icons.Filled.RestartAlt, contentDescription = stringResource(R.string.play_restart)) }
-                IconButton(onClick = { state.stopPlay() }) { Icon(Icons.Filled.Stop, contentDescription = stringResource(R.string.play_stop)) }
+                IconButton(onClick = { state.restartPlay() }) { Icon(FernIcons.RestartAlt, contentDescription = stringResource(R.string.play_restart)) }
+                IconButton(onClick = { state.stopPlay() }) { Icon(FernIcons.Stop, contentDescription = stringResource(R.string.play_stop)) }
             }
         }
         // The heads-up display (roadmap item 161): the properties of objects that show them.

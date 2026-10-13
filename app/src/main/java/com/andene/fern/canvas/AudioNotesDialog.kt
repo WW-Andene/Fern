@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernScale
@@ -12,9 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -55,13 +54,13 @@ fun AudioNotesDialog(audio: AudioNotes, documentId: String, onPlay: (File) -> Un
                     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(time?.let { format.format(Date(it)) } ?: note.name, modifier = Modifier.weight(1f))
                         IconButton(onClick = { onPlay(note) }, enabled = !recording) {
-                            Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.action_play))
+                            Icon(FernIcons.PlayArrow, contentDescription = stringResource(R.string.action_play))
                         }
                         IconButton(onClick = {
                             note.delete()
                             notes = audio.list(documentId)
                         }, enabled = !recording) {
-                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.audio_delete))
+                            Icon(FernIcons.Delete, contentDescription = stringResource(R.string.audio_delete))
                         }
                     }
                 }

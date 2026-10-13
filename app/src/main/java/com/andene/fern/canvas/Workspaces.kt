@@ -1,15 +1,13 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernTextField
 import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.DropdownMenu
 import com.andene.fern.FernMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -116,19 +114,19 @@ fun WorkspaceSwitcher(hiddenGroups: Set<ToolbarGroup>, onHiddenGroups: (Set<Tool
     val pinned by RailSettings.pinnedState(context)
     Box {
         IconButton(onClick = { open = true }) {
-            Icon(Icons.Filled.Dashboard, contentDescription = stringResource(R.string.workspace_switch, active?.let { label(it) } ?: stringResource(R.string.workspace_custom_layout)))
+            Icon(FernIcons.Dashboard, contentDescription = stringResource(R.string.workspace_switch, active?.let { label(it) } ?: stringResource(R.string.workspace_custom_layout)))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             for (w in all) {
                 FernMenuItem(
                     text = { Text(label(w)) },
-                    leadingIcon = { if (w.id == activeId) Icon(Icons.Filled.Check, contentDescription = null) },
+                    leadingIcon = { if (w.id == activeId) Icon(FernIcons.Check, contentDescription = null) },
                     trailingIcon = if (w.label == null) {
                         {
                             IconButton(onClick = {
                                 custom = custom.filter { it.id != w.id }
                                 WorkspaceStore.setCustom(context, custom)
-                            }) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.workspace_delete, w.name)) }
+                            }) { Icon(FernIcons.Delete, contentDescription = stringResource(R.string.workspace_delete, w.name)) }
                         }
                     } else {
                         null

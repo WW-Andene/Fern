@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernScale
 
 import android.content.Context
@@ -8,8 +10,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -124,7 +124,7 @@ fun PaneDragHandle(state: MovablePaneState, contentDescription: String, modifier
             .pointerInput(state) { detectTapGestures(onDoubleTap = { state.reset() }) },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Filled.DragHandle, contentDescription = contentDescription, modifier = Modifier.size(FernScale.s24))
+        Icon(FernIcons.DragHandle, contentDescription = contentDescription, modifier = Modifier.size(FernScale.s24))
     }
 }
 

@@ -1,15 +1,13 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernScale
 
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,14 +34,14 @@ fun PresentationControls(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { onStep(-1) }, enabled = position > 0) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.presentation_previous))
+                Icon(FernIcons.ArrowBack, contentDescription = stringResource(R.string.presentation_previous))
             }
             Text(stringResource(R.string.presentation_position, position + 1, count), modifier = Modifier.padding(horizontal = FernScale.s8))
             IconButton(onClick = { onStep(1) }, enabled = position < count - 1) {
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.presentation_next))
+                Icon(FernIcons.ArrowForward, contentDescription = stringResource(R.string.presentation_next))
             }
             IconButton(onClick = onExit) {
-                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.presentation_exit))
+                Icon(FernIcons.Close, contentDescription = stringResource(R.string.presentation_exit))
             }
         }
     }

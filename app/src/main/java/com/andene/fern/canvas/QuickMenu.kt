@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernScale
 
 import androidx.annotation.StringRes
@@ -8,13 +10,6 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.onClick
-import androidx.compose.material.icons.filled.AccessibilityNew
-import androidx.compose.material.icons.filled.AccountTree
-import androidx.compose.material.icons.filled.AddCircleOutline
-import androidx.compose.material.icons.filled.Polyline
-import androidx.compose.material.icons.filled.RemoveCircleOutline
-import androidx.compose.material.icons.filled.SquareFoot
-import androidx.compose.material.icons.filled.SwapHoriz
 import com.andene.fern.FernHaptics
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
@@ -26,21 +21,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Backspace
-import androidx.compose.material.icons.automirrored.filled.Redo
-import androidx.compose.material.icons.automirrored.filled.Undo
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.FormatPaint
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.CenterFocusStrong
-import androidx.compose.material.icons.filled.Straighten
-import androidx.compose.material.icons.filled.Colorize
-import androidx.compose.material.icons.filled.DonutLarge
-import androidx.compose.material.icons.filled.FormatColorFill
-import androidx.compose.material.icons.filled.SelectAll
-import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -65,28 +45,28 @@ import kotlin.math.sin
  */
 enum class QuickMenuAction(@StringRes val label: Int, val icon: (CanvasState) -> ImageVector, val run: (CanvasState) -> Unit) {
     PEN(R.string.pen_title, { penTypeIcon(it.activePenType) }, { it.activeTool = Tool.PEN }),
-    ERASER(R.string.tb_eraser, { Icons.AutoMirrored.Filled.Backspace }, { it.activeTool = Tool.ERASER }),
-    SELECT(R.string.action_select, { Icons.Filled.SelectAll }, { it.activeTool = Tool.SELECT }),
+    ERASER(R.string.tb_eraser, { FernIcons.Backspace }, { it.activeTool = Tool.ERASER }),
+    SELECT(R.string.action_select, { FernIcons.SelectAll }, { it.activeTool = Tool.SELECT }),
     SHAPES(R.string.quick_shapes, { shapeKindIcon(it.activeShapeKind) }, { it.activeTool = Tool.SHAPE }),
-    REDO(R.string.action_redo, { Icons.AutoMirrored.Filled.Redo }, { it.redo() }),
-    UNDO(R.string.action_undo, { Icons.AutoMirrored.Filled.Undo }, { it.undo() }),
-    TEXT(R.string.text_label, { Icons.Filled.TextFields }, { it.activeTool = Tool.TEXT }),
-    FILL(R.string.tb_fill, { Icons.Filled.FormatColorFill }, { it.activeTool = Tool.FILL }),
-    EYEDROPPER(R.string.tb_eyedropper, { Icons.Filled.Colorize }, { it.activeTool = Tool.EYEDROPPER }),
+    REDO(R.string.action_redo, { FernIcons.Redo }, { it.redo() }),
+    UNDO(R.string.action_undo, { FernIcons.Undo }, { it.undo() }),
+    TEXT(R.string.text_label, { FernIcons.TextFields }, { it.activeTool = Tool.TEXT }),
+    FILL(R.string.tb_fill, { FernIcons.FormatColorFill }, { it.activeTool = Tool.FILL }),
+    EYEDROPPER(R.string.tb_eyedropper, { FernIcons.Colorize }, { it.activeTool = Tool.EYEDROPPER }),
     // Named RULER for saved quick menus: it once toggled the ruler, and now pauses or resumes snapping to the guides.
-    RULER(R.string.guide_snapping, { Icons.Filled.Straighten }, { it.guideSnapping = !it.guideSnapping }),
-    ZOOM_TO_FIT(R.string.tb_fit, { Icons.Filled.CenterFocusStrong }, { it.zoomToFit() }),
-    DUPLICATE(R.string.tb_duplicate, { Icons.Filled.ContentCopy }, { it.duplicateSelection() }),
-    DELETE(R.string.tb_delete, { Icons.Filled.Delete }, { it.deleteSelection() }),
-    APPLY_COLOUR(R.string.tb_apply_colour, { Icons.Filled.FormatPaint }, { it.recolorSelection() }),
+    RULER(R.string.guide_snapping, { FernIcons.Straighten }, { it.guideSnapping = !it.guideSnapping }),
+    ZOOM_TO_FIT(R.string.tb_fit, { FernIcons.CenterFocusStrong }, { it.zoomToFit() }),
+    DUPLICATE(R.string.tb_duplicate, { FernIcons.ContentCopy }, { it.duplicateSelection() }),
+    DELETE(R.string.tb_delete, { FernIcons.Delete }, { it.deleteSelection() }),
+    APPLY_COLOUR(R.string.tb_apply_colour, { FernIcons.FormatPaint }, { it.recolorSelection() }),
     // Any tool, and brush size, can sit on the ring too (design roadmap D21).
-    BEZIER(R.string.tool_name_bezier, { Icons.Filled.Polyline }, { it.activeTool = Tool.BEZIER }),
-    MEASURE(R.string.tool_name_measure, { Icons.Filled.SquareFoot }, { it.activeTool = Tool.MEASURE }),
-    CONNECT(R.string.tool_name_connect, { Icons.Filled.AccountTree }, { it.activeTool = Tool.CONNECT }),
-    BONE(R.string.tool_name_bone, { Icons.Filled.AccessibilityNew }, { it.activeTool = Tool.BONE }),
-    SWAP_ERASER(R.string.gesture_action_toggle_eraser, { Icons.Filled.SwapHoriz }, { it.toggleEraser() }),
-    BIGGER(R.string.shortcut_size_up, { Icons.Filled.AddCircleOutline }, { it.activeWidthWorld = snapToPresetSize(it.activeWidthWorld * 1.25) }),
-    SMALLER(R.string.shortcut_size_down, { Icons.Filled.RemoveCircleOutline }, { it.activeWidthWorld = snapToPresetSize(it.activeWidthWorld / 1.25) }),
+    BEZIER(R.string.tool_name_bezier, { FernIcons.Polyline }, { it.activeTool = Tool.BEZIER }),
+    MEASURE(R.string.tool_name_measure, { FernIcons.SquareFoot }, { it.activeTool = Tool.MEASURE }),
+    CONNECT(R.string.tool_name_connect, { FernIcons.AccountTree }, { it.activeTool = Tool.CONNECT }),
+    BONE(R.string.tool_name_bone, { FernIcons.AccessibilityNew }, { it.activeTool = Tool.BONE }),
+    SWAP_ERASER(R.string.gesture_action_toggle_eraser, { FernIcons.SwapHoriz }, { it.toggleEraser() }),
+    BIGGER(R.string.shortcut_size_up, { FernIcons.AddCircleOutline }, { it.activeWidthWorld = snapToPresetSize(it.activeWidthWorld * 1.25) }),
+    SMALLER(R.string.shortcut_size_down, { FernIcons.RemoveCircleOutline }, { it.activeWidthWorld = snapToPresetSize(it.activeWidthWorld / 1.25) }),
 }
 
 /** The ring before the user changes it: tools first, then undo/redo at the bottom where the thumb rests. */
@@ -145,7 +125,7 @@ fun QuickMenuButton(onOpen: () -> Unit, modifier: Modifier = Modifier, state: Ca
         shadowElevation = FernScale.s4,
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Icon(Icons.Filled.DonutLarge, contentDescription = null)
+            Icon(FernIcons.DonutLarge, contentDescription = null)
         }
     }
 }
@@ -204,7 +184,7 @@ fun QuickMenuOverlay(state: CanvasState, onDismiss: () -> Unit, actions: List<Qu
             shape = CircleShape,
             color = MaterialTheme.colorScheme.secondaryContainer,
         ) {
-            Box(contentAlignment = Alignment.Center) { Icon(Icons.Filled.Close, contentDescription = null) }
+            Box(contentAlignment = Alignment.Center) { Icon(FernIcons.Close, contentDescription = null) }
         }
     }
 }

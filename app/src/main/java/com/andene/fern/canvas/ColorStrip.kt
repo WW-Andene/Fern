@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernTextButton
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -7,8 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -69,7 +69,7 @@ fun ColorStrip(state: CanvasState, showPalette: Boolean, onOpenPicker: () -> Uni
             val savedLabel = stringResource(R.string.color_saved)
             for (color in state.savedColors.take(STRIP_PALETTE)) Swatch(color, RoundedCornerShape(FernScale.s6), savedLabel) { pick(color) } // §7.3: 0.24 × 24 → 6
         }
-        IconButton(onClick = onOpenPalettes) { Icon(Icons.Filled.Palette, contentDescription = stringResource(R.string.palette_panel_title)) }
+        IconButton(onClick = onOpenPalettes) { Icon(FernIcons.Palette, contentDescription = stringResource(R.string.palette_panel_title)) }
     }
 }
 

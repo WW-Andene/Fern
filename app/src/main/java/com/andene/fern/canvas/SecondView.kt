@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernColors
 
 import com.andene.fern.FernScale
@@ -10,9 +12,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -172,10 +171,10 @@ fun SecondView(state: CanvasState, modifier: Modifier = Modifier) {
                             viewScale = FIT_FILL * minOf(paneSize.width / (max.x - min.x).coerceAtLeast(1e-6), paneSize.height / (max.y - min.y).coerceAtLeast(1e-6))
                         }
                     }) {
-                        Icon(Icons.Filled.FitScreen, contentDescription = stringResource(R.string.second_view_fit))
+                        Icon(FernIcons.FitScreen, contentDescription = stringResource(R.string.second_view_fit))
                     }
                     IconButton(onClick = { state.secondViewOpen = false }) {
-                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.second_view_close))
+                        Icon(FernIcons.Close, contentDescription = stringResource(R.string.second_view_close))
                     }
                 }
             }

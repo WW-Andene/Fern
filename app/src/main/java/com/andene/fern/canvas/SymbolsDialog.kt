@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernTextField
 import com.andene.fern.FernPanel
@@ -14,8 +16,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -61,7 +61,7 @@ fun SymbolsDialog(
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Text(symbol.name, modifier = Modifier.weight(1f).clickable { onInsert(symbol) }.padding(vertical = FernScale.s12))
                             IconButton(onClick = { onDelete(symbol) }) {
-                                Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.symbols_delete, symbol.name))
+                                Icon(FernIcons.Delete, contentDescription = stringResource(R.string.symbols_delete, symbol.name))
                             }
                         }
                     }

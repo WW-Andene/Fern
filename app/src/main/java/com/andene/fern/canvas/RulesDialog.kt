@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernTextField
 import com.andene.fern.FernPanel
@@ -13,9 +15,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -57,10 +56,10 @@ fun RulesEditor(state: CanvasState, objectId: String) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(R.string.rules_when), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                         if (i > 0) IconButton(onClick = { save(rules.toMutableList().apply { add(i - 1, removeAt(i)) }) }) {
-                            Icon(Icons.Filled.ArrowUpward, contentDescription = stringResource(R.string.rules_move_up))
+                            Icon(FernIcons.ArrowUpward, contentDescription = stringResource(R.string.rules_move_up))
                         }
                         IconButton(onClick = { save(rules.filterIndexed { k, _ -> k != i }) }) {
-                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.rules_delete))
+                            Icon(FernIcons.Delete, contentDescription = stringResource(R.string.rules_delete))
                         }
                     }
                     if (rule.conditions.isEmpty()) Text(stringResource(R.string.rules_always), style = MaterialTheme.typography.bodySmall)
@@ -91,7 +90,7 @@ private fun ActionsEditor(actions: List<RuleAction>, onChange: (List<RuleAction>
             if (a.kind.needsText) FernTextField(a.text, { update(a.copy(text = it)) }, singleLine = true, modifier = Modifier.weight(1f))
             if (a.kind.needsValue) NumberField(a.value) { update(a.copy(value = it)) }
             IconButton(onClick = { onChange(actions.filterIndexed { k, _ -> k != i }) }) {
-                Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.rules_remove_action))
+                Icon(FernIcons.Delete, contentDescription = stringResource(R.string.rules_remove_action))
             }
         }
     }

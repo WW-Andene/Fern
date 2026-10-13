@@ -1,12 +1,12 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernMessages
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material3.DropdownMenu
 import com.andene.fern.FernMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -61,7 +61,7 @@ fun RasterBrushControls(state: CanvasState) {
     )
     Box {
         IconButton(onClick = { open = true }) {
-            Icon(Icons.Filled.Brush, contentDescription = stringResource(R.string.raster_brush_title))
+            Icon(FernIcons.Brush, contentDescription = stringResource(R.string.raster_brush_title))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             for ((mode, label) in labels) {

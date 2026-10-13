@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernTextField
 import androidx.compose.foundation.clickable
@@ -14,10 +16,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -86,7 +84,7 @@ fun LayoutEditor(
                             label = { Text(name) },
                             trailingIcon = if (preset.label == null) {
                                 {
-                                    Icon(Icons.Filled.RemoveCircleOutline, contentDescription = stringResource(R.string.layout_remove, name), modifier = Modifier.clickable {
+                                    Icon(FernIcons.RemoveCircleOutline, contentDescription = stringResource(R.string.layout_remove, name), modifier = Modifier.clickable {
                                         saved = saved - preset
                                         LayoutPresets.setSaved(context, saved)
                                     })
@@ -119,7 +117,7 @@ fun LayoutEditor(
                 FlowRow {
                     for (tool in RAIL_EXTRA_TOOLS - pinned.toSet()) {
                         AssistChip(onClick = { RailSettings.setPinned(context, pinned + tool) }, label = { Text(stringResource(toolName(tool))) },
-                            leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) }, modifier = Modifier.padding(end = FernScale.s8))
+                            leadingIcon = { Icon(FernIcons.Add, contentDescription = null) }, modifier = Modifier.padding(end = FernScale.s8))
                     }
                 }
                 Text(stringResource(R.string.quick_menu), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = FernScale.s16))
@@ -127,7 +125,7 @@ fun LayoutEditor(
                 if (quickMenu.size < QUICK_MENU_MAX_ACTIONS) FlowRow {
                     for (action in QuickMenuAction.entries - quickMenu.toSet()) {
                         AssistChip(onClick = { onQuickMenuChange(quickMenu + action) }, label = { Text(stringResource(action.label)) },
-                            leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) }, modifier = Modifier.padding(end = FernScale.s8))
+                            leadingIcon = { Icon(FernIcons.Add, contentDescription = null) }, modifier = Modifier.padding(end = FernScale.s8))
                     }
                 }
                 Text(stringResource(R.string.layout_toolbar), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = FernScale.s16))
@@ -171,7 +169,7 @@ fun <T> ReorderableList(items: List<T>, label: @Composable (T) -> String, icon: 
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                Icons.Filled.DragHandle,
+                FernIcons.DragHandle,
                 contentDescription = stringResource(R.string.layout_drag, name),
                 modifier = Modifier
                     .padding(FernScale.s12)
@@ -207,7 +205,7 @@ fun <T> ReorderableList(items: List<T>, label: @Composable (T) -> String, icon: 
             Icon(icon(item), contentDescription = null)
             Text(name, modifier = Modifier.weight(1f).padding(start = FernScale.s12))
             IconButton(onClick = { onChange(order - item) }, enabled = order.size > minimum) {
-                Icon(Icons.Filled.RemoveCircleOutline, contentDescription = stringResource(R.string.layout_remove, name))
+                Icon(FernIcons.RemoveCircleOutline, contentDescription = stringResource(R.string.layout_remove, name))
             }
         }
     }

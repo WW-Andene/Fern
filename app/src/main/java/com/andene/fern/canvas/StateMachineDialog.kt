@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSwitch
 import com.andene.fern.FernTextField
@@ -14,8 +16,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.DropdownMenu
 import com.andene.fern.FernMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -63,7 +63,7 @@ fun StateMachineEditor(state: CanvasState, objectId: String) {
                 Text(s.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                 IconButton(onClick = {
                     save(machine.copy(states = machine.states.filterIndexed { k, _ -> k != i }, transitions = machine.transitions.filter { it.to != s.name && it.from != s.name }))
-                }) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.states_delete)) }
+                }) { Icon(FernIcons.Delete, contentDescription = stringResource(R.string.states_delete)) }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Choice(s.tag ?: stringResource(R.string.states_no_tag), listOf(null) + state.frameTags.map { it.name }, { it ?: "—" }) { tag ->
@@ -90,7 +90,7 @@ fun StateMachineEditor(state: CanvasState, objectId: String) {
                 Text(" → ")
                 Choice(t.to, names, { it }) { update(t.copy(to = it)) }
                 IconButton(onClick = { save(machine.copy(transitions = machine.transitions.filterIndexed { k, _ -> k != i })) }) {
-                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.states_delete_transition))
+                    Icon(FernIcons.Delete, contentDescription = stringResource(R.string.states_delete_transition))
                 }
             }
             ConditionsEditor(t.conditions) { update(t.copy(conditions = it)) }
@@ -113,7 +113,7 @@ fun ConditionsEditor(conditions: List<Condition>, onChange: (List<Condition>) ->
             if (c.kind.needsText) FernTextField(c.text, { update(c.copy(text = it)) }, singleLine = true, modifier = Modifier.weight(1f))
             if (c.kind.needsValue) NumberField(c.value) { update(c.copy(value = it)) }
             IconButton(onClick = { onChange(conditions.filterIndexed { k, _ -> k != i }) }) {
-                Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.condition_remove))
+                Icon(FernIcons.Delete, contentDescription = stringResource(R.string.condition_remove))
             }
         }
     }

@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -12,12 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -73,7 +69,7 @@ fun PalettePanel(
                 state.addPalette(newName)
                 selected = -1
                 naming = true
-            }) { Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.palette_new)) }
+            }) { Icon(FernIcons.Add, contentDescription = stringResource(R.string.palette_new)) }
         },
         text = {
             Column {
@@ -111,7 +107,7 @@ fun PalettePanel(
                             IconButton(onClick = {
                                 state.deletePalette(active.id)
                                 selected = -1
-                            }) { Icon(Icons.Filled.DeleteOutline, contentDescription = stringResource(R.string.palette_delete, active.name)) }
+                            }) { Icon(FernIcons.DeleteOutline, contentDescription = stringResource(R.string.palette_delete, active.name)) }
                         }
                     }
                     FlowRow {
@@ -142,15 +138,15 @@ fun PalettePanel(
                             IconButton(onClick = {
                                 state.moveSavedColor(selected, selected - 1)
                                 selected = (selected - 1).coerceAtLeast(0)
-                            }, enabled = selected > 0) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.palette_move_earlier)) }
+                            }, enabled = selected > 0) { Icon(FernIcons.ArrowBack, contentDescription = stringResource(R.string.palette_move_earlier)) }
                             IconButton(onClick = {
                                 state.moveSavedColor(selected, selected + 1)
                                 selected = (selected + 1).coerceAtMost(state.savedColors.lastIndex)
-                            }, enabled = selected < state.savedColors.lastIndex) { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.palette_move_later)) }
+                            }, enabled = selected < state.savedColors.lastIndex) { Icon(FernIcons.ArrowForward, contentDescription = stringResource(R.string.palette_move_later)) }
                             IconButton(onClick = {
                                 state.removeSavedColor(color)
                                 selected = -1
-                            }) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.color_remove_saved)) }
+                            }) { Icon(FernIcons.Delete, contentDescription = stringResource(R.string.color_remove_saved)) }
                             FernTextButton(onClick = { onChangeEverywhere(color) }) { Text(stringResource(R.string.color_change_everywhere)) }
                         }
                     }

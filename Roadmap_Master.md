@@ -90,9 +90,10 @@ The app's look and layout rebuilt on the CLAUDE.md §7 scale, so every later scr
 - [~] D90. **Expert density.** An optional compact mode for experienced users showing more tools
   at once on the phone, without shrinking hit areas below 48 dp.
   Written, not yet compiled or tested: Settings > Appearance > Expert density (off by default, `FernDensity`): the rail gets a second line with the tools not on the first (on the canvas side), and the "More" disclosures (D32) start open. Every button stays 48 dp.
-- [ ] D58. **Visual identity.** A Fern brand colour, an icon set drawn on one grid with one
+- [~] D58. **Visual identity.** A Fern brand colour, an icon set drawn on one grid with one
   stroke weight (instead of mixed Material icons), and a distinctive yet quiet chrome that lets
   artwork dominate.
+  Written, not yet compiled or tested: `FernLight`/`FernDark` (fern green #3B6A35 / #A1D394 on warm near-grey surfaces, WCAG AA checked by `FernThemeTest`); `FernIcons`, the 181 icons in use redrawn from Lucide (24 grid, 2 stroke, ISC), with Material's icon library removed. The launcher icon is unchanged.
 - [ ] D59. **Optional sound cues** for the paper feel (pencil, marker) and confirmations, off by
   default.
 - [ ] D52. **Phone layouts first, then responsive.** Phone portrait and landscape are designed first and kept the reference. Then responsive layouts for compact, medium and expanded widths (Material window size

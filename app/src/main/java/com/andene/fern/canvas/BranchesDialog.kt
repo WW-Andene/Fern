@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernTextField
@@ -12,10 +14,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.CallMerge
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -54,7 +52,7 @@ fun BranchesDialog(state: CanvasState, onDismiss: () -> Unit) {
                 for (branch in state.branches) {
                     val current = branch.id == state.currentBranchId
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (current) Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.branches_current))
+                        if (current) Icon(FernIcons.Check, contentDescription = stringResource(R.string.branches_current))
                         Text(
                             branch.name,
                             style = MaterialTheme.typography.bodyLarge,
@@ -67,8 +65,8 @@ fun BranchesDialog(state: CanvasState, onDismiss: () -> Unit) {
                                     result.taken.isEmpty() && result.conflicts.isEmpty() -> nothingText
                                     else -> mergedText.format(result.taken.size) + if (result.conflicts.isEmpty()) "" else " " + conflictsText.format(result.conflicts.joinToString { (it + 1).toString() })
                                 }
-                            }) { Icon(Icons.AutoMirrored.Filled.CallMerge, contentDescription = stringResource(R.string.branches_merge)) }
-                            IconButton(onClick = { state.deleteBranch(branch.id) }) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.branches_delete)) }
+                            }) { Icon(FernIcons.CallMerge, contentDescription = stringResource(R.string.branches_merge)) }
+                            IconButton(onClick = { state.deleteBranch(branch.id) }) { Icon(FernIcons.Delete, contentDescription = stringResource(R.string.branches_delete)) }
                         }
                     }
                 }

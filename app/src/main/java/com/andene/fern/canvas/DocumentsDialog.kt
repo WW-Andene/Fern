@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernTextField
@@ -22,17 +24,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DeleteForever
-import androidx.compose.material.icons.filled.DriveFileMove
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Restore
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.DropdownMenu
 import com.andene.fern.FernMenuItem
 import androidx.compose.material3.FilterChip
@@ -150,7 +141,7 @@ fun DocumentsDialog(
                             FilterChip(
                                 selected = openFolder == folder,
                                 onClick = { openFolder = folder },
-                                leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null) },
+                                leadingIcon = { Icon(FernIcons.Folder, contentDescription = null) },
                                 label = { Text(folder) },
                                 modifier = Modifier.padding(end = FernScale.s8),
                             )
@@ -178,10 +169,10 @@ fun DocumentsDialog(
                             if (showingTrash) {
                                 Text(text = doc.name, modifier = Modifier.weight(1f))
                                 IconButton(onClick = { onRestore(doc) }) {
-                                    Icon(Icons.Filled.Restore, contentDescription = stringResource(R.string.documents_restore))
+                                    Icon(FernIcons.Restore, contentDescription = stringResource(R.string.documents_restore))
                                 }
                                 IconButton(onClick = { onDeleteForever(doc) }) {
-                                    Icon(Icons.Filled.DeleteForever, contentDescription = stringResource(R.string.documents_delete_forever))
+                                    Icon(FernIcons.DeleteForever, contentDescription = stringResource(R.string.documents_delete_forever))
                                 }
                             } else if (movingId == doc.id) {
                                 // Empty name moves the document back to the top level.
@@ -196,7 +187,7 @@ fun DocumentsDialog(
                                     onMoveToFolder(doc, moveText.ifBlank { null })
                                     movingId = null
                                 }) {
-                                    Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.documents_confirm_move))
+                                    Icon(FernIcons.Check, contentDescription = stringResource(R.string.documents_confirm_move))
                                 }
                             } else if (renamingId == doc.id) {
                                 FernTextField(
@@ -209,12 +200,12 @@ fun DocumentsDialog(
                                     onRename(doc, renameText)
                                     renamingId = null
                                 }) {
-                                    Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.action_confirm_rename))
+                                    Icon(FernIcons.Check, contentDescription = stringResource(R.string.action_confirm_rename))
                                 }
                             } else {
                                 IconButton(onClick = { onToggleFavorite(doc) }) {
                                     Icon(
-                                        if (doc.favorite) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                        if (doc.favorite) FernIcons.Star else FernIcons.StarBorder,
                                         contentDescription = if (doc.favorite) stringResource(R.string.documents_unfavourite) else stringResource(R.string.documents_favourite),
                                     )
                                 }
@@ -231,19 +222,19 @@ fun DocumentsDialog(
                                     renamingId = doc.id
                                     renameText = doc.name
                                 }) {
-                                    Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.action_rename))
+                                    Icon(FernIcons.Edit, contentDescription = stringResource(R.string.action_rename))
                                 }
                                 IconButton(onClick = {
                                     movingId = doc.id
                                     moveText = doc.folder ?: openFolder.orEmpty()
                                 }) {
-                                    Icon(Icons.Filled.DriveFileMove, contentDescription = stringResource(R.string.documents_move_folder))
+                                    Icon(FernIcons.DriveFileMove, contentDescription = stringResource(R.string.documents_move_folder))
                                 }
                                 IconButton(onClick = { onDuplicate(doc) }) {
-                                    Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.action_duplicate))
+                                    Icon(FernIcons.ContentCopy, contentDescription = stringResource(R.string.action_duplicate))
                                 }
                                 IconButton(onClick = { onTrash(doc) }, enabled = activeCount > 1) {
-                                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.documents_move_trash))
+                                    Icon(FernIcons.Delete, contentDescription = stringResource(R.string.documents_move_trash))
                                 }
                             }
                         }

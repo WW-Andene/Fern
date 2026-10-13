@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernTextField
@@ -16,8 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -105,7 +105,7 @@ fun PluginsDialog(state: CanvasState, onDismiss: () -> Unit) {
                                 if (p.description.isNotEmpty()) Text(p.description, style = MaterialTheme.typography.bodySmall)
                             }
                             if (!p.builtIn) IconButton(onClick = { PluginLibrary.remove(context, p.id); revision++ }) {
-                                Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.plugins_remove))
+                                Icon(FernIcons.Delete, contentDescription = stringResource(R.string.plugins_remove))
                             }
                         }
                     }

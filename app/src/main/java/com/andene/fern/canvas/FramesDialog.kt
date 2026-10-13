@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernTextField
 import com.andene.fern.FernPanel
@@ -16,12 +18,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.IosShare
-import androidx.compose.material.icons.filled.ViewColumn
-import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
@@ -106,20 +102,20 @@ fun FramesDialog(
                                     .padding(vertical = FernScale.s12),
                             )
                             IconButton(onClick = { resizeFrame = frame }) {
-                                Icon(Icons.Filled.AspectRatio, contentDescription = stringResource(R.string.frame_resize))
+                                Icon(FernIcons.AspectRatio, contentDescription = stringResource(R.string.frame_resize))
                             }
                             IconButton(onClick = { gridFrame = frame }) {
                                 Icon(
-                                    Icons.Filled.ViewColumn,
+                                    FernIcons.ViewColumn,
                                     contentDescription = stringResource(R.string.layout_grid_edit),
                                     tint = if (frame.layoutGrid != null) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                                 )
                             }
                             IconButton(onClick = { onExport(frame) }) {
-                                Icon(Icons.Filled.IosShare, contentDescription = stringResource(R.string.frames_export))
+                                Icon(FernIcons.IosShare, contentDescription = stringResource(R.string.frames_export))
                             }
                             IconButton(onClick = { onDelete(frame) }) {
-                                Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.frames_delete))
+                                Icon(FernIcons.Delete, contentDescription = stringResource(R.string.frames_delete))
                             }
                         }
                     }
@@ -157,7 +153,7 @@ fun FramesDialog(
                             newFrameName = ""
                         }
                     }) {
-                        Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.frames_add))
+                        Icon(FernIcons.Add, contentDescription = stringResource(R.string.frames_add))
                     }
                 }
             }

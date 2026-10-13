@@ -1,16 +1,10 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Animation
-import androidx.compose.material.icons.filled.Brush
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.FormatPaint
-import androidx.compose.material.icons.filled.Toys
-import androidx.compose.material.icons.filled.Transform
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -69,20 +63,20 @@ fun SelectionActionStrip(state: CanvasState) {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(pluralStringResource(R.plurals.selection_count, state.selection.size, state.selection.size), modifier = Modifier.padding(horizontal = FernSpace.md))
-            IconButton(onClick = { state.duplicateSelection() }) { Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.tb_duplicate)) }
-            IconButton(onClick = { state.recolorSelection() }) { Icon(Icons.Filled.FormatPaint, contentDescription = stringResource(R.string.tb_apply_colour)) }
-            IconButton(onClick = { SelectionRequests.transform = true }) { Icon(Icons.Filled.Transform, contentDescription = stringResource(R.string.transform_title)) }
-            IconButton(onClick = { SelectionRequests.makeObject = true }) { Icon(Icons.Filled.Toys, contentDescription = stringResource(R.string.object_title)) }
+            IconButton(onClick = { state.duplicateSelection() }) { Icon(FernIcons.ContentCopy, contentDescription = stringResource(R.string.tb_duplicate)) }
+            IconButton(onClick = { state.recolorSelection() }) { Icon(FernIcons.FormatPaint, contentDescription = stringResource(R.string.tb_apply_colour)) }
+            IconButton(onClick = { SelectionRequests.transform = true }) { Icon(FernIcons.Transform, contentDescription = stringResource(R.string.transform_title)) }
+            IconButton(onClick = { SelectionRequests.makeObject = true }) { Icon(FernIcons.Toys, contentDescription = stringResource(R.string.object_title)) }
             // Your own drawing on the rig (roadmap item 353): it follows the bones from now on.
             if (state.rigEditor.rig.bones.isNotEmpty()) {
-                IconButton(onClick = { state.attachSelectionToRig(attachmentName) }) { Icon(Icons.Filled.Animation, contentDescription = stringResource(R.string.rig_attach_selection)) }
+                IconButton(onClick = { state.attachSelectionToRig(attachmentName) }) { Icon(FernIcons.Animation, contentDescription = stringResource(R.string.rig_attach_selection)) }
             }
             // Your own drawing as a brush tip (roadmap item 347).
-            IconButton(onClick = { if (state.brushTipFromSelection()) FernMessages.show(tipMade) }) { Icon(Icons.Filled.Brush, contentDescription = stringResource(R.string.selection_make_tip)) }
+            IconButton(onClick = { if (state.brushTipFromSelection()) FernMessages.show(tipMade) }) { Icon(FernIcons.Brush, contentDescription = stringResource(R.string.selection_make_tip)) }
             IconButton(onClick = {
                 state.deleteSelection()
                 FernMessages.show(deleted, undo) { state.undo() }
-            }) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.tb_delete)) }
+            }) { Icon(FernIcons.Delete, contentDescription = stringResource(R.string.tb_delete)) }
         }
     }
 }

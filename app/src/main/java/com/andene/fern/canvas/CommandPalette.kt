@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernTextField
 import android.content.Context
 import android.content.res.Configuration
@@ -13,8 +15,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import com.andene.fern.FernListItem
 import androidx.compose.material3.Text
@@ -102,7 +102,7 @@ fun CommandPalette(commands: List<PaletteCommand>, onDismiss: () -> Unit) {
                 FernTextField(
                     query,
                     { query = it },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    leadingIcon = { Icon(FernIcons.Search, contentDescription = null) },
                     placeholder = { Text(stringResource(R.string.palette_hint)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),

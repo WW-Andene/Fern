@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernTextButton
 import android.content.Context
 import androidx.annotation.StringRes
@@ -8,9 +10,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Replay
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import com.andene.fern.FernListItem
@@ -110,7 +109,7 @@ fun ExportPanel(state: CanvasState, run: (ExportFormat) -> Unit, onDismiss: () -
             Column {
                 if (last != null) {
                     FernTextButton(onClick = { export(last) }) {
-                        Icon(Icons.Filled.Replay, contentDescription = null, modifier = Modifier.padding(end = FernScale.s8))
+                        Icon(FernIcons.Replay, contentDescription = null, modifier = Modifier.padding(end = FernScale.s8))
                         Text(stringResource(R.string.export_again, stringResource(last.label)))
                     }
                 }
@@ -129,7 +128,7 @@ fun ExportPanel(state: CanvasState, run: (ExportFormat) -> Unit, onDismiss: () -
                             format.recommended -> { { Text(stringResource(R.string.export_recommended)) } }
                             else -> null
                         },
-                        leadingContent = if (format.recommended) { { Icon(Icons.Filled.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary) } } else null,
+                        leadingContent = if (format.recommended) { { Icon(FernIcons.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary) } } else null,
                         modifier = if (enabled) Modifier.clickable { export(format) } else Modifier,
                     )
                 }

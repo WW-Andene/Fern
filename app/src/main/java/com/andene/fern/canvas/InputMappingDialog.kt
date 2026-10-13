@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernTextField
@@ -16,9 +18,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.DropdownMenu
 import com.andene.fern.FernMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -85,7 +84,7 @@ fun InputMappingDialog(state: CanvasState, onDismiss: () -> Unit) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(action.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                         IconButton(onClick = { save(actions.filterIndexed { i, _ -> i != index }) }) {
-                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.controls_delete_action))
+                            Icon(FernIcons.Delete, contentDescription = stringResource(R.string.controls_delete_action))
                         }
                     }
                     FlowRow {
@@ -94,7 +93,7 @@ fun InputMappingDialog(state: CanvasState, onDismiss: () -> Unit) {
                                 selected = false,
                                 onClick = { bindingsOf(index) { it - binding } },
                                 label = { Text(bindingLabel(binding)) },
-                                trailingIcon = { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.controls_remove_binding)) },
+                                trailingIcon = { Icon(FernIcons.Close, contentDescription = stringResource(R.string.controls_remove_binding)) },
                                 modifier = Modifier.padding(end = FernScale.s4),
                             )
                         }

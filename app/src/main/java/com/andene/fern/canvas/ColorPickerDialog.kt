@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSlider
 import com.andene.fern.FernTextField
@@ -25,8 +27,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
 import androidx.compose.ui.platform.LocalContext
@@ -218,7 +218,7 @@ fun ColorPickerDialog(
                             leadingIcon = { Box(Modifier.size(FernScale.s16).background(spot.color, CircleShape)) },
                             trailingIcon = {
                                 Icon(
-                                    Icons.Filled.Close,
+                                    FernIcons.Close,
                                     contentDescription = stringResource(R.string.color_spot_delete, spot.name),
                                     modifier = Modifier.minimumInteractiveComponentSize().size(FernScale.s16).clickable { ColorManagement.deleteSpot(context, spot.name) },
                                 )

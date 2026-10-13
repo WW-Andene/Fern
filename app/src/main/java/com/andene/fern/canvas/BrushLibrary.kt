@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,9 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -102,7 +101,7 @@ fun BrushLibrary(state: CanvasState, onEditStamp: () -> Unit, onDismiss: () -> U
                         }) { BrushPreview(preset.brush, state.activeColor, height = FernScale.s48) }
                     }
                 }
-                IconButton(onClick = onEditStamp) { Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.brush_settings)) }
+                IconButton(onClick = onEditStamp) { Icon(FernIcons.Edit, contentDescription = stringResource(R.string.brush_settings)) }
             }
         },
     )
@@ -126,7 +125,7 @@ private fun BrushTile(name: String, selected: Boolean, onPick: () -> Unit, onPin
         preview()
         androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Text(name, style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
-            IconButton(onClick = onPin) { Icon(Icons.Filled.PushPin, contentDescription = stringResource(R.string.brush_pin, name)) }
+            IconButton(onClick = onPin) { Icon(FernIcons.PushPin, contentDescription = stringResource(R.string.brush_pin, name)) }
         }
     }
 }

@@ -1,9 +1,6 @@
 package com.andene.fern
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,7 +23,7 @@ fun MoreOptions(key: String, content: @Composable () -> Unit) {
     var open by rememberSaveable(key) { mutableStateOf(FernDensity.expert) }
     val state = stringResource(if (open) R.string.more_open else R.string.more_closed)
     FernTextButton(onClick = { open = !open }, modifier = Modifier.semantics { stateDescription = state }) {
-        Icon(if (open) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, contentDescription = null)
+        Icon(if (open) FernIcons.ExpandLess else FernIcons.ExpandMore, contentDescription = null)
         Text(stringResource(if (open) R.string.more_less else R.string.more_more))
     }
     if (open) Column { content() }

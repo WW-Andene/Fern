@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSwitch
 import com.andene.fern.FernTextField
@@ -20,8 +22,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.DropdownMenu
 import com.andene.fern.FernMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -92,7 +92,7 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                         Text(key, modifier = Modifier.weight(1f))
                         NumberField(value) { save(current.copy(properties = current.properties + (key to it))) }
                         IconButton(onClick = { save(current.copy(properties = current.properties - key)) }) {
-                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.object_remove_property))
+                            Icon(FernIcons.Delete, contentDescription = stringResource(R.string.object_remove_property))
                         }
                     }
                 }
@@ -109,7 +109,7 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(behaviour.kind.label), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                         IconButton(onClick = { save(current.copy(behaviours = current.behaviours.filterIndexed { i, _ -> i != index })) }) {
-                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.object_remove_behaviour))
+                            Icon(FernIcons.Delete, contentDescription = stringResource(R.string.object_remove_behaviour))
                         }
                     }
                     for (param in behaviour.kind.params) {
@@ -155,7 +155,7 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                         val other = state.gameObjects.firstOrNull { it.id == (if (link.from == current.id) link.to else link.from) }?.name ?: "?"
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(stringResource(R.string.object_link_row, stringResource(linkLabel(link.kind)), other), modifier = Modifier.weight(1f))
-                            IconButton(onClick = { state.removeLink(link.id) }) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.object_remove_link)) }
+                            IconButton(onClick = { state.removeLink(link.id) }) { Icon(FernIcons.Delete, contentDescription = stringResource(R.string.object_remove_link)) }
                         }
                     }
                 }

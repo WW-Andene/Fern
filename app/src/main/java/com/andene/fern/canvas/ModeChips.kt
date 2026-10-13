@@ -1,9 +1,9 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.Text
@@ -38,7 +38,7 @@ fun ModeChips(state: CanvasState, modifier: Modifier = Modifier) {
                 selected = true,
                 onClick = turnOff,
                 label = { Text(label) },
-                trailingIcon = { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.mode_turn_off)) },
+                trailingIcon = { Icon(FernIcons.Close, contentDescription = stringResource(R.string.mode_turn_off)) },
                 modifier = Modifier.padding(bottom = FernScale.s4),
             )
         }

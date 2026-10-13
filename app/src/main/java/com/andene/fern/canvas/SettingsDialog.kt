@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSwitch
@@ -12,9 +14,6 @@ import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import android.content.Context
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.RestartAlt
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.getValue
@@ -289,7 +288,7 @@ fun SettingsDialog(
                 FernTextField(
                     query, { query = it },
                     placeholder = { Text(stringResource(R.string.settings_search)) },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    leadingIcon = { Icon(FernIcons.Search, contentDescription = null) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -355,7 +354,7 @@ private fun SwitchSetting(label: String, checked: Boolean, default: Boolean, sho
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s4), verticalAlignment = Alignment.CenterVertically) {
         Text(label, modifier = Modifier.weight(1f))
         if (checked != default) {
-            IconButton(onClick = { onChange(default) }) { Icon(Icons.Filled.RestartAlt, contentDescription = stringResource(R.string.settings_reset, label)) }
+            IconButton(onClick = { onChange(default) }) { Icon(FernIcons.RestartAlt, contentDescription = stringResource(R.string.settings_reset, label)) }
         }
         FernSwitch(checked = checked, onCheckedChange = onChange)
     }

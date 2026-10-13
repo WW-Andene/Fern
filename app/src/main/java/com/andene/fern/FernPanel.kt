@@ -12,14 +12,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.height
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Text
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
@@ -31,10 +29,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -233,12 +227,12 @@ fun androidx.compose.foundation.layout.BoxScope.FernPanelHost(railOnLeft: Boolea
                     entry.headerAction?.invoke()
                     IconButton(onClick = { collapsed = !collapsed }) {
                         Icon(
-                            if (collapsed) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                            if (collapsed) FernIcons.ExpandLess else FernIcons.ExpandMore,
                             contentDescription = stringResource(if (collapsed) R.string.panel_expand else R.string.panel_collapse),
                         )
                     }
                     IconButton(onClick = { entry.onDismissRequest() }) {
-                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_close))
+                        Icon(FernIcons.Close, contentDescription = stringResource(R.string.action_close))
                     }
                 }
                 if (!collapsed) {
@@ -250,7 +244,7 @@ fun androidx.compose.foundation.layout.BoxScope.FernPanelHost(railOnLeft: Boolea
                                 onFilter(it)
                             },
                             placeholder = { Text(stringResource(R.string.panel_filter)) },
-                            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                            leadingIcon = { Icon(FernIcons.Search, contentDescription = null) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = FernSpace.lg, vertical = FernSpace.xs),
                         )
@@ -331,7 +325,7 @@ fun PanelRow(
         enableDismissFromStartToEnd = false,
         backgroundContent = {
             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.errorContainer).padding(horizontal = FernSpace.lg), contentAlignment = Alignment.CenterEnd) {
-                Icon(androidx.compose.material.icons.Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+                Icon(FernIcons.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
             }
         },
     ) { row() }

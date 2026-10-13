@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernTextButton
 import android.content.Context
 import android.view.KeyEvent
@@ -18,8 +20,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -153,7 +153,7 @@ fun ShortcutEditor(filter: (String) -> Boolean = { true }) {
                 Text(name, modifier = Modifier.weight(1f))
                 if (map.getValue(action) != action.default) {
                     IconButton(onClick = { ShortcutSettings.set(context, action, action.default) }) {
-                        Icon(Icons.Filled.RestartAlt, contentDescription = stringResource(R.string.settings_reset, name))
+                        Icon(FernIcons.RestartAlt, contentDescription = stringResource(R.string.settings_reset, name))
                     }
                 }
                 FernTextButton(onClick = {

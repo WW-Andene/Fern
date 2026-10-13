@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernIcons
+
 import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import android.media.MediaPlayer
@@ -8,9 +10,6 @@ import android.widget.VideoView
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.VolumeOff
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -72,7 +71,7 @@ fun VideoPlayerDialog(video: ImageItem, onDismiss: () -> Unit) {
                     player?.setVolume(if (muted) 0f else 1f, if (muted) 0f else 1f)
                 }) {
                     Icon(
-                        if (muted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                        if (muted) FernIcons.VolumeOff else FernIcons.VolumeUp,
                         contentDescription = stringResource(if (muted) R.string.video_unmute else R.string.video_mute),
                     )
                 }
