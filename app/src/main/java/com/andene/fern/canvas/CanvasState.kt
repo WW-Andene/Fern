@@ -95,6 +95,8 @@ class CanvasState(
     private val onLayerCompsChanged: (List<LayerComp>) -> Unit = {},
     private val onStatsChanged: (DocumentStats) -> Unit = {},
     private val onGuidesChanged: (List<Guide>) -> Unit = {},
+    /** The drawing guides changed (roadmap item 218), to save them with the document. */
+    private val onDrawingGuidesChanged: (List<DrawingGuide>) -> Unit = {},
     /** The game objects or the game's world settings changed (roadmap items 155 and 159). */
     private val onGameObjectsChanged: (List<GameObject>, GameSettings) -> Unit = { _, _ -> },
     /** The animation branches changed (roadmap item 153): the branches and the current one's id. */
@@ -4451,6 +4453,7 @@ class CanvasState(
     fun addGuide(kind: GuideKind) {
         val size = GUIDE_DEFAULT_SIZE_SCREEN / scale.coerceAtLeast(1e-300)
         drawingGuides.add(DrawingGuide(UUID.randomUUID().toString(), kind, newGuideHandles(kind, panWorld, size)))
+        onDrawingGuidesChanged(drawingGuides.toList())
         guideSnapping = true
         editingGuides = true
     }
@@ -4458,11 +4461,13 @@ class CanvasState(
     fun removeDrawingGuide(id: String) {
         drawingGuides.removeAll { it.id == id }
         if (drawingGuides.isEmpty()) editingGuides = false
+        onDrawingGuidesChanged(drawingGuides.toList())
     }
 
     fun setGuideVisible(id: String, visible: Boolean) {
         val i = drawingGuides.indexOfFirst { it.id == id }
         if (i != -1) drawingGuides[i] = drawingGuides[i].copy(visible = visible)
+        onDrawingGuidesChanged(drawingGuides.toList())
     }
 
     private val guideHandleRadiusWorld: Double
@@ -4519,7 +4524,14 @@ class CanvasState(
     }
 
     fun endGuideEdit() {
+        if (guideDrag != null && guideDrag?.first != VANISHING_POINT_GUIDE) onDrawingGuidesChanged(drawingGuides.toList())
         guideDrag = null
+    }
+
+    fun loadDrawingGuides(loaded: List<DrawingGuide>) {
+        drawingGuides.clear()
+        drawingGuides.addAll(loaded)
+        editingGuides = false
     }
 
     /**
@@ -6315,7 +6327,10 @@ class CanvasState(
             for (i in frames.indices) frames[i] = frames[i].copy(min = frames[i].min - offset, max = frames[i].max - offset)
             onFramesChanged(frames.toList())
         }
-        for (i in drawingGuides.indices) drawingGuides[i] = drawingGuides[i].shiftedBy(offset)
+        if (drawingGuides.isNotEmpty()) {
+            for (i in drawingGuides.indices) drawingGuides[i] = drawingGuides[i].shiftedBy(offset)
+            onDrawingGuidesChanged(drawingGuides.toList())
+        }
         if (guides.isNotEmpty()) {
             for (i in guides.indices) guides[i] = guides[i].let { it.copy(position = it.position - if (it.vertical) offset.x else offset.y) }
             onGuidesChanged(guides.toList())

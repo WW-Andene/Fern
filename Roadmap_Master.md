@@ -270,7 +270,6 @@ Guides as professional tools have them: placed, locked and drawn along, many kin
 - [ ] 345. **Curvilinear perspective.** 4, 5 and 6-point (fisheye) grids for wide-angle scenes.
 - [ ] 346. **Perspective tools.** Shapes, text and pasted images placed onto a perspective plane; isometric and dimetric grids joined into the same system.
 - [ ] 185. Ruler and Measure merged: a measurement pinned as a dimension line in real-world units; angle (three points), area and perimeter; copy a measurement into a text label.
-- [ ] 218. Guides saved with the document and toggled per frame.
 - [ ] 219. Symmetry: mirrored radial (kaleidoscope); axis moved and rotated on the canvas; symmetry limited to a selected frame or region.
 - [ ] 220. Reference window: a floating image or second view kept on screen while drawing.
 - [ ] 358. **A small set of snap targets** (endpoint, midpoint, intersection, centre, perpendicular, tangent) with a per-stroke override and values typed at the cursor, as in CAD tools; no parametric constraint solver. Users are everyone, so it is in scope. Review finding O12.

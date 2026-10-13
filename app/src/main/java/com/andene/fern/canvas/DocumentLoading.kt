@@ -23,6 +23,7 @@ class LoadedDocument(
     val layerComps: List<LayerComp>,
     val stats: DocumentStats,
     val guides: List<Guide>,
+    val drawingGuides: List<DrawingGuide>,
     val symbolInstances: List<SymbolInstance>,
     val rasters: Map<String, RasterSurface>,
     val frames: List<Frame>,

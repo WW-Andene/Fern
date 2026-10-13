@@ -347,6 +347,7 @@ class MainActivity : ComponentActivity() {
                             onLayerCompsChanged = { comps -> CanvasStorage.saveLayerComps(context, currentDocumentId, comps) },
                             onStatsChanged = { stats -> CanvasStorage.saveStats(context, currentDocumentId, stats) },
                             onGuidesChanged = { guides -> CanvasStorage.saveGuides(context, currentDocumentId, guides) },
+                            onDrawingGuidesChanged = { guides -> CanvasStorage.saveDrawingGuides(context, currentDocumentId, guides) },
                             onDrawingScaleChanged = { scale -> CanvasStorage.saveDrawingScale(context, currentDocumentId, scale) },
                             onGameObjectsChanged = { objects, settings -> CanvasStorage.saveGameObjects(context, currentDocumentId, objects, settings) },
                             // Branch snapshots can be large: written off the main thread (roadmap item 153).
@@ -873,6 +874,7 @@ class MainActivity : ComponentActivity() {
                                 layerComps = CanvasStorage.loadLayerComps(context, documentId),
                                 stats = CanvasStorage.loadStats(context, documentId),
                                 guides = CanvasStorage.loadGuides(context, documentId),
+                                drawingGuides = CanvasStorage.loadDrawingGuides(context, documentId),
                                 symbolInstances = CanvasStorage.loadSymbolInstances(context, documentId),
                                 rasters = CanvasStorage.loadLayers(context, documentId).let { layers ->
                                     // Raster layers' pixels and every layer mask (roadmap items 89, 91).
@@ -904,6 +906,7 @@ class MainActivity : ComponentActivity() {
                         }
                         canvasState.loadStats(loaded.stats)
                         canvasState.loadGuides(loaded.guides)
+                        canvasState.loadDrawingGuides(loaded.drawingGuides)
                         canvasState.loadDrawingScale(loaded.drawingScale)
                         canvasState.loadBranches(loaded.branches.first, loaded.branches.second)
                         canvasState.loadGameObjects(loaded.gameObjects.first, loaded.gameObjects.second)
