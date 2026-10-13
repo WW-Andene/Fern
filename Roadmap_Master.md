@@ -159,8 +159,9 @@ Switching, adjusting and arranging without looking. Builds on Phases 1 and 2.
   second brings them back exactly as they were. Edge-to-edge drawing under the system bars, with
   the gesture navigation area protected from stray strokes.
   Written, not yet compiled or tested: hiding the chrome (four-finger tap, Tab, or a gesture set in Settings) now hides the system bars too, back for a moment with a swipe from the edge; showing it again brings back the bars and every panel as they were (their state was never dropped). A finger landing in the system's gesture areas (home bar, back strips) starts no stroke or long press; a stylus still draws there.
-- [ ] D79. **Undo and redo always in thumb reach** on the phone, as buttons as well as gestures,
+- [~] D79. **Undo and redo always in thumb reach** on the phone, as buttons as well as gestures,
   with a long-press on undo to scrub back through the history.
+  Written, not yet compiled or tested: `UndoRedo.kt`. On a phone held upright with the toolbar at the top, undo and redo leave the top bar for a pill at the bottom of the free hand's side (the minimap moves up above it); wherever they are, a long press on undo opens the history scrubber, a slider over every step that undoes and redoes as it's dragged (`CanvasState.scrubHistoryTo`), everything staying redoable until a new action.
 - [ ] D80. **Last-tool toggle.** One tap (or gesture) swaps between the current and the previous
   tool, with each keeping its own size, colour and settings.
 - [ ] D81. **Per-tool memory.** Every tool remembers its last size, opacity, colour and options;

@@ -82,6 +82,8 @@ fun Toolbar(
     modifier: Modifier = Modifier,
     /** Button groups the user turned off in Settings (roadmap item 71); see [ToolbarGroup]. */
     hiddenGroups: Set<ToolbarGroup> = emptySet(),
+    /** Undo and redo in the top bar; false when they're in thumb reach elsewhere ([UndoRedoControls], design roadmap D79). */
+    showUndoRedo: Boolean = true,
     onOpenDocuments: () -> Unit = {},
     onOpenPins: () -> Unit = {},
     onOpenVersions: () -> Unit = {},
@@ -1121,12 +1123,8 @@ fun Toolbar(
             // layers, play (once there is a game), search, export and "More". Everything else is
             // in the More panel, in labelled sections, so the bar can't grow with each feature.
             val tools: @Composable () -> Unit = {
-                IconButton(onClick = { state.undo() }) {
-                    Icon(FernIcons.Undo, contentDescription = stringResource(R.string.action_undo))
-                }
-                IconButton(onClick = { state.redo() }) {
-                    Icon(FernIcons.Redo, contentDescription = stringResource(R.string.action_redo))
-                }
+                // Long-press undo to scrub through the history (design roadmap D79).
+                if (showUndoRedo) UndoRedoControls(state, framed = false)
                 if (ToolbarGroup.LAYERS !in hiddenGroups) {
                     IconButton(onClick = { showLayersDialog = true }) {
                         Icon(FernIcons.Layers, contentDescription = stringResource(R.string.layers_title))

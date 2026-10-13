@@ -19,6 +19,11 @@
     <string name="settings_snap_objects">Aimanter les formes aux objets</string>
     <string name="settings_show_guide">Afficher le guide des gestes</string>
     <string name="action_done">Terminé</string>
+    <string name="history_scrub">Remonter l’historique</string>
+    <plurals name="history_steps_back">
+        <item quantity="one">%1$d étape en arrière</item>
+        <item quantity="other">%1$d étapes en arrière</item>
+    </plurals>
     <string name="versions_title">Historique des versions</string>
     <string name="versions_empty">Aucune version pour l\'instant. Une version est enregistrée toutes les 10 minutes pendant que vous dessinez.</string>
     <string name="action_close">Fermer</string>

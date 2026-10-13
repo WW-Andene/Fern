@@ -6115,6 +6115,18 @@ class CanvasState(
     /** Number of undoable steps; with [discardActionsSince], lets a gesture take back what it started. */
     val historyDepth: Int get() = undoStack.size
 
+    /** Number of redoable steps: those undone since the last new action. */
+    val redoDepth: Int get() = redoStack.size
+
+    /**
+     * Steps through the history to [depth] undoable steps (design roadmap D79's scrubber): undoes
+     * or redoes one step at a time, so everything stays redoable until a new action.
+     */
+    fun scrubHistoryTo(depth: Int) {
+        while (undoStack.size > depth && undoStack.isNotEmpty()) undo()
+        while (undoStack.size < depth && redoStack.isNotEmpty()) redo()
+    }
+
     /**
      * Reverts every action recorded since [depth] without making it redoable - for input that
      * turned out not to be drawing (e.g. the first finger of a two-finger tap briefly began a

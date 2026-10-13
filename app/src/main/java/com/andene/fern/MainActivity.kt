@@ -153,6 +153,7 @@ import com.andene.fern.canvas.Rulers
 import com.andene.fern.canvas.readFileLayerImage
 import com.andene.fern.canvas.SecondView
 import com.andene.fern.canvas.oneHandModeOn
+import com.andene.fern.canvas.UndoRedoControls
 import com.andene.fern.canvas.PinsDialog
 import com.andene.fern.canvas.PresentationControls
 import com.andene.fern.canvas.SettingsDialog
@@ -1289,9 +1290,13 @@ class MainActivity : ComponentActivity() {
                             val railAtBottom = fernLayout().railAtBottom
                             val railInset = if (railAtBottom) FernScale.s64 else FernScale.none
                             val railSide = if (railAtBottom) FernScale.none else FernScale.s64
+                            // Undo and redo in thumb reach (design roadmap D79): with the rail along the bottom and
+                            // the toolbar at the top, they leave the top bar for the bottom of the free hand's side.
+                            val undoRedoBelow = railAtBottom && !toolbarLow
                             Toolbar(
                                 state = canvasState,
                                 hiddenGroups = hiddenToolbarGroups,
+                                showUndoRedo = !undoRedoBelow,
                                 onHiddenGroupsChange = { hiddenToolbarGroups = it },
                                 // Recent documents in the command palette (design roadmap D14).
                                 extraCommands = documents.filter { it.trashedAt == null && it.id != currentDocumentId }.sortedByDescending { it.lastModified }.take(RECENT_IN_PALETTE).map { doc ->
@@ -1419,6 +1424,15 @@ class MainActivity : ComponentActivity() {
                                         .fillMaxHeight(0.4f),
                                 )
                             }
+                            if (undoRedoBelow) UndoRedoControls(
+                                canvasState,
+                                Modifier
+                                    // The free hand's side, just above the rail: the holding thumb's reach.
+                                    .align(if (leftHanded) AbsoluteAlignment.BottomRight else AbsoluteAlignment.BottomLeft)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(horizontal = FernScale.s12)
+                                    .padding(bottom = railInset + FernScale.s8),
+                            )
                             if (minimapShown) Minimap(
                                 state = canvasState,
                                 modifier = Modifier
@@ -1427,7 +1441,8 @@ class MainActivity : ComponentActivity() {
                                     .align(if (leftHanded) AbsoluteAlignment.BottomRight else AbsoluteAlignment.BottomLeft)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(FernScale.s12)
-                                    .padding(bottom = railInset)
+                                    // Above the undo and redo buttons when they're down here.
+                                    .padding(bottom = railInset + if (undoRedoBelow) FernScale.s64 else FernScale.none)
                                     .padding(horizontal = railSide),
                             )
                             if (!oneHand) NavigationAids(
