@@ -47,6 +47,58 @@ val HighContrastDark: ColorScheme = darkColorScheme(
 )
 
 /**
+ * Fern's own colours (design roadmap D58): a fern green as the brand colour, on quiet, slightly
+ * warm neutral chrome, so the bars and panels recede and the artwork dominates. The green is
+ * kept for what the user acts on (the active tool, primary buttons, selection in lists); the
+ * surfaces are near-greys with a faint green-yellow cast, like paper. Text pairs meet WCAG AA:
+ * primary #3B6A35 on white is about 6.3:1, the dark theme's #A1D394 on #121411 about 10.8:1.
+ * High contrast ([HighContrastLight], [HighContrastDark]) replaces these entirely.
+ */
+val FernLight: ColorScheme = lightColorScheme(
+    primary = Color(0xFF3B6A35), onPrimary = Color.White,
+    primaryContainer = Color(0xFFBCF0AE), onPrimaryContainer = Color(0xFF002202),
+    inversePrimary = Color(0xFFA1D394),
+    secondary = Color(0xFF53634E), onSecondary = Color.White,
+    secondaryContainer = Color(0xFFD6E8CD), onSecondaryContainer = Color(0xFF111F0F),
+    tertiary = Color(0xFF386568), onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFBCEBEE), onTertiaryContainer = Color(0xFF002022),
+    error = Color(0xFFBA1A1A), onError = Color.White,
+    errorContainer = Color(0xFFFFDAD6), onErrorContainer = Color(0xFF410002),
+    background = Color(0xFFFAF9F5), onBackground = Color(0xFF1B1C19),
+    surface = Color(0xFFFAF9F5), onSurface = Color(0xFF1B1C19),
+    surfaceVariant = Color(0xFFE1E4D9), onSurfaceVariant = Color(0xFF44483F),
+    surfaceTint = Color(0xFF3B6A35),
+    inverseSurface = Color(0xFF30312D), inverseOnSurface = Color(0xFFF2F1EC),
+    outline = Color(0xFF74796E), outlineVariant = Color(0xFFC4C8BC),
+    surfaceBright = Color(0xFFFAF9F5), surfaceDim = Color(0xFFDBDAD6),
+    surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFF4F4EF),
+    surfaceContainer = Color(0xFFEFEEE9), surfaceContainerHigh = Color(0xFFE9E8E4),
+    surfaceContainerHighest = Color(0xFFE3E3DE),
+)
+
+val FernDark: ColorScheme = darkColorScheme(
+    primary = Color(0xFFA1D394), onPrimary = Color(0xFF0A390A),
+    primaryContainer = Color(0xFF235120), onPrimaryContainer = Color(0xFFBCF0AE),
+    inversePrimary = Color(0xFF3B6A35),
+    secondary = Color(0xFFBACCB2), onSecondary = Color(0xFF263423),
+    secondaryContainer = Color(0xFF3C4B38), onSecondaryContainer = Color(0xFFD6E8CD),
+    tertiary = Color(0xFFA0CFD2), onTertiary = Color(0xFF003739),
+    tertiaryContainer = Color(0xFF1F4D50), onTertiaryContainer = Color(0xFFBCEBEE),
+    error = Color(0xFFFFB4AB), onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A), onErrorContainer = Color(0xFFFFDAD6),
+    background = Color(0xFF121411), onBackground = Color(0xFFE3E3DD),
+    surface = Color(0xFF121411), onSurface = Color(0xFFE3E3DD),
+    surfaceVariant = Color(0xFF44483F), onSurfaceVariant = Color(0xFFC4C8BC),
+    surfaceTint = Color(0xFFA1D394),
+    inverseSurface = Color(0xFFE3E3DD), inverseOnSurface = Color(0xFF30312D),
+    outline = Color(0xFF8E9387), outlineVariant = Color(0xFF44483F),
+    surfaceBright = Color(0xFF383A36), surfaceDim = Color(0xFF121411),
+    surfaceContainerLowest = Color(0xFF0D0F0C), surfaceContainerLow = Color(0xFF1B1C19),
+    surfaceContainer = Color(0xFF1F201D), surfaceContainerHigh = Color(0xFF292A27),
+    surfaceContainerHighest = Color(0xFF343532),
+)
+
+/**
  * The app theme: the system's light or dark, in standard or high contrast; and the canvas's
  * marks ([FernColors]) in standard, high-contrast or colour-blind-safe colours.
  */
@@ -65,8 +117,8 @@ fun FernTheme(highContrast: Boolean, colorBlindSafe: Boolean = false, uiSize: Ui
     val scheme = when {
         highContrast && dark -> HighContrastDark
         highContrast -> HighContrastLight
-        dark -> darkColorScheme()
-        else -> lightColorScheme()
+        dark -> FernDark
+        else -> FernLight
     }
     // The UI size (design roadmap D25) scales every dp; text keeps following the system's own font size on top.
     val density = LocalDensity.current
