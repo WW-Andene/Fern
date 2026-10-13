@@ -506,6 +506,9 @@ class CanvasState(
     }
 
     /** The document's game objects (roadmap item 155); see [GameObject]. Not part of undo, like frames and layers. */
+    /** Where the selection would go with the transform being typed, outlined on the canvas until applied (design roadmap D27). */
+    var transformPreview by mutableStateOf<TransformPreview?>(null)
+
     val gameObjects = mutableStateListOf<GameObject>()
 
     fun loadGameObjects(loaded: List<GameObject>, settings: GameSettings = GameSettings()) {
@@ -6284,3 +6287,5 @@ private class IntArrayList {
     fun toSortedArray(): IntArray = data.copyOf(size).also { it.sort() }
 }
 
+/** A selection's box after a numeric transform: [left], [top], [width], [height] in world units, turned [rotationDegrees] about its centre. */
+data class TransformPreview(val left: Double, val top: Double, val width: Double, val height: Double, val rotationDegrees: Double)

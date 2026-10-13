@@ -925,6 +925,26 @@ fun DrawingCanvas(
             }
         }
     }
+    // Where a typed transform would put the selection (design roadmap D27).
+    state.transformPreview?.let { t ->
+        Canvas(Modifier.matchParentSize()) {
+            val screenCenter = Offset(size.width / 2f, size.height / 2f)
+            val cx = t.left + t.width / 2
+            val cy = t.top + t.height / 2
+            val rad = Math.toRadians(t.rotationDegrees)
+            val corners = listOf(t.left to t.top, t.left + t.width to t.top, t.left + t.width to t.top + t.height, t.left to t.top + t.height).map { (x, y) ->
+                val dx = x - cx
+                val dy = y - cy
+                state.worldToScreen(WorldPoint(cx + dx * kotlin.math.cos(rad) - dy * kotlin.math.sin(rad), cy + dx * kotlin.math.sin(rad) + dy * kotlin.math.cos(rad)), screenCenter)
+            }
+            val outline = Path().apply {
+                moveTo(corners[0].x, corners[0].y)
+                for (c in corners.drop(1)) lineTo(c.x, c.y)
+                close()
+            }
+            drawPath(outline, FernColors.current.selection, style = DrawStyle(width = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))))
+        }
+    }
     // The brush's size and opacity while a drag on the rail adjusts it (design roadmap D19).
     if (RailAdjust.active) Canvas(Modifier.matchParentSize()) {
         val radius = (state.activeWidthWorld * state.scale / 2).toFloat().coerceAtLeast(2f)

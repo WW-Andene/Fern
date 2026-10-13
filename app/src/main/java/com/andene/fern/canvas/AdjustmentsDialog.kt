@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+
 import com.andene.fern.FernScale
 
 import androidx.compose.foundation.Canvas
@@ -11,7 +13,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -107,7 +108,7 @@ fun AdjustmentsDialog(initial: Adjustment?, onPreview: (Adjustment) -> Unit, onA
         delay(PREVIEW_DELAY_MILLIS)
         onPreview(current)
     }
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onCancel,
         title = { Text(stringResource(R.string.adjust_title)) },
         text = {

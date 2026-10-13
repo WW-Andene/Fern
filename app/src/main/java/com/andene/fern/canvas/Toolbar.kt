@@ -431,17 +431,22 @@ fun Toolbar(
     }
     var showTransformDialog by remember { mutableStateOf(false) }
     if (showTransformDialog) {
-        val bounds = state.selectionBounds()
+        val bounds = remember { state.selectionBounds() }
         if (bounds == null) showTransformDialog = false
         else TransformDialog(
             bounds,
             unitsPerWorld = state.drawingScale.factor,
             unitSymbol = state.drawingScale.symbol,
             onApply = { left, top, width, height, rotation ->
+                state.transformPreview = null
                 state.transformSelection(left, top, width, height, rotation)
                 showTransformDialog = false
             },
-            onDismiss = { showTransformDialog = false },
+            onDismiss = {
+                state.transformPreview = null
+                showTransformDialog = false
+            },
+            onPreview = { left, top, width, height, rotation -> state.transformPreview = TransformPreview(left, top, width, height, rotation) },
         )
     }
     var showLineStyleMenu by remember { mutableStateOf(false) }

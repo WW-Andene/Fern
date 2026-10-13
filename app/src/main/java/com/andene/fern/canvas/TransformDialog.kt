@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+
 import com.andene.fern.FernScale
 
 import androidx.compose.foundation.layout.Column
@@ -7,12 +9,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +41,8 @@ fun TransformDialog(
     unitSymbol: String = "px",
     onApply: (left: Double, top: Double, width: Double, height: Double, rotationDegrees: Double) -> Unit,
     onDismiss: () -> Unit,
+    /** The values as typed, for a live outline of the result on the canvas (design roadmap D27). */
+    onPreview: (left: Double, top: Double, width: Double, height: Double, rotationDegrees: Double) -> Unit = { _, _, _, _, _ -> },
 ) {
     val (min, max) = bounds
     val startWidth = max.x - min.x
@@ -56,8 +60,11 @@ fun TransformDialog(
     var angle by remember { mutableStateOf("0") }
     var locked by remember { mutableStateOf(true) }
     val numeric = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+    LaunchedEffect(x, y, w, h, angle) {
+        onPreview(parseWorld(x) ?: min.x, parseWorld(y) ?: min.y, parseWorld(w) ?: startWidth, parseWorld(h) ?: startHeight, parse(angle) ?: 0.0)
+    }
 
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.transform_title)) },
         text = {

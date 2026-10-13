@@ -279,8 +279,9 @@ Goal: nothing lost, nothing blocking, nothing to hunt for.
   into undo. Until then, ask once before a destructive action that can't be undone, with "Don't
   ask again".
   Written, not yet compiled or tested: frames, layers, game objects and game settings are now in each undo step, so deleting a frame, a layer (and its strokes) or an object, and resizing a frame, undo in one step. Deleting a raster layer still loses its pixels on undo, so it asks first (`ConfirmIrreversible`, with "Don't ask again").
-- [ ] D27. **Live preview** for every adjustment (blend, filters, fill, brush edits, transforms)
+- [~] D27. **Live preview** for every adjustment (blend, filters, fill, brush edits, transforms)
   on the canvas itself, with Apply and Cancel inline.
+  Written, not yet compiled or tested: adjustments (already previewed live on the layer), the gradient fill, the brush editor and the numeric transform now open as non-blocking panels with Apply/Cancel at their foot, so the canvas stays in view; the transform outlines where the selection will go as values are typed. Blend modes already apply at once. Gradient and brush previews stay inside their panel (they describe the next stroke, not existing ones).
 - [ ] D28. **Empty states and inline hints.** An empty layers panel or object list explains
   itself in one line with the action to take. No dead ends.
 - [ ] D29. **Learn in context.** Replace the first-run tip dialog with short coach marks that
