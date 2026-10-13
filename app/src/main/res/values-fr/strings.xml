@@ -1048,4 +1048,8 @@
     <string name="tips_practice_ready">Une page d’entraînement : essayez tout, votre travail n’est pas touché.</string>
     <string name="job_exporting">Export en cours…</string>
     <string name="job_cancelled">Export annulé</string>
+    <string name="more_more">Plus</string>
+    <string name="more_less">Moins</string>
+    <string name="more_open">déplié</string>
+    <string name="more_closed">replié</string>
 </resources>

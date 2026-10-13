@@ -5,6 +5,7 @@ import androidx.compose.ui.platform.LocalView
 import com.andene.fern.FernHaptics
 
 import com.andene.fern.FernMessages
+import com.andene.fern.MoreInline
 import com.andene.fern.FernScale
 
 import androidx.compose.material.icons.filled.Gamepad
@@ -679,7 +680,8 @@ fun Toolbar(
                         tint = if (showOpacitySlider) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
                 }
-                if (ToolbarGroup.STROKE_OPTIONS !in hiddenGroups) {
+                // Line options and stabiliser behind More (design roadmap D32).
+                if (ToolbarGroup.STROKE_OPTIONS !in hiddenGroups) MoreInline("stroke_options") {
                     IconButton(onClick = { state.activeDashed = !state.activeDashed }) {
                         Icon(
                             Icons.Filled.LineStyle,

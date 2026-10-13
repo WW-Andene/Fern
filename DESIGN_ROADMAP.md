@@ -309,8 +309,9 @@ Goal: nothing lost, nothing blocking, nothing to hunt for.
 
 Goal: complete and deep to master, while the first minute stays simple.
 
-- [ ] D32. **Progressive disclosure.** Advanced settings stay one tap away inside the same panel
+- [~] D32. **Progressive disclosure.** Advanced settings stay one tap away inside the same panel
   (a "More" disclosure), never a separate dialog.
+  Written, not yet compiled or tested: `FernDisclosure.kt` (`MoreOptions`, `MoreInline`), expanded state announced to screen readers and kept across rotation. Used for the drawing tools' line options and stabiliser in the properties bar, and for an object's physics, hitbox and links in its panel; other panels can adopt it as they're reworked (D42-D47).
 - [ ] D33. **Pro surfaces** for the deep features: dopesheet and timeline docked, the node or
   block editor for game logic as a panel, the script editor with syntax highlighting, line
   numbers and inline errors.

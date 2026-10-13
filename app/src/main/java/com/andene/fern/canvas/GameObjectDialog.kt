@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import com.andene.fern.MoreOptions
 import com.andene.fern.R
 
 /**
@@ -141,16 +142,19 @@ fun GameObjectDialog(state: CanvasState, initial: GameObject, path: List<WorldPo
                     showScript = false
                     state.gameObjects.firstOrNull { it.id == current.id }?.let { current = it }
                 })
-                PhysicsSection(state, current.body) { save(current.copy(body = it)) }
-                // Drawn hitbox and links (roadmap item 157).
-                HorizontalDivider(Modifier.padding(vertical = FernScale.s8))
-                Text(stringResource(if (current.hitbox == null) R.string.object_no_hitbox else R.string.object_has_hitbox), style = MaterialTheme.typography.bodySmall)
-                if (current.hitbox != null) TextButton(onClick = { save(current.copy(hitbox = null)) }) { Text(stringResource(R.string.object_clear_hitbox)) }
-                for (link in state.gameSettings.links.filter { it.from == current.id || it.to == current.id }) {
-                    val other = state.gameObjects.firstOrNull { it.id == (if (link.from == current.id) link.to else link.from) }?.name ?: "?"
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.object_link_row, stringResource(linkLabel(link.kind)), other), modifier = Modifier.weight(1f))
-                        IconButton(onClick = { state.removeLink(link.id) }) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.object_remove_link)) }
+                // Physics, hitbox and links: one tap away, not in the way (design roadmap D32).
+                MoreOptions("object_advanced") {
+                    PhysicsSection(state, current.body) { save(current.copy(body = it)) }
+                    // Drawn hitbox and links (roadmap item 157).
+                    HorizontalDivider(Modifier.padding(vertical = FernScale.s8))
+                    Text(stringResource(if (current.hitbox == null) R.string.object_no_hitbox else R.string.object_has_hitbox), style = MaterialTheme.typography.bodySmall)
+                    if (current.hitbox != null) TextButton(onClick = { save(current.copy(hitbox = null)) }) { Text(stringResource(R.string.object_clear_hitbox)) }
+                    for (link in state.gameSettings.links.filter { it.from == current.id || it.to == current.id }) {
+                        val other = state.gameObjects.firstOrNull { it.id == (if (link.from == current.id) link.to else link.from) }?.name ?: "?"
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(R.string.object_link_row, stringResource(linkLabel(link.kind)), other), modifier = Modifier.weight(1f))
+                            IconButton(onClick = { state.removeLink(link.id) }) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.object_remove_link)) }
+                        }
                     }
                 }
                 Box {
