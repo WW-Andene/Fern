@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernScale
 
@@ -7,7 +8,6 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,7 +23,8 @@ import com.andene.fern.R
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun Insert3dDialog(onPrimitive: (MeshPrimitive) -> Unit, onHand: () -> Unit, onHead: () -> Unit, onImportObj: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
+    FernPanel(
+        scrollContent = true,
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.model_insert_title)) },
         text = {

@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+import com.andene.fern.FernTextField
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSlider
 import androidx.compose.ui.platform.LocalView
@@ -516,10 +518,11 @@ fun Toolbar(
     val macroLocation = stringResource(R.string.macro_location)
     namingMacro?.let { steps ->
         var name by remember { mutableStateOf("") }
-        androidx.compose.material3.AlertDialog(
+        FernPanel(
+            scrollContent = true,
             onDismissRequest = { namingMacro = null },
             title = { Text(stringResource(R.string.macro_name_title, steps.size)) },
-            text = { androidx.compose.material3.OutlinedTextField(name, { name = it }, singleLine = true) },
+            text = { FernTextField(name, { name = it }, singleLine = true) },
             confirmButton = {
                 FernTextButton(enabled = name.isNotBlank(), onClick = {
                     macros = macros + Macro(name.trim(), steps)

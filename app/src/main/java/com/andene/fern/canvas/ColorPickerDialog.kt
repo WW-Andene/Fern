@@ -19,7 +19,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.minimumInteractiveComponentSize
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -274,7 +273,7 @@ fun ColorPickerDialog(
             }
         })
     } else {
-        AlertDialog(onDismissRequest = onDismiss, title = pickerTitle, text = pickerText, confirmButton = pickerConfirm, dismissButton = pickerDismiss)
+        FernPanel(onDismissRequest = onDismiss, title = pickerTitle, text = pickerText, confirmButton = pickerConfirm, dismissButton = pickerDismiss)
     }
 }
 

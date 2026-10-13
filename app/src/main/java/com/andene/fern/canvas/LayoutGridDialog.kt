@@ -1,10 +1,10 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSlider
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,7 +27,8 @@ fun LayoutGridDialog(frame: Frame, onApply: (LayoutGrid?) -> Unit, onDismiss: ()
     var rows by remember { mutableFloatStateOf((current?.rows ?: 0).toFloat()) }
     var gutter by remember { mutableFloatStateOf((current?.gutter ?: DEFAULT_GUTTER).toFloat()) }
     var margin by remember { mutableFloatStateOf((current?.margin ?: DEFAULT_MARGIN).toFloat()) }
-    AlertDialog(
+    FernPanel(
+        scrollContent = true,
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.layout_grid_title, frame.name)) },
         text = {

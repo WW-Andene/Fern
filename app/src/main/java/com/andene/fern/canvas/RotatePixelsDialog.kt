@@ -1,10 +1,10 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSlider
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,7 +27,8 @@ import kotlin.math.roundToInt
 fun RotatePixelsDialog(state: CanvasState, onDismiss: () -> Unit) {
     var degrees by remember { mutableFloatStateOf(45f) }
     var rotSprite by remember { mutableStateOf(true) }
-    AlertDialog(
+    FernPanel(
+        scrollContent = true,
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.rotate_pixels_title)) },
         text = {

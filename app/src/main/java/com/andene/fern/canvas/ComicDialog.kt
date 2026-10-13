@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSlider
 import com.andene.fern.FernScale
@@ -11,7 +12,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -42,7 +42,7 @@ fun ComicDialog(state: CanvasState, onDismiss: () -> Unit) {
     var count by remember { mutableFloatStateOf(64f) }
     var inner by remember { mutableFloatStateOf(0.4f) }
     var angle by remember { mutableFloatStateOf(0f) }
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.comic_title)) },
         text = {

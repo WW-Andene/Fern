@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernTextField
 import android.content.Context
@@ -9,7 +10,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -156,7 +156,8 @@ fun WorkspaceSwitcher(hiddenGroups: Set<ToolbarGroup>, onHiddenGroups: (Set<Tool
     }
     if (naming) {
         var name by remember { mutableStateOf("") }
-        AlertDialog(
+        FernPanel(
+            scrollContent = true,
             onDismissRequest = { naming = false },
             title = { Text(stringResource(R.string.workspace_save_new)) },
             text = { FernTextField(name, { name = it }, label = { Text(stringResource(R.string.workspace_name)) }, singleLine = true) },

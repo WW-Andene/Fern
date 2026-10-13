@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernTextField
 import com.andene.fern.FernScale
@@ -32,7 +33,6 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -104,7 +104,7 @@ fun DocumentsDialog(
         }
         .sortedByDescending { it.favorite } // stable sort: keeps the order above within each group
 
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(if (showingTrash) stringResource(R.string.documents_trash) else stringResource(R.string.documents_title)) },
         text = {

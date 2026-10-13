@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernTextField
 import com.andene.fern.FernScale
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -77,7 +77,7 @@ fun TextEditDialog(
     var linkMenu by remember { mutableStateOf<LinkMenu?>(null) }
     fun result() = TextEditResult(text, bold, italic, sticky, sizePx, font, alignment, keepBox, link, outlined, features)
 
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(if (pending.initialText.isEmpty()) stringResource(R.string.text_add) else stringResource(R.string.text_edit)) },
         text = {

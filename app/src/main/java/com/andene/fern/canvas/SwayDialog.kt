@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSlider
 import com.andene.fern.FernScale
@@ -7,7 +8,6 @@ import com.andene.fern.FernScale
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -32,7 +32,8 @@ fun SwayDialog(state: CanvasState, onDismiss: () -> Unit) {
     var degrees by remember { mutableFloatStateOf(15f) }
     var period by remember { mutableFloatStateOf(8f) }
     val boneId = state.selectedBoneId
-    AlertDialog(
+    FernPanel(
+        scrollContent = true,
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.sway_title)) },
         text = {

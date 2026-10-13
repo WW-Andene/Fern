@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernScale
 
@@ -8,7 +9,6 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,7 +40,8 @@ fun EasingCurveDialog(initial: CubicEasing, onApply: (CubicEasing) -> Unit, onDi
     val lineColor = MaterialTheme.colorScheme.onSurface
     val accent = MaterialTheme.colorScheme.primary
     val description = stringResource(R.string.easing_curve_title)
-    AlertDialog(
+    FernPanel(
+        // Not scrolled: a scroll would take the drags meant for the drawing area.
         onDismissRequest = onDismiss,
         title = { Text(description) },
         text = {

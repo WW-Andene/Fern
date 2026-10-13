@@ -1,12 +1,12 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernTextField
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
@@ -43,7 +43,8 @@ fun DrawingScaleDialog(state: CanvasState, onDismiss: () -> Unit) {
         )
     }
     val parsed = value.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 && it.isFinite() }
-    AlertDialog(
+    FernPanel(
+        scrollContent = true,
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.scale_title)) },
         text = {

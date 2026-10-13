@@ -1,9 +1,9 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSlider
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,7 +22,8 @@ fun BlendPoseDialog(state: CanvasState, onDismiss: () -> Unit) {
     val current = state.currentAnimFrame
     var other by remember { mutableIntStateOf(if (current + 1 < count) current + 1 else maxOf(0, current - 1)) }
     var weight by remember { mutableFloatStateOf(0.5f) }
-    AlertDialog(
+    FernPanel(
+        scrollContent = true,
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.blend_pose_title)) },
         text = {

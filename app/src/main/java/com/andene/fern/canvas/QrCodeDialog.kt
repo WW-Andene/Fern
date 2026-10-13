@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernTextField
 import com.andene.fern.FernScale
@@ -7,7 +8,6 @@ import com.andene.fern.FernScale
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -34,7 +34,8 @@ fun QrCodeDialog(state: CanvasState, onDismiss: () -> Unit) {
     var correction by remember { mutableStateOf(QrErrorCorrection.MEDIUM) }
     var lightBackground by remember { mutableStateOf(true) }
     var tooLong by remember { mutableStateOf(false) }
-    AlertDialog(
+    FernPanel(
+        scrollContent = true,
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.qr_title)) },
         text = {

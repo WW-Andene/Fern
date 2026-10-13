@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import android.media.MediaPlayer
 import android.widget.MediaController
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -39,7 +39,8 @@ fun VideoPlayerDialog(video: ImageItem, onDismiss: () -> Unit) {
     var muted by remember { mutableStateOf(false) }
     var view by remember { mutableStateOf<VideoView?>(null) }
     DisposableEffect(Unit) { onDispose { view?.stopPlayback() } }
-    AlertDialog(
+    FernPanel(
+        scrollContent = true,
         onDismissRequest = onDismiss,
         text = {
             Column {

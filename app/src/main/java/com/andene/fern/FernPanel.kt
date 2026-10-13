@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -68,7 +69,9 @@ class PanelEntry internal constructor(
     actions: @Composable () -> Unit,
     headerAction: (@Composable () -> Unit)? = null,
     onFilter: ((String) -> Unit)? = null,
+    scrollContent: Boolean = false,
 ) {
+    var scrollContent by mutableStateOf(scrollContent)
     var headerAction by mutableStateOf(headerAction)
     var onFilter by mutableStateOf(onFilter)
     var title by mutableStateOf(title)
@@ -98,6 +101,12 @@ fun FernPanel(
     headerAction: (@Composable () -> Unit)? = null,
     /** When set, a filter field under the header; called as the text changes. */
     onFilter: ((String) -> Unit)? = null,
+    /**
+     * Scroll [text] inside the panel. On by default only where the content doesn't scroll itself:
+     * a phone's sheet is half the screen, so longer content would be cut off. Off for content
+     * holding its own vertical scroll or lazy list, which can't sit inside another scroll.
+     */
+    scrollContent: Boolean = false,
 ) {
     val key = remember { Any() }
     val actions: @Composable () -> Unit = {
@@ -105,7 +114,7 @@ fun FernPanel(
         confirmButton()
     }
     DisposableEffect(key) {
-        FernPanels.open.add(PanelEntry(key, title, onDismissRequest, text, actions, headerAction, onFilter))
+        FernPanels.open.add(PanelEntry(key, title, onDismissRequest, text, actions, headerAction, onFilter, scrollContent))
         onDispose { FernPanels.open.removeAll { it.key === key } }
     }
     SideEffect {
@@ -116,6 +125,7 @@ fun FernPanel(
             it.actions = actions
             it.headerAction = headerAction
             it.onFilter = onFilter
+            it.scrollContent = scrollContent
         }
     }
 }
@@ -196,7 +206,9 @@ fun androidx.compose.foundation.layout.BoxScope.FernPanelHost(railOnLeft: Boolea
                 HorizontalDivider()
                 Box(Modifier.weight(1f, fill = false).padding(horizontal = FernSpace.lg, vertical = FernSpace.sm)) {
                     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-                        ProvideTextStyle(MaterialTheme.typography.bodyMedium) { entry.content() }
+                        ProvideTextStyle(MaterialTheme.typography.bodyMedium) {
+                            if (entry.scrollContent) Box(Modifier.verticalScroll(rememberScrollState())) { entry.content() } else entry.content()
+                        }
                     }
                 }
                 // Actions scroll sideways rather than squeeze on a phone (the layers panel has several).

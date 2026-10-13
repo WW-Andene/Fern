@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSlider
 import com.andene.fern.FernSwitch
@@ -22,7 +23,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -57,7 +57,7 @@ fun FrameTagsDialog(state: CanvasState, onDismiss: () -> Unit) {
     var to by remember { mutableFloatStateOf(state.currentAnimFrame.toFloat()) }
     var color by remember { mutableIntStateOf(TAG_COLORS[state.frameTags.size % TAG_COLORS.size]) }
     var direction by remember { mutableStateOf(TagDirection.FORWARD) }
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.tags_title)) },
         text = {
@@ -117,7 +117,7 @@ fun FrameTagsDialog(state: CanvasState, onDismiss: () -> Unit) {
  */
 @Composable
 fun OnionSkinDialog(state: CanvasState, onDismiss: () -> Unit) {
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.onion_title)) },
         text = {

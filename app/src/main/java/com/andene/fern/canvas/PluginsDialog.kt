@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernTextField
 import com.andene.fern.FernScale
@@ -17,7 +18,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -69,7 +69,7 @@ fun PluginsDialog(state: CanvasState, onDismiss: () -> Unit) {
     }
 
     writing?.let { source ->
-        AlertDialog(
+        FernPanel(
             onDismissRequest = { writing = null },
             title = { Text(stringResource(R.string.plugins_new)) },
             text = {
@@ -91,7 +91,7 @@ fun PluginsDialog(state: CanvasState, onDismiss: () -> Unit) {
         return
     }
 
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(chosen?.name ?: stringResource(R.string.plugins_title)) },
         text = {

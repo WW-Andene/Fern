@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernScale
 
@@ -11,7 +12,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
@@ -40,7 +40,8 @@ fun SignatureDialog(saved: List<Stroke>, onPlace: (List<Stroke>) -> Unit, onDism
     // Points are added to a stroke in place; this makes the pad redraw for each one.
     val revision = remember { mutableIntStateOf(0) }
 
-    AlertDialog(
+    FernPanel(
+        // Not scrolled: a scroll would take the drags meant for the drawing area.
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.signature_title)) },
         text = {

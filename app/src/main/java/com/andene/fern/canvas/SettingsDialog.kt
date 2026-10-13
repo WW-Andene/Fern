@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSwitch
 import com.andene.fern.FernTextField
@@ -26,7 +27,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -264,7 +264,7 @@ fun SettingsDialog(
     var query by remember { mutableStateOf("") }
     // A row shows when the search is empty or its label holds every word typed (design roadmap D24).
     fun shows(label: String) = query.isBlank() || matchCommands(listOf(PaletteCommand(label, label, "") {}), query).isNotEmpty()
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.settings_title)) },
         text = {

@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernScale
 
@@ -7,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,7 +36,8 @@ fun ScriptDialog(onRun: (List<ScriptLine>) -> Unit, onDismiss: () -> Unit) {
     var source by remember { mutableStateOf(EXAMPLE_SCRIPT) }
     var error by remember { mutableStateOf<ScriptError?>(null) }
     val scope = rememberCoroutineScope()
-    AlertDialog(
+    FernPanel(
+        scrollContent = true,
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.script_title)) },
         text = {

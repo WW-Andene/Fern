@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSwitch
 import com.andene.fern.FernScale
@@ -9,7 +10,6 @@ import androidx.compose.ui.res.stringResource
 import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -35,7 +35,7 @@ fun markWelcomeSeen(context: Context) {
 fun WelcomeDialog(onDismiss: () -> Unit, onPractice: (() -> Unit)? = null) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var tipsOn by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(!Tips.off(context)) }
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.welcome_title)) },
         text = {

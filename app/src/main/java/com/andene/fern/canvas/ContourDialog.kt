@@ -1,5 +1,6 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernSlider
 import com.andene.fern.FernScale
@@ -7,7 +8,6 @@ import com.andene.fern.FernScale
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,7 +31,8 @@ import kotlin.math.roundToInt
 fun ContourDialog(state: CanvasState, onDismiss: () -> Unit) {
     var distance by remember { mutableFloatStateOf(16f) }
     var join by remember { mutableStateOf(ContourJoin.ROUND) }
-    AlertDialog(
+    FernPanel(
+        scrollContent = true,
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.contour_title)) },
         text = {
