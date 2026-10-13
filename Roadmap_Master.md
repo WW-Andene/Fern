@@ -57,12 +57,19 @@ work that changes an item's status; remove an item once it is done.
 
 ---
 
-## Phase 0 — Verify and protect
+## Owner decisions (October 2026)
 
-Proposed by [Product_Review.md](Product_Review.md) (findings O1, O8). Work written without being compiled reached `main` and broke the build; nothing in the D15–D46 batch has been tried on a device. Build further only on verified ground.
+Answers to the questions in [Product_Review.md](Product_Review.md) §8:
 
-- [ ] 355. **CI on every branch and pull request**, not only after merging to `main` (`.github/workflows/build-apk.yml` runs on pushes to `main` only). Pending the owner's answer to review Q4, since CLAUDE.md §2 removes tests from the developer's definition of done.
-- [ ] 356. **Primary users and core workflows named by the owner** (review Q1), so the phases below can be ordered by them and usability sessions (D72) test them.
+- **Users: everyone.** "Easy to come in, better to master": the first minute stays simple and every tool goes deep.
+- **Devices: phone first, then tablet.**
+- **Rigging: mostly Spine's model.**
+- **CI: only when the owner asks to merge to `main`.** Item 355 (CI on every branch) is dropped.
+- **No deadline.**
+- **No AI features.**
+
+Set aside for the owner (needs a device and a person):
+
 - [ ] D71. **Real-device passes** on phones first (a small and a large phone), with TalkBack,
   Switch Access, a stylus and one hand, in English and in French; keyboard and tablet passes after.
   The results go in the commit that closes each phase.
@@ -282,7 +289,7 @@ Guides as professional tools have them: placed, locked and drawn along, many kin
 - [ ] 218. Guides saved with the document and toggled per frame.
 - [ ] 219. Symmetry: mirrored radial (kaleidoscope); axis moved and rotated on the canvas; symmetry limited to a selected frame or region.
 - [ ] 220. Reference window: a floating image or second view kept on screen while drawing.
-- [ ] 358. **A small set of snap targets** (endpoint, midpoint, intersection, centre, perpendicular, tangent) with a per-stroke override and values typed at the cursor, as in CAD tools; no parametric constraint solver. Only if the primary users (356) include designers. Review finding O12.
+- [ ] 358. **A small set of snap targets** (endpoint, midpoint, intersection, centre, perpendicular, tangent) with a per-stroke override and values typed at the cursor, as in CAD tools; no parametric constraint solver. Users are everyone, so it is in scope. Review finding O12.
 
 ---
 
