@@ -253,9 +253,10 @@ Goal: every surface rearrangeable, layouts portable.
   properties bar, the quick menu and the panels; remove them by dragging away. This replaces
   showing or hiding whole groups.
   Written, not yet compiled or tested: `LayoutEditor.kt` (Settings > Arrange the layout), one panel: the rail's pinned tools and the quick menu's actions reorder by dragging a handle (or Move up/down for screen readers), go with one tap and come back from chips; toolbar groups as toggles. It replaces the separate toolbar and quick-menu customisation dialogs, now deleted. Dragging straight onto the live rail/menu, rather than in this panel, is not done.
-- [ ] D23. **Layout presets.** Save, name, switch between, export and import whole layouts
+- [~] D23. **Layout presets.** Save, name, switch between, export and import whole layouts
   (rail, panels, gestures, shortcuts, workspaces). Ready-made presets: "Minimal", "Procreate-like",
   "Desktop-like", "One-hand".
+  Written, not yet compiled or tested: `LayoutPresets.kt`; at the top of Arrange the layout: Minimal, Procreate-like, Desktop-like and One hand, the user's saved layouts (removable), Save this layout, Export to a .json file and Import (applied and kept). A layout holds pinned tools, toolbar groups, quick menu, gestures and shortcuts; workspaces stay separate (D11, D83).
 - [ ] D24. **Settings rebuilt.** Search inside Settings and plain sections: Input (gestures,
   stylus, keys, palm), Appearance (theme, density, UI size), Accessibility, Canvas, Files and
   colour management. Every setting can be reset on its own.

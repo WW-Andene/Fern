@@ -1005,4 +1005,16 @@
     <string name="layout_remove">Retirer %1$s</string>
     <string name="layout_move_up">Monter</string>
     <string name="layout_move_down">Descendre</string>
+    <string name="layout_presets">Dispositions</string>
+    <string name="layout_preset_minimal">Minimale</string>
+    <string name="layout_preset_procreate">Façon Procreate</string>
+    <string name="layout_preset_desktop">Façon bureau</string>
+    <string name="layout_preset_one_hand">Une main</string>
+    <string name="layout_save_preset">Enregistrer cette disposition</string>
+    <string name="layout_export">Exporter</string>
+    <string name="layout_import">Importer</string>
+    <string name="layout_exported">Disposition exportée</string>
+    <string name="layout_export_failed">La disposition n’a pas pu être écrite</string>
+    <string name="layout_import_failed">Ce fichier n’est pas une disposition Fern</string>
+    <string name="layout_imported">Disposition « %1$s » appliquée</string>
 </resources>

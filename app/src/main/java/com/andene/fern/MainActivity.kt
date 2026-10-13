@@ -141,6 +141,8 @@ import com.andene.fern.canvas.SettingsDialog
 import com.andene.fern.canvas.Tool
 import com.andene.fern.canvas.Toolbar
 import com.andene.fern.canvas.LayoutEditor
+import com.andene.fern.canvas.LayoutPreset
+import com.andene.fern.canvas.LayoutPresets
 import com.andene.fern.canvas.VersionsDialog
 import com.andene.fern.canvas.WelcomeDialog
 import com.andene.fern.canvas.WorldPoint
@@ -1593,6 +1595,34 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    // Layout files (design roadmap D23).
+                    var layoutToExport by remember { mutableStateOf<LayoutPreset?>(null) }
+                    val layoutExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+                        val preset = layoutToExport ?: return@rememberLauncherForActivityResult
+                        layoutToExport = null
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val ok = withContext(Dispatchers.IO) {
+                                runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(LayoutPresets.write(preset).toString(2).toByteArray()) } != null }.getOrDefault(false)
+                            }
+                            FernMessages.show(context.getString(if (ok) R.string.layout_exported else R.string.layout_export_failed))
+                        }
+                    }
+                    val layoutImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val preset = withContext(Dispatchers.IO) {
+                                runCatching { context.contentResolver.openInputStream(uri)?.use { LayoutPresets.read(org.json.JSONObject(it.readBytes().decodeToString())) } }.getOrNull()
+                            }
+                            if (preset == null) {
+                                FernMessages.show(context.getString(R.string.layout_import_failed))
+                            } else {
+                                LayoutPresets.apply(context, preset, { hiddenToolbarGroups = it }, { quickMenuActions = it })
+                                LayoutPresets.setSaved(context, LayoutPresets.saved(context) + preset)
+                                FernMessages.show(context.getString(R.string.layout_imported, preset.name))
+                            }
+                        }
+                    }
                     if (showLayoutEditor) {
                         LayoutEditor(
                             state = canvasState,
@@ -1607,6 +1637,11 @@ class MainActivity : ComponentActivity() {
                                 AppSettings.setHiddenToolbarGroups(context, value)
                             },
                             onDismiss = { showLayoutEditor = false },
+                            onExport = { preset ->
+                                layoutToExport = preset
+                                layoutExportLauncher.launch("fern-layout.json")
+                            },
+                            onImport = { layoutImportLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
                         )
                     }
 

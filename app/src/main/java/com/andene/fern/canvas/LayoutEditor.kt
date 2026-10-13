@@ -1,6 +1,9 @@
 package com.andene.fern.canvas
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -47,7 +50,8 @@ import kotlin.math.roundToInt
 /**
  * Arrange the layout (design roadmap D22), all in one panel: the rail's pinned tools and the
  * quick menu's actions, each reordered by dragging its handle, removed with one tap and added
- * from what's left; and which toolbar groups show. Changes apply at once.
+ * from what's left; and which toolbar groups show. Changes apply at once. Whole layouts
+ * (presets) apply, save, export and import from the top.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -58,6 +62,10 @@ fun LayoutEditor(
     hiddenGroups: Set<ToolbarGroup>,
     onHiddenGroupsChange: (Set<ToolbarGroup>) -> Unit,
     onDismiss: () -> Unit,
+    /** Write the current layout to a file the user picks (design roadmap D23). */
+    onExport: (LayoutPreset) -> Unit = {},
+    /** Read a layout from a file the user picks. */
+    onImport: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val pinned by RailSettings.pinnedState(context)
@@ -66,6 +74,46 @@ fun LayoutEditor(
         title = { Text(stringResource(R.string.layout_title)) },
         text = {
             Column(Modifier.heightIn(max = FernSize.dialogMaxHeight).verticalScroll(rememberScrollState())) {
+                // Whole layouts, ready-made or the user's own (design roadmap D23).
+                Text(stringResource(R.string.layout_presets), style = MaterialTheme.typography.titleSmall)
+                var saved by remember { mutableStateOf(LayoutPresets.saved(context)) }
+                var naming by remember { mutableStateOf<String?>(null) }
+                FlowRow {
+                    for (preset in BUILT_IN_LAYOUTS + saved) {
+                        val name = preset.label?.let { stringResource(it) } ?: preset.name
+                        AssistChip(
+                            onClick = { LayoutPresets.apply(context, preset, onHiddenGroupsChange, onQuickMenuChange) },
+                            label = { Text(name) },
+                            trailingIcon = if (preset.label == null) {
+                                {
+                                    Icon(Icons.Filled.RemoveCircleOutline, contentDescription = stringResource(R.string.layout_remove, name), modifier = Modifier.clickable {
+                                        saved = saved - preset
+                                        LayoutPresets.setSaved(context, saved)
+                                    })
+                                }
+                            } else null,
+                            modifier = Modifier.padding(end = FernScale.s8),
+                        )
+                    }
+                }
+                val current = { name: String -> LayoutPresets.current(context, name, hiddenGroups, quickMenu) }
+                val typing = naming
+                if (typing == null) {
+                    Row {
+                        TextButton(onClick = { naming = "" }) { Text(stringResource(R.string.layout_save_preset)) }
+                        TextButton(onClick = { onExport(current("Fern")) }) { Text(stringResource(R.string.layout_export)) }
+                        TextButton(onClick = onImport) { Text(stringResource(R.string.layout_import)) }
+                    }
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(typing, { naming = it }, label = { Text(stringResource(R.string.workspace_name)) }, singleLine = true, modifier = Modifier.weight(1f))
+                        TextButton(enabled = typing.isNotBlank(), onClick = {
+                            saved = saved + current(typing.trim())
+                            LayoutPresets.setSaved(context, saved)
+                            naming = null
+                        }) { Text(stringResource(R.string.action_save)) }
+                    }
+                }
                 Text(stringResource(R.string.layout_rail), style = MaterialTheme.typography.titleSmall)
                 ReorderableList(pinned, { stringResource(toolName(it)) }, { railIcon(state, it) }) { RailSettings.setPinned(context, it) }
                 FlowRow {

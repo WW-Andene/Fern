@@ -1002,4 +1002,16 @@
     <string name="layout_remove">Remove %1$s</string>
     <string name="layout_move_up">Move up</string>
     <string name="layout_move_down">Move down</string>
+    <string name="layout_presets">Layouts</string>
+    <string name="layout_preset_minimal">Minimal</string>
+    <string name="layout_preset_procreate">Procreate-like</string>
+    <string name="layout_preset_desktop">Desktop-like</string>
+    <string name="layout_preset_one_hand">One hand</string>
+    <string name="layout_save_preset">Save this layout</string>
+    <string name="layout_export">Export</string>
+    <string name="layout_import">Import</string>
+    <string name="layout_exported">Layout exported</string>
+    <string name="layout_export_failed">The layout couldn’t be written</string>
+    <string name="layout_import_failed">That file isn’t a Fern layout</string>
+    <string name="layout_imported">Layout “%1$s” applied</string>
 </resources>
