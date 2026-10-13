@@ -10,6 +10,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -65,7 +67,9 @@ fun GradientFillDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.gradient_title)) },
         text = {
-            Column {
+            // Scrolls: a panel on an upright phone gets half the screen (design roadmap D42),
+            // too little for both rows of directions and the preview.
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Row {
                     for (option in GradientMode.entries) {
                         FilterChip(

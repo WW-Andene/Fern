@@ -1,11 +1,17 @@
 package com.andene.fern.canvas
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import com.andene.fern.FernPanelHost
+import com.andene.fern.FernScale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -50,10 +56,14 @@ class FillGradientTest {
     fun dialogAppliesTwoColoursWithDirection() {
         var result: Pair<GradientMode, FillGradient?>? = null
         compose.setContent {
-            GradientFillDialog(Color.Black, GradientMode.NONE, null, onApply = { m, g -> result = m to g }, onDismiss = {})
+            Box(Modifier.fillMaxSize()) {
+                GradientFillDialog(Color.Black, GradientMode.NONE, null, onApply = { m, g -> result = m to g }, onDismiss = {})
+                // The dialog is a panel (design roadmap D42), shown only through its host.
+                FernPanelHost(railOnLeft = true, railInset = FernScale.none, railSide = FernScale.none)
+            }
         }
-        compose.onNodeWithText("Two colours").performClick()
-        compose.onNodeWithContentDescription("Direction 0°").performClick()
+        compose.onNodeWithText("Two colours").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Direction 0°").performScrollTo().performClick()
         compose.onNodeWithText("Apply").performClick()
         assertEquals(GradientMode.TWO_COLOURS, result?.first)
         assertEquals(0, result?.second?.angleDegrees)
@@ -63,9 +73,13 @@ class FillGradientTest {
     fun dialogFadeHasNoGradient() {
         var result: Pair<GradientMode, FillGradient?>? = null
         compose.setContent {
-            GradientFillDialog(Color.Black, GradientMode.TWO_COLOURS, FillGradient(Color.Red, 90), onApply = { m, g -> result = m to g }, onDismiss = {})
+            Box(Modifier.fillMaxSize()) {
+                GradientFillDialog(Color.Black, GradientMode.TWO_COLOURS, FillGradient(Color.Red, 90), onApply = { m, g -> result = m to g }, onDismiss = {})
+                // The dialog is a panel (design roadmap D42), shown only through its host.
+                FernPanelHost(railOnLeft = true, railInset = FernScale.none, railSide = FernScale.none)
+            }
         }
-        compose.onNodeWithText("Fade out").performClick()
+        compose.onNodeWithText("Fade out").performScrollTo().performClick()
         compose.onNodeWithText("Apply").performClick()
         assertEquals(GradientMode.FADE to null, result)
     }
