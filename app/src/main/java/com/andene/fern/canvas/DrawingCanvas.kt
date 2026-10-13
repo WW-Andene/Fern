@@ -225,7 +225,8 @@ fun DrawingCanvas(
                     stylusSample.eraserEnd = event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER
                     stylusSample.buttonPressed = isStylus && (event.buttonState and MotionEvent.BUTTON_STYLUS_PRIMARY) != 0
                     predictor.record(event)
-                    frontInk?.onTouchEvent(event, state.strokeInProgress?.takeIf { state.activeStabilization <= 0.0 && !state.isAdjustingShape }, state.scale)
+                    // The front buffer is a separate surface the view checks (roadmap item 186) can't mirror or grey, so it rests while they're on.
+                    frontInk?.onTouchEvent(event, state.strokeInProgress?.takeIf { state.activeStabilization <= 0.0 && !state.isAdjustingShape && !state.viewMirrored && !state.viewGreyscale }, state.scale)
                     predictedScreen = when (event.actionMasked) {
                         MotionEvent.ACTION_MOVE -> predictor.predict()?.let { predicted ->
                             Offset(predicted.x, predicted.y).also { predicted.recycle() }

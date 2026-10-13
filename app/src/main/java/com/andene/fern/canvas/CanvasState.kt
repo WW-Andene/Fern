@@ -3096,6 +3096,14 @@ class CanvasState(
     var pendingTextEdit: PendingTextEdit? by mutableStateOf(null)
         private set
 
+    /**
+     * View checks (roadmap item 186), shown only on screen, never in the drawing: the view
+     * mirrored left to right, the way artists flip a canvas to catch proportions their eye has
+     * grown used to, and the view in greys, to judge values without colour.
+     */
+    var viewMirrored by mutableStateOf(false)
+    var viewGreyscale by mutableStateOf(false)
+
     /** Every placed image on the canvas. */
     val imageItems = mutableStateListOf<ImageItem>()
 

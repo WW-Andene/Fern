@@ -144,6 +144,8 @@ import androidx.compose.material.icons.filled.LineWeight
 import androidx.compose.material.icons.filled.LinearScale
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.PanoramaFishEye
 import androidx.compose.material.icons.filled.TripOrigin
@@ -1380,6 +1382,19 @@ fun Toolbar(
                                 }
                             }
                             MoreSection(stringResource(R.string.more_section_canvas)) {
+                                // View checks (roadmap item 186).
+                                LabelledIconButton(
+                                    onClick = { state.viewMirrored = !state.viewMirrored },
+                                    icon = Icons.Filled.Flip,
+                                    label = stringResource(R.string.view_mirror),
+                                    tint = if (state.viewMirrored) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                )
+                                LabelledIconButton(
+                                    onClick = { state.viewGreyscale = !state.viewGreyscale },
+                                    icon = Icons.Filled.Contrast,
+                                    label = stringResource(R.string.view_greyscale),
+                                    tint = if (state.viewGreyscale) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                )
                                 if (ToolbarGroup.LAYERS !in hiddenGroups) {
                                     Box {
                                         LabelledIconButton(onClick = { showBlendModeMenu = true }, icon = Icons.Filled.Tonality, label = stringResource(R.string.tb_blend, stringResource(blendModeLabel(state.activeBlendMode))), tint = if (state.activeBlendMode != StrokeBlendMode.NORMAL) MaterialTheme.colorScheme.primary

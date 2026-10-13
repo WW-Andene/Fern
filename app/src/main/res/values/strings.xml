@@ -1161,4 +1161,6 @@
     <string name="rig_physics">Follow-through (swings behind its motion)</string>
     <string name="rig_physics_strength">Stiffness</string>
     <string name="rig_physics_damping">Settling</string>
+    <string name="view_mirror">Mirrored view</string>
+    <string name="view_greyscale">Greyscale view</string>
 </resources>

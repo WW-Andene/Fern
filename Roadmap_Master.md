@@ -337,7 +337,8 @@ The remaining existing tools made complete.
 - [ ] 182. Transform: snapping to 15° and to other objects shown on the handles; uniform or free scaling as a visible toggle; interpolation choice for raster (nearest, bilinear, bicubic).
 - [ ] 183. Text: edit in place on the canvas; baseline and bounding-box guides while moving; outline and shadow.
 - [ ] 184. Bezier: tap a node to switch corner and smooth; close the path by tapping the first node; add, delete and split nodes on an existing path.
-- [ ] 186. View: flip the view horizontally (a mirror to check proportions, the drawing unchanged); greyscale view; zoom presets (fit, 100 %, fill) and tap to reset rotation.
+- [~] 186. View: flip the view horizontally (a mirror to check proportions, the drawing unchanged); greyscale view; zoom presets (fit, 100 %, fill) and tap to reset rotation.
+  Done: mirrored view and greyscale view from the More panel, shown as mode chips, screen only. Left: zoom presets (fit, 100 %, fill) and tap to reset rotation.
 - [ ] 187. Layers: larger thumbnails with a size setting; swipe a row to hide, lock or alpha-lock; pinch rows to merge; long-press a stroke to jump to its layer; colour labels with a filter.
 
 ---

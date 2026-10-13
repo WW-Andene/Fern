@@ -65,6 +65,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.focus.FocusRequester
@@ -1153,6 +1156,23 @@ class MainActivity : ComponentActivity() {
                             state = canvasState,
                             modifier = Modifier
                                 .fillMaxSize()
+                                // View checks (roadmap item 186): mirrored or in greys on screen only. The layer
+                                // mirrors touches too, so a stroke still lands under the finger.
+                                .graphicsLayer { scaleX = if (canvasState.viewMirrored) -1f else 1f }
+                                .drawWithContent {
+                                    if (!canvasState.viewGreyscale) {
+                                        drawContent()
+                                    } else {
+                                        val paint = androidx.compose.ui.graphics.Paint().apply {
+                                            colorFilter = androidx.compose.ui.graphics.ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(0f) })
+                                        }
+                                        drawIntoCanvas { canvas ->
+                                            canvas.saveLayer(androidx.compose.ui.geometry.Rect(androidx.compose.ui.geometry.Offset.Zero, size), paint)
+                                            drawContent()
+                                            canvas.restore()
+                                        }
+                                    }
+                                }
                                 .dragAndDropTarget(
                                     shouldStartDragAndDrop = { event ->
                                         event.mimeTypes().any { it.startsWith("image/") || it.startsWith("text/") }

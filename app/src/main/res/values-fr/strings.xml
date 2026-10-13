@@ -1165,4 +1165,6 @@
     <string name="rig_physics">Inertie (balance après le mouvement)</string>
     <string name="rig_physics_strength">Raideur</string>
     <string name="rig_physics_damping">Amortissement</string>
+    <string name="view_mirror">Vue miroir</string>
+    <string name="view_greyscale">Vue en gris</string>
 </resources>
