@@ -102,6 +102,7 @@
     <string name="wrap_off">Désactiver la tuile répétée</string>
     <string name="second_view_fit">Afficher tout le dessin dans la seconde vue</string>
     <string name="second_view_close">Fermer la seconde vue</string>
+    <string name="second_view_move">Déplacer la seconde vue (toucher deux fois pour la remettre en place)</string>
     <string name="layers_comps">Compositions de calques</string>
     <string name="layers_comp_save">Enregistrer</string>
     <string name="layers_comp_default_name">Composition %1$d</string>
@@ -1067,6 +1068,7 @@
     <string name="nav_back">Revenir où j’étais</string>
     <string name="nav_minimap_show">Afficher la mini-carte</string>
     <string name="nav_minimap_hide">Masquer la mini-carte</string>
+    <string name="minimap_move">Déplacer la mini-carte (toucher deux fois pour la remettre en place)</string>
     <string name="panel_filter">Filtrer</string>
     <string name="layers_deleted">Calque supprimé</string>
     <string name="layers_opacity_drag">Glissez sur le côté pour changer l’opacité</string>

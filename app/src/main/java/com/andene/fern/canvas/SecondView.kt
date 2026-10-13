@@ -46,7 +46,7 @@ import com.andene.fern.R
  * as it would on the main canvas (at this view's zoom, so the pen is the same size on screen),
  * and pans with any other tool. Pressure and tilt aren't read here (strokes are drawn at full
  * pressure); the main canvas does that. Strokes go to the one document, so they show in both views and
- * undo as usual. The main view's frame is outlined in it.
+ * undo as usual. The main view's frame is outlined in it. Its grip moves it ([PaneDragHandle]).
  */
 @Composable
 fun SecondView(state: CanvasState, modifier: Modifier = Modifier) {
@@ -82,8 +82,10 @@ fun SecondView(state: CanvasState, modifier: Modifier = Modifier) {
             ?.asImageBitmap()?.also { images[fileName] = it }
     }
 
+    val pane = rememberMovablePaneState("second_view")
+
     Surface(
-        modifier = modifier,
+        modifier = modifier.movablePane(pane),
         shape = MaterialTheme.shapes.medium,
         tonalElevation = FernScale.s4,
         shadowElevation = FernScale.s4,
@@ -158,6 +160,7 @@ fun SecondView(state: CanvasState, modifier: Modifier = Modifier) {
                     drawRect(MAIN_VIEW_FRAME_COLOR, topLeft = a, size = androidx.compose.ui.geometry.Size(b.x - a.x, b.y - a.y), style = DrawStyle(width = 2f))
                 }
             }
+            PaneDragHandle(pane, stringResource(R.string.second_view_move), Modifier.align(Alignment.TopCenter))
             Box(modifier = Modifier.align(Alignment.TopEnd)) {
                 androidx.compose.foundation.layout.Row {
                     IconButton(onClick = {
