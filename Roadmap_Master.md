@@ -227,7 +227,7 @@ Switching, adjusting and arranging without looking. Builds on Phases 1 and 2.
 - [~] D31. **Performance as UX.** Panels and menus open in under 100 ms, no layout shift on the
   canvas when a bar appears, and long jobs (exports, imports) run in the background with
   progress and cancel.
-  Written, not yet compiled or tested: exports already ran off the main thread; now each shows an "Exporting…" card with a progress bar and Cancel (`FernJobs`), and a cancelled export removes its empty file. Bars and panels float over a full-screen canvas, so none shifts the drawing when it appears. Opening times aren't measured yet (D70); progress is indeterminate (the exporters report no fraction).
+  Written, not yet compiled or tested: exports already ran off the main thread; now each shows an "Exporting…" card with a progress bar and Cancel (`FernJobs`), and a cancelled export removes its empty file. Bars and panels float over a full-screen canvas, so none shifts the drawing when it appears. Frame-by-frame exports (GIF, APNG, MP4, WebM, sprite sheet, replays) now report each frame, so their bar fills; single-image exports stay indeterminate (one render, nothing to count). Opening times aren't measured yet (D70).
 - [ ] D86. **No accidental loss of state.** Leaving a tool, closing a panel or rotating the phone
   never discards a half-done action (a text being typed, a Bézier path, a selection); it's kept
   or finished.

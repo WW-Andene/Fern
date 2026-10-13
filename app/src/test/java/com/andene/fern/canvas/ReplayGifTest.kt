@@ -23,7 +23,7 @@ class ReplayGifTest {
     fun replayGifShowsTheDrawingAppearing() {
         val state = CanvasState()
         state.loadStrokes(List(10) { i -> Stroke(Color.Black, 4.0).apply { addPoint(WorldPoint(i * 20.0, 0.0)); addPoint(WorldPoint(i * 20.0, 100.0)) } })
-        val gif = exportReplayGif(state, textMeasurer, Density(1f)) { null }!!
+        val gif = exportReplayGif(state, textMeasurer, Density(1f), imageFor = { null })!!
         assertEquals("GIF89a", String(gif, 0, 6))
         // One image descriptor (0x2C) per frame follows each graphic control extension (21 F9 04).
         var frames = 0
@@ -34,6 +34,6 @@ class ReplayGifTest {
 
     @Test
     fun emptyDocumentHasNoReplay() {
-        assertNull(exportReplayGif(CanvasState(), textMeasurer, Density(1f)) { null })
+        assertNull(exportReplayGif(CanvasState(), textMeasurer, Density(1f), imageFor = { null }))
     }
 }

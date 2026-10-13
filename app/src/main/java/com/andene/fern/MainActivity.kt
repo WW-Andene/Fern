@@ -435,10 +435,11 @@ class MainActivity : ComponentActivity() {
                     fun currentDocumentName() = documents.firstOrNull { it.id == currentDocumentId }?.name ?: "Fern"
 
                     // Renders off the main thread, then writes to the picked location; null bytes = empty document.
-                    fun writeExport(uri: Uri, render: () -> ByteArray?) {
+                    // [render] gets a reporter for how far it's got (D31), which frame-by-frame exports call.
+                    fun writeExport(uri: Uri, render: (progress: (Float) -> Unit) -> ByteArray?) {
                         // Shown with Cancel while it runs (design roadmap D31); a cancelled export leaves no empty file behind.
                         val job = coroutineScope.launch {
-                            val bytes = runInterruptible(Dispatchers.Default) { render() }
+                            val bytes = runInterruptible(Dispatchers.Default) { render(FernJobs::report) }
                             val message = if (bytes == null) {
                                 context.getString(R.string.toast_nothing_export)
                             } else {
@@ -512,17 +513,17 @@ class MainActivity : ComponentActivity() {
                     val spriteSheetExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("image/png"),
                     ) { uri ->
-                        if (uri != null) writeExport(uri) { exportSpriteSheetPng(canvasState, textMeasurer, density, imageForExport) }
+                        if (uri != null) writeExport(uri) { progress -> exportSpriteSheetPng(canvasState, textMeasurer, density, imageForExport, progress) }
                     }
                     val gifExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("image/gif"),
                     ) { uri ->
-                        if (uri != null) writeExport(uri) { exportAnimatedGif(canvasState, textMeasurer, density, imageForExport) }
+                        if (uri != null) writeExport(uri) { progress -> exportAnimatedGif(canvasState, textMeasurer, density, imageForExport, progress) }
                     }
                     val apngExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("image/apng"),
                     ) { uri ->
-                        if (uri != null) writeExport(uri) { exportAnimatedPng(canvasState, textMeasurer, density, imageForExport) }
+                        if (uri != null) writeExport(uri) { progress -> exportAnimatedPng(canvasState, textMeasurer, density, imageForExport, progress) }
                     }
                     val epsExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("application/postscript"),
@@ -558,22 +559,22 @@ class MainActivity : ComponentActivity() {
                     val replayGifExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("image/gif"),
                     ) { uri ->
-                        if (uri != null) writeExport(uri) { exportReplayGif(canvasState, textMeasurer, density, imageForExport) }
+                        if (uri != null) writeExport(uri) { progress -> exportReplayGif(canvasState, textMeasurer, density, imageForExport, progress) }
                     }
                     val replayMp4ExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("video/mp4"),
                     ) { uri ->
-                        if (uri != null) writeExport(uri) { exportReplayMp4(canvasState, textMeasurer, density, imageForExport, context.cacheDir) }
+                        if (uri != null) writeExport(uri) { progress -> exportReplayMp4(canvasState, textMeasurer, density, imageForExport, context.cacheDir, progress) }
                     }
                     val mp4ExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("video/mp4"),
                     ) { uri ->
-                        if (uri != null) writeExport(uri) { exportAnimationVideo(canvasState, textMeasurer, density, imageForExport, context.cacheDir) }
+                        if (uri != null) writeExport(uri) { progress -> exportAnimationVideo(canvasState, textMeasurer, density, imageForExport, context.cacheDir, progress = progress) }
                     }
                     val webmExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("video/webm"),
                     ) { uri ->
-                        if (uri != null) writeExport(uri) { exportAnimationVideo(canvasState, textMeasurer, density, imageForExport, context.cacheDir, Mp4Encoder.Format.WEBM) }
+                        if (uri != null) writeExport(uri) { progress -> exportAnimationVideo(canvasState, textMeasurer, density, imageForExport, context.cacheDir, Mp4Encoder.Format.WEBM, progress) }
                     }
                     val transparentPngExportLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.CreateDocument("image/png"),

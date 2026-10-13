@@ -201,6 +201,8 @@ fun exportSpriteSheetPng(
     textMeasurer: TextMeasurer,
     density: Density,
     imageFor: (String) -> ImageBitmap?,
+    /** How far it's got, 0..1, as each frame is drawn (design roadmap D31). */
+    progress: (Float) -> Unit = {},
 ): ByteArray? {
     val frame = frameForExport(source, SPRITE_FRAME_EDGE_PX) ?: return null
     val count = source.animFrameCount
@@ -214,6 +216,7 @@ fun exportSpriteSheetPng(
         canvas.translate((i % columns * frame.widthPx).toFloat(), (i / columns * frame.heightPx).toFloat())
         frame.drawOn(canvas, density, textMeasurer, imageFor)
         canvas.restore()
+        progress((i + 1f) / count)
     }
     val out = ByteArrayOutputStream()
     sheet.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
@@ -226,12 +229,15 @@ fun exportAnimatedGif(
     textMeasurer: TextMeasurer,
     density: Density,
     imageFor: (String) -> ImageBitmap?,
+    /** How far it's got, 0..1, as each frame is drawn (design roadmap D31). */
+    progress: (Float) -> Unit = {},
 ): ByteArray? {
     val frame = frameForExport(source, SPRITE_FRAME_EDGE_PX) ?: return null
     val pixels = (0 until source.animFrameCount).map { i ->
         frame.camera.goToAnimFrame(i)
         val image = ImageBitmap(frame.widthPx, frame.heightPx)
         frame.drawOn(Canvas(image), density, textMeasurer, imageFor)
+        progress((i + 1f) / source.animFrameCount)
         IntArray(frame.widthPx * frame.heightPx).also { image.readPixels(it) }
     }
     // GIF delays are in hundredths of a second and shared by every frame, so a held frame repeats.
@@ -245,12 +251,15 @@ fun exportAnimatedPng(
     textMeasurer: TextMeasurer,
     density: Density,
     imageFor: (String) -> ImageBitmap?,
+    /** How far it's got, 0..1, as each frame is drawn (design roadmap D31). */
+    progress: (Float) -> Unit = {},
 ): ByteArray? {
     val frame = frameForExport(source, SPRITE_FRAME_EDGE_PX) ?: return null
     val pixels = (0 until source.animFrameCount).map { i ->
         frame.camera.goToAnimFrame(i)
         val image = ImageBitmap(frame.widthPx, frame.heightPx)
         frame.drawOn(Canvas(image), density, textMeasurer, imageFor)
+        progress((i + 1f) / source.animFrameCount)
         IntArray(frame.widthPx * frame.heightPx).also { image.readPixels(it) }
     }
     return encodeApng(pixels, frame.widthPx, frame.heightPx, source.animFps, holds = List(pixels.size) { source.holdOf(it) })
@@ -273,6 +282,8 @@ fun exportReplayGif(
     textMeasurer: TextMeasurer,
     density: Density,
     imageFor: (String) -> ImageBitmap?,
+    /** How far it's got, 0..1, as each frame is drawn (design roadmap D31). */
+    progress: (Float) -> Unit = {},
 ): ByteArray? {
     val frame = frameForExport(source, SPRITE_FRAME_EDGE_PX) ?: return null
     frame.camera.goToAnimFrame(source.currentAnimFrame)
@@ -281,6 +292,7 @@ fun exportReplayGif(
         frame.camera.replayCount = (total.toLong() * step / REPLAY_GIF_FRAMES).toInt()
         val image = ImageBitmap(frame.widthPx, frame.heightPx)
         frame.drawOn(Canvas(image), density, textMeasurer, imageFor)
+        progress(step.toFloat() / REPLAY_GIF_FRAMES)
         IntArray(frame.widthPx * frame.heightPx).also { image.readPixels(it) }
     }
     // The hold repeats the finished frame's pixels (the same array), costing no extra memory.
@@ -298,6 +310,8 @@ fun exportReplayMp4(
     density: Density,
     imageFor: (String) -> ImageBitmap?,
     workDir: File,
+    /** How far it's got, 0..1, as each frame is drawn (design roadmap D31). */
+    progress: (Float) -> Unit = {},
 ): ByteArray? {
     val frame = frameForExport(source, SPRITE_FRAME_EDGE_PX) ?: return null
     frame.camera.goToAnimFrame(source.currentAnimFrame)
@@ -305,7 +319,7 @@ fun exportReplayMp4(
     val frames = (1..REPLAY_GIF_FRAMES).map { step ->
         {
             frame.camera.replayCount = (total.toLong() * step / REPLAY_GIF_FRAMES).toInt()
-            framePixels(frame, density, textMeasurer, imageFor)
+            framePixels(frame, density, textMeasurer, imageFor).also { progress(step.toFloat() / REPLAY_GIF_FRAMES) }
         }
     }
     val stepMicros = REPLAY_GIF_DELAY_CENTIS * 10_000L
@@ -321,12 +335,14 @@ fun exportAnimationVideo(
     imageFor: (String) -> ImageBitmap?,
     workDir: File,
     container: Mp4Encoder.Format = Mp4Encoder.Format.MP4,
+    /** How far it's got, 0..1, as each frame is drawn (design roadmap D31). */
+    progress: (Float) -> Unit = {},
 ): ByteArray? {
     val frame = frameForExport(source, SPRITE_FRAME_EDGE_PX) ?: return null
     val frames = (0 until source.animFrameCount).map { i ->
         {
             frame.camera.goToAnimFrame(i)
-            framePixels(frame, density, textMeasurer, imageFor)
+            framePixels(frame, density, textMeasurer, imageFor).also { progress((i + 1f) / source.animFrameCount) }
         }
     }
     val frameMicros = 1_000_000L / source.animFps

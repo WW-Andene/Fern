@@ -31,11 +31,21 @@ object FernJobs {
     var current by mutableStateOf<Running?>(null)
         private set
 
+    /** How far the running job has got, 0..1, when it says; null shows an indeterminate bar. */
+    var progress by mutableStateOf<Float?>(null)
+        private set
+
     /** Shows [label] until [job] ends; Cancel stops it and runs [onCancel] (e.g. removes a half-written file). */
     fun track(label: String, job: Job, onCancel: () -> Unit = {}) {
         val running = Running(label, job, onCancel)
+        progress = null
         current = running
         job.invokeOnCompletion { if (current === running) current = null }
+    }
+
+    /** The running job has got [fraction] of the way (design roadmap D31); safe from any thread. */
+    fun report(fraction: Float) {
+        progress = fraction.coerceIn(0f, 1f)
     }
 
     fun cancel() {
@@ -46,7 +56,7 @@ object FernJobs {
     }
 }
 
-/** The running job's card: what it is, an indeterminate bar and Cancel. Nothing when idle. */
+/** The running job's card: what it is, how far it's got (indeterminate until it says) and Cancel. Nothing when idle. */
 @Composable
 fun FernJobHost(modifier: Modifier = Modifier) {
     val running = FernJobs.current ?: return
@@ -56,7 +66,9 @@ fun FernJobHost(modifier: Modifier = Modifier) {
                 Text(running.label, modifier = Modifier.weight(1f))
                 FernTextButton(onClick = FernJobs::cancel) { Text(stringResource(R.string.action_cancel)) }
             }
-            LinearProgressIndicator(Modifier.fillMaxWidth().padding(end = FernSpace.sm, bottom = FernSpace.md))
+            val progress = FernJobs.progress
+            val bar = Modifier.fillMaxWidth().padding(end = FernSpace.sm, bottom = FernSpace.md)
+            if (progress == null) LinearProgressIndicator(bar) else LinearProgressIndicator(progress = { progress }, modifier = bar)
         }
     }
 }
