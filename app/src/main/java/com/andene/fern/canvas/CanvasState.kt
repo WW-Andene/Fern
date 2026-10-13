@@ -3741,7 +3741,7 @@ class CanvasState(
         }
         if (guideSnapping) {
             val reach = GUIDE_REACH_SCREEN / scale.coerceAtLeast(1e-300)
-            for (guide in drawingGuides) guide.constraint(start, reach)?.let { add(it) }
+            for (guide in drawingGuides) addAll(guide.constraints(start, reach))
         }
     }
 
@@ -4493,7 +4493,7 @@ class CanvasState(
             val handle = guide.handles.indexOfFirst { hypot(it.x - worldPoint.x, it.y - worldPoint.y) <= radius }
             val onGuide = handle == -1 && guide.constraint(worldPoint, radius)?.let { c ->
                 val p = c(worldPoint)
-                guide.kind != GuideKind.PARALLEL && guide.kind != GuideKind.RADIAL && guide.kind != GuideKind.CONCENTRIC &&
+                (guide.kind == GuideKind.STRAIGHT || guide.kind == GuideKind.ELLIPSE) &&
                     hypot(p.x - worldPoint.x, p.y - worldPoint.y) <= radius
             } == true
             if (handle != -1 || onGuide) {

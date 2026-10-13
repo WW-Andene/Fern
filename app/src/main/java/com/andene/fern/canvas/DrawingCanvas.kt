@@ -2297,6 +2297,18 @@ private fun DrawScope.drawGuides(state: CanvasState, screenCenter: Offset, editi
             GuideKind.CONCENTRIC -> for (k in 1..GUIDE_RINGS) {
                 drawCircle(color.copy(alpha = GUIDE_FAINT_ALPHA), radius = k * GUIDE_RING_GAP_PX, center = h[0], style = androidx.compose.ui.graphics.drawscope.Stroke(GUIDE_FAINT_PX))
             }
+            GuideKind.GRID -> {
+                val cw = kotlin.math.abs(h[1].x - h[0].x)
+                val ch = kotlin.math.abs(h[1].y - h[0].y)
+                // Only while its cells are big enough on screen to read; denser grids would be noise.
+                if (cw >= GUIDE_GRID_MIN_CELL_PX && ch >= GUIDE_GRID_MIN_CELL_PX) {
+                    val faint = color.copy(alpha = GUIDE_FAINT_ALPHA)
+                    var x = h[0].x - kotlin.math.floor(h[0].x / cw) * cw
+                    while (x <= size.width) { drawLine(faint, Offset(x, 0f), Offset(x, size.height), strokeWidth = GUIDE_FAINT_PX); x += cw }
+                    var y = h[0].y - kotlin.math.floor(h[0].y / ch) * ch
+                    while (y <= size.height) { drawLine(faint, Offset(0f, y), Offset(size.width, y), strokeWidth = GUIDE_FAINT_PX); y += ch }
+                }
+            }
             GuideKind.ELLIPSE -> {
                 val e = ellipseOf(guide.handles)
                 val path = androidx.compose.ui.graphics.Path()
@@ -2324,3 +2336,4 @@ private const val GUIDE_RING_GAP_PX = 64f
 private const val GUIDE_RINGS = 8
 private const val GUIDE_RADIAL_LINES = 24
 private const val GUIDE_ELLIPSE_SEGMENTS = 96
+private const val GUIDE_GRID_MIN_CELL_PX = 8f

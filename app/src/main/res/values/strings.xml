@@ -1099,4 +1099,5 @@
     <string name="guide_list">Guides on the page</string>
     <string name="guide_remove">Remove %1$s</string>
     <string name="perspective_three">Three-point perspective</string>
+    <string name="guide_grid">Grid</string>
 </resources>

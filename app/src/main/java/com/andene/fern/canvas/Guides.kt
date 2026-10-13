@@ -27,6 +27,8 @@ enum class GuideKind(@StringRes val label: Int, val handleCount: Int) {
     CONCENTRIC(R.string.guide_concentric, 1),
     /** An ellipse (centre, end of the first axis, end of the second): strokes starting near it follow it. */
     ELLIPSE(R.string.guide_ellipse, 3),
+    /** A grid (origin, and a corner of its first cell): strokes run along its nearest row or column. */
+    GRID(R.string.guide_grid, 2),
 }
 
 /** One guide on the page: its kind and its handles in world space. */
@@ -43,9 +45,25 @@ data class DrawingGuide(
      * doesn't apply to it: straight edges and ellipses only catch strokes starting within [reach]
      * (world units) of them, the other kinds catch every stroke.
      */
+    fun constraints(start: WorldPoint, reach: Double): List<(WorldPoint) -> WorldPoint> {
+        if (!visible) return emptyList()
+        if (kind == GuideKind.GRID) {
+            val (o, c) = handles
+            val cw = kotlin.math.abs(c.x - o.x)
+            val ch = kotlin.math.abs(c.y - o.y)
+            if (cw < 1e-12 || ch < 1e-12) return emptyList()
+            // The row and the column nearest the start: a stroke follows whichever its movement matches.
+            val row = o.y + Math.round((start.y - o.y) / ch) * ch
+            val column = o.x + Math.round((start.x - o.x) / cw) * cw
+            return listOf({ p -> WorldPoint(p.x, row) }, { p -> WorldPoint(column, p.y) })
+        }
+        return listOfNotNull(constraint(start, reach))
+    }
+
     fun constraint(start: WorldPoint, reach: Double): ((WorldPoint) -> WorldPoint)? {
         if (!visible) return null
         return when (kind) {
+            GuideKind.GRID -> constraints(start, reach).firstOrNull()
             GuideKind.STRAIGHT -> {
                 val (a, b) = handles
                 val dir = WorldPoint(b.x - a.x, b.y - a.y)
@@ -83,6 +101,7 @@ fun newGuideHandles(kind: GuideKind, center: WorldPoint, size: Double): List<Wor
     GuideKind.STRAIGHT, GuideKind.PARALLEL -> listOf(WorldPoint(center.x - size / 2, center.y), WorldPoint(center.x + size / 2, center.y))
     GuideKind.RADIAL, GuideKind.CONCENTRIC -> listOf(center)
     GuideKind.ELLIPSE -> listOf(center, WorldPoint(center.x + size / 2, center.y), WorldPoint(center.x, center.y - size / 4))
+    GuideKind.GRID -> listOf(center, WorldPoint(center.x + size / 8, center.y + size / 8))
 }
 
 private fun onCircle(c: WorldPoint, r: Double, p: WorldPoint): WorldPoint {
