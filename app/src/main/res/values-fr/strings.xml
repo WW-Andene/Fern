@@ -11,6 +11,7 @@
     <string name="settings_title">Réglages</string>
     <string name="settings_left_handed">Disposition pour gaucher</string>
     <string name="settings_toolbar_bottom">Barre d\'outils en bas</string>
+    <string name="settings_one_hand">Mode une main (tout dans le tiers inférieur)</string>
     <string name="settings_high_contrast">Contraste élevé</string>
     <string name="settings_color_blind_safe">Repères du canevas adaptés au daltonisme</string>
     <string name="settings_haptics">Retours haptiques</string>

@@ -11,6 +11,7 @@
     <string name="settings_title">Settings</string>
     <string name="settings_left_handed">Left-handed layout</string>
     <string name="settings_toolbar_bottom">Toolbar at the bottom</string>
+    <string name="settings_one_hand">One-hand mode (everything in the bottom third)</string>
     <string name="settings_high_contrast">High contrast</string>
     <string name="settings_color_blind_safe">Colour-blind-safe canvas marks</string>
     <string name="settings_haptics">Haptic feedback</string>

@@ -311,6 +311,8 @@ fun SettingsDialog(
                 SettingsSection(R.string.settings_section_appearance)
                 SwitchSetting(stringResource(R.string.settings_left_handed), leftHanded, false, ::shows, onLeftHandedChange)
                 SwitchSetting(stringResource(R.string.settings_toolbar_bottom), toolbarAtBottom, false, ::shows, onToolbarAtBottomChange)
+                val handContext = androidx.compose.ui.platform.LocalContext.current
+                SwitchSetting(stringResource(R.string.settings_one_hand), oneHandModeOn(), false, ::shows) { OneHandMode.set(handContext, it) }
                 val context = androidx.compose.ui.platform.LocalContext.current
                 SwitchSetting(stringResource(R.string.settings_icon_labels), iconLabelsShown(), true, ::shows) { IconLabels.set(context, it) }
                 SwitchSetting(stringResource(R.string.settings_expert_density), com.andene.fern.FernDensity.expert, false, ::shows) { AppSettings.setExpertDensity(context, it) }

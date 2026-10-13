@@ -101,8 +101,9 @@ The app's look and layout rebuilt on the CLAUDE.md §7 scale, so every later scr
   classes): a bottom rail and sheets on phones, side rail and docked panels on tablets, several
   panels at once on wide screens.
   Written, not yet compiled or tested: `FernLayout` decides by the window's width, not its orientation: under 600 dp the bottom rail and sheets (the phone reference, unchanged); wider, the side rail with panels docked beside it; wide windows dock up to three open panels side by side while keeping 384 dp of canvas. A tablet held upright now gets the side rail and docked panel instead of a phone's sheet.
-- [ ] D55. **One-hand mode** (phone priority). Everything reachable in the bottom third of a phone; the rail and
+- [~] D55. **One-hand mode** (phone priority). Everything reachable in the bottom third of a phone; the rail and
   the quick menu mirrored for the left hand.
+  Written, not yet compiled or tested: Settings > Appearance > One-hand mode (`OneHandMode`), for the bottom-rail layout: the toolbar goes to the bottom, progress, messages, the animation and audio bars, modes, navigation and the quick menu button stack just above it (the button on the thumb's side, mirrored for the left hand like the rail), the show-chrome button sits in the thumb's corner, and sheets open no higher than a third of the screen.
 - [ ] D56. **Orientation without loss.** Rotating keeps the view centre, the open panel and the
   selection, with no relayout jump.
 - [~] D32. **Progressive disclosure.** Advanced settings stay one tap away inside the same panel

@@ -36,7 +36,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -48,6 +51,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.collectLatest
@@ -145,6 +149,7 @@ import com.andene.fern.canvas.SymbolLibrary
 import com.andene.fern.canvas.Rulers
 import com.andene.fern.canvas.readFileLayerImage
 import com.andene.fern.canvas.SecondView
+import com.andene.fern.canvas.oneHandModeOn
 import com.andene.fern.canvas.PinsDialog
 import com.andene.fern.canvas.PresentationControls
 import com.andene.fern.canvas.SettingsDialog
@@ -315,6 +320,10 @@ class MainActivity : ComponentActivity() {
                     }
                     var leftHanded by remember { mutableStateOf(AppSettings.leftHanded(context)) }
                     var toolbarAtBottom by remember { mutableStateOf(AppSettings.toolbarAtBottom(context)) }
+                    // One-hand mode (design roadmap D55) applies with the rail along the bottom: a phone held upright.
+                    val oneHand = oneHandModeOn() && fernLayout().railAtBottom
+                    // The toolbar's edge: where the user put it, or the bottom in one-hand mode.
+                    val toolbarLow = toolbarAtBottom || oneHand
                     var hiddenToolbarGroups by remember { mutableStateOf(AppSettings.hiddenToolbarGroups(context)) }
                     var quickMenuActions by remember { mutableStateOf(AppSettings.quickMenuActions(context)) }
                     var showLayoutEditor by remember { mutableStateOf(false) }
@@ -1212,7 +1221,7 @@ class MainActivity : ComponentActivity() {
                         // Below the status bar, and below the toolbar when it's at the top.
                         if (canvasState.showRulers) {
                             val insetTop = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
-                            Rulers(canvasState, topInset = insetTop + if (toolbarAtBottom) FernScale.none else TOOLBAR_CLEARANCE_DP.dp)
+                            Rulers(canvasState, topInset = insetTop + if (toolbarLow) FernScale.none else TOOLBAR_CLEARANCE_DP.dp)
                         }
                         // Above the canvas, beneath every control: while a voice note plays, a tap on its ink seeks.
                         if (playingNote != null && audioNotes.recordingSince == null) {
@@ -1247,7 +1256,14 @@ class MainActivity : ComponentActivity() {
                             IconButton(
                                 onClick = { chromeHidden = false },
                                 modifier = Modifier
-                                    .align(if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft)
+                                    .align(
+                                        when {
+                                            // One-hand mode (design roadmap D55): the thumb's bottom corner.
+                                            oneHand -> if (leftHanded) AbsoluteAlignment.BottomLeft else AbsoluteAlignment.BottomRight
+                                            leftHanded -> AbsoluteAlignment.TopRight
+                                            else -> AbsoluteAlignment.TopLeft
+                                        },
+                                    )
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(FernScale.s8),
                             ) { Icon(FernIcons.FullscreenExit, contentDescription = stringResource(R.string.chrome_show)) }
@@ -1273,9 +1289,9 @@ class MainActivity : ComponentActivity() {
                                     .padding(bottom = railInset + FernScale.s8, start = railSide, end = railSide)
                                     .padding(horizontal = FernScale.s8),
                                 modifier = Modifier
-                                    .align(if (toolbarAtBottom) Alignment.BottomCenter else Alignment.TopCenter)
+                                    .align(if (toolbarLow) Alignment.BottomCenter else Alignment.TopCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(bottom = if (toolbarAtBottom) railInset else FernScale.none)
+                                    .padding(bottom = if (toolbarLow) railInset else FernScale.none)
                                     .padding(vertical = FernScale.s12),
                                 onOpenDocuments = {
                                     // Autosave skips thumbnails, so bring this document's up to date for the library.
@@ -1365,15 +1381,15 @@ class MainActivity : ComponentActivity() {
                                     )
                                 },
                             )
-                            if (canvasState.animationMode) {
+                            if (canvasState.animationMode && !oneHand) {
                                 AnimationBar(
                                     state = canvasState,
                                     modifier = Modifier
                                         // Opposite edge from the toolbar so the two never overlap.
-                                        .align(if (toolbarAtBottom) Alignment.TopCenter else Alignment.BottomCenter)
+                                        .align(if (toolbarLow) Alignment.TopCenter else Alignment.BottomCenter)
                                         .padding(WindowInsets.systemBars.asPaddingValues())
                                         .padding(bottom = FernScale.s16)
-                                        .padding(bottom = if (toolbarAtBottom) FernScale.none else railInset),
+                                        .padding(bottom = if (toolbarLow) FernScale.none else railInset),
                                 )
                             }
                             if (canvasState.secondViewOpen) {
@@ -1400,7 +1416,7 @@ class MainActivity : ComponentActivity() {
                                     .padding(bottom = railInset)
                                     .padding(horizontal = railSide),
                             )
-                            NavigationAids(
+                            if (!oneHand) NavigationAids(
                                 canvasState,
                                 minimapShown,
                                 onMinimapChange = { value ->
@@ -1410,33 +1426,33 @@ class MainActivity : ComponentActivity() {
                                 Modifier
                                     .align(if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(top = if (toolbarAtBottom) FernScale.s64 else FernScale.s96, start = FernScale.s12, end = FernScale.s12)
+                                    .padding(top = if (toolbarLow) FernScale.s64 else FernScale.s96, start = FernScale.s12, end = FernScale.s12)
                                     .padding(horizontal = railSide),
                             )
                             CanvasHaptics(canvasState)
                             // Drawing modes that are on, at the edge opposite the drawing hand (design roadmap D40).
-                            ModeChips(
+                            if (!oneHand) ModeChips(
                                 canvasState,
                                 Modifier
                                     .align(if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(top = if (toolbarAtBottom) FernScale.s128 else FernScale.s192, start = FernScale.s12, end = FernScale.s12)
+                                    .padding(top = if (toolbarLow) FernScale.s128 else FernScale.s192, start = FernScale.s12, end = FernScale.s12)
                                     .padding(horizontal = railSide),
                             )
                             // The selection's actions beside it (design roadmap D39).
                             SelectionActionStrip(canvasState)
-                            FernJobHost(
+                            if (!oneHand) FernJobHost(
                                 Modifier
                                     .align(Alignment.TopCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(top = FernScale.s64),
                             )
                             // Messages (design roadmap D6), opposite the toolbar and out from under the drawing hand.
-                            FernMessageHost(
+                            if (!oneHand) FernMessageHost(
                                 Modifier
                                     .align(
                                         when {
-                                            toolbarAtBottom -> if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft
+                                            toolbarLow -> if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft
                                             else -> if (leftHanded) AbsoluteAlignment.BottomRight else AbsoluteAlignment.BottomLeft
                                         },
                                     )
@@ -1445,19 +1461,51 @@ class MainActivity : ComponentActivity() {
                                     .padding(bottom = railInset)
                                     .padding(horizontal = railSide),
                             )
-                            AudioBar(
+                            if (!oneHand) AudioBar(
                                 audio = audioNotes,
                                 state = canvasState,
                                 playing = playingNote,
                                 onClosePlayback = { playingNote = null },
                                 modifier = Modifier
                                     // Opposite edge from the toolbar, like the animation bar.
-                                    .align(if (toolbarAtBottom) Alignment.TopCenter else Alignment.BottomCenter)
+                                    .align(if (toolbarLow) Alignment.TopCenter else Alignment.BottomCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(vertical = FernScale.s64)
                                     .padding(bottom = railInset),
                             )
-                            QuickMenuButton(
+                            if (oneHand) {
+                                // One-hand mode (design roadmap D55): what otherwise sits high up, stacked in the
+                                // bottom third above the toolbar, the quick menu button on the thumb's side.
+                                // Physical sides (Absolute): the hands are the same in a right-to-left language.
+                                Column(
+                                    Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .padding(WindowInsets.systemBars.asPaddingValues())
+                                        .padding(bottom = railInset + ONE_HAND_STACK_CLEARANCE, start = FernScale.s12, end = FernScale.s12),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(FernScale.s8),
+                                ) {
+                                    FernJobHost()
+                                    FernMessageHost(Modifier.fillMaxWidth())
+                                    if (canvasState.animationMode) AnimationBar(state = canvasState)
+                                    AudioBar(audio = audioNotes, state = canvasState, playing = playingNote, onClosePlayback = { playingNote = null })
+                                    ModeChips(canvasState, Modifier.align(if (leftHanded) AbsoluteAlignment.Right else AbsoluteAlignment.Left))
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Absolute.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                        val aids: @Composable () -> Unit = {
+                                            NavigationAids(canvasState, minimapShown, onMinimapChange = { value ->
+                                                minimapShown = value
+                                                AppSettings.setMinimap(context, value)
+                                            })
+                                        }
+                                        val quick: @Composable () -> Unit = {
+                                            QuickMenuButton(onOpen = { showQuickMenu = true }, state = canvasState, actions = quickMenuActions)
+                                        }
+                                        if (leftHanded) { quick(); aids() } else { aids(); quick() }
+                                    }
+                                }
+                            }
+                            if (!oneHand) QuickMenuButton(
                                 onOpen = { showQuickMenu = true },
                                 state = canvasState,
                                 actions = quickMenuActions,
@@ -1488,12 +1536,12 @@ class MainActivity : ComponentActivity() {
                             CoachMarkHost(
                                 canvasState,
                                 Modifier
-                                    .align(if (toolbarAtBottom) Alignment.TopCenter else Alignment.Center)
+                                    .align(if (toolbarLow) Alignment.TopCenter else Alignment.Center)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
                                     .padding(FernScale.s16),
                             )
                             // Panels (design roadmap D10): beside the rail, never covering the canvas.
-                            FernPanelHost(railOnLeft = !leftHanded, railInset = railInset, railSide = railSide)
+                            FernPanelHost(railOnLeft = !leftHanded, railInset = railInset, railSide = railSide, oneHand = oneHand)
                             if (showQuickMenu) QuickMenuOverlay(state = canvasState, onDismiss = { showQuickMenu = false }, actions = quickMenuActions)
                             if (loadingDocument) DocumentLoadingOverlay()
                         }
@@ -1840,6 +1888,9 @@ private val STYLUS_BUTTON_KEYCODES = setOf(308, 309, 310, 311)
 
 // Room the rulers leave for the toolbar when it's along the top (its 48 dp buttons and padding).
 private const val TOOLBAR_CLEARANCE_DP = 64
+
+// One-hand mode's stack (design roadmap D55) sits above the toolbar and the properties bar, both at the bottom then.
+private val ONE_HAND_STACK_CLEARANCE = FernScale.s128
 
 // Each [ or ] press scales the brush by this, and each zoom shortcut the view (design roadmap D18).
 private const val SIZE_STEP = 1.25

@@ -140,10 +140,11 @@ fun FernPanel(
 /**
  * Shows the open panels; place once, in the screen's root box. With the bottom rail (a phone held
  * upright) the top panel is a sheet; otherwise panels dock beside the rail, as many side by side
- * as the window has room for ([FernLayout]), the top one next to the rail.
+ * as the window has room for ([FernLayout]), the top one next to the rail. [oneHand] keeps a
+ * sheet within the bottom third.
  */
 @Composable
-fun androidx.compose.foundation.layout.BoxScope.FernPanelHost(railOnLeft: Boolean, railInset: androidx.compose.ui.unit.Dp, railSide: androidx.compose.ui.unit.Dp) {
+fun androidx.compose.foundation.layout.BoxScope.FernPanelHost(railOnLeft: Boolean, railInset: androidx.compose.ui.unit.Dp, railSide: androidx.compose.ui.unit.Dp, oneHand: Boolean = false) {
     val current = FernPanels.open.lastOrNull()
     // The last panel shown stays composed while it slides away (design roadmap D57).
     val lastShown = remember { arrayOfNulls<PanelEntry>(1) }
@@ -162,7 +163,8 @@ fun androidx.compose.foundation.layout.BoxScope.FernPanelHost(railOnLeft: Boolea
             .align(Alignment.BottomCenter)
             .fillMaxWidth()
             .padding(bottom = railInset)
-            .heightIn(max = (configuration.screenHeightDp * share).dp)
+            // In one-hand mode (design roadmap D55) the sheet's header stays in the bottom third.
+            .heightIn(max = (configuration.screenHeightDp * if (oneHand) minOf(share, ONE_HAND_SHEET_SHARE) else share).dp)
     } else {
         Modifier
             .align(if (railOnLeft) androidx.compose.ui.AbsoluteAlignment.CenterLeft else androidx.compose.ui.AbsoluteAlignment.CenterRight)
@@ -290,6 +292,7 @@ private fun PanelCard(entry: PanelEntry, sheet: Boolean, share: Float, onShareCh
 private const val DEFAULT_SHEET_SHARE = 0.5f
 private const val MIN_SHEET_SHARE = 0.25f
 private const val MAX_SHEET_SHARE = 0.75f
+private const val ONE_HAND_SHEET_SHARE = 1f / 3
 
 /**
  * One row in a panel, the same everywhere (design roadmap D42): a tap runs [onClick], a long
