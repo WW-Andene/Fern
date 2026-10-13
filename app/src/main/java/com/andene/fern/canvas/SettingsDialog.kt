@@ -45,6 +45,7 @@ private const val KEY_TOOL_SLOTS = "tool_slots"
 private const val KEY_SNAP_TO_OBJECTS = "snap_to_objects"
 private const val KEY_BRUSH_PRESETS = "brush_presets"
 private const val KEY_HIGH_CONTRAST = "high_contrast"
+private const val KEY_CHROME_FOLLOWS_PAPER = "chrome_follows_paper"
 private const val KEY_COLOR_BLIND_SAFE = "color_blind_safe"
 private const val KEY_HAPTICS = "haptics"
 private const val KEY_UI_SIZE = "ui_size"
@@ -69,6 +70,13 @@ object AppSettings {
 
     fun setToolbarAtBottom(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_TOOLBAR_BOTTOM, value).apply()
+    }
+
+    fun chromeFollowsPaper(context: Context): Boolean = prefs(context).getBoolean(KEY_CHROME_FOLLOWS_PAPER, false)
+
+    fun setChromeFollowsPaper(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean(KEY_CHROME_FOLLOWS_PAPER, value).apply()
+        com.andene.fern.FernPaper.chromeFollowsPaper = value
     }
 
     fun highContrast(context: Context): Boolean =
@@ -287,6 +295,7 @@ fun SettingsDialog(
                 SwitchSetting(stringResource(R.string.settings_toolbar_bottom), toolbarAtBottom, false, ::shows, onToolbarAtBottomChange)
                 val context = androidx.compose.ui.platform.LocalContext.current
                 SwitchSetting(stringResource(R.string.settings_icon_labels), iconLabelsShown(), true, ::shows) { IconLabels.set(context, it) }
+                SwitchSetting(stringResource(R.string.settings_chrome_follows_paper), com.andene.fern.FernPaper.chromeFollowsPaper, false, ::shows) { AppSettings.setChromeFollowsPaper(context, it) }
                 if (shows(stringResource(R.string.ui_size_title))) {
                     Text(stringResource(R.string.ui_size_title), modifier = Modifier.padding(top = FernScale.s8))
                     Row {

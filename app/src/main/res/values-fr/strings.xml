@@ -1086,4 +1086,5 @@
     <string name="more_section_tool_slots">Emplacements d’outils</string>
     <string name="more_section_menus">Documents et menus</string>
     <string name="settings_icon_labels">Noms sous les icônes</string>
+    <string name="settings_chrome_follows_paper">Barres et panneaux assortis au papier (papier sombre, interface sombre)</string>
 </resources>

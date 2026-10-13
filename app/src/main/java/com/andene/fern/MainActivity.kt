@@ -65,6 +65,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -208,6 +210,9 @@ import kotlinx.coroutines.withContext
 // memory. 2048 is on the project size scale.
 private const val MAX_IMAGE_EDGE_PX = 2048
 
+// Below this relative luminance a paper counts as dark: the midpoint between black and white.
+private const val PAPER_DARK_LUMINANCE = 0.5f
+
 class MainActivity : ComponentActivity() {
     private val powerMonitor by lazy { PowerMonitor(applicationContext) }
 
@@ -253,6 +258,7 @@ class MainActivity : ComponentActivity() {
             var highContrast by remember { mutableStateOf(AppSettings.highContrast(this)) }
             var colorBlindSafe by remember { mutableStateOf(AppSettings.colorBlindSafe(this)) }
             remember { FernHaptics.enabled = AppSettings.haptics(this) }
+            remember { FernPaper.chromeFollowsPaper = AppSettings.chromeFollowsPaper(this) }
             var uiSize by remember { mutableStateOf(AppSettings.uiSize(this)) }
             FernTheme(highContrast = highContrast, colorBlindSafe = colorBlindSafe, uiSize = uiSize) {
                 Surface(color = Color(0xFFF7F5F0)) {
@@ -363,6 +369,8 @@ class MainActivity : ComponentActivity() {
                             },
                         )
                     }
+                    // The paper's tone, for chrome that follows it (design roadmap D60).
+                    SideEffect { FernPaper.dark = canvasState.backgroundColor.luminance() < PAPER_DARK_LUMINANCE }
 
                     // Raster pixels: changed tiles are copied here on the main thread, then written off it.
                     fun saveRasters(documentId: String) {

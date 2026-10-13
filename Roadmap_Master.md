@@ -96,8 +96,6 @@ The app's look and layout rebuilt on the CLAUDE.md §7 scale, so every later scr
 - [ ] D58. **Visual identity.** A Fern brand colour, an icon set drawn on one grid with one
   stroke weight (instead of mixed Material icons), and a distinctive yet quiet chrome that lets
   artwork dominate.
-- [ ] D60. **Dark, light and canvas-matched themes**, with the chrome able to follow the
-  document's background to reduce glare while painting.
 - [ ] D59. **Optional sound cues** for the paper feel (pencil, marker) and confirmations, off by
   default.
 - [ ] D52. **Phone layouts first, then responsive.** Phone portrait and landscape are designed first and kept the reference. Then responsive layouts for compact, medium and expanded widths (Material window size

@@ -10,6 +10,9 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Density
@@ -56,7 +59,9 @@ fun FernTheme(highContrast: Boolean, colorBlindSafe: Boolean = false, uiSize: Ui
             else -> FernColorMode.STANDARD
         },
     )
-    val dark = isSystemInDarkTheme()
+    // Dark or light chrome: the system's, or the paper's when the user asks (design roadmap D60).
+    val systemDark = isSystemInDarkTheme()
+    val dark = if (FernPaper.chromeFollowsPaper) FernPaper.dark ?: systemDark else systemDark
     val scheme = when {
         highContrast && dark -> HighContrastDark
         highContrast -> HighContrastLight
@@ -68,6 +73,17 @@ fun FernTheme(highContrast: Boolean, colorBlindSafe: Boolean = false, uiSize: Ui
     CompositionLocalProvider(LocalDensity provides Density(density.density * uiSize.factor, density.fontScale)) {
         MaterialTheme(colorScheme = scheme, typography = FernTypography, shapes = FernShapes, content = content)
     }
+}
+
+/**
+ * The open document's paper, for chrome that follows it (design roadmap D60): with the option on,
+ * a dark paper gives dark bars and panels and a light paper light ones, so painting at night on
+ * dark paper isn't framed by glaring white chrome. The canvas sets [dark]; Settings sets
+ * [chromeFollowsPaper].
+ */
+object FernPaper {
+    var dark: Boolean? by mutableStateOf(null)
+    var chromeFollowsPaper: Boolean by mutableStateOf(false)
 }
 
 /**
