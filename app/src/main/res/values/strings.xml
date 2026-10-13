@@ -431,8 +431,6 @@
     <string name="brush_preview">Brush preview</string>
     <string name="brush_slider_value">%1$s: %2$.2f</string>
     <string name="quick_menu">Quick menu</string>
-    <string name="quick_menu_customize">Customise quick menu</string>
-    <string name="quick_menu_customize_hint">Pick what the quick menu ring holds (up to %1$d).</string>
     <string name="quick_menu_reset">Reset</string>
     <string name="quick_menu_close">Close quick menu</string>
     <string name="pen_title">Pen</string>
@@ -477,7 +475,6 @@
     <string name="group_view">Clear all, reset view and zoom to fit</string>
     <string name="group_replay">Replay</string>
     <string name="group_background">Paper background</string>
-    <string name="settings_customize_toolbar">Customise toolbar</string>
     <string name="toolbar_show_all">Show all</string>
     <string name="template_planner">Weekly planner</string>
     <string name="template_mind_map">Mind map</string>
@@ -998,4 +995,11 @@
     <string name="color_saved">Saved colour</string>
     <string name="color_recent">Recent colour</string>
     <string name="color_palette">Palette colour</string>
+    <string name="layout_title">Arrange the layout</string>
+    <string name="layout_rail">Tools pinned to the rail</string>
+    <string name="layout_toolbar">Toolbar groups</string>
+    <string name="layout_drag">Drag to move %1$s</string>
+    <string name="layout_remove">Remove %1$s</string>
+    <string name="layout_move_up">Move up</string>
+    <string name="layout_move_down">Move down</string>
 </resources>

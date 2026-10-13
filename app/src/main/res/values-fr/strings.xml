@@ -431,8 +431,6 @@
     <string name="brush_preview">Aperçu du pinceau</string>
     <string name="brush_slider_value">%1$s : %2$.2f</string>
     <string name="quick_menu">Menu rapide</string>
-    <string name="quick_menu_customize">Personnaliser le menu rapide</string>
-    <string name="quick_menu_customize_hint">Choisissez ce que contient l\'anneau du menu rapide (jusqu\'à %1$d).</string>
     <string name="quick_menu_reset">Réinitialiser</string>
     <string name="quick_menu_close">Fermer le menu rapide</string>
     <string name="pen_title">Stylo</string>
@@ -479,7 +477,6 @@
     <string name="group_view">Tout effacer, réinitialiser la vue et tout afficher</string>
     <string name="group_replay">Relecture</string>
     <string name="group_background">Fond du papier</string>
-    <string name="settings_customize_toolbar">Personnaliser la barre d\'outils</string>
     <string name="toolbar_show_all">Tout afficher</string>
     <string name="template_planner">Agenda de la semaine</string>
     <string name="template_mind_map">Carte mentale</string>
@@ -1001,4 +998,11 @@
     <string name="color_saved">Couleur enregistrée</string>
     <string name="color_recent">Couleur récente</string>
     <string name="color_palette">Couleur de la palette</string>
+    <string name="layout_title">Disposer l’interface</string>
+    <string name="layout_rail">Outils épinglés au rail</string>
+    <string name="layout_toolbar">Groupes de la barre d’outils</string>
+    <string name="layout_drag">Glisser pour déplacer %1$s</string>
+    <string name="layout_remove">Retirer %1$s</string>
+    <string name="layout_move_up">Monter</string>
+    <string name="layout_move_down">Descendre</string>
 </resources>

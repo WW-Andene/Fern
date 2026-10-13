@@ -59,7 +59,7 @@ import kotlin.math.sin
 
 /**
  * An action the quick menu's ring can hold (roadmap item 133: the user picks which, see
- * [QuickMenuCustomizeDialog]); its icon is the toolbar's for the same thing (one icon per
+ * [LayoutEditor]); its icon is the toolbar's for the same thing (one icon per
  * meaning). Stored by name, so reordering this list never changes a saved choice; the ring
  * shows the chosen ones in this order.
  */

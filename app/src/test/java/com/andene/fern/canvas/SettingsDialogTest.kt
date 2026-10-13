@@ -40,8 +40,7 @@ class SettingsDialogTest {
                 snapToObjects = true,
                 onSnapToObjectsChange = {},
                 onShowGuide = {},
-                onCustomizeToolbar = {},
-                onCustomizeQuickMenu = {},
+                onArrangeLayout = {},
                 onDismiss = { dismissed = true },
             )
         }

@@ -226,8 +226,8 @@ fun SettingsDialog(
     snapToObjects: Boolean,
     onSnapToObjectsChange: (Boolean) -> Unit,
     onShowGuide: () -> Unit,
-    onCustomizeToolbar: () -> Unit,
-    onCustomizeQuickMenu: () -> Unit,
+    /** Opens the layout editor: rail, quick menu and toolbar groups (design roadmap D22). */
+    onArrangeLayout: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -285,8 +285,7 @@ fun SettingsDialog(
                     Switch(checked = snapToObjects, onCheckedChange = onSnapToObjectsChange)
                 }
                 CmykProfileRow()
-                TextButton(onClick = onCustomizeToolbar) { Text(stringResource(R.string.settings_customize_toolbar)) }
-                TextButton(onClick = onCustomizeQuickMenu) { Text(stringResource(R.string.quick_menu_customize)) }
+                TextButton(onClick = onArrangeLayout) { Text(stringResource(R.string.layout_title)) }
                 TextButton(onClick = onShowGuide) { Text(stringResource(R.string.settings_show_guide)) }
             }
         },

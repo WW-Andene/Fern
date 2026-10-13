@@ -249,9 +249,10 @@ Goal: switching tools and adjusting without looking or opening anything.
 
 Goal: every surface rearrangeable, layouts portable.
 
-- [ ] D22. **Drag-to-arrange edit mode.** Drag tools, actions and panels onto the rail, the
+- [~] D22. **Drag-to-arrange edit mode.** Drag tools, actions and panels onto the rail, the
   properties bar, the quick menu and the panels; remove them by dragging away. This replaces
   showing or hiding whole groups.
+  Written, not yet compiled or tested: `LayoutEditor.kt` (Settings > Arrange the layout), one panel: the rail's pinned tools and the quick menu's actions reorder by dragging a handle (or Move up/down for screen readers), go with one tap and come back from chips; toolbar groups as toggles. It replaces the separate toolbar and quick-menu customisation dialogs, now deleted. Dragging straight onto the live rail/menu, rather than in this panel, is not done.
 - [ ] D23. **Layout presets.** Save, name, switch between, export and import whole layouts
   (rail, panels, gestures, shortcuts, workspaces). Ready-made presets: "Minimal", "Procreate-like",
   "Desktop-like", "One-hand".

@@ -86,13 +86,4 @@ class QuickMenuTest {
         assertEquals(Tool.EYEDROPPER, state.activeTool)
         compose.onNodeWithContentDescription("Eraser").assertDoesNotExist()
     }
-
-    @Test
-    fun toggledActionsKeepOrderAndLimits() {
-        val one = listOf(QuickMenuAction.UNDO)
-        assertEquals(one, toggledQuickMenu(one, QuickMenuAction.UNDO)) // the last can't go
-        assertEquals(listOf(QuickMenuAction.PEN, QuickMenuAction.UNDO), toggledQuickMenu(one, QuickMenuAction.PEN))
-        val full = QuickMenuAction.entries.take(QUICK_MENU_MAX_ACTIONS)
-        assertEquals(full, toggledQuickMenu(full, QuickMenuAction.entries.last()))
-    }
 }

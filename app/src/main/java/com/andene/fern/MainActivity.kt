@@ -134,14 +134,13 @@ import com.andene.fern.canvas.ColorManagement
 import com.andene.fern.canvas.SymbolLibrary
 import com.andene.fern.canvas.Rulers
 import com.andene.fern.canvas.readFileLayerImage
-import com.andene.fern.canvas.QuickMenuCustomizeDialog
 import com.andene.fern.canvas.SecondView
 import com.andene.fern.canvas.PinsDialog
 import com.andene.fern.canvas.PresentationControls
 import com.andene.fern.canvas.SettingsDialog
 import com.andene.fern.canvas.Tool
 import com.andene.fern.canvas.Toolbar
-import com.andene.fern.canvas.ToolbarCustomizeDialog
+import com.andene.fern.canvas.LayoutEditor
 import com.andene.fern.canvas.VersionsDialog
 import com.andene.fern.canvas.WelcomeDialog
 import com.andene.fern.canvas.WorldPoint
@@ -300,8 +299,7 @@ class MainActivity : ComponentActivity() {
                     var toolbarAtBottom by remember { mutableStateOf(AppSettings.toolbarAtBottom(context)) }
                     var hiddenToolbarGroups by remember { mutableStateOf(AppSettings.hiddenToolbarGroups(context)) }
                     var quickMenuActions by remember { mutableStateOf(AppSettings.quickMenuActions(context)) }
-                    var showQuickMenuCustomize by remember { mutableStateOf(false) }
-                    var showToolbarCustomize by remember { mutableStateOf(false) }
+                    var showLayoutEditor by remember { mutableStateOf(false) }
                     var crashReport by remember { mutableStateOf(CrashReporter.pendingReport(context)) }
                     var presentingIndex by remember { mutableStateOf<Int?>(null) } // non-null = presenting that frame
                     var frameToExport by remember { mutableStateOf<Frame?>(null) }
@@ -1587,38 +1585,28 @@ class MainActivity : ComponentActivity() {
                                 showSettings = false
                                 showWelcome = true
                             },
-                            onCustomizeToolbar = {
+                            onArrangeLayout = {
                                 showSettings = false
-                                showToolbarCustomize = true
-                            },
-                            onCustomizeQuickMenu = {
-                                showSettings = false
-                                showQuickMenuCustomize = true
+                                showLayoutEditor = true
                             },
                             onDismiss = { showSettings = false },
                         )
                     }
 
-                    if (showQuickMenuCustomize) {
-                        QuickMenuCustomizeDialog(
-                            chosen = quickMenuActions,
-                            onChange = { value ->
+                    if (showLayoutEditor) {
+                        LayoutEditor(
+                            state = canvasState,
+                            quickMenu = quickMenuActions,
+                            onQuickMenuChange = { value ->
                                 quickMenuActions = value
                                 AppSettings.setQuickMenuActions(context, value)
                             },
-                            state = canvasState,
-                            onDismiss = { showQuickMenuCustomize = false },
-                        )
-                    }
-
-                    if (showToolbarCustomize) {
-                        ToolbarCustomizeDialog(
-                            hidden = hiddenToolbarGroups,
-                            onHiddenChange = { value ->
+                            hiddenGroups = hiddenToolbarGroups,
+                            onHiddenGroupsChange = { value ->
                                 hiddenToolbarGroups = value
                                 AppSettings.setHiddenToolbarGroups(context, value)
                             },
-                            onDismiss = { showToolbarCustomize = false },
+                            onDismiss = { showLayoutEditor = false },
                         )
                     }
 
