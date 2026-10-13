@@ -7,8 +7,8 @@ import androidx.compose.runtime.setValue
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** A recorded sequence of actions, run again in one go (design roadmap D34). */
-data class Macro(val name: String, val steps: List<QuickMenuAction>)
+/** A recorded sequence of actions, run again in one go (design roadmap D34), on its own [key] when it has one. */
+data class Macro(val name: String, val steps: List<QuickMenuAction>, val key: KeyCombo? = null)
 
 private const val KEY_MACROS = "macros"
 
@@ -53,11 +53,37 @@ object Macros {
             (0 until a.length()).mapNotNull { i ->
                 val o = a.optJSONObject(i) ?: return@mapNotNull null
                 val steps = o.optJSONArray("steps")?.let { s -> (0 until s.length()).mapNotNull { k -> QuickMenuAction.entries.firstOrNull { it.name == s.optString(k) } } }.orEmpty()
-                Macro(o.optString("name"), steps).takeIf { steps.isNotEmpty() }
+                val key = o.optJSONObject("key")?.let { KeyCombo(it.optInt("key"), it.optBoolean("ctrl"), it.optBoolean("shift")) }
+                Macro(o.optString("name"), steps, key).takeIf { steps.isNotEmpty() }
             }
         }.orEmpty()
 
     fun setSaved(context: Context, macros: List<Macro>) {
-        AppSettings.prefs(context).edit().putString(KEY_MACROS, JSONArray(macros.map { m -> JSONObject().put("name", m.name).put("steps", JSONArray(m.steps.map { it.name })) }).toString()).apply()
+        val json = JSONArray(
+            macros.map { m ->
+                JSONObject().put("name", m.name).put("steps", JSONArray(m.steps.map { it.name })).apply {
+                    m.key?.let { put("key", JSONObject().put("key", it.keyCode).put("ctrl", it.ctrl).put("shift", it.shift)) }
+                }
+            },
+        )
+        AppSettings.prefs(context).edit().putString(KEY_MACROS, json.toString()).apply()
     }
+
+    /**
+     * Gives macro [name] the key [combo] (design roadmap D34). A key does one thing: the shortcut
+     * or other macro that had it is left without one.
+     */
+    fun setKey(context: Context, name: String, combo: KeyCombo) {
+        ShortcutSettings.actionFor(ShortcutSettings.state(context).value, combo)?.let { ShortcutSettings.set(context, it, UNBOUND) }
+        setSaved(context, saved(context).map { m -> if (m.name == name) m.copy(key = combo) else if (m.key == combo) m.copy(key = null) else m })
+    }
+
+    /** Takes [combo] from whichever macro has it (a shortcut is being given it). */
+    fun releaseKey(context: Context, combo: KeyCombo) {
+        val macros = saved(context)
+        if (macros.any { it.key == combo }) setSaved(context, macros.map { if (it.key == combo) it.copy(key = null) else it })
+    }
+
+    /** The saved macro on [combo], if any. */
+    fun forKey(context: Context, combo: KeyCombo): Macro? = saved(context).firstOrNull { it.key == combo }
 }

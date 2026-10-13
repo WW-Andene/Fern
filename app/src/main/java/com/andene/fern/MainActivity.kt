@@ -1143,7 +1143,13 @@ class MainActivity : ComponentActivity() {
                                     return@onPreviewKeyEvent true
                                 }
                                 val combo = KeyCombo(native.keyCode, event.isCtrlPressed || event.isMetaPressed, event.isShiftPressed)
-                                val action = ShortcutSettings.actionFor(ShortcutSettings.state(context).value, combo) ?: return@onPreviewKeyEvent false
+                                val action = ShortcutSettings.actionFor(ShortcutSettings.state(context).value, combo)
+                                if (action == null) {
+                                    // A saved macro on its own key (design roadmap D34).
+                                    val macro = Macros.forKey(context, combo) ?: return@onPreviewKeyEvent false
+                                    if (native.repeatCount == 0) Macros.run(canvasState, macro)
+                                    return@onPreviewKeyEvent true
+                                }
                                 action.tool?.let { tool ->
                                     if (native.repeatCount == 0) {
                                         toolKeyHold = ToolKeyHold(event.key, canvasState.activeTool, canvasState.previousTool, SystemClock.uptimeMillis())

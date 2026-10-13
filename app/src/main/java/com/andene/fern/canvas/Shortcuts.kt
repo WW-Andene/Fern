@@ -109,7 +109,8 @@ object ShortcutSettings {
     }
 
     fun set(context: Context, action: ShortcutAction, combo: KeyCombo) {
-        // A key does one thing: an action that had it is left without a key.
+        // A key does one thing: an action, or a macro (design roadmap D34), that had it is left without a key.
+        if (combo != UNBOUND) Macros.releaseKey(context, combo)
         val map = state(context).value.mapValues { (a, c) -> if (c == combo && a != action) UNBOUND else c }.toMutableMap()
         map[action] = combo
         val o = JSONObject()
@@ -131,20 +132,27 @@ fun ShortcutEditor(filter: (String) -> Boolean = { true }) {
     val context = LocalContext.current
     val map by ShortcutSettings.state(context)
     var capturing by remember { mutableStateOf<ShortcutAction?>(null) }
+    // A saved macro being given a key (design roadmap D34), by name.
+    var capturingMacro by remember { mutableStateOf<String?>(null) }
+    var macros by remember { mutableStateOf(Macros.saved(context)) }
     val focus = remember { FocusRequester() }
     Column(
         Modifier
             .focusRequester(focus)
             .focusable()
             .onPreviewKeyEvent { event ->
-                val action = capturing ?: return@onPreviewKeyEvent false
+                if (capturing == null && capturingMacro == null) return@onPreviewKeyEvent false
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent true
                 val code = event.nativeKeyEvent.keyCode
                 if (code in setOf(KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.KEYCODE_CTRL_RIGHT, KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_SHIFT_RIGHT, KeyEvent.KEYCODE_META_LEFT, KeyEvent.KEYCODE_META_RIGHT)) {
                     return@onPreviewKeyEvent true
                 }
-                ShortcutSettings.set(context, action, KeyCombo(code, event.isCtrlPressed || event.isMetaPressed, event.isShiftPressed))
+                val combo = KeyCombo(code, event.isCtrlPressed || event.isMetaPressed, event.isShiftPressed)
+                capturing?.let { ShortcutSettings.set(context, it, combo) }
+                capturingMacro?.let { Macros.setKey(context, it, combo) }
+                macros = Macros.saved(context)
                 capturing = null
+                capturingMacro = null
                 true
             },
     ) {
@@ -160,9 +168,24 @@ fun ShortcutEditor(filter: (String) -> Boolean = { true }) {
                 }
                 FernTextButton(onClick = {
                     capturing = if (capturing == action) null else action
+                    capturingMacro = null
                     runCatching { focus.requestFocus() }
                 }) {
                     Text(if (capturing == action) stringResource(R.string.shortcut_press_key) else map.getValue(action).label())
+                }
+            }
+        }
+        // Saved macros, each on a key of its own if wanted (design roadmap D34).
+        for (macro in macros) {
+            if (!filter(macro.name)) continue
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.macro_named, macro.name), modifier = Modifier.weight(1f))
+                FernTextButton(onClick = {
+                    capturingMacro = if (capturingMacro == macro.name) null else macro.name
+                    capturing = null
+                    runCatching { focus.requestFocus() }
+                }) {
+                    Text(if (capturingMacro == macro.name) stringResource(R.string.shortcut_press_key) else (macro.key ?: UNBOUND).label())
                 }
             }
         }
@@ -181,6 +204,13 @@ fun ShortcutCheatSheet(modifier: Modifier = Modifier) {
                 Row {
                     Text(combo.label(), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(end = FernSpace.lg))
                     Text(stringResource(action.label), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            for (macro in Macros.saved(context)) {
+                val combo = macro.key ?: continue
+                Row {
+                    Text(combo.label(), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(end = FernSpace.lg))
+                    Text(stringResource(R.string.macro_named, macro.name), style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }

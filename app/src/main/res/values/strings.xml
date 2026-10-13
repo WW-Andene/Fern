@@ -1080,6 +1080,7 @@
     <string name="more_open">expanded</string>
     <string name="more_closed">collapsed</string>
     <string name="macro_repeat_last">Repeat last action</string>
+    <string name="macro_named">Macro: %1$s</string>
     <string name="macro_record">Record a macro</string>
     <string name="macro_stop">Stop recording</string>
     <string name="macro_name_title">Name this macro (%1$d steps)</string>
