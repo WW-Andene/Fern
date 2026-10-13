@@ -346,9 +346,10 @@ Goal: the canvas says what is happening without a single word or dialog.
   floating action strip beside the selection (move, transform, style, duplicate, delete, make
   object) instead of the toolbar, and the count of what's selected.
   Written, not yet compiled or tested: `SelectionActions.kt`. Above the selection, kept on screen: "N selected", duplicate, apply colour, transform, make object, delete (with Undo); those five left the properties bar, which keeps the rarer selection actions. Scale and rotate handles take touches within 24 dp (a 48 dp target) instead of 16 px.
-- [ ] D40. **Mode indicators.** Symmetry, snapping, perspective, wrap-around, isometric and
+- [~] D40. **Mode indicators.** Symmetry, snapping, perspective, wrap-around, isometric and
   stabiliser show as small, tappable chips at the edge of the canvas while active, so a mode
   never stays on unnoticed.
+  Written, not yet compiled or tested: `ModeChips.kt`. Symmetry, perspective, wrap-around, isometric plane, stabiliser and ruler show as chips on the free hand's side while on; tapping one turns it off. Snapping to objects is on by default, so it isn't flagged as a mode.
 - [ ] D41. **Navigation aids.** Fit, 100 %, reset rotation and "go back to where I was" one tap
   away; the minimap as an optional overlay; a double-tap with two fingers to fit.
 

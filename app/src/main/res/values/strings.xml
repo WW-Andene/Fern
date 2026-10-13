@@ -1060,4 +1060,5 @@
         <item quantity="one">%1$d selected</item>
         <item quantity="other">%1$d selected</item>
     </plurals>
+    <string name="mode_turn_off">Turn off</string>
 </resources>

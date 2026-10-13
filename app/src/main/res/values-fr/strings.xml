@@ -1064,4 +1064,5 @@
         <item quantity="many">%1$d sélectionnés</item>
         <item quantity="other">%1$d sélectionnés</item>
     </plurals>
+    <string name="mode_turn_off">Désactiver</string>
 </resources>

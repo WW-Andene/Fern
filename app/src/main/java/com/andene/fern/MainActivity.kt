@@ -98,6 +98,7 @@ import com.andene.fern.canvas.AudioBar
 import com.andene.fern.canvas.CanvasHaptics
 import com.andene.fern.canvas.ToolRail
 import com.andene.fern.canvas.SelectionActionStrip
+import com.andene.fern.canvas.ModeChips
 import com.andene.fern.canvas.CommandPaletteState
 import com.andene.fern.canvas.GestureAction
 import com.andene.fern.canvas.KeyCombo
@@ -1354,6 +1355,15 @@ class MainActivity : ComponentActivity() {
                                     .padding(horizontal = railSide),
                             )
                             CanvasHaptics(canvasState)
+                            // Drawing modes that are on, at the edge opposite the drawing hand (design roadmap D40).
+                            ModeChips(
+                                canvasState,
+                                Modifier
+                                    .align(if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(top = if (toolbarAtBottom) FernScale.s16 else FernScale.s128, start = FernScale.s12, end = FernScale.s12)
+                                    .padding(horizontal = railSide),
+                            )
                             // The selection's actions beside it (design roadmap D39).
                             SelectionActionStrip(canvasState)
                             FernJobHost(

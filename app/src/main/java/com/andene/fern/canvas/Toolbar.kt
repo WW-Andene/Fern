@@ -1602,7 +1602,7 @@ private fun blendModeLabel(mode: StrokeBlendMode) = when (mode) {
 }
 
 @StringRes
-private fun isometricPlaneLabel(plane: IsometricPlane?) = when (plane) {
+internal fun isometricPlaneLabel(plane: IsometricPlane?) = when (plane) {
     null -> R.string.iso_plane_flat
     IsometricPlane.TOP -> R.string.iso_plane_top
     IsometricPlane.LEFT -> R.string.iso_plane_left
