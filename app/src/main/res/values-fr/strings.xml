@@ -93,7 +93,7 @@
     <string name="hdr_intensity">Luminosité du stylo sur les calques HDR : ×%1$s</string>
     <string name="layers_add_file">Ajouter un calque fichier</string>
     <string name="layers_reload_file">Recharger depuis le fichier</string>
-    <string name="layers_file_unreadable">Cette image n\'a pas pu être lue.</string>
+    <string name="layers_file_unreadable">Cette image n’a pas pu être lue. Essayez un PNG ou un JPEG.</string>
     <string name="second_view_title">Seconde vue</string>
     <string name="rulers_show">Afficher les règles</string>
     <string name="rulers_hide">Masquer les règles</string>
@@ -144,7 +144,7 @@
     <string name="raster_brush_blur">Flouter</string>
     <string name="raster_brush_round">Pointe ronde</string>
     <string name="raster_brush_import">Importer une pointe (.abr, .brush)…</string>
-    <string name="raster_brush_bad_file">Aucune pointe lisible dans ce fichier</string>
+    <string name="raster_brush_bad_file">Aucune pointe de pinceau dans ce fichier. Choisissez un fichier Photoshop .abr ou Procreate .brush.</string>
     <string name="adjust_title">Réglages</string>
     <string name="adjust_levels">Niveaux</string>
     <string name="adjust_curves">Courbes</string>
@@ -223,7 +223,7 @@
     <string name="audio_recording_for">Enregistrement %1$s</string>
     <string name="audio_pause">Pause</string>
     <string name="audio_close_playback">Fermer la lecture</string>
-    <string name="audio_mic_failed">Le microphone n\'a pas pu démarrer.</string>
+    <string name="audio_mic_failed">Le micro n’a pas pu démarrer. Fermez les autres applis qui l’utilisent et réessayez.</string>
     <string name="audio_empty">Aucune note vocale pour ce document.</string>
     <string name="action_stop">Arrêter</string>
     <string name="audio_delete">Supprimer la note vocale</string>
@@ -333,10 +333,10 @@
     <string name="menu_import_layered">Importer PSD, Krita, Procreate ou OpenEXR</string>
     <string name="tb_export_psd">Photoshop (.psd)</string>
     <string name="tb_export_kra">Krita (.kra)</string>
-    <string name="toast_bad_layered">Aucun calque lisible dans ce fichier</string>
+    <string name="toast_bad_layered">Aucun calque dans ce fichier. Choisissez un fichier Photoshop .psd, Krita .kra, Procreate ou OpenEXR.</string>
     <string name="tb_export_spine">Squelette Spine (zip)</string>
     <string name="tb_export_dragonbones">Squelette DragonBones (zip)</string>
-    <string name="toast_bad_spine">Aucun squelette Spine lisible dans ce fichier</string>
+    <string name="toast_bad_spine">Aucun squelette Spine dans ce fichier. Choisissez un export Spine .json.</string>
     <string name="tb_custom_color">Couleur personnalisée</string>
     <string name="tb_eyedropper">Pipette</string>
     <string name="brush_settings">Réglages du pinceau</string>
@@ -440,17 +440,17 @@
         <item quantity="many">Canevas de dessin, %1$d de traits. Un doigt dessine, deux doigts déplacent et zooment.</item>
         <item quantity="other">Canevas de dessin, %1$d traits. Un doigt dessine, deux doigts déplacent et zooment.</item>
     </plurals>
-    <string name="toast_mic">Les notes vocales nécessitent l\'accès au microphone</string>
-    <string name="toast_nothing_export">Rien à exporter pour l\'instant</string>
+    <string name="toast_mic">Les notes vocales ont besoin du micro. Autorisez-le dans les autorisations de l’appli pour enregistrer.</string>
+    <string name="toast_nothing_export">Rien à exporter pour l’instant. Dessinez d’abord quelque chose.</string>
     <string name="toast_exported">Exporté</string>
-    <string name="toast_bad_pdf">Impossible d\'ouvrir ce PDF</string>
-    <string name="toast_bad_palette">Ce n\'est pas une palette GIMP (.gpl) ni Adobe (.ase)</string>
+    <string name="toast_bad_pdf">Ce PDF n’a pas pu être ouvert. Il est peut-être endommagé ou protégé par mot de passe.</string>
+    <string name="toast_bad_palette">Ce n’est pas une palette lisible par Fern. Choisissez un fichier GIMP .gpl ou Adobe .ase.</string>
     <string name="toast_copied">Copié</string>
     <string name="toast_nothing_paste">Rien à coller</string>
-    <string name="toast_pin_gone">Cette épingle n\'existe plus</string>
-    <string name="toast_document_gone">Ce document n\'existe plus</string>
-    <string name="toast_nothing_share">Rien à partager pour l\'instant</string>
-    <string name="toast_bad_backup">Ce n\'est pas une sauvegarde Fern</string>
+    <string name="toast_pin_gone">Ce repère a été supprimé. Choisissez-en un autre dans Repères.</string>
+    <string name="toast_document_gone">Ce document a été supprimé. Ouvrez-en un autre depuis Documents.</string>
+    <string name="toast_nothing_share">Rien à partager pour l’instant. Dessinez d’abord quelque chose.</string>
+    <string name="toast_bad_backup">Ce n’est pas une sauvegarde Fern. Choisissez un fichier .fern.</string>
     <string name="default_document_name">Mon canevas</string>
     <string name="crash_subject">Rapport de plantage Fern</string>
     <plurals name="toast_imported_colours">
@@ -594,7 +594,7 @@
     <string name="qr_insert">Insérer</string>
     <string name="tb_export_ai">Illustrator (.ai)</string>
     <string name="menu_import_vectors">Importer un PDF ou Illustrator en vectoriel</string>
-    <string name="toast_bad_vectors">Aucun tracé n’a pu être lu dans ce fichier (il est peut-être chiffré, ou pas compatible PDF)</string>
+    <string name="toast_bad_vectors">Aucun tracé dans ce fichier. Il est peut-être chiffré, ou pas compatible PDF ; essayez de le réexporter en PDF.</string>
     <string name="shape_thought">Bulle de pensée</string>
     <string name="shape_shout">Bulle de cri</string>
     <string name="tb_panel_cut">Découpe de cases : glisser à travers les cases pour les diviser</string>
@@ -628,7 +628,7 @@
     <string name="video_mute">Couper le son</string>
     <string name="video_unmute">Rétablir le son</string>
     <string name="video_missing">Le fichier de cette vidéo est introuvable.</string>
-    <string name="toast_bad_video">Impossible de lire cette vidéo</string>
+    <string name="toast_bad_video">Cette vidéo n’a pas pu être lue. Essayez un fichier MP4.</string>
     <string name="model_insert_title">Modèle 3D</string>
     <string name="model_import_obj">Importer un OBJ…</string>
     <string name="model_sphere">Sphère</string>
@@ -650,7 +650,7 @@
     <string name="model_light_strength">Intensité de la lumière : %1$d %%</string>
     <string name="model_light_ambient">Lumière ambiante : %1$d %%</string>
     <string name="model_done">Terminé</string>
-    <string name="toast_bad_obj">Impossible de lire ce modèle OBJ</string>
+    <string name="toast_bad_obj">Ce modèle 3D n’a pas pu être lu. Choisissez un fichier Wavefront .obj.</string>
     <string name="tags_title">Étiquettes</string>
     <string name="tags_empty">Aucune étiquette. Une étiquette nomme une plage d’images, comme « marche » ou « repos ».</string>
     <string name="tags_row">%1$s : images %2$d–%3$d, %4$s</string>
@@ -691,7 +691,7 @@
     <string name="hand_grip">Prise</string>
     <string name="model_scan_camera">Scanner une main avec l’appareil photo</string>
     <string name="model_scan_photo">Scanner une main depuis une photo</string>
-    <string name="toast_no_hand">Aucune main trouvée sur cette image</string>
+    <string name="toast_no_hand">Aucune main trouvée sur cette image. Essayez-en une où la main entière est visible et bien éclairée.</string>
     <string name="model_exposure">Exposition : %1$d %%</string>
     <string name="light_white">Lumière blanche</string>
     <string name="light_warm">Chaude</string>
@@ -701,7 +701,7 @@
     <string name="model_export_usdz">Exporter pour la RA (.usdz)</string>
     <string name="model_export_maps">Exporter les textures</string>
     <string name="model_import_texture">Importer une texture de couleur</string>
-    <string name="toast_export_failed">L’export n’a pas pu être écrit</string>
+    <string name="toast_export_failed">L’export n’a pas pu être écrit. Vérifiez l’espace libre et réessayez.</string>
     <string name="plugins_title">Extensions</string>
     <string name="plugins_run">Exécuter</string>
     <string name="plugins_back">Retour</string>
@@ -709,7 +709,7 @@
     <string name="plugins_new">Nouvelle extension</string>
     <string name="plugins_save">Enregistrer</string>
     <string name="plugins_remove">Supprimer l’extension</string>
-    <string name="plugins_install_failed">Impossible de lire ce fichier d’extension</string>
+    <string name="plugins_install_failed">Ce plugin n’a pas pu être lu. Choisissez un fichier de plugin Fern .js.</string>
     <string name="branches_title">Branches</string>
     <string name="branches_empty">Aucune branche. Une branche garde une autre version de l’animation ; le travail actuel devient « main ».</string>
     <string name="branches_current">Branche actuelle</string>
@@ -861,7 +861,7 @@
     <string name="symbols_name">Nom de la sélection</string>
     <string name="symbols_default_name">Symbole %1$d</string>
     <string name="tb_trace_image">Vectoriser l\'image en formes</string>
-    <string name="toast_trace_nothing">Aucune forme sombre à vectoriser</string>
+    <string name="toast_trace_nothing">Aucune forme sombre à vectoriser. Essayez une image aux traits plus nets.</string>
     <string name="tb_export_eps">Vectoriel pour l\'impression (EPS)</string>
     <string name="tb_export_dxf">Dessin CAO (DXF)</string>
     <string name="tb_export_cmyk_pdf">PDF d\'impression (CMJN, tons directs)</string>
@@ -871,7 +871,7 @@
     <string name="settings_cmyk_none">aucun (CMJN brut)</string>
     <string name="settings_cmyk_load">Charger</string>
     <string name="settings_cmyk_remove">Retirer</string>
-    <string name="settings_cmyk_bad">Ce fichier n\'est pas un profil ICC CMJN.</string>
+    <string name="settings_cmyk_bad">Ce fichier n’est pas un profil ICC CMJN. Choisissez un fichier .icc ou .icm pour l’impression.</string>
     <string name="color_cmyk_profile">CMJN %% (%1$s)</string>
     <string name="color_spots">Tons directs</string>
     <string name="color_spot_name">Nom du ton direct</string>
@@ -1012,8 +1012,8 @@
     <string name="layout_export">Exporter</string>
     <string name="layout_import">Importer</string>
     <string name="layout_exported">Disposition exportée</string>
-    <string name="layout_export_failed">La disposition n’a pas pu être écrite</string>
-    <string name="layout_import_failed">Ce fichier n’est pas une disposition Fern</string>
+    <string name="layout_export_failed">La disposition n’a pas pu être écrite. Vérifiez l’espace libre et réessayez.</string>
+    <string name="layout_import_failed">Ce fichier n’est pas une disposition Fern. Choisissez un fichier exporté depuis Disposer l’interface.</string>
     <string name="layout_imported">Disposition « %1$s » appliquée</string>
     <string name="settings_search">Rechercher un réglage</string>
     <string name="settings_section_input">Saisie : gestes, stylet, clavier</string>

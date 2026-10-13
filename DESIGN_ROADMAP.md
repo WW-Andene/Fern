@@ -289,8 +289,9 @@ Goal: nothing lost, nothing blocking, nothing to hunt for.
   appear the first time a tool or gesture is relevant, can be skipped, and can be found again
   in Help. Add an optional interactive practice canvas.
   Written, not yet compiled or tested: `CoachMarks.kt`. The first-launch dialog is gone: two gesture tips show on first launch, then one tip the first time each tool is picked, as a small card that doesn't block the canvas ("Got it", "No more tips"). Settings > Show the guide lists every tip, turns in-context tips back on, and opens a practice page (a new document named Practice).
-- [ ] D30. **Plain-language copy pass.** Short verbs on buttons, errors that say what to do,
+- [~] D30. **Plain-language copy pass.** Short verbs on buttons, errors that say what to do,
   consistent terms (one name per concept across the app and both languages).
+  Written, not yet compiled or tested: every error message (23, both languages) now says what to do next, naming the files Fern reads; English apostrophes made consistent. A full glossary pass over all ~1000 strings is D63.
 - [ ] D31. **Performance as UX.** Panels and menus open in under 100 ms, no layout shift on the
   canvas when a bar appears, and long jobs (exports, imports) run in the background with
   progress and cancel.

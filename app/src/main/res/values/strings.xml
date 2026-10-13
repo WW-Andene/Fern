@@ -93,7 +93,7 @@
     <string name="hdr_intensity">Pen brightness on HDR layers: ×%1$s</string>
     <string name="layers_add_file">Add file layer</string>
     <string name="layers_reload_file">Reload from file</string>
-    <string name="layers_file_unreadable">That image couldn\'t be read.</string>
+    <string name="layers_file_unreadable">That image couldn\'t be read. Try a PNG or JPEG.</string>
     <string name="second_view_title">Second view</string>
     <string name="rulers_show">Show rulers</string>
     <string name="rulers_hide">Hide rulers</string>
@@ -144,7 +144,7 @@
     <string name="raster_brush_blur">Blur</string>
     <string name="raster_brush_round">Round tip</string>
     <string name="raster_brush_import">Import tip (.abr, .brush)…</string>
-    <string name="raster_brush_bad_file">No brush tip could be read from that file</string>
+    <string name="raster_brush_bad_file">No brush tip found in that file. Pick a Photoshop .abr or Procreate .brush file.</string>
     <string name="adjust_title">Adjustments</string>
     <string name="adjust_levels">Levels</string>
     <string name="adjust_curves">Curves</string>
@@ -223,7 +223,7 @@
     <string name="audio_recording_for">Recording %1$s</string>
     <string name="audio_pause">Pause</string>
     <string name="audio_close_playback">Close playback</string>
-    <string name="audio_mic_failed">The microphone couldn\'t be started.</string>
+    <string name="audio_mic_failed">The microphone couldn\'t start. Close other apps using it and try again.</string>
     <string name="audio_empty">No voice notes for this document yet.</string>
     <string name="action_stop">Stop</string>
     <string name="audio_delete">Delete voice note</string>
@@ -333,10 +333,10 @@
     <string name="menu_import_layered">Import PSD, Krita, Procreate or OpenEXR</string>
     <string name="tb_export_psd">Photoshop (.psd)</string>
     <string name="tb_export_kra">Krita (.kra)</string>
-    <string name="toast_bad_layered">No layers could be read from that file</string>
+    <string name="toast_bad_layered">No layers found in that file. Pick a Photoshop .psd, Krita .kra, Procreate or OpenEXR file.</string>
     <string name="tb_export_spine">Spine skeleton (zip)</string>
     <string name="tb_export_dragonbones">DragonBones skeleton (zip)</string>
-    <string name="toast_bad_spine">No Spine skeleton could be read from that file</string>
+    <string name="toast_bad_spine">No Spine skeleton found in that file. Pick a Spine .json export.</string>
     <string name="tb_custom_color">Custom color</string>
     <string name="tb_eyedropper">Eyedropper</string>
     <string name="brush_settings">Brush settings</string>
@@ -439,17 +439,17 @@
         <item quantity="one">Drawing canvas, %1$d stroke. One finger draws, two fingers pan and zoom.</item>
         <item quantity="other">Drawing canvas, %1$d strokes. One finger draws, two fingers pan and zoom.</item>
     </plurals>
-    <string name="toast_mic">Voice notes need microphone access</string>
-    <string name="toast_nothing_export">Nothing to export yet</string>
+    <string name="toast_mic">Voice notes need the microphone. Allow it in the app\'s permissions to record.</string>
+    <string name="toast_nothing_export">Nothing to export yet. Draw something first.</string>
     <string name="toast_exported">Exported</string>
-    <string name="toast_bad_pdf">Couldn\'t open that PDF</string>
-    <string name="toast_bad_palette">That isn\'t a GIMP (.gpl) or Adobe swatch (.ase) palette</string>
+    <string name="toast_bad_pdf">That PDF couldn\'t be opened. It may be damaged or password-protected.</string>
+    <string name="toast_bad_palette">That isn\'t a palette Fern reads. Pick a GIMP .gpl or Adobe .ase file.</string>
     <string name="toast_copied">Copied</string>
     <string name="toast_nothing_paste">Nothing to paste</string>
-    <string name="toast_pin_gone">That pin no longer exists</string>
-    <string name="toast_document_gone">That document no longer exists</string>
-    <string name="toast_nothing_share">Nothing to share yet</string>
-    <string name="toast_bad_backup">That isn\'t a Fern backup</string>
+    <string name="toast_pin_gone">That pin was deleted. Pick another from Pins.</string>
+    <string name="toast_document_gone">That document was deleted. Open another from Documents.</string>
+    <string name="toast_nothing_share">Nothing to share yet. Draw something first.</string>
+    <string name="toast_bad_backup">That isn\'t a Fern backup. Pick a .fern file.</string>
     <string name="default_document_name">My Canvas</string>
     <string name="crash_subject">Fern crash report</string>
     <plurals name="toast_imported_colours">
@@ -592,7 +592,7 @@
     <string name="qr_insert">Insert</string>
     <string name="tb_export_ai">Illustrator (.ai)</string>
     <string name="menu_import_vectors">Import PDF or Illustrator as vectors</string>
-    <string name="toast_bad_vectors">No paths could be read from that file (it may be encrypted, or not a PDF-compatible file)</string>
+    <string name="toast_bad_vectors">No paths found in that file. It may be encrypted, or not a PDF-compatible file; try exporting it again as PDF.</string>
     <string name="shape_thought">Thought balloon</string>
     <string name="shape_shout">Shout balloon</string>
     <string name="tb_panel_cut">Panel cutter: drag across comic panels to divide them</string>
@@ -626,7 +626,7 @@
     <string name="video_mute">Mute</string>
     <string name="video_unmute">Unmute</string>
     <string name="video_missing">This video\'s file is missing.</string>
-    <string name="toast_bad_video">That video couldn\'t be read</string>
+    <string name="toast_bad_video">That video couldn\'t be read. Try an MP4 file.</string>
     <string name="model_insert_title">3D model</string>
     <string name="model_import_obj">Import OBJ…</string>
     <string name="model_sphere">Sphere</string>
@@ -648,7 +648,7 @@
     <string name="model_light_strength">Light strength: %1$d %%</string>
     <string name="model_light_ambient">Ambient light: %1$d %%</string>
     <string name="model_done">Done</string>
-    <string name="toast_bad_obj">That OBJ model couldn\'t be read</string>
+    <string name="toast_bad_obj">That 3D model couldn\'t be read. Pick a Wavefront .obj file.</string>
     <string name="tags_title">Tags</string>
     <string name="tags_empty">No tags yet. A tag names a range of frames, like "walk" or "idle".</string>
     <string name="tags_row">%1$s: frames %2$d–%3$d, %4$s</string>
@@ -689,7 +689,7 @@
     <string name="hand_grip">Grip</string>
     <string name="model_scan_camera">Scan a hand with the camera</string>
     <string name="model_scan_photo">Scan a hand from a photo</string>
-    <string name="toast_no_hand">No hand found in that picture</string>
+    <string name="toast_no_hand">No hand found in that picture. Try one where the whole hand shows, well lit.</string>
     <string name="model_exposure">Exposure: %1$d %%</string>
     <string name="light_white">White light</string>
     <string name="light_warm">Warm</string>
@@ -699,7 +699,7 @@
     <string name="model_export_usdz">Export for AR (.usdz)</string>
     <string name="model_export_maps">Export texture maps</string>
     <string name="model_import_texture">Import colour texture</string>
-    <string name="toast_export_failed">The export couldn\'t be written</string>
+    <string name="toast_export_failed">The export couldn\'t be written. Check there\'s space and try again.</string>
     <string name="plugins_title">Plugins</string>
     <string name="plugins_run">Run</string>
     <string name="plugins_back">Back</string>
@@ -707,7 +707,7 @@
     <string name="plugins_new">New plugin</string>
     <string name="plugins_save">Save</string>
     <string name="plugins_remove">Remove plugin</string>
-    <string name="plugins_install_failed">That plugin file couldn\'t be read</string>
+    <string name="plugins_install_failed">That plugin couldn\'t be read. Pick a Fern plugin .js file.</string>
     <string name="branches_title">Branches</string>
     <string name="branches_empty">No branches yet. A branch keeps an alternative take of the animation; the work so far becomes "main".</string>
     <string name="branches_current">Current branch</string>
@@ -859,7 +859,7 @@
     <string name="symbols_name">Name for the selection</string>
     <string name="symbols_default_name">Symbol %1$d</string>
     <string name="tb_trace_image">Trace the image into shapes</string>
-    <string name="toast_trace_nothing">No dark shapes found to trace</string>
+    <string name="toast_trace_nothing">No dark shapes to trace. Try an image with clearer lines.</string>
     <string name="tb_export_eps">Print vector (EPS)</string>
     <string name="tb_export_dxf">CAD drawing (DXF)</string>
     <string name="tb_export_cmyk_pdf">Print PDF (CMYK, spot colours)</string>
@@ -869,7 +869,7 @@
     <string name="settings_cmyk_none">none (device CMYK)</string>
     <string name="settings_cmyk_load">Load</string>
     <string name="settings_cmyk_remove">Remove</string>
-    <string name="settings_cmyk_bad">That file isn\'t a CMYK ICC profile.</string>
+    <string name="settings_cmyk_bad">That file isn\'t a CMYK ICC profile. Pick an .icc or .icm file for print.</string>
     <string name="color_cmyk_profile">CMYK %% (%1$s)</string>
     <string name="color_spots">Spot colours</string>
     <string name="color_spot_name">Spot name</string>
@@ -1009,8 +1009,8 @@
     <string name="layout_export">Export</string>
     <string name="layout_import">Import</string>
     <string name="layout_exported">Layout exported</string>
-    <string name="layout_export_failed">The layout couldn’t be written</string>
-    <string name="layout_import_failed">That file isn’t a Fern layout</string>
+    <string name="layout_export_failed">The layout couldn\'t be written. Check there\'s space and try again.</string>
+    <string name="layout_import_failed">That file isn\'t a Fern layout. Pick a file exported from Arrange the layout.</string>
     <string name="layout_imported">Layout “%1$s” applied</string>
     <string name="settings_search">Search settings</string>
     <string name="settings_section_input">Input: gestures, stylus, keys</string>
@@ -1023,7 +1023,7 @@
     <string name="ui_size_standard">Standard</string>
     <string name="ui_size_large">Large</string>
     <string name="ui_size_largest">Largest</string>
-    <string name="confirm_dont_ask">Don’t ask again</string>
+    <string name="confirm_dont_ask">Don\'t ask again</string>
     <string name="confirm_raster_delete">Delete this painted layer? Undo brings the layer back but not its pixels.</string>
     <string name="pins_empty">No pins yet. A pin remembers this view (place and zoom) so you can jump back to it: name one below.</string>
     <string name="states_empty">No states yet. Add one per animation (idle, run, jump), then transitions between them.</string>
