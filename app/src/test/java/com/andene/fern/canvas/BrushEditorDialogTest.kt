@@ -1,5 +1,8 @@
 package com.andene.fern.canvas
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -7,15 +10,21 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import com.andene.fern.FernPanelHost
+import com.andene.fern.FernScale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /** UI test: the brush editor applies edits only on Apply, and Reset restores the default. */
+// A tall screen: the editor is a panel taking half of it (design roadmap D42), and performScrollTo
+// on a chip only scrolls its own horizontal row, so the tip chips must be in view without scrolling.
 @RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = "w411dp-h1600dp")
 class BrushEditorDialogTest {
     @get:Rule
     val compose = createComposeRule()
@@ -24,7 +33,11 @@ class BrushEditorDialogTest {
     private var dismissed = false
 
     private fun show(initial: StampBrush) = compose.setContent {
-        BrushEditorDialog(initialBrush = initial, color = Color.Black, onApply = { applied = it }, onDismiss = { dismissed = true })
+        Box(Modifier.fillMaxSize()) {
+            BrushEditorDialog(initialBrush = initial, color = Color.Black, onApply = { applied = it }, onDismiss = { dismissed = true })
+            // The editor is a panel (design roadmap D42), shown only through its host.
+            FernPanelHost(railOnLeft = true, railInset = FernScale.none, railSide = FernScale.none)
+        }
     }
 
     @Test
@@ -56,15 +69,18 @@ class BrushEditorDialogTest {
     fun presetsSaveLoadAndDelete() {
         val state = CanvasState()
         compose.setContent {
-            BrushEditorDialog(
-                initialBrush = StampBrush(StampTip.STAR, spacing = 1.25f),
-                color = Color.Black,
-                onApply = { applied = it },
-                onDismiss = {},
-                presets = state.brushPresets,
-                onSavePreset = { name, brush -> state.saveBrushPreset(name, brush) },
-                onDeletePreset = { state.deleteBrushPreset(it) },
-            )
+            Box(Modifier.fillMaxSize()) {
+                BrushEditorDialog(
+                    initialBrush = StampBrush(StampTip.STAR, spacing = 1.25f),
+                    color = Color.Black,
+                    onApply = { applied = it },
+                    onDismiss = {},
+                    presets = state.brushPresets,
+                    onSavePreset = { name, brush -> state.saveBrushPreset(name, brush) },
+                    onDeletePreset = { state.deleteBrushPreset(it) },
+                )
+                FernPanelHost(railOnLeft = true, railInset = FernScale.none, railSide = FernScale.none)
+            }
         }
         compose.onNodeWithText("Save as preset").performScrollTo().performClick()
         compose.onNodeWithText("Preset name").performTextInput("Stars")

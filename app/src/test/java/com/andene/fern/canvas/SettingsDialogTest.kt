@@ -5,10 +5,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -44,7 +46,9 @@ class SettingsDialogTest {
                 onDismiss = { dismissed = true },
             )
         }
-        val leftHandedSwitch = compose.onAllNodes(isToggleable())[0]
+        // Other switches now come first (design roadmap D24): search narrows the list to this one.
+        compose.onNode(hasSetTextAction()).performTextInput("Left-handed")
+        val leftHandedSwitch = compose.onNode(isToggleable())
         leftHandedSwitch.assertIsOff()
         leftHandedSwitch.performClick()
         leftHandedSwitch.assertIsOn()

@@ -266,6 +266,8 @@ fun DrawingCanvas(
                     var prevCentroid = Offset.Zero
                     var prevSpan = 0f
                     var prevAngle = 0.0
+                    // Fingers on the canvas at the last navigation frame.
+                    var prevNavigationCount = 0
                     var selectionGestureKind = SelectionGestureKind.OTHER
                     var wasStylusActive = false
                     // Tool to return to after a gesture that the stylus temporarily switched to the eraser.
@@ -284,12 +286,14 @@ fun DrawingCanvas(
                             Tool.BEZIER -> {} // a node is placed on press; nothing to end
                             Tool.RULER -> state.endRulerGesture()
                             Tool.MEASURE -> state.endMeasure()
-                            Tool.SELECT -> when (selectionGestureKind) {
-                                SelectionGestureKind.SCALE -> state.endScaleSelection()
-                                SelectionGestureKind.ROTATE -> state.endRotateSelection()
-                                SelectionGestureKind.OTHER -> state.endSelectGesture()
+                            Tool.SELECT -> {
+                                when (selectionGestureKind) {
+                                    SelectionGestureKind.SCALE -> state.endScaleSelection()
+                                    SelectionGestureKind.ROTATE -> state.endRotateSelection()
+                                    SelectionGestureKind.OTHER -> state.endSelectGesture()
+                                }
+                                selectionReadout = false
                             }
-                            selectionReadout = false
                         }
                         toolBeforeStylusEraser?.let { state.activeTool = it }
                         toolBeforeStylusEraser = null
@@ -442,8 +446,12 @@ fun DrawingCanvas(
                                 swipeSpanChange = maxOf(swipeSpanChange, abs(span - swipeStartSpan))
                             }
 
-                            if (mode != Mode.NAVIGATE) {
-                                // Just transitioned into navigation: establish baseline, no jump this frame.
+                            if (mode != Mode.NAVIGATE || count != prevNavigationCount) {
+                                // Just transitioned into navigation, or a finger landed or lifted: establish
+                                // a baseline, no jump this frame. The centroid, span and angle all shift
+                                // with the finger count without any finger moving, and counting that as
+                                // travel panned the view and turned staggered multi-finger taps into drags.
+                                prevNavigationCount = count
                                 prevCentroid = centroid
                                 prevSpan = span
                                 prevAngle = angle

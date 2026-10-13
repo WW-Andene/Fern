@@ -1159,8 +1159,6 @@ fun Toolbar(
                 if (ToolbarGroup.FAVOURITES !in hiddenGroups) {
                     for (index in 0 until TOOL_SLOT_COUNT) ToolSlotButton(state, index)
                 }
-                    Icon(Icons.Filled.Palette, contentDescription = stringResource(R.string.tb_custom_color))
-                }
 
                 if (ToolbarGroup.GUIDES !in hiddenGroups) {
                     Box {
@@ -1347,7 +1345,7 @@ fun Toolbar(
                         )
                     }
                 }
-                        }
+            }
             if (wrap) {
                 FlowRow(
                     horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(FernScale.s8),
