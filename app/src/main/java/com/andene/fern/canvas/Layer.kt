@@ -67,7 +67,25 @@ data class Layer(
      * [CanvasState.hdrView].
      */
     val hdr: Boolean = false,
+    /**
+     * The group this layer is in (design roadmap D43), by name, or null. A group is the run of
+     * adjacent layers sharing a name: a folder in the layers panel whose eye and lock act on
+     * every member. It doesn't change how layers composite.
+     */
+    val group: String? = null,
 )
+
+/**
+ * The group a layer ends up in after a move puts it between [below] and [above] (either may be
+ * absent): the group around it when both neighbours share one, so moving into the middle of a
+ * group joins it; its own group while it's still at that group's edge; otherwise none, so moving
+ * past a group's last member leaves it.
+ */
+fun groupAfterMove(own: String?, below: Layer?, above: Layer?): String? = when {
+    below?.group == above?.group -> below?.group
+    own != null && (own == below?.group || own == above?.group) -> own
+    else -> null
+}
 
 /** Where layer [layerId]'s mask lives among [CanvasState.rasters] and on disk. */
 fun maskIdOf(layerId: String): String = "$layerId-mask"

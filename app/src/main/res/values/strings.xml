@@ -121,6 +121,22 @@
     <string name="layers_down">Move layer down</string>
     <string name="layers_merge">Merge into layer below</string>
     <string name="layers_delete">Delete layer and its strokes</string>
+    <string name="layers_drag">Drag to move the layer up or down</string>
+    <string name="layers_group">Group</string>
+    <string name="layers_ungroup">Ungroup</string>
+    <string name="layers_group_default">Group %1$d</string>
+    <string name="layers_selection_clear">Clear the selection</string>
+    <plurals name="layers_selected">
+        <item quantity="one">%1$d layer selected</item>
+        <item quantity="other">%1$d layers selected</item>
+    </plurals>
+    <string name="layers_group_expand">Show the layers of %1$s</string>
+    <string name="layers_group_collapse">Fold %1$s</string>
+    <string name="layers_group_rename">Rename %1$s</string>
+    <string name="layers_group_show">Show every layer of %1$s</string>
+    <string name="layers_group_hide">Hide every layer of %1$s</string>
+    <string name="layers_group_lock">Lock every layer of %1$s</string>
+    <string name="layers_group_unlock">Unlock every layer of %1$s</string>
     <string name="layers_remove_empty">Remove empty</string>
     <string name="layers_delete_hidden">Delete hidden</string>
     <string name="layers_new">New layer</string>

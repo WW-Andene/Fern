@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.selected
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -306,6 +307,8 @@ fun PanelRow(
     onLongClick: (() -> Unit)? = null,
     onSwipeDelete: (() -> Unit)? = null,
     deleteLabel: String = "",
+    /** Part of a multiple selection (design roadmap D43): highlighted, and announced as selected. */
+    selected: Boolean = false,
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
 ) {
     val row: @Composable () -> Unit = {
@@ -313,7 +316,8 @@ fun PanelRow(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = FernSize.touchTarget)
-                .background(MaterialTheme.colorScheme.surface)
+                .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)
+                .semantics { this.selected = selected }
                 .then(
                     if (onClick != null || onLongClick != null) {
                         Modifier.combinedClickable(onClick = { onClick?.invoke() }, onLongClick = onLongClick)

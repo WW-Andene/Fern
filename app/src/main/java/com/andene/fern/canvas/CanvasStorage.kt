@@ -729,6 +729,7 @@ object CanvasStorage {
                 layer.adjustment?.let { put("adjustment", adjustmentToJson(it)) }
                 layer.fileSource?.let { put("file", it) }
                 if (layer.hdr) put("hdr", true)
+                layer.group?.let { put("group", it) }
             })
         }
         writeStored(layersFile(context, documentId), root)
@@ -913,6 +914,7 @@ object CanvasStorage {
                 adjustment = entry.optJSONObject("adjustment")?.let(::adjustmentFromJson),
                 fileSource = entry.optString("file").ifEmpty { null },
                 hdr = entry.optBoolean("hdr", false),
+                group = entry.optString("group").ifEmpty { null },
             )
         }
     }

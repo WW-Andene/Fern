@@ -121,6 +121,22 @@
     <string name="layers_down">Descendre le calque</string>
     <string name="layers_merge">Fusionner avec le calque inférieur</string>
     <string name="layers_delete">Supprimer le calque et ses traits</string>
+    <string name="layers_drag">Faire glisser pour monter ou descendre le calque</string>
+    <string name="layers_group">Grouper</string>
+    <string name="layers_ungroup">Dissocier</string>
+    <string name="layers_group_default">Groupe %1$d</string>
+    <string name="layers_selection_clear">Effacer la sélection</string>
+    <plurals name="layers_selected">
+        <item quantity="one">%1$d calque sélectionné</item>
+        <item quantity="other">%1$d calques sélectionnés</item>
+    </plurals>
+    <string name="layers_group_expand">Afficher les calques de %1$s</string>
+    <string name="layers_group_collapse">Replier %1$s</string>
+    <string name="layers_group_rename">Renommer %1$s</string>
+    <string name="layers_group_show">Afficher tous les calques de %1$s</string>
+    <string name="layers_group_hide">Masquer tous les calques de %1$s</string>
+    <string name="layers_group_lock">Verrouiller tous les calques de %1$s</string>
+    <string name="layers_group_unlock">Déverrouiller tous les calques de %1$s</string>
     <string name="layers_remove_empty">Retirer les vides</string>
     <string name="layers_delete_hidden">Supprimer les masqués</string>
     <string name="layers_new">Nouveau calque</string>

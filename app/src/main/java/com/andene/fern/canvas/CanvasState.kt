@@ -2707,12 +2707,93 @@ class CanvasState(
     val currentLayerCompId: String?
         get() = layerComps.firstOrNull { layerCompMatches(it, layers) }?.id
 
-    /** Moves a layer one step up (towards the top) or down in the stack. */
+    /**
+     * Moves a layer one step up (towards the top) or down in the stack, joining or leaving a group
+     * on the way ([groupAfterMove]). The panel's arrows and its drag handle both move this way, so
+     * a screen-reader user reaches every position a drag does.
+     */
     fun moveLayer(id: String, up: Boolean) {
         val index = layers.indexOfFirst { it.id == id }
         val target = if (up) index + 1 else index - 1
         if (index == -1 || target !in layers.indices) return
         layers.add(target, layers.removeAt(index))
+        val moved = layers[target]
+        layers[target] = moved.copy(group = groupAfterMove(moved.group, layers.getOrNull(target - 1), layers.getOrNull(target + 1)))
+        onLayersChanged(layers.toList())
+    }
+
+    /**
+     * Puts layers [ids] in a new group [name] (design roadmap D43): they gather, in their stack
+     * order, where the topmost of them was, so the group is one run.
+     */
+    fun groupLayers(ids: Set<String>, name: String) {
+        val members = layers.filter { it.id in ids }
+        if (members.isEmpty()) return
+        val topIndex = layers.indexOfLast { it.id in ids }
+        val below = layers.subList(0, topIndex + 1).filter { it.id !in ids }
+        val above = layers.subList(topIndex + 1, layers.size).toList()
+        layers.clear()
+        layers.addAll(below + members.map { it.copy(group = name) } + above)
+        onLayersChanged(layers.toList())
+    }
+
+    /** Takes every layer out of the group run that [memberId] is in; the layers stay where they are. */
+    fun ungroup(memberId: String) = changeGroupRun(memberId) { it.copy(group = null) }
+
+    /** Renames the group run that [memberId] is in. */
+    fun renameGroup(memberId: String, name: String) = changeGroupRun(memberId) { it.copy(group = name) }
+
+    /** Shows or hides every layer of the group run that [memberId] is in. */
+    fun setGroupVisible(memberId: String, visible: Boolean) = changeGroupRun(memberId) { it.copy(visible = visible) }
+
+    /** Locks or unlocks every layer of the group run that [memberId] is in. */
+    fun setGroupLocked(memberId: String, locked: Boolean) = changeGroupRun(memberId) { it.copy(locked = locked) }
+
+    /** The indices of the group run around layer [memberId]: the adjacent layers sharing its group. */
+    fun groupRun(memberId: String): IntRange? {
+        val index = layers.indexOfFirst { it.id == memberId }
+        val group = layers.getOrNull(index)?.group ?: return null
+        var first = index
+        while (first > 0 && layers[first - 1].group == group) first--
+        var last = index
+        while (last < layers.lastIndex && layers[last + 1].group == group) last++
+        return first..last
+    }
+
+    private fun changeGroupRun(memberId: String, change: (Layer) -> Layer) {
+        val run = groupRun(memberId) ?: return
+        for (i in run) layers[i] = change(layers[i])
+        onLayersChanged(layers.toList())
+    }
+
+    /** Shows or hides layers [ids] together. */
+    fun setLayersVisible(ids: Set<String>, visible: Boolean) = changeLayers(ids) { it.copy(visible = visible) }
+
+    /** Locks or unlocks layers [ids] together. */
+    fun setLayersLocked(ids: Set<String>, locked: Boolean) = changeLayers(ids) { it.copy(locked = locked) }
+
+    private fun changeLayers(ids: Set<String>, change: (Layer) -> Layer) {
+        for (i in layers.indices) if (layers[i].id in ids) layers[i] = change(layers[i])
+        onLayersChanged(layers.toList())
+    }
+
+    /**
+     * Deletes layers [ids] and their strokes as one undo step (undoable for the strokes, like
+     * [deleteLayer]); at least one layer always stays.
+     */
+    fun deleteLayers(ids: Set<String>) {
+        val doomed = layers.filter { it.id in ids }.map { it.id }.toSet()
+        if (doomed.isEmpty() || doomed.size >= layers.size) return
+        recordHistory()
+        clearSelectionState()
+        strokes.removeWhere { it.layerId in doomed }
+        layers.removeWhere { it.id in doomed }
+        for (id in doomed) {
+            dropRaster(id)
+            dropRaster(maskIdOf(id))
+        }
+        if (activeLayerId in doomed) activeLayerId = layers.last().id
+        strokesChanged()
         onLayersChanged(layers.toList())
     }
 

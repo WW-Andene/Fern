@@ -13,6 +13,14 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.semantics.heading
+import com.andene.fern.FernSize
 import com.andene.fern.confirmationSkipped
 
 import com.andene.fern.FernMessages
@@ -60,8 +68,10 @@ import androidx.compose.ui.text.font.FontWeight
 
 /**
  * The layer stack, listed top layer first like every paint app. Tap a name to make it the
- * active layer (new strokes go there); per layer: show/hide, lock, move up/down, rename,
- * delete. The active layer also gets an opacity slider and merge-down.
+ * active layer (new strokes go there); per layer: show/hide, lock, move up/down (or drag the
+ * handle), rename, delete. The active layer also gets an opacity slider and merge-down. A long
+ * press selects several layers to group, hide, lock or delete together; groups show as a header
+ * row over their members.
  */
 @Composable
 fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
@@ -116,6 +126,25 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
         )
     }
     var layerFilter by remember { mutableStateOf("") }
+    // Multiple selection (design roadmap D43): a long press starts it, then taps add and remove.
+    var chosenIds by remember { mutableStateOf(emptySet<String>()) }
+    // Only layers that still exist (one may have been deleted elsewhere, or undone away).
+    val selectedIds = chosenIds.filterTo(HashSet()) { id -> state.layers.any { it.id == id } }
+    // Collapsed groups, by name; a view state only.
+    var collapsedGroups by remember { mutableStateOf(emptySet<String>()) }
+    var renamingGroupOf by remember { mutableStateOf<String?>(null) }
+    var confirmingDeleteMany by remember { mutableStateOf(false) }
+    if (confirmingDeleteMany) {
+        ConfirmIrreversible(
+            CONFIRM_RASTER_DELETE, stringResource(R.string.confirm_raster_delete), stringResource(R.string.tb_delete),
+            onConfirm = {
+                state.deleteLayers(selectedIds)
+                chosenIds = emptySet()
+                confirmingDeleteMany = false
+            },
+            onDismiss = { confirmingDeleteMany = false },
+        )
+    }
     val deletedLabel = stringResource(R.string.layers_deleted)
     val undoLabel = stringResource(R.string.action_undo)
     fun delete(layer: Layer) {
@@ -159,167 +188,239 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
                 FernTextButton(onClick = { pickFile.launch(arrayOf("image/*")) }) { Text(stringResource(R.string.layers_add_file)) }
                 LayerCompsSection(state)
                 if (state.layers.any { it.hdr }) HdrSection(state)
+                if (selectedIds.isNotEmpty()) {
+                    SelectionBar(
+                        state = state,
+                        selectedIds = selectedIds,
+                        onClear = { chosenIds = emptySet() },
+                        onGrouped = { chosenIds = emptySet() },
+                        onDelete = {
+                            val anyRaster = state.layers.any { it.id in selectedIds && it.raster }
+                            if (anyRaster && !confirmationSkipped(context, CONFIRM_RASTER_DELETE)) {
+                                confirmingDeleteMany = true
+                            } else {
+                                state.deleteLayers(selectedIds)
+                                chosenIds = emptySet()
+                                if (!anyRaster) FernMessages.show(deletedLabel, undoLabel, confirmation = true) { state.undo() }
+                            }
+                        },
+                    )
+                }
+                // How far a drag on a row's handle goes for one step up or down the stack.
+                val stepPx = with(LocalDensity.current) { FernSize.touchTarget.toPx() }
+                var previousGroup: String? = null
                 for (layer in state.layers.reversed()) {
                     if (layerFilter.isNotBlank() && !layer.name.contains(layerFilter.trim(), ignoreCase = true)) continue
-                    val active = layer.id == state.activeLayerId
-                    // Swipe left to delete, tap to make active (design roadmap D43).
-                    PanelRow(
-                        onClick = { state.activeLayerId = layer.id },
-                        onSwipeDelete = if (state.layers.size > 1) { { delete(layer) } } else null,
-                        deleteLabel = stringResource(R.string.layers_delete),
-                    ) {
-                        LayerThumbnail(state, layer.id)
-                        IconButton(onClick = { state.updateLayer(layer.id) { it.copy(visible = !it.visible) } }) {
-                            Icon(
-                                if (layer.visible) FernIcons.Visibility else FernIcons.VisibilityOff,
-                                contentDescription = if (layer.visible) stringResource(R.string.layers_hide) else stringResource(R.string.layers_show),
+                    val group = layer.group
+                    // A group's header row above its first (topmost) member (design roadmap D43).
+                    if (group != null && group != previousGroup) {
+                        key("group", layer.id) {
+                            GroupHeader(
+                                state = state,
+                                member = layer,
+                                collapsed = group in collapsedGroups,
+                                onToggleCollapsed = { collapsedGroups = if (group in collapsedGroups) collapsedGroups - group else collapsedGroups + group },
+                                renaming = renamingGroupOf == layer.id,
+                                onRenamingChange = { renamingGroupOf = if (it) layer.id else null },
                             )
                         }
-                        IconButton(onClick = { state.updateLayer(layer.id) { it.copy(reference = !it.reference) } }) {
-                            Icon(
-                                FernIcons.FormatColorFill,
-                                contentDescription = if (layer.reference) stringResource(R.string.layers_reference_on) else stringResource(R.string.layers_reference_off),
-                                tint = if (layer.reference) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                            )
+                    }
+                    previousGroup = group
+                    if (group != null && group in collapsedGroups) continue
+                    // Keyed by layer, so a row being dragged keeps its gesture as it moves through the list.
+                    key(layer.id) {
+                        val active = layer.id == state.activeLayerId
+                        val selecting = selectedIds.isNotEmpty()
+                        fun toggleSelected() {
+                            chosenIds = if (layer.id in selectedIds) selectedIds - layer.id else selectedIds + layer.id
                         }
-                        IconButton(onClick = { state.updateLayer(layer.id) { it.copy(locked = !it.locked) } }) {
+                        // Swipe left to delete, tap to make active, long-press to select several (design roadmap D43).
+                        PanelRow(
+                            onClick = { if (selecting) toggleSelected() else state.activeLayerId = layer.id },
+                            onLongClick = { toggleSelected() },
+                            onSwipeDelete = if (state.layers.size > 1) { { delete(layer) } } else null,
+                            deleteLabel = stringResource(R.string.layers_delete),
+                            selected = layer.id in selectedIds,
+                        ) {
+                            // Drag the handle up or down to move the layer, into or out of groups on the way
+                            // (design roadmap D43); the arrows below do the same one step at a time.
+                            var dragged by remember { mutableFloatStateOf(0f) }
                             Icon(
-                                if (layer.locked) FernIcons.Lock else FernIcons.LockOpen,
-                                contentDescription = if (layer.locked) stringResource(R.string.layers_unlock) else stringResource(R.string.layers_lock),
-                            )
-                        }
-                        if (renamingId == layer.id) {
-                            FernTextField(
-                                value = renameText,
-                                onValueChange = { renameText = it },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f),
-                            )
-                            IconButton(onClick = {
-                                if (renameText.isNotBlank()) state.updateLayer(layer.id) { it.copy(name = renameText.trim()) }
-                                renamingId = null
-                            }) {
-                                Icon(FernIcons.Check, contentDescription = stringResource(R.string.action_confirm_rename))
-                            }
-                        } else {
-                            // Drag sideways on the name to set the layer's opacity, shown beside it (design roadmap D43).
-                            val opacityLabel = stringResource(R.string.layers_opacity_drag)
-                            Text(
-                                text = if (layer.opacity < 1f) "${layer.name} · ${(layer.opacity * 100).roundToInt()} %" else layer.name,
-                                fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                                FernIcons.DragHandle,
+                                contentDescription = stringResource(R.string.layers_drag),
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .semantics { stateDescription = opacityLabel }
+                                    .padding(start = if (group != null) FernScale.s24 else FernScale.none)
+                                    .size(FernSize.touchTarget)
+                                    .padding(FernScale.s12)
                                     .pointerInput(layer.id) {
-                                        detectHorizontalDragGestures { change, dx ->
+                                        detectVerticalDragGestures(onDragStart = { dragged = 0f }) { change, dy ->
                                             change.consume()
-                                            state.updateLayer(layer.id) { it.copy(opacity = (it.opacity + dx / OPACITY_DRAG_PX).coerceIn(0f, 1f)) }
+                                            dragged += dy
+                                            // The list shows the top layer first: dragging up moves a layer up the stack.
+                                            while (dragged <= -stepPx) {
+                                                state.moveLayer(layer.id, up = true)
+                                                dragged += stepPx
+                                            }
+                                            while (dragged >= stepPx) {
+                                                state.moveLayer(layer.id, up = false)
+                                                dragged -= stepPx
+                                            }
+                                        }
+                                    },
+                            )
+                            LayerThumbnail(state, layer.id)
+                            IconButton(onClick = { state.updateLayer(layer.id) { it.copy(visible = !it.visible) } }) {
+                                Icon(
+                                    if (layer.visible) FernIcons.Visibility else FernIcons.VisibilityOff,
+                                    contentDescription = if (layer.visible) stringResource(R.string.layers_hide) else stringResource(R.string.layers_show),
+                                )
+                            }
+                            IconButton(onClick = { state.updateLayer(layer.id) { it.copy(reference = !it.reference) } }) {
+                                Icon(
+                                    FernIcons.FormatColorFill,
+                                    contentDescription = if (layer.reference) stringResource(R.string.layers_reference_on) else stringResource(R.string.layers_reference_off),
+                                    tint = if (layer.reference) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                )
+                            }
+                            IconButton(onClick = { state.updateLayer(layer.id) { it.copy(locked = !it.locked) } }) {
+                                Icon(
+                                    if (layer.locked) FernIcons.Lock else FernIcons.LockOpen,
+                                    contentDescription = if (layer.locked) stringResource(R.string.layers_unlock) else stringResource(R.string.layers_lock),
+                                )
+                            }
+                            if (renamingId == layer.id) {
+                                FernTextField(
+                                    value = renameText,
+                                    onValueChange = { renameText = it },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                IconButton(onClick = {
+                                    if (renameText.isNotBlank()) state.updateLayer(layer.id) { it.copy(name = renameText.trim()) }
+                                    renamingId = null
+                                }) {
+                                    Icon(FernIcons.Check, contentDescription = stringResource(R.string.action_confirm_rename))
+                                }
+                            } else {
+                                // Drag sideways on the name to set the layer's opacity, shown beside it (design roadmap D43).
+                                val opacityLabel = stringResource(R.string.layers_opacity_drag)
+                                Text(
+                                    text = if (layer.opacity < 1f) "${layer.name} · ${(layer.opacity * 100).roundToInt()} %" else layer.name,
+                                    fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .semantics { stateDescription = opacityLabel }
+                                        .pointerInput(layer.id) {
+                                            detectHorizontalDragGestures { change, dx ->
+                                                change.consume()
+                                                state.updateLayer(layer.id) { it.copy(opacity = (it.opacity + dx / OPACITY_DRAG_PX).coerceIn(0f, 1f)) }
+                                            }
+                                        }
+                                        .padding(vertical = FernScale.s12),
+                                )
+                                IconButton(onClick = {
+                                    renamingId = layer.id
+                                    renameText = layer.name
+                                }) {
+                                    Icon(FernIcons.Edit, contentDescription = stringResource(R.string.layers_rename))
+                                }
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (layer.fileSource != null) {
+                                IconButton(onClick = { reload(layer) }) {
+                                    Icon(FernIcons.Refresh, contentDescription = stringResource(R.string.layers_reload_file))
+                                }
+                            }
+                            IconButton(onClick = { state.moveLayer(layer.id, up = true) }, enabled = layer != state.layers.last()) {
+                                Icon(FernIcons.ArrowUpward, contentDescription = stringResource(R.string.layers_up))
+                            }
+                            IconButton(onClick = { state.moveLayer(layer.id, up = false) }, enabled = layer != state.layers.first()) {
+                                Icon(FernIcons.ArrowDownward, contentDescription = stringResource(R.string.layers_down))
+                            }
+                            IconButton(onClick = { state.mergeLayerDown(layer.id) }, enabled = layer != state.layers.first()) {
+                                Icon(FernIcons.MergeType, contentDescription = stringResource(R.string.layers_merge))
+                            }
+                            IconButton(onClick = { delete(layer) }, enabled = state.layers.size > 1) {
+                                Icon(FernIcons.Delete, contentDescription = stringResource(R.string.layers_delete))
+                            }
+                        }
+                        if (active) {
+                            // Blend mode (roadmap item 93), and an adjustment layer's settings.
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                var blendMenu by remember { mutableStateOf(false) }
+                                Box {
+                                    FernTextButton(onClick = { blendMenu = true }) {
+                                        Text(stringResource(R.string.layers_blend) + ": " + stringResource(layer.blend.label))
+                                    }
+                                    DropdownMenu(expanded = blendMenu, onDismissRequest = { blendMenu = false }) {
+                                        for (mode in LayerBlend.entries) {
+                                            FernMenuItem(
+                                                text = { Text(stringResource(mode.label)) },
+                                                onClick = {
+                                                    state.updateLayer(layer.id) { it.copy(blend = mode) }
+                                                    blendMenu = false
+                                                },
+                                            )
                                         }
                                     }
-                                    .padding(vertical = FernScale.s12),
-                            )
-                            IconButton(onClick = {
-                                renamingId = layer.id
-                                renameText = layer.name
-                            }) {
-                                Icon(FernIcons.Edit, contentDescription = stringResource(R.string.layers_rename))
-                            }
-                        }
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (layer.fileSource != null) {
-                            IconButton(onClick = { reload(layer) }) {
-                                Icon(FernIcons.Refresh, contentDescription = stringResource(R.string.layers_reload_file))
-                            }
-                        }
-                        IconButton(onClick = { state.moveLayer(layer.id, up = true) }, enabled = layer != state.layers.last()) {
-                            Icon(FernIcons.ArrowUpward, contentDescription = stringResource(R.string.layers_up))
-                        }
-                        IconButton(onClick = { state.moveLayer(layer.id, up = false) }, enabled = layer != state.layers.first()) {
-                            Icon(FernIcons.ArrowDownward, contentDescription = stringResource(R.string.layers_down))
-                        }
-                        IconButton(onClick = { state.mergeLayerDown(layer.id) }, enabled = layer != state.layers.first()) {
-                            Icon(FernIcons.MergeType, contentDescription = stringResource(R.string.layers_merge))
-                        }
-                        IconButton(onClick = { delete(layer) }, enabled = state.layers.size > 1) {
-                            Icon(FernIcons.Delete, contentDescription = stringResource(R.string.layers_delete))
-                        }
-                    }
-                    if (active) {
-                        // Blend mode (roadmap item 93), and an adjustment layer's settings.
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            var blendMenu by remember { mutableStateOf(false) }
-                            Box {
-                                FernTextButton(onClick = { blendMenu = true }) {
-                                    Text(stringResource(R.string.layers_blend) + ": " + stringResource(layer.blend.label))
                                 }
-                                DropdownMenu(expanded = blendMenu, onDismissRequest = { blendMenu = false }) {
-                                    for (mode in LayerBlend.entries) {
-                                        FernMenuItem(
-                                            text = { Text(stringResource(mode.label)) },
-                                            onClick = {
-                                                state.updateLayer(layer.id) { it.copy(blend = mode) }
-                                                blendMenu = false
-                                            },
+                                val adjustment = layer.adjustment
+                                if (adjustment != null) {
+                                    FernTextButton(onClick = { editingAdjustment = layer.id to adjustment }) { Text(stringResource(R.string.layers_edit_adjustment)) }
+                                }
+                            }
+                            // Masks, clipping and alpha lock (roadmap item 91).
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = { if (layer.masked) state.removeLayerMask(layer.id) else state.addLayerMask(layer.id) }) {
+                                    Icon(
+                                        FernIcons.Gradient,
+                                        contentDescription = stringResource(if (layer.masked) R.string.layers_mask_remove else R.string.layers_mask_add),
+                                        tint = if (layer.masked) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                    )
+                                }
+                                if (layer.masked) {
+                                    IconButton(onClick = { state.editingMask = !state.editingMask }) {
+                                        Icon(
+                                            FernIcons.Brush,
+                                            contentDescription = stringResource(if (state.editingMask) R.string.layers_mask_edit_stop else R.string.layers_mask_edit),
+                                            tint = if (state.editingMask) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                        )
+                                    }
+                                }
+                                IconButton(onClick = { state.updateLayer(layer.id) { it.copy(clipped = !it.clipped) } }, enabled = layer != state.layers.first()) {
+                                    Icon(
+                                        FernIcons.SubdirectoryArrowRight,
+                                        contentDescription = stringResource(if (layer.clipped) R.string.layers_clip_off else R.string.layers_clip_on),
+                                        tint = if (layer.clipped) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                    )
+                                }
+                                if (layer.raster) {
+                                    IconButton(onClick = { state.updateLayer(layer.id) { it.copy(alphaLocked = !it.alphaLocked) } }) {
+                                        Icon(
+                                            FernIcons.Opacity,
+                                            contentDescription = stringResource(if (layer.alphaLocked) R.string.layers_alpha_unlock else R.string.layers_alpha_lock),
+                                            tint = if (layer.alphaLocked) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                                         )
                                     }
                                 }
                             }
-                            val adjustment = layer.adjustment
-                            if (adjustment != null) {
-                                FernTextButton(onClick = { editingAdjustment = layer.id to adjustment }) { Text(stringResource(R.string.layers_edit_adjustment)) }
-                            }
                         }
-                        // Masks, clipping and alpha lock (roadmap item 91).
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { if (layer.masked) state.removeLayerMask(layer.id) else state.addLayerMask(layer.id) }) {
-                                Icon(
-                                    FernIcons.Gradient,
-                                    contentDescription = stringResource(if (layer.masked) R.string.layers_mask_remove else R.string.layers_mask_add),
-                                    tint = if (layer.masked) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                                )
-                            }
-                            if (layer.masked) {
-                                IconButton(onClick = { state.editingMask = !state.editingMask }) {
-                                    Icon(
-                                        FernIcons.Brush,
-                                        contentDescription = stringResource(if (state.editingMask) R.string.layers_mask_edit_stop else R.string.layers_mask_edit),
-                                        tint = if (state.editingMask) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                                    )
-                                }
-                            }
-                            IconButton(onClick = { state.updateLayer(layer.id) { it.copy(clipped = !it.clipped) } }, enabled = layer != state.layers.first()) {
-                                Icon(
-                                    FernIcons.SubdirectoryArrowRight,
-                                    contentDescription = stringResource(if (layer.clipped) R.string.layers_clip_off else R.string.layers_clip_on),
-                                    tint = if (layer.clipped) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                                )
-                            }
-                            if (layer.raster) {
-                                IconButton(onClick = { state.updateLayer(layer.id) { it.copy(alphaLocked = !it.alphaLocked) } }) {
-                                    Icon(
-                                        FernIcons.Opacity,
-                                        contentDescription = stringResource(if (layer.alphaLocked) R.string.layers_alpha_unlock else R.string.layers_alpha_lock),
-                                        tint = if (layer.alphaLocked) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                                    )
-                                }
-                            }
+                        if (active) {
+                            FernSlider(
+                                value = layer.opacity,
+                                onValueChange = { value -> state.updateLayer(layer.id) { it.copy(opacity = value) } },
+                                valueRange = 0f..1f,
+                            )
+                            // Blank for a layer that's always shown; a name puts it in that skin.
+                            FernTextField(
+                                value = layer.skin.orEmpty(),
+                                onValueChange = { name -> state.updateLayer(layer.id) { it.copy(skin = name.trim().ifEmpty { null }) } },
+                                label = { Text(stringResource(R.string.layers_skin)) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
                         }
-                    }
-                    if (active) {
-                        FernSlider(
-                            value = layer.opacity,
-                            onValueChange = { value -> state.updateLayer(layer.id) { it.copy(opacity = value) } },
-                            valueRange = 0f..1f,
-                        )
-                        // Blank for a layer that's always shown; a name puts it in that skin.
-                        FernTextField(
-                            value = layer.skin.orEmpty(),
-                            onValueChange = { name -> state.updateLayer(layer.id) { it.copy(skin = name.trim().ifEmpty { null }) } },
-                            label = { Text(stringResource(R.string.layers_skin)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
                     }
                 }
             }
@@ -410,3 +511,87 @@ private const val CONFIRM_RASTER_DELETE = "delete_raster_layer"
 
 // Dragging this far sideways on a layer's name takes its opacity from clear to solid.
 private const val OPACITY_DRAG_PX = 384f
+
+/** What can be done to the selected layers at once (design roadmap D43): group, show or hide, lock, delete. */
+@Composable
+private fun SelectionBar(state: CanvasState, selectedIds: Set<String>, onClear: () -> Unit, onGrouped: () -> Unit, onDelete: () -> Unit) {
+    val selected = state.layers.filter { it.id in selectedIds }
+    val allVisible = selected.all { it.visible }
+    val allLocked = selected.all { it.locked }
+    val groupName = stringResource(R.string.layers_group_default, state.layers.mapNotNull { it.group }.toSet().size + 1)
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onClear) { Icon(FernIcons.Close, contentDescription = stringResource(R.string.layers_selection_clear)) }
+        Text(pluralStringResource(R.plurals.layers_selected, selected.size, selected.size), modifier = Modifier.padding(end = FernScale.s8))
+        FernTextButton(onClick = {
+            state.groupLayers(selectedIds, groupName)
+            onGrouped()
+        }) { Text(stringResource(R.string.layers_group)) }
+        IconButton(onClick = { state.setLayersVisible(selectedIds, !allVisible) }) {
+            Icon(
+                if (allVisible) FernIcons.Visibility else FernIcons.VisibilityOff,
+                contentDescription = stringResource(if (allVisible) R.string.layers_hide else R.string.layers_show),
+            )
+        }
+        IconButton(onClick = { state.setLayersLocked(selectedIds, !allLocked) }) {
+            Icon(
+                if (allLocked) FernIcons.Lock else FernIcons.LockOpen,
+                contentDescription = stringResource(if (allLocked) R.string.layers_unlock else R.string.layers_lock),
+            )
+        }
+        IconButton(onClick = onDelete, enabled = selected.size < state.layers.size) {
+            Icon(FernIcons.Delete, contentDescription = stringResource(R.string.layers_delete))
+        }
+    }
+}
+
+/**
+ * A group's row in the list (design roadmap D43), above its members: collapse, the name (tap the
+ * pencil to rename), and an eye and a lock that act on every member, then Ungroup.
+ */
+@Composable
+private fun GroupHeader(
+    state: CanvasState,
+    member: Layer,
+    collapsed: Boolean,
+    onToggleCollapsed: () -> Unit,
+    renaming: Boolean,
+    onRenamingChange: (Boolean) -> Unit,
+) {
+    val name = member.group ?: return
+    val members = state.groupRun(member.id)?.map { state.layers[it] }.orEmpty()
+    val allVisible = members.all { it.visible }
+    val allLocked = members.all { it.locked }
+    var text by remember(name) { mutableStateOf(name) }
+    Row(Modifier.fillMaxWidth().heightIn(min = FernSize.touchTarget), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onToggleCollapsed) {
+            Icon(
+                if (collapsed) FernIcons.ExpandMore else FernIcons.ExpandLess,
+                contentDescription = stringResource(if (collapsed) R.string.layers_group_expand else R.string.layers_group_collapse, name),
+            )
+        }
+        Icon(FernIcons.Folder, contentDescription = null)
+        if (renaming) {
+            FernTextField(value = text, onValueChange = { text = it }, singleLine = true, modifier = Modifier.weight(1f))
+            IconButton(onClick = {
+                if (text.isNotBlank()) state.renameGroup(member.id, text.trim())
+                onRenamingChange(false)
+            }) { Icon(FernIcons.Check, contentDescription = stringResource(R.string.action_confirm_rename)) }
+        } else {
+            Text(name, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).padding(start = FernScale.s8).semantics { heading() })
+            IconButton(onClick = { onRenamingChange(true) }) { Icon(FernIcons.Edit, contentDescription = stringResource(R.string.layers_group_rename, name)) }
+        }
+        IconButton(onClick = { state.setGroupVisible(member.id, !allVisible) }) {
+            Icon(
+                if (allVisible) FernIcons.Visibility else FernIcons.VisibilityOff,
+                contentDescription = stringResource(if (allVisible) R.string.layers_group_hide else R.string.layers_group_show, name),
+            )
+        }
+        IconButton(onClick = { state.setGroupLocked(member.id, !allLocked) }) {
+            Icon(
+                if (allLocked) FernIcons.Lock else FernIcons.LockOpen,
+                contentDescription = stringResource(if (allLocked) R.string.layers_group_unlock else R.string.layers_group_lock, name),
+            )
+        }
+        FernTextButton(onClick = { state.ungroup(member.id) }) { Text(stringResource(R.string.layers_ungroup)) }
+    }
+}
