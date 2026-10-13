@@ -331,8 +331,9 @@ Goal: complete and deep to master, while the first minute stays simple.
 
 Goal: the canvas says what is happening without a single word or dialog.
 
-- [ ] D36. **Brush cursor and hover preview.** The real footprint of the brush (size, shape,
+- [~] D36. **Brush cursor and hover preview.** The real footprint of the brush (size, shape,
   angle) under the stylus or mouse before touching, and a crosshair option for small sizes.
+  Written, not yet compiled or tested: a hovering stylus (or mouse) shows the pen's or eraser's footprint at its real size (D16), switching to a gapped crosshair when the footprint is under 4 px. The footprint is drawn round; stamp brushes' own tip shapes and angles aren't drawn.
 - [ ] D37. **Live readouts at the point of action.** While drawing a shape, moving or scaling:
   length, angle, size and position next to the pen, in the document's scale (ROADMAP item 143),
   then gone. No fixed info bar.

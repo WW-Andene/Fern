@@ -954,9 +954,20 @@ fun DrawingCanvas(
     // The brush's footprint under a hovering stylus (design roadmap D16).
     hoverPoint?.let { point ->
         if (state.activeTool == Tool.PEN || state.activeTool == Tool.ERASER) Canvas(Modifier.matchParentSize()) {
-            val radius = (state.activeWidthWorld * state.scale / 2).toFloat().coerceAtLeast(2f)
-            drawCircle(Color.White, radius = radius + 1f, center = point, style = DrawStyle(width = 3f))
-            drawCircle(FernColors.current.selection, radius = radius, center = point, style = DrawStyle(width = 1f))
+            val radius = (state.activeWidthWorld * state.scale / 2).toFloat()
+            if (radius < CROSSHAIR_BELOW_PX) {
+                // Too small to see as a ring (design roadmap D36): a crosshair with a gap at the tip.
+                val mark = FernColors.current.selection
+                for ((dx, dy) in listOf(1f to 0f, -1f to 0f, 0f to 1f, 0f to -1f)) {
+                    val from = point + Offset(dx, dy) * CROSSHAIR_GAP_PX
+                    val to = point + Offset(dx, dy) * (CROSSHAIR_GAP_PX + CROSSHAIR_ARM_PX)
+                    drawLine(Color.White, from, to, strokeWidth = 3f)
+                    drawLine(mark, from, to, strokeWidth = 1f)
+                }
+            } else {
+                drawCircle(Color.White, radius = radius + 1f, center = point, style = DrawStyle(width = 3f))
+                drawCircle(FernColors.current.selection, radius = radius, center = point, style = DrawStyle(width = 1f))
+            }
         }
     }
     }
@@ -1705,6 +1716,10 @@ private const val MULTI_FINGER_TAP_SLOP_PX = 24f // on the §7 scale
 private const val LONG_PRESS_MILLIS = 500L
 // After a stylus was last seen, strict palm rejection ignores touches this long.
 private const val PALM_NEAR_MILLIS = 1024L
+// Under this footprint radius the hover cursor is a crosshair; its gap and arm lengths.
+private const val CROSSHAIR_BELOW_PX = 4f
+private const val CROSSHAIR_GAP_PX = 4f
+private const val CROSSHAIR_ARM_PX = 8f
 private const val LONG_PRESS_SLOP_PX = 24f
 // A three-finger swipe: this far, quickly, without pinching.
 private const val SWIPE_MIN_PX = 192f
