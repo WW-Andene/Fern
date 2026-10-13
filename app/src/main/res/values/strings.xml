@@ -1163,4 +1163,7 @@
     <string name="rig_physics_damping">Settling</string>
     <string name="view_mirror">Mirrored view</string>
     <string name="view_greyscale">Greyscale view</string>
+    <string name="tb_select_invert">Invert the selection</string>
+    <string name="tb_flip_horizontal">Flip left to right</string>
+    <string name="tb_flip_vertical">Flip top to bottom</string>
 </resources>

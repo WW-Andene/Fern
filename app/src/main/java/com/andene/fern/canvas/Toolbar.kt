@@ -190,6 +190,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
@@ -1029,6 +1030,15 @@ fun Toolbar(
                     }
                     IconButton(onClick = { state.selectAllOnActiveLayer() }) {
                         Icon(Icons.Filled.ViewModule, contentDescription = stringResource(R.string.tb_select_layer))
+                    }
+                    IconButton(onClick = { state.invertSelection() }) {
+                        Icon(Icons.Filled.FlipToBack, contentDescription = stringResource(R.string.tb_select_invert))
+                    }
+                    IconButton(onClick = { state.flipSelection(horizontal = true) }, enabled = state.selection.isNotEmpty()) {
+                        Icon(Icons.Filled.Flip, contentDescription = stringResource(R.string.tb_flip_horizontal))
+                    }
+                    IconButton(onClick = { state.flipSelection(horizontal = false) }, enabled = state.selection.isNotEmpty()) {
+                        Icon(Icons.Filled.Flip, contentDescription = stringResource(R.string.tb_flip_vertical), modifier = Modifier.rotate(90f))
                     }
                     IconButton(onClick = { state.selectSameColor() }) {
                         Icon(Icons.Filled.ColorLens, contentDescription = stringResource(R.string.tb_select_colour))

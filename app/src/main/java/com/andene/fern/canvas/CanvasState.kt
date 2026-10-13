@@ -5827,6 +5827,25 @@ class CanvasState(
         selection.addAll(strokes.filter { it.layerId == activeLayerId && isEditable(it) })
     }
 
+    /** Selects every editable stroke on the active layer that isn't selected, and deselects the rest (roadmap item 181). */
+    fun invertSelection() {
+        val was = selection.toHashSet()
+        clearSelectionState()
+        selection.addAll(strokes.filter { it.layerId == activeLayerId && isEditable(it) && it !in was })
+    }
+
+    /** Mirrors the selected ink left to right ([horizontal]) or top to bottom about its middle (roadmap item 181). One undo step. */
+    fun flipSelection(horizontal: Boolean) {
+        val (min, max) = selectionBounds() ?: return
+        recordHistory()
+        val cx = (min.x + max.x) / 2
+        val cy = (min.y + max.y) / 2
+        for (stroke in selection) {
+            stroke.setPoints(stroke.points.map { p -> if (horizontal) WorldPoint(2 * cx - p.x, p.y) else WorldPoint(p.x, 2 * cy - p.y) })
+        }
+        strokesChanged()
+    }
+
     /**
      * Selects every editable stroke with the same colour as the first selected stroke, or as
      * the current drawing colour when nothing is selected. Compared without alpha, so the

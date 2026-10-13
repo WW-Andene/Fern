@@ -333,7 +333,8 @@ The remaining existing tools made complete.
 - [ ] 178. Fill reaches areas extending past the view, falling back to the enclosing shapes' bounds (today the visible rectangle limits it).
 - [ ] 179. Eraser: size outline on hover and press; tapered ends when cutting strokes; current-layer-only option; lasso erase removes what is fully inside or anything touched.
 - [ ] 180. Select: on-canvas add, subtract and intersect; size, position and rotation in the readout with typed values; arrow-button nudge by a fixed step.
-- [ ] 181. Select: invert selection; grow and shrink by a distance; flip horizontal and vertical on the selection strip.
+- [~] 181. Select: invert selection; grow and shrink by a distance; flip horizontal and vertical on the selection strip.
+  Done: invert the selection on the active layer; flip the selection left to right or top to bottom about its middle (one undo step), from the select tool's properties. Left: grow and shrink.
 - [ ] 182. Transform: snapping to 15° and to other objects shown on the handles; uniform or free scaling as a visible toggle; interpolation choice for raster (nearest, bilinear, bicubic).
 - [ ] 183. Text: edit in place on the canvas; baseline and bounding-box guides while moving; outline and shadow.
 - [ ] 184. Bezier: tap a node to switch corner and smooth; close the path by tapping the first node; add, delete and split nodes on an existing path.

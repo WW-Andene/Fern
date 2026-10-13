@@ -1167,4 +1167,7 @@
     <string name="rig_physics_damping">Amortissement</string>
     <string name="view_mirror">Vue miroir</string>
     <string name="view_greyscale">Vue en gris</string>
+    <string name="tb_select_invert">Inverser la sélection</string>
+    <string name="tb_flip_horizontal">Retourner de gauche à droite</string>
+    <string name="tb_flip_vertical">Retourner de haut en bas</string>
 </resources>
