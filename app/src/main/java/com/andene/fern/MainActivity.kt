@@ -128,6 +128,7 @@ import com.andene.fern.canvas.Frame
 import com.andene.fern.canvas.FramesDialog
 import com.andene.fern.canvas.ClipboardContent
 import com.andene.fern.canvas.DocumentLoadingOverlay
+import com.andene.fern.canvas.PressureCurves
 import com.andene.fern.canvas.LoadedDocument
 import com.andene.fern.canvas.LinkChoices
 import com.andene.fern.canvas.LinkTarget
@@ -259,6 +260,7 @@ class MainActivity : ComponentActivity() {
             var colorBlindSafe by remember { mutableStateOf(AppSettings.colorBlindSafe(this)) }
             remember { FernHaptics.enabled = AppSettings.haptics(this) }
             remember { FernPaper.chromeFollowsPaper = AppSettings.chromeFollowsPaper(this) }
+            remember { PressureCurves.load(this) }
             var uiSize by remember { mutableStateOf(AppSettings.uiSize(this)) }
             FernTheme(highContrast = highContrast, colorBlindSafe = colorBlindSafe, uiSize = uiSize) {
                 Surface(color = Color(0xFFF7F5F0)) {

@@ -1103,4 +1103,6 @@
     <string name="guide_curve">Curve ruler</string>
     <string name="selection_make_tip">Make a brush tip from the selection</string>
     <string name="selection_tip_made">Brush tip made: draw to try it</string>
+    <string name="pressure_curve_title">Pressure curve</string>
+    <string name="pressure_curve_for">Pressure curve: %1$s</string>
 </resources>

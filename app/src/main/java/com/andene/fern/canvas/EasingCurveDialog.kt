@@ -33,13 +33,14 @@ import com.andene.fern.R
  * for anticipation and overshoot, so the graph leaves room above and below.
  */
 @Composable
-fun EasingCurveDialog(initial: CubicEasing, onApply: (CubicEasing) -> Unit, onDismiss: () -> Unit) {
+fun EasingCurveDialog(initial: CubicEasing, onApply: (CubicEasing) -> Unit, onDismiss: () -> Unit, title: String? = null) {
     var curve by remember { mutableStateOf(initial) }
     // Which handle a drag moves: 1 or 2, chosen by the nearer one when it starts.
     var dragging by remember { mutableIntStateOf(0) }
     val lineColor = MaterialTheme.colorScheme.onSurface
     val accent = MaterialTheme.colorScheme.primary
-    val description = stringResource(R.string.easing_curve_title)
+    // Also the pressure curve editor (roadmap item 189), which names its own title.
+    val description = title ?: stringResource(R.string.easing_curve_title)
     FernPanel(
         // Not scrolled: a scroll would take the drags meant for the drawing area.
         onDismissRequest = onDismiss,

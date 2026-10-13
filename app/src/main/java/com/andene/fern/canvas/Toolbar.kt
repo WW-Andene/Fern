@@ -144,6 +144,7 @@ import androidx.compose.material.icons.filled.LineWeight
 import androidx.compose.material.icons.filled.LinearScale
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.PanoramaFishEye
 import androidx.compose.material.icons.filled.TripOrigin
 import androidx.compose.material.icons.filled.WbSunny
@@ -485,6 +486,7 @@ fun Toolbar(
     var showBackgroundStyleMenu by remember { mutableStateOf(false) }
     var showBackgroundColorPicker by remember { mutableStateOf(false) }
     var showBrushEditor by remember { mutableStateOf(false) }
+    var showPressureCurve by remember { mutableStateOf(false) }
     var showGradientDialog by remember { mutableStateOf(false) }
     var showPerspectiveMenu by remember { mutableStateOf(false) }
 
@@ -616,6 +618,10 @@ fun Toolbar(
                             tint = if (state.indexedPalette) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
+                }
+                // The pen's pressure curve (roadmap item 189).
+                IconButton(onClick = { showPressureCurve = true }) {
+                    Icon(Icons.Filled.ShowChart, contentDescription = stringResource(R.string.pressure_curve_title))
                 }
                 if (state.activePenType == PenType.STAMP) {
                     IconButton(onClick = { showBrushEditor = true }) {
@@ -1423,6 +1429,20 @@ fun Toolbar(
                 }
             }
         }
+    }
+
+    if (showPressureCurve) {
+        val context = LocalContext.current
+        val penType = state.activePenType
+        EasingCurveDialog(
+            initial = PressureCurves.curveFor(penType),
+            onApply = {
+                PressureCurves.set(context, penType, it)
+                showPressureCurve = false
+            },
+            onDismiss = { showPressureCurve = false },
+            title = stringResource(R.string.pressure_curve_for, stringResource(penTypeLabel(penType))),
+        )
     }
 
     if (showSearchDialog) {

@@ -281,7 +281,8 @@ Guides as professional tools have them: placed, locked and drawn along, many kin
 One brush engine with every setting editable, pens made from your own drawing, a brush studio. Data before editor: the engine's settings first (349, 189–200), then the studio (201), then import (202). The stroke format gains an explicit version and a converter with golden-file tests before the brush model changes, so existing documents keep opening (review §6).
 
 - [ ] 349. **Every pen is a brush.** The fixed pen types (marker, pencil, highlighter, calligraphy, airbrush, crayon, pixel, stamp) become presets of one engine whose settings are all editable, duplicable and shareable, instead of hard-coded behaviours.
-- [ ] 189. Pressure curve per pen and brush, edited as a curve (reusing the easing curve editor), with a minimum width so light pressure never vanishes and pressure-to-opacity besides pressure-to-width.
+- [~] 189. Pressure curve per pen and brush, edited as a curve (reusing the easing curve editor), with a minimum width so light pressure never vanishes and pressure-to-opacity besides pressure-to-width.
+  Done: a pressure curve per pen type, edited in the curve editor from the pen's properties, applied to stylus pressure as it is read (`PressureCurves.kt`); a finger's full pressure is left alone. Left: a minimum width, and pressure to opacity.
 - [ ] 190. Smoothing modes: streamline (lag), pulled string, average of the last N points, each with its own setting; end smoothing (no hook when the pen lifts); pressure smoothed separately from position; the stabiliser shown as a lag string while drawing.
 - [ ] 191. Custom width profile drawn as a curve, besides uniform and tapered.
 - [ ] 192. Brush taper per brush: length and size at start and end, linked to pressure or not.

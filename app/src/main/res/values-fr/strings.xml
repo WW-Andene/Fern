@@ -1107,4 +1107,6 @@
     <string name="guide_curve">Règle courbe</string>
     <string name="selection_make_tip">Faire une pointe de pinceau avec la sélection</string>
     <string name="selection_tip_made">Pointe créée : dessinez pour l’essayer</string>
+    <string name="pressure_curve_title">Courbe de pression</string>
+    <string name="pressure_curve_for">Courbe de pression : %1$s</string>
 </resources>

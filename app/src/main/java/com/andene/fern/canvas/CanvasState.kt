@@ -3593,7 +3593,9 @@ class CanvasState(
         )
     }
 
-    fun beginStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
+    fun beginStroke(worldPoint: WorldPoint, rawPressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
+        // The pen's own pressure curve (roadmap item 189).
+        val pressure = PressureCurves.shape(activePenType, rawPressure)
         // Touching a vanishing point's handle moves it instead of drawing (works on locked layers too: it's a guide).
         if (perspectiveMode != PerspectiveMode.OFF) {
             val hit = vanishingPoints.indexOfFirst { hypot(it.x - worldPoint.x, it.y - worldPoint.y) * scale <= VANISHING_POINT_HANDLE_SCREEN }
@@ -3664,7 +3666,8 @@ class CanvasState(
         for ((copy, transform) in symmetryCopies) copy.addPoint(transform(point), pressure, tilt, orientation)
     }
 
-    fun extendStroke(worldPoint: WorldPoint, pressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
+    fun extendStroke(worldPoint: WorldPoint, rawPressure: Float = 1f, tilt: Float = 0f, orientation: Float = 0f) {
+        val pressure = PressureCurves.shape(activePenType, rawPressure)
         if (rasterLast != null) {
             activeRaster?.let { rasterDabs(it, worldPoint, pressure) }
             return
