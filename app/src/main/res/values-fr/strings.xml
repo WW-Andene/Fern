@@ -1162,4 +1162,7 @@
     <string name="rig_property_shear_x">inclinaison horizontale</string>
     <string name="rig_property_shear_y">inclinaison verticale</string>
     <string name="rig_attach_layers">Attacher chaque calque comme une partie</string>
+    <string name="rig_physics">Inertie (balance après le mouvement)</string>
+    <string name="rig_physics_strength">Raideur</string>
+    <string name="rig_physics_damping">Amortissement</string>
 </resources>

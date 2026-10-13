@@ -31,6 +31,8 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import com.andene.fern.FernPanel
 import com.andene.fern.FernScale
+import com.andene.fern.FernSlider
+import com.andene.fern.FernSwitch
 import com.andene.fern.FernTextButton
 import com.andene.fern.FernTextField
 import com.andene.fern.R
@@ -87,6 +89,17 @@ fun RigPanel(state: CanvasState, onDismiss: () -> Unit) {
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    // Follow-through (roadmap item 292): the bone lags and swings behind its animation.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.rig_physics), modifier = Modifier.weight(1f))
+                        FernSwitch(checked = bone.physics != null, onCheckedChange = { on -> editor.setPhysics(bone.id, if (on) BonePhysics() else null) })
+                    }
+                    bone.physics?.let { physics ->
+                        Text(stringResource(R.string.rig_physics_strength), style = MaterialTheme.typography.bodySmall)
+                        FernSlider(value = physics.strength.toFloat(), onValueChange = { editor.setPhysics(bone.id, physics.copy(strength = it.toDouble())) })
+                        Text(stringResource(R.string.rig_physics_damping), style = MaterialTheme.typography.bodySmall)
+                        FernSlider(value = physics.damping.toFloat(), onValueChange = { editor.setPhysics(bone.id, physics.copy(damping = it.toDouble())) })
+                    }
                 }
                 // The active animation's keys (roadmap items 256-257): one row per bone and property.
                 editor.activeAnimation?.let { anim ->

@@ -46,7 +46,8 @@ object RigStorage {
                 JSONObject().put("id", b.id).put("name", b.name).put("parent", b.parentId ?: JSONObject.NULL)
                     .put("x", b.x).put("y", b.y).put("rotation", b.rotation).put("length", b.length)
                     .put("scaleX", b.scaleX).put("scaleY", b.scaleY).put("shearX", b.shearX).put("shearY", b.shearY)
-                    .put("inherit", b.inherit.name),
+                    .put("inherit", b.inherit.name)
+                    .apply { b.physics?.let { put("physics", JSONObject().put("strength", it.strength).put("damping", it.damping)) } },
             )
         }
         val slots = JSONArray()
@@ -99,6 +100,7 @@ object RigStorage {
                 b.getDouble("x"), b.getDouble("y"), b.getDouble("rotation"), b.getDouble("length"),
                 b.optDouble("scaleX", 1.0), b.optDouble("scaleY", 1.0), b.optDouble("shearX", 0.0), b.optDouble("shearY", 0.0),
                 BoneInherit.entries.firstOrNull { it.name == b.optString("inherit") } ?: BoneInherit.NORMAL,
+                b.optJSONObject("physics")?.let { BonePhysics(it.optDouble("strength", 0.3), it.optDouble("damping", 0.2)) },
             )
         }
         val slots = objects("slots").map { s ->

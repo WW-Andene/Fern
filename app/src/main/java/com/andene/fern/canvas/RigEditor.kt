@@ -72,7 +72,21 @@ class RigEditor(private val host: Host) {
 
     /** Each bone's world transform as shown: the setup pose, or the animation at the current frame. */
     fun pose(): Map<String, Affine> =
-        if (setupMode) rig.setupPose() else rig.pose(activeAnimation, host.currentFrame.toDouble())
+        if (setupMode) rig.setupPose() else rig.pose(activeAnimation, host.currentFrame.toDouble(), physicsAngles())
+
+    /** The physics bones' simulated angles at the current frame (roadmap item 292), computed once per state. */
+    private fun physicsAngles(): Map<String, Double> {
+        val key = listOf(rig, animationId, host.currentFrame)
+        physicsCache?.let { (k, angles) -> if (k == key) return angles }
+        return rig.simulatePhysics(activeAnimation, host.currentFrame).also { physicsCache = key to it }
+    }
+
+    private var physicsCache: Pair<List<Any?>, Map<String, Double>>? = null
+
+    /** Turns follow-through physics on bone [id] on (with [physics]) or off (null). */
+    fun setPhysics(id: String, physics: BonePhysics?) {
+        change(rig.copy(bones = rig.bones.map { if (it.id == id) it.copy(physics = physics) else it }))
+    }
 
     fun load(loaded: Rig) {
         rig = loaded

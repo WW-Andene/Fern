@@ -487,7 +487,8 @@ Rig behaviour beyond direct posing.
 - [ ] 289. Joint limits shown as arcs on the canvas and dragged at their ends.
 - [ ] 290. Transform constraint: copy rotation, position, scale or shear between bones with offsets and mix.
 - [ ] 291. Path constraint: bones follow a drawn path, with position, spacing (length, fixed, percent) and rotation modes.
-- [ ] 292. Physics constraint: inertia, strength, damping, mass, wind and gravity per bone, in playback and export. Dynamic bones become this, with their settings and a preview while scrubbing.
+- [~] 292. Physics constraint: inertia, strength, damping, mass, wind and gravity per bone, in playback and export. Dynamic bones become this, with their settings and a preview while scrubbing.
+  Done: on the new rig, follow-through per bone (rig panel): its world angle is a damped spring pulled towards the animation, simulated frame by frame with sub-steps, parents before children, with stiffness and settling sliders; saved with the rig. Left: inertia, mass, wind and gravity, and exporting it as Spine's physics constraint.
 - [ ] 293. Constraint order list and keyed constraint mix.
 - [ ] 294. Constraint tool: add each constraint by picking bones on the canvas.
 

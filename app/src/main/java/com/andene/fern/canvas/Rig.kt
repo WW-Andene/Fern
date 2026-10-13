@@ -75,7 +75,16 @@ data class RigBone(
     val shearX: Double = 0.0,
     val shearY: Double = 0.0,
     val inherit: BoneInherit = BoneInherit.NORMAL,
+    /** Follow-through (roadmap item 292): the bone lags behind and overshoots its animated angle. */
+    val physics: BonePhysics? = null,
 )
+
+/**
+ * A physics constraint on one bone (roadmap item 292), as Spine's: the bone's world angle is a
+ * damped spring pulled towards where the animation puts it. [strength] is how hard it is pulled
+ * back (0 loose, 1 stiff), [damping] how quickly the swing dies (0 swings on, 1 settles at once).
+ */
+data class BonePhysics(val strength: Double = 0.3, val damping: Double = 0.2)
 
 /** The bone properties an animation can key. */
 enum class BoneProperty { ROTATE, X, Y, SCALE_X, SCALE_Y, SHEAR_X, SHEAR_Y }
@@ -145,8 +154,12 @@ data class Rig(
     /** Each bone's world transform in the setup pose. */
     fun setupPose(): Map<String, Affine> = pose(null, 0.0)
 
-    /** Each bone's world transform in [animation] at [time] (the setup pose when [animation] is null). */
-    fun pose(animation: RigAnimation?, time: Double): Map<String, Affine> {
+    /**
+     * Each bone's world transform in [animation] at [time] (the setup pose when [animation] is
+     * null). [angles] replaces the world angle of the bones it names, keeping their origin and
+     * scale, before their children are placed: how physics bones lag (see [simulatePhysics]).
+     */
+    fun pose(animation: RigAnimation?, time: Double, angles: Map<String, Double> = emptyMap()): Map<String, Affine> {
         val byBone = animation?.timelines?.groupBy { it.boneId }.orEmpty()
         val world = HashMap<String, Affine>(bones.size)
         for (bone in bones) {
@@ -162,9 +175,54 @@ data class Rig(
                 bone.shearY + (keyedValue(BoneProperty.SHEAR_Y) ?: 0.0),
             )
             val parent = bone.parentId?.let { world[it] }
-            world[bone.id] = if (parent == null) local else inherited(parent, bone.inherit) * local
+            val placed = if (parent == null) local else inherited(parent, bone.inherit) * local
+            world[bone.id] = angles[bone.id]?.let { withAngle(placed, it) } ?: placed
         }
         return world
+    }
+
+    /**
+     * The world angles of the physics bones at each frame from 0 to [frame] of [animation]
+     * (roadmap item 292): each starts on its animated angle and then follows it as a damped
+     * spring, stepped [PHYSICS_SUBSTEPS] times a frame, so swings carry over from frame to frame.
+     * Parents are settled before children, so a tail's tip lags behind its lagging base.
+     */
+    fun simulatePhysics(animation: RigAnimation?, frame: Int): Map<String, Double> {
+        val physical = bones.filter { it.physics != null }
+        if (physical.isEmpty() || animation == null) return emptyMap()
+        val angle = HashMap<String, Double>()
+        val speed = HashMap<String, Double>()
+        for (f in 0..frame) {
+            for (step in 1..PHYSICS_SUBSTEPS) {
+                val t = f - 1 + step.toDouble() / PHYSICS_SUBSTEPS
+                if (f == 0 && step < PHYSICS_SUBSTEPS) continue
+                for (bone in physical) {
+                    // The angle the animation and the (already lagging) parents would give it.
+                    val unconstrained = pose(animation, t.coerceAtLeast(0.0), angle - bone.id)[bone.id]?.angle ?: continue
+                    val p = bone.physics ?: continue
+                    val a = angle[bone.id]
+                    if (a == null) {
+                        angle[bone.id] = unconstrained
+                        speed[bone.id] = 0.0
+                        continue
+                    }
+                    val dt = 1.0 / PHYSICS_SUBSTEPS
+                    val pull = normalizeAngle(unconstrained - a)
+                    val v = (speed[bone.id] ?: 0.0) * (1 - p.damping.coerceIn(0.0, 1.0)) + pull * p.strength.coerceIn(0.0, 1.0) * PHYSICS_STIFFNESS * dt
+                    speed[bone.id] = v
+                    angle[bone.id] = normalizeAngle(a + v * dt)
+                }
+            }
+        }
+        return angle
+    }
+
+    /** [world] turned to the world [angle], keeping its origin and its axes' lengths and shear. */
+    private fun withAngle(world: Affine, angle: Double): Affine {
+        val turn = normalizeAngle(angle - world.angle)
+        val c = cos(turn)
+        val s = sin(turn)
+        return Affine(c * world.a - s * world.b, s * world.a + c * world.b, c * world.c - s * world.d, s * world.c + c * world.d, world.tx, world.ty)
     }
 
     /**
@@ -230,3 +288,7 @@ fun autoWeights(points: List<WorldPoint>, bones: List<RigBone>, setup: Map<Strin
         raw.map { (id, w) -> id to w / total }
     }
 }
+
+// Physics steps per frame, and how strongly strength 1 pulls: lively at 12 fps without blowing up.
+private const val PHYSICS_SUBSTEPS = 8
+private const val PHYSICS_STIFFNESS = 64.0

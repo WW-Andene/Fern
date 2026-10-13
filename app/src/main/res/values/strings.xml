@@ -1158,4 +1158,7 @@
     <string name="rig_property_shear_x">slant across</string>
     <string name="rig_property_shear_y">slant down</string>
     <string name="rig_attach_layers">Attach each layer as a part</string>
+    <string name="rig_physics">Follow-through (swings behind its motion)</string>
+    <string name="rig_physics_strength">Stiffness</string>
+    <string name="rig_physics_damping">Settling</string>
 </resources>
