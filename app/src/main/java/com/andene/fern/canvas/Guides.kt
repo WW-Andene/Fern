@@ -30,7 +30,7 @@ enum class GuideKind(@StringRes val label: Int, val handleCount: Int) {
 }
 
 /** One guide on the page: its kind and its handles in world space. */
-data class Guide(
+data class DrawingGuide(
     val id: String,
     val kind: GuideKind,
     val handles: List<WorldPoint>,

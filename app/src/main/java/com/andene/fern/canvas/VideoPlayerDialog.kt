@@ -42,6 +42,7 @@ fun VideoPlayerDialog(video: ImageItem, onDismiss: () -> Unit) {
     FernPanel(
         scrollContent = true,
         onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.video_play)) },
         text = {
             Column {
                 if (file == null || !file.exists()) {

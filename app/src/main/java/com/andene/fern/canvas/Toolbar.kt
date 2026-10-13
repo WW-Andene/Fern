@@ -1296,7 +1296,7 @@ fun Toolbar(
                                             Icon(
                                                 Icons.Filled.Close,
                                                 contentDescription = stringResource(R.string.guide_remove, stringResource(guide.kind.label)),
-                                                modifier = Modifier.clickable { state.removeGuide(guide.id) },
+                                                modifier = Modifier.clickable { state.removeDrawingGuide(guide.id) },
                                             )
                                         },
                                         modifier = Modifier.padding(end = FernScale.s4),

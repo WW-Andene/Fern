@@ -689,7 +689,7 @@ fun DrawingCanvas(
                         val angle = 2 * PI * k / PERSPECTIVE_RAYS
                         drawLine(PERSPECTIVE_RAY_COLOR, vp, vp + Offset((cos(angle) * reach).toFloat(), (sin(angle) * reach).toFloat()), strokeWidth = 1f)
                     }
-                    drawCircle(color = GUIDE_COLOR, radius = 12f, center = vp)
+                    drawCircle(color = DRAWING_GUIDE_COLOR, radius = 12f, center = vp)
                     drawCircle(color = Color.White, radius = 6f, center = vp)
                 }
             }
@@ -1824,7 +1824,7 @@ private const val PERSPECTIVE_RAYS = 24
 private val FRAME_COLOR: Color get() = FernColors.current.frame
 private val MARQUEE_FILL_COLOR: Color get() = FernColors.current.selection.copy(alpha = 0.1f)
 private val HANDLE_COLOR: Color get() = FernColors.current.selection
-private val GUIDE_COLOR: Color get() = FernColors.current.active
+private val DRAWING_GUIDE_COLOR: Color get() = FernColors.current.active
 
 private enum class Mode { NONE, DRAW, NAVIGATE }
 private enum class SelectionGestureKind { SCALE, ROTATE, OTHER }
@@ -2271,7 +2271,7 @@ private fun averageColor(bitmap: android.graphics.Bitmap): Color {
  * few lines or rings, ellipses as the curve. Handles show only in guide edit mode.
  */
 private fun DrawScope.drawGuides(state: CanvasState, screenCenter: Offset, editing: Boolean) {
-    val color = GUIDE_COLOR
+    val color = DRAWING_GUIDE_COLOR
     fun screen(p: WorldPoint) = state.worldToScreen(p, screenCenter)
     val reach = size.width + size.height
     for (guide in state.drawingGuides) {

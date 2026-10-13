@@ -3073,8 +3073,8 @@ class CanvasState(
         backgroundStyle = style
     }
 
-    /** Guides on the page (roadmap items 340-343); see [Guide]. Strokes snap to them while [guideSnapping]. */
-    val drawingGuides = mutableStateListOf<Guide>()
+    /** Guides on the page (roadmap items 340-343); see [DrawingGuide]. Strokes snap to them while [guideSnapping]. */
+    val drawingGuides = mutableStateListOf<DrawingGuide>()
 
     /**
      * Guide edit mode: one-finger touches move guides and their handles instead of drawing. Off,
@@ -4450,12 +4450,12 @@ class CanvasState(
      */
     fun addGuide(kind: GuideKind) {
         val size = GUIDE_DEFAULT_SIZE_SCREEN / scale.coerceAtLeast(1e-300)
-        drawingGuides.add(Guide(UUID.randomUUID().toString(), kind, newGuideHandles(kind, panWorld, size)))
+        drawingGuides.add(DrawingGuide(UUID.randomUUID().toString(), kind, newGuideHandles(kind, panWorld, size)))
         guideSnapping = true
         editingGuides = true
     }
 
-    fun removeGuide(id: String) {
+    fun removeDrawingGuide(id: String) {
         drawingGuides.removeAll { it.id == id }
         if (drawingGuides.isEmpty()) editingGuides = false
     }
