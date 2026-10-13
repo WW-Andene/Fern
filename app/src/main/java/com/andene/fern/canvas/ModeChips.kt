@@ -26,7 +26,8 @@ fun ModeChips(state: CanvasState, modifier: Modifier = Modifier) {
         if (state.wrapFrameId != null) add(stringResource(R.string.wrap_off) to { state.toggleWrapAround() })
         state.isometricPlane?.let { add(stringResource(isometricPlaneLabel(it)) to { state.isometricPlane = null }) }
         if (state.activeStabilization > 0.0) add(stringResource(R.string.tb_stabilisation) to { state.activeStabilization = 0.0 })
-        if (state.rulerActive) add(stringResource(R.string.tb_ruler) to { state.toggleRuler() })
+        if (state.editingGuides) add(stringResource(R.string.guide_editing_done) to { state.editingGuides = false })
+        if (state.guideSnapping && state.drawingGuides.any { it.visible }) add(stringResource(R.string.guide_snapping) to { state.guideSnapping = false })
     }
     if (chips.isEmpty()) return
     Column(modifier) {

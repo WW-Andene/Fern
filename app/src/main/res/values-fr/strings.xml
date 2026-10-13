@@ -422,7 +422,6 @@
     <string name="tb_export_sprite_atlas">Atlas de sprites compacté pour moteurs de jeu (PNG + JSON)</string>
     <string name="tb_export_fern">Sauvegarde Fern (.fern)</string>
     <string name="tb_background_color">Couleur de fond…</string>
-    <string name="tb_ruler">Règle</string>
     <string name="tb_slot_save">Enregistrer le stylo actuel ici</string>
     <string name="action_clear">Effacer</string>
     <string name="gradient_choose_end">Choisir la couleur de fin</string>
@@ -922,7 +921,6 @@
     <string name="tool_name_shape">Forme</string>
     <string name="tool_name_fill">Remplissage</string>
     <string name="tool_name_text">Texte</string>
-    <string name="tool_name_ruler">Règle</string>
     <string name="tool_name_eyedropper">Pipette</string>
     <string name="tool_name_connect">Connecteur</string>
     <string name="tool_name_bone">Os</string>
@@ -1094,4 +1092,14 @@
     <string name="touch_timing_quick">Rapide</string>
     <string name="touch_timing_normal">Normal</string>
     <string name="touch_timing_relaxed">Détendu</string>
+    <string name="guide_straight">Règle droite</string>
+    <string name="guide_parallel">Lignes parallèles</string>
+    <string name="guide_radial">Lignes rayonnantes</string>
+    <string name="guide_concentric">Cercles concentriques</string>
+    <string name="guide_ellipse">Ellipse</string>
+    <string name="guide_edit">Modifier les guides</string>
+    <string name="guide_editing_done">Terminer les guides</string>
+    <string name="guide_snapping">Aimanter aux guides</string>
+    <string name="guide_list">Guides sur la page</string>
+    <string name="guide_remove">Retirer %1$s</string>
 </resources>

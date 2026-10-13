@@ -144,6 +144,10 @@ import androidx.compose.material.icons.filled.LineWeight
 import androidx.compose.material.icons.filled.LinearScale
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.PanoramaFishEye
+import androidx.compose.material.icons.filled.TripOrigin
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.Reorder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Opacity
@@ -572,7 +576,7 @@ fun Toolbar(
     val labels = rememberCommandLabels()
     val paletteCommands = buildList {
         val toolShortcuts = mapOf(Tool.PEN to "P", Tool.ERASER to "E", Tool.SELECT to "V")
-        for (tool in Tool.entries - Tool.RULER) add(labels.command(toolName(tool), R.string.palette_location_rail, toolShortcuts[tool]) {
+        for (tool in Tool.entries) add(labels.command(toolName(tool), R.string.palette_location_rail, toolShortcuts[tool]) {
             state.activeTool = tool
             UsageHints.toolReachedIndirectly(context0, tool)
         })
@@ -1261,18 +1265,48 @@ fun Toolbar(
                                     }
                                 }
                                 if (ToolbarGroup.GUIDES !in hiddenGroups) {
-                                    LabelledIconButton(onClick = {
-                                        state.toggleRuler()
-                                        state.activeTool = if (state.rulerActive) Tool.RULER
-                                        else if (state.activeTool == Tool.RULER) Tool.PEN else state.activeTool
-                                    }, icon = Icons.Filled.Straighten, label = stringResource(R.string.tb_ruler), tint = if (state.rulerActive) MaterialTheme.colorScheme.primary else LocalContentColor.current)
+                                    // Guides (roadmap items 340-343): add one of each kind, edit them, pause snapping.
+                                    for (kind in GuideKind.entries) {
+                                        LabelledIconButton(onClick = { state.addGuide(kind) }, icon = guideKindIcon(kind), label = stringResource(kind.label))
+                                    }
+                                    if (state.drawingGuides.isNotEmpty()) {
+                                        LabelledIconButton(
+                                            onClick = { state.editingGuides = !state.editingGuides },
+                                            icon = Icons.Filled.Edit,
+                                            label = stringResource(if (state.editingGuides) R.string.guide_editing_done else R.string.guide_edit),
+                                            tint = if (state.editingGuides) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                        )
+                                        LabelledIconButton(
+                                            onClick = { state.guideSnapping = !state.guideSnapping },
+                                            icon = Icons.Filled.Straighten,
+                                            label = stringResource(R.string.guide_snapping),
+                                            tint = if (state.guideSnapping) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                        )
+                                    }
+                                }
+                            }
+                            if (ToolbarGroup.GUIDES !in hiddenGroups && state.drawingGuides.isNotEmpty()) MoreSection(stringResource(R.string.guide_list)) {
+                                // Every guide on the page: tap to show or hide it, the cross to remove it (roadmap item 343).
+                                for (guide in state.drawingGuides) {
+                                    androidx.compose.material3.InputChip(
+                                        selected = guide.visible,
+                                        onClick = { state.setGuideVisible(guide.id, !guide.visible) },
+                                        label = { Text(stringResource(guide.kind.label)) },
+                                        trailingIcon = {
+                                            Icon(
+                                                Icons.Filled.Close,
+                                                contentDescription = stringResource(R.string.guide_remove, stringResource(guide.kind.label)),
+                                                modifier = Modifier.clickable { state.removeGuide(guide.id) },
+                                            )
+                                        },
+                                        modifier = Modifier.padding(end = FernScale.s4),
+                                    )
                                 }
                             }
                             MoreSection(stringResource(R.string.more_section_canvas)) {
                                 if (ToolbarGroup.LAYERS !in hiddenGroups) {
                                     Box {
-                                        LabelledIconButton(onClick = { showBlendModeMenu = true }, icon = // Was the Layers icon before layers existed; that icon now opens the layer panel.
-                                                Icons.Filled.Tonality, label = stringResource(R.string.tb_blend, stringResource(blendModeLabel(state.activeBlendMode))), tint = if (state.activeBlendMode != StrokeBlendMode.NORMAL) MaterialTheme.colorScheme.primary
+                                        LabelledIconButton(onClick = { showBlendModeMenu = true }, icon = Icons.Filled.Tonality, label = stringResource(R.string.tb_blend, stringResource(blendModeLabel(state.activeBlendMode))), tint = if (state.activeBlendMode != StrokeBlendMode.NORMAL) MaterialTheme.colorScheme.primary
                                                 else LocalContentColor.current)
                                         DropdownMenu(expanded = showBlendModeMenu, onDismissRequest = { showBlendModeMenu = false }) {
                                             for (mode in StrokeBlendMode.entries) {
@@ -1350,7 +1384,7 @@ fun Toolbar(
         }
     }
 
-    if (state.activeTool != Tool.TEXT && state.activeTool != Tool.RULER) {
+    if (state.activeTool != Tool.TEXT) {
         Surface(modifier = propertiesModifier, shape = MaterialTheme.shapes.large, tonalElevation = FernScale.s4, shadowElevation = FernScale.s4) {
             Column(modifier = Modifier.padding(horizontal = FernScale.s12, vertical = FernScale.s4), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(
@@ -1635,3 +1669,12 @@ private fun MoreSection(title: String, content: @Composable () -> Unit) {
 
 /** Squares the eyedropper can average over, in screen px (roadmap item 173). */
 private val EYEDROPPER_SAMPLE_SIZES = listOf(1, 3, 5)
+
+/** The icon of a guide kind in the More panel. */
+private fun guideKindIcon(kind: GuideKind): androidx.compose.ui.graphics.vector.ImageVector = when (kind) {
+    GuideKind.STRAIGHT -> Icons.Filled.Straighten
+    GuideKind.PARALLEL -> Icons.Filled.Reorder
+    GuideKind.RADIAL -> Icons.Filled.WbSunny
+    GuideKind.CONCENTRIC -> Icons.Filled.TripOrigin
+    GuideKind.ELLIPSE -> Icons.Filled.PanoramaFishEye
+}

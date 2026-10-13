@@ -289,8 +289,15 @@ fun DrawingCanvas(
                     var wasStylusActive = false
                     // Tool to return to after a gesture that the stylus temporarily switched to the eraser.
                     var toolBeforeStylusEraser: Tool? = null
+                    // This gesture is moving a guide (guide edit mode, roadmap item 340), not using the tool.
+                    var editingGuide = false
 
                     fun endActiveDrawAction() {
+                        if (editingGuide) {
+                            state.endGuideEdit()
+                            editingGuide = false
+                            return
+                        }
                         when (state.activeTool) {
                             Tool.PEN -> state.endStroke()
                             Tool.ERASER -> state.endErase()
@@ -301,7 +308,6 @@ fun DrawingCanvas(
                             Tool.CONNECT -> state.endConnect()
                             Tool.BONE -> state.endBone()
                             Tool.BEZIER -> {} // a node is placed on press; nothing to end
-                            Tool.RULER -> state.endRulerGesture()
                             Tool.MEASURE -> state.endMeasure()
                             Tool.SELECT -> {
                                 when (selectionGestureKind) {
@@ -385,7 +391,11 @@ fun DrawingCanvas(
                                 }
                                 val downPos = state.unrotateScreen(pointers[0].position, screenCenter)
                                 val world = state.screenToWorld(downPos, screenCenter)
-                                when (state.activeTool) {
+                                // In guide edit mode a finger moves guides and nothing else; out of it guides never take a touch.
+                                if (state.editingGuides) {
+                                    editingGuide = true
+                                    state.beginGuideEdit(world)
+                                } else when (state.activeTool) {
                                     Tool.PEN -> state.beginStroke(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
                                     Tool.ERASER -> state.beginErase(world)
                                     Tool.SHAPE -> state.beginShape(world)
@@ -395,7 +405,6 @@ fun DrawingCanvas(
                                     Tool.CONNECT -> state.beginConnect(world)
                                     Tool.BONE -> state.beginBone(world)
                                     Tool.BEZIER -> state.beginBezierNode(world)
-                                    Tool.RULER -> state.beginRulerGesture(world)
                                     Tool.MEASURE -> state.beginMeasure(world)
                                     Tool.SELECT -> {
                                         // The shape builder and knife (roadmap item 141) take every drag, handles included.
@@ -422,7 +431,7 @@ fun DrawingCanvas(
                                 val change = pointers[0]
                                 if (change.positionChanged()) {
                                     val world = state.screenToWorld(state.unrotateScreen(change.position, screenCenter), screenCenter)
-                                    when (state.activeTool) {
+                                    if (editingGuide) state.continueGuideEdit(world) else when (state.activeTool) {
                                         Tool.PEN -> state.extendStroke(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
                                         Tool.ERASER -> state.continueErase(world)
                                         Tool.SHAPE -> state.continueShape(world)
@@ -432,7 +441,6 @@ fun DrawingCanvas(
                                         Tool.CONNECT -> state.continueConnect(world)
                                         Tool.BONE -> state.continueBone(world)
                                         Tool.BEZIER -> state.dragBezierHandle(world)
-                                        Tool.RULER -> state.continueRulerGesture(world)
                                         Tool.MEASURE -> state.continueMeasure(world)
                                         Tool.SELECT -> when (selectionGestureKind) {
                                             SelectionGestureKind.SCALE -> state.continueScaleSelection(world)
@@ -681,7 +689,7 @@ fun DrawingCanvas(
                         val angle = 2 * PI * k / PERSPECTIVE_RAYS
                         drawLine(PERSPECTIVE_RAY_COLOR, vp, vp + Offset((cos(angle) * reach).toFloat(), (sin(angle) * reach).toFloat()), strokeWidth = 1f)
                     }
-                    drawCircle(color = RULER_COLOR, radius = 12f, center = vp)
+                    drawCircle(color = GUIDE_COLOR, radius = 12f, center = vp)
                     drawCircle(color = Color.White, radius = 6f, center = vp)
                 }
             }
@@ -975,19 +983,7 @@ fun DrawingCanvas(
                 }
             }
 
-            if (state.rulerActive) {
-                state.rulerLine?.let { (start, end) ->
-                    val startScreen = state.worldToScreen(start, screenCenter)
-                    val endScreen = state.worldToScreen(end, screenCenter)
-                    drawLine(color = RULER_COLOR, start = startScreen, end = endScreen, strokeWidth = 4f)
-                    if (state.activeTool == Tool.RULER) {
-                        drawCircle(color = RULER_COLOR, radius = 10f, center = startScreen)
-                        drawCircle(color = Color.White, radius = 5f, center = startScreen)
-                        drawCircle(color = RULER_COLOR, radius = 10f, center = endScreen)
-                        drawCircle(color = Color.White, radius = 5f, center = endScreen)
-                    }
-                }
-            }
+            drawGuides(state, screenCenter, state.editingGuides)
         }
     }
     if (navigating || gestureBadge != null) Canvas(Modifier.matchParentSize()) {
@@ -1828,7 +1824,7 @@ private const val PERSPECTIVE_RAYS = 24
 private val FRAME_COLOR: Color get() = FernColors.current.frame
 private val MARQUEE_FILL_COLOR: Color get() = FernColors.current.selection.copy(alpha = 0.1f)
 private val HANDLE_COLOR: Color get() = FernColors.current.selection
-private val RULER_COLOR: Color get() = FernColors.current.active
+private val GUIDE_COLOR: Color get() = FernColors.current.active
 
 private enum class Mode { NONE, DRAW, NAVIGATE }
 private enum class SelectionGestureKind { SCALE, ROTATE, OTHER }
@@ -2214,7 +2210,6 @@ internal fun toolName(tool: Tool): Int = when (tool) {
     Tool.SHAPE -> R.string.tool_name_shape
     Tool.FILL -> R.string.tool_name_fill
     Tool.TEXT -> R.string.tool_name_text
-    Tool.RULER -> R.string.tool_name_ruler
     Tool.EYEDROPPER -> R.string.tool_name_eyedropper
     Tool.CONNECT -> R.string.tool_name_connect
     Tool.BONE -> R.string.tool_name_bone
@@ -2269,3 +2264,63 @@ private fun averageColor(bitmap: android.graphics.Bitmap): Color {
     val n = pixels.size
     return Color((r / n).toInt(), (g / n).toInt(), (b / n).toInt())
 }
+
+/**
+ * The guides (roadmap items 340-342), in view space: straight edges as lines across the view,
+ * parallel guides as their direction line, radial and concentric guides as their centre with a
+ * few lines or rings, ellipses as the curve. Handles show only in guide edit mode.
+ */
+private fun DrawScope.drawGuides(state: CanvasState, screenCenter: Offset, editing: Boolean) {
+    val color = GUIDE_COLOR
+    fun screen(p: WorldPoint) = state.worldToScreen(p, screenCenter)
+    val reach = size.width + size.height
+    for (guide in state.drawingGuides) {
+        if (!guide.visible) continue
+        val h = guide.handles.map(::screen)
+        when (guide.kind) {
+            GuideKind.STRAIGHT, GuideKind.PARALLEL -> {
+                val d = h[1] - h[0]
+                val len = d.getDistance()
+                if (len > 0f) {
+                    val u = d / len
+                    drawLine(color, h[0] - u * reach, h[0] + u * reach, strokeWidth = GUIDE_LINE_PX)
+                    if (guide.kind == GuideKind.PARALLEL) {
+                        val n = Offset(-u.y, u.x) * GUIDE_PARALLEL_GAP_PX
+                        for (k in listOf(-2, -1, 1, 2)) drawLine(color.copy(alpha = GUIDE_FAINT_ALPHA), h[0] + n * k.toFloat() - u * reach, h[0] + n * k.toFloat() + u * reach, strokeWidth = GUIDE_FAINT_PX)
+                    }
+                }
+            }
+            GuideKind.RADIAL -> for (k in 0 until GUIDE_RADIAL_LINES) {
+                val a = k * 2 * Math.PI / GUIDE_RADIAL_LINES
+                drawLine(color.copy(alpha = GUIDE_FAINT_ALPHA), h[0], h[0] + Offset(cos(a).toFloat(), sin(a).toFloat()) * reach, strokeWidth = GUIDE_FAINT_PX)
+            }
+            GuideKind.CONCENTRIC -> for (k in 1..GUIDE_RINGS) {
+                drawCircle(color.copy(alpha = GUIDE_FAINT_ALPHA), radius = k * GUIDE_RING_GAP_PX, center = h[0], style = androidx.compose.ui.graphics.drawscope.Stroke(GUIDE_FAINT_PX))
+            }
+            GuideKind.ELLIPSE -> {
+                val e = ellipseOf(guide.handles)
+                val path = androidx.compose.ui.graphics.Path()
+                for (k in 0..GUIDE_ELLIPSE_SEGMENTS) {
+                    val p = screen(e.at(k * 2 * Math.PI / GUIDE_ELLIPSE_SEGMENTS))
+                    if (k == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y)
+                }
+                drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(GUIDE_LINE_PX))
+            }
+        }
+        if (editing) for (p in h) {
+            drawCircle(color, radius = GUIDE_HANDLE_PX, center = p)
+            drawCircle(Color.White, radius = GUIDE_HANDLE_PX / 2, center = p)
+        }
+    }
+}
+
+// Guide drawing sizes, screen px on the §7 scale.
+private const val GUIDE_LINE_PX = 2f
+private const val GUIDE_FAINT_PX = 1f
+private const val GUIDE_FAINT_ALPHA = 0.4f
+private const val GUIDE_HANDLE_PX = 12f
+private const val GUIDE_PARALLEL_GAP_PX = 64f
+private const val GUIDE_RING_GAP_PX = 64f
+private const val GUIDE_RINGS = 8
+private const val GUIDE_RADIAL_LINES = 24
+private const val GUIDE_ELLIPSE_SEGMENTS = 96

@@ -34,7 +34,7 @@ enum class StrokeAlignment(@StringRes val label: Int) {
     DISTRIBUTE_Y(R.string.align_distribute_y),
 }
 
-enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, RULER, EYEDROPPER, CONNECT, BONE, BEZIER, MEASURE }
+enum class Tool { PEN, ERASER, SELECT, SHAPE, FILL, TEXT, EYEDROPPER, CONNECT, BONE, BEZIER, MEASURE }
 
 /**
  * Camera + document model for the infinite canvas.
@@ -243,14 +243,16 @@ class CanvasState(
         // Width (screen px) of the cut a knife stroke takes out of a closed shape (roadmap item 141).
         private const val KNIFE_GAP_SCREEN = 2.0
 
-        // How close (in screen pixels) a touch must land on the ruler's endpoint to grab it
-        // for resizing, rather than translating the whole guide - same scale-dependent
-        // conversion as the eraser/fill tolerances above.
-        private const val RULER_HANDLE_RADIUS_SCREEN = 24.0
+        // How close (in screen pixels) a touch must land on a guide's handle to drag it, rather
+        // than moving the whole guide - same scale-dependent conversion as the eraser/fill
+        // tolerances above.
+        private const val GUIDE_HANDLE_RADIUS_SCREEN = 24.0
 
-        // Default ruler length when first placed: half a screen-width on each side of the tap,
-        // in screen pixels (Secondary tier on the §7 scale), converted to world units.
-        private const val RULER_DEFAULT_HALF_LENGTH_SCREEN = 300.0
+        // A new guide's size across, in screen pixels (a §7 primary), converted to world units.
+        private const val GUIDE_DEFAULT_SIZE_SCREEN = 512.0
+
+        // A straight guide or ellipse catches strokes starting this close to it (screen px).
+        private const val GUIDE_REACH_SCREEN = 48.0
     }
 
     // World-space point currently at the center of the screen.
@@ -3068,21 +3070,21 @@ class CanvasState(
         backgroundStyle = style
     }
 
+    /** Guides on the page (roadmap items 340-343); see [Guide]. Strokes snap to them while [guideSnapping]. */
+    val drawingGuides = mutableStateListOf<Guide>()
+
     /**
-     * The ruler guide's two endpoints in world space, or null if never placed. Visible and
-     * draggable only while [rulerActive]; a real drafting ruler stays on the page and can be
-     * put away, so toggling it off hides it without discarding its position.
+     * Guide edit mode: one-finger touches move guides and their handles instead of drawing. Off,
+     * the guides are locked and never take a touch, so drawing along them needs no tool switch.
      */
-    var rulerLine: Pair<WorldPoint, WorldPoint>? by mutableStateOf(null)
-        private set
+    var editingGuides by mutableStateOf(false)
 
-    /** Whether the ruler guide is currently placed/visible and snapping pen strokes to it. */
-    var rulerActive by mutableStateOf(false)
-        private set
+    /** Whether strokes snap to the guides; a quick way to draw freely without removing them (roadmap item 341). */
+    var guideSnapping by mutableStateOf(true)
 
-    private enum class RulerDragMode { NONE, START, END, TRANSLATE }
-    private var rulerDragMode = RulerDragMode.NONE
-    private var rulerDragLast = WorldPoint.Zero
+    /** The guide and handle being dragged in edit mode (handle -1: the whole guide), or null. */
+    private var guideDrag: Pair<String, Int>? = null
+    private var guideDragLast = WorldPoint.Zero
 
     /** Currently selected strokes (SELECT tool). Empty when nothing is selected. */
     val selection = mutableStateListOf<Stroke>()
@@ -3592,7 +3594,7 @@ class CanvasState(
                 return
             }
         }
-        perspectiveDirection = null
+        strokeConstraint = null
         if (!activeLayerEditable) return
         strokeStartDepth = undoStack.size
         strokeStartMillis = System.currentTimeMillis()
@@ -3616,7 +3618,7 @@ class CanvasState(
             lineStyle = activeLineStyle.takeIf { it != LineStyle() },
             brush = if (activePenType == PenType.STAMP) activeBrush else null,
         )
-        stroke.addPoint(snappedToActiveGuide(worldPoint), pressure, tilt, orientation)
+        stroke.addPoint(guidedStart(worldPoint), pressure, tilt, orientation)
         stroke.setDrawnAt(strokeStartMillis)
         rememberActiveColor()
         lastStrokeMoveMillis = System.currentTimeMillis()
@@ -3688,7 +3690,7 @@ class CanvasState(
         // Exponential smoothing: move only part of the way from the last point toward the pen.
         val smoothed = if (previous == null || activeStabilization <= 0.0) worldPoint
         else previous + (worldPoint - previous) * (1.0 - activeStabilization)
-        decidePerspectiveDirection(stroke, smoothed)
+        decideStrokeConstraint(stroke, smoothed)
         addStrokePoint(stroke, guided(smoothed), effectivePressure, tilt, orientation)
     }
 
@@ -3722,32 +3724,53 @@ class CanvasState(
     // Index into vanishingPoints being dragged by its handle, or null while drawing normally.
     private var draggingVanishingPoint: Int? = null
 
-    // The perspective direction the current stroke was straightened onto, once decided.
-    private var perspectiveDirection: WorldPoint? = null
+    // The line the current stroke was straightened onto, once decided: a perspective direction or a guide.
+    private var strokeConstraint: ((WorldPoint) -> WorldPoint)? = null
+
+    /** The constraints that could apply to a stroke starting at [start]: each perspective direction and each guide. */
+    private fun strokeConstraints(start: WorldPoint): List<(WorldPoint) -> WorldPoint> = buildList {
+        if (perspectiveMode != PerspectiveMode.OFF) {
+            for (direction in perspectiveDirections(perspectiveMode, vanishingPoints, start)) add { p: WorldPoint -> projectOntoLine(start, direction, p) }
+        }
+        if (guideSnapping) {
+            val reach = GUIDE_REACH_SCREEN / scale.coerceAtLeast(1e-300)
+            for (guide in drawingGuides) guide.constraint(start, reach)?.let { add(it) }
+        }
+    }
 
     /**
-     * Assisted perspective drawing: once a stroke has moved [PERSPECTIVE_DECIDE_SCREEN] px from
-     * where it started, the perspective direction closest to that movement is chosen for the
-     * rest of the stroke, and the points drawn so far are straightened onto it too. Off while
-     * the ruler is active (the ruler wins: it's the more specific guide).
+     * Assisted drawing with perspective and guides (roadmap items 340-344): once a stroke has
+     * moved [PERSPECTIVE_DECIDE_SCREEN] px from where it started, the constraint whose line its
+     * movement so far is nearest to is chosen for the rest of the stroke - a perspective
+     * direction, a ruler, a parallel, radial or concentric field, an ellipse - and the points
+     * drawn so far are moved onto it too. Several guides and perspective work together: each
+     * stroke follows the one that matches how it starts.
      */
-    private fun decidePerspectiveDirection(stroke: Stroke, point: WorldPoint) {
-        if (perspectiveMode == PerspectiveMode.OFF || rulerActive || perspectiveDirection != null) return
+    private fun decideStrokeConstraint(stroke: Stroke, point: WorldPoint) {
+        if (strokeConstraint != null) return
         val start = stroke.points.first()
         if (hypot(point.x - start.x, point.y - start.y) * scale < PERSPECTIVE_DECIDE_SCREEN) return
-        val direction = closestDirection(perspectiveDirections(perspectiveMode, vanishingPoints, start), start, point) ?: return
-        perspectiveDirection = direction
-        val straightened = stroke.points.map { projectOntoLine(start, direction, it) }
+        val chosen = strokeConstraints(start).minByOrNull { c -> c(point).let { hypot(it.x - point.x, it.y - point.y) } } ?: return
+        strokeConstraint = chosen
+        val straightened = stroke.points.map(chosen)
         stroke.setPoints(straightened)
         for ((copy, transform) in symmetryCopies) copy.setPoints(straightened.map(transform))
     }
 
-    /** [point] on the current stroke's perspective line when one was chosen, else on the ruler (if active). */
-    private fun guided(point: WorldPoint): WorldPoint {
-        val direction = perspectiveDirection
-        val stroke = currentStroke
-        if (direction != null && stroke != null) return projectOntoLine(stroke.points.first(), direction, point)
-        return snappedToActiveGuide(point)
+    /** [point] on the current stroke's chosen line, once there is one. */
+    private fun guided(point: WorldPoint): WorldPoint = strokeConstraint?.invoke(point) ?: point
+
+    /**
+     * Where a stroke starting at [point] begins: on a straight guide or ellipse when it starts
+     * within reach of one, so a line drawn against a ruler touches its edge from the first point.
+     */
+    private fun guidedStart(point: WorldPoint): WorldPoint {
+        if (!guideSnapping) return point
+        val reach = GUIDE_REACH_SCREEN / scale.coerceAtLeast(1e-300)
+        return drawingGuides.asSequence()
+            .filter { it.kind == GuideKind.STRAIGHT || it.kind == GuideKind.ELLIPSE }
+            .mapNotNull { it.constraint(point, reach)?.invoke(point) }
+            .minByOrNull { hypot(it.x - point.x, it.y - point.y) } ?: point
     }
 
     /**
@@ -3829,22 +3852,6 @@ class CanvasState(
         // Copies get the same clean shape, transformed, so symmetry still holds.
         symmetryCopies = symmetryCopies.map { (copy, transform) -> (replaceWithShape(copy, clean.map(transform)) ?: copy) to transform }
         geometryEpoch++ // redraw; autosave waits for the lift (endStroke)
-    }
-
-    /**
-     * Projects [point] onto the ruler guide's infinite line when it's active and placed,
-     * otherwise returns [point] unchanged. Lets pen strokes drawn against the ruler come out
-     * perfectly straight along it, the way tracing along a physical ruler's edge works.
-     */
-    private fun snappedToActiveGuide(point: WorldPoint): WorldPoint {
-        if (!rulerActive) return point
-        val (start, end) = rulerLine ?: return point
-        val dx = end.x - start.x
-        val dy = end.y - start.y
-        val lengthSq = dx * dx + dy * dy
-        if (lengthSq < 1e-12) return point
-        val t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSq
-        return WorldPoint(start.x + t * dx, start.y + t * dy)
     }
 
     fun endStroke() {
@@ -4433,54 +4440,68 @@ class CanvasState(
     }
 
     /**
-     * Toggles the ruler guide on/off. The first time it's turned on with no prior position, it
-     * appears as a horizontal line through the current viewport center - after that, toggling
-     * off and back on restores wherever it was left, matching a physical ruler you set aside
-     * rather than one that resets each time you pick it up.
+     * Places a new guide of [kind] in the middle of the view and opens guide edit mode, so it can
+     * be dragged into place straight away; Done (or [editingGuides] = false) locks it.
      */
-    fun toggleRuler() {
-        rulerActive = !rulerActive
-        if (rulerActive && rulerLine == null) {
-            val halfLength = RULER_DEFAULT_HALF_LENGTH_SCREEN / scale.coerceAtLeast(1e-300)
-            rulerLine = WorldPoint(panWorld.x - halfLength, panWorld.y) to WorldPoint(panWorld.x + halfLength, panWorld.y)
-        }
+    fun addGuide(kind: GuideKind) {
+        val size = GUIDE_DEFAULT_SIZE_SCREEN / scale.coerceAtLeast(1e-300)
+        drawingGuides.add(Guide(UUID.randomUUID().toString(), kind, newGuideHandles(kind, panWorld, size)))
+        guideSnapping = true
+        editingGuides = true
     }
 
-    private val rulerHandleRadiusWorld: Double
-        get() = RULER_HANDLE_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
+    fun removeGuide(id: String) {
+        drawingGuides.removeAll { it.id == id }
+        if (drawingGuides.isEmpty()) editingGuides = false
+    }
+
+    fun setGuideVisible(id: String, visible: Boolean) {
+        val i = drawingGuides.indexOfFirst { it.id == id }
+        if (i != -1) drawingGuides[i] = drawingGuides[i].copy(visible = visible)
+    }
+
+    private val guideHandleRadiusWorld: Double
+        get() = GUIDE_HANDLE_RADIUS_SCREEN / scale.coerceAtLeast(1e-300)
 
     /**
-     * RULER tool, pointer-down: grabs whichever endpoint [worldPoint] landed near (to resize/
-     * re-angle the guide), or starts translating the whole line otherwise. No-op if the ruler
-     * isn't placed.
+     * Guide edit mode, pointer-down: grabs the handle under [worldPoint], or the guide itself
+     * (to move it whole) when the point is on its line; topmost guide first. Returns whether a
+     * guide was grabbed.
      */
-    fun beginRulerGesture(worldPoint: WorldPoint) {
-        val (start, end) = rulerLine ?: return
-        val handleRadius = rulerHandleRadiusWorld
-        rulerDragMode = when {
-            hypot(worldPoint.x - start.x, worldPoint.y - start.y) <= handleRadius -> RulerDragMode.START
-            hypot(worldPoint.x - end.x, worldPoint.y - end.y) <= handleRadius -> RulerDragMode.END
-            else -> RulerDragMode.TRANSLATE
-        }
-        rulerDragLast = worldPoint
-    }
-
-    fun continueRulerGesture(worldPoint: WorldPoint) {
-        val (start, end) = rulerLine ?: return
-        when (rulerDragMode) {
-            RulerDragMode.START -> rulerLine = worldPoint to end
-            RulerDragMode.END -> rulerLine = start to worldPoint
-            RulerDragMode.TRANSLATE -> {
-                val delta = worldPoint - rulerDragLast
-                rulerLine = (start + delta) to (end + delta)
-                rulerDragLast = worldPoint
+    fun beginGuideEdit(worldPoint: WorldPoint): Boolean {
+        val radius = guideHandleRadiusWorld
+        for (guide in drawingGuides.asReversed()) {
+            val handle = guide.handles.indexOfFirst { hypot(it.x - worldPoint.x, it.y - worldPoint.y) <= radius }
+            val onGuide = handle == -1 && guide.constraint(worldPoint, radius)?.let { c ->
+                val p = c(worldPoint)
+                guide.kind != GuideKind.PARALLEL && guide.kind != GuideKind.RADIAL && guide.kind != GuideKind.CONCENTRIC &&
+                    hypot(p.x - worldPoint.x, p.y - worldPoint.y) <= radius
+            } == true
+            if (handle != -1 || onGuide) {
+                guideDrag = guide.id to handle
+                guideDragLast = worldPoint
+                return true
             }
-            RulerDragMode.NONE -> {}
         }
+        return false
     }
 
-    fun endRulerGesture() {
-        rulerDragMode = RulerDragMode.NONE
+    fun continueGuideEdit(worldPoint: WorldPoint) {
+        val (id, handle) = guideDrag ?: return
+        val i = drawingGuides.indexOfFirst { it.id == id }
+        if (i == -1) return
+        val guide = drawingGuides[i]
+        drawingGuides[i] = if (handle == -1) {
+            val delta = worldPoint - guideDragLast
+            guide.copy(handles = guide.handles.map { it + delta })
+        } else {
+            guide.copy(handles = guide.handles.mapIndexed { k, p -> if (k == handle) worldPoint else p })
+        }
+        guideDragLast = worldPoint
+    }
+
+    fun endGuideEdit() {
+        guideDrag = null
     }
 
     /**
@@ -6276,7 +6297,7 @@ class CanvasState(
             for (i in frames.indices) frames[i] = frames[i].copy(min = frames[i].min - offset, max = frames[i].max - offset)
             onFramesChanged(frames.toList())
         }
-        rulerLine = rulerLine?.let { (start, end) -> (start - offset) to (end - offset) }
+        for (i in drawingGuides.indices) drawingGuides[i] = drawingGuides[i].shiftedBy(offset)
         if (guides.isNotEmpty()) {
             for (i in guides.indices) guides[i] = guides[i].let { it.copy(position = it.position - if (it.vertical) offset.x else offset.y) }
             onGuidesChanged(guides.toList())

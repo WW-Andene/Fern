@@ -422,7 +422,6 @@
     <string name="tb_export_sprite_atlas">Packed sprite atlas for game engines (PNG + JSON)</string>
     <string name="tb_export_fern">Fern backup (.fern)</string>
     <string name="tb_background_color">Background color…</string>
-    <string name="tb_ruler">Ruler guide</string>
     <string name="tb_slot_save">Save current pen here</string>
     <string name="action_clear">Clear</string>
     <string name="gradient_choose_end">Choose the end colour</string>
@@ -919,7 +918,6 @@
     <string name="tool_name_shape">Shape</string>
     <string name="tool_name_fill">Fill</string>
     <string name="tool_name_text">Text</string>
-    <string name="tool_name_ruler">Ruler</string>
     <string name="tool_name_eyedropper">Eyedropper</string>
     <string name="tool_name_connect">Connector</string>
     <string name="tool_name_bone">Bone</string>
@@ -1090,4 +1088,14 @@
     <string name="touch_timing_quick">Quick</string>
     <string name="touch_timing_normal">Normal</string>
     <string name="touch_timing_relaxed">Relaxed</string>
+    <string name="guide_straight">Straight ruler</string>
+    <string name="guide_parallel">Parallel lines</string>
+    <string name="guide_radial">Radiating lines</string>
+    <string name="guide_concentric">Concentric circles</string>
+    <string name="guide_ellipse">Ellipse</string>
+    <string name="guide_edit">Edit guides</string>
+    <string name="guide_editing_done">Done editing guides</string>
+    <string name="guide_snapping">Snap to guides</string>
+    <string name="guide_list">Guides on the page</string>
+    <string name="guide_remove">Remove %1$s</string>
 </resources>

@@ -105,7 +105,6 @@ internal fun railIcon(state: CanvasState, tool: Tool): ImageVector = when (tool)
     Tool.MEASURE -> Icons.Filled.SquareFoot
     Tool.CONNECT -> Icons.Filled.AccountTree
     Tool.BONE -> Icons.Filled.AccessibilityNew
-    Tool.RULER -> Icons.Filled.SquareFoot
 }
 
 /**

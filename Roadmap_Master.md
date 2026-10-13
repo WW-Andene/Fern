@@ -263,10 +263,8 @@ Switching, adjusting and arranging without looking. Builds on Phases 1 and 2.
 
 Guides as professional tools have them: placed, locked and drawn along, many kinds, all at once. Builds on the handle framework (171).
 
-- [ ] 340. **Guide model.** Guides are objects: placed, confirmed and locked, then drawn along with any drawing tool without switching tools. Editing a guide is an explicit mode (a handle or an Edit button), never the default touch. Today turning the ruler on makes it the active tool and every touch moves it (`CanvasState.kt:4461`), so drawing is blocked until the pen is picked again.
-- [ ] 341. **Snapping per stroke.** A guide snaps the pen while it's near, and snapping can be paused for one stroke (a held finger or a button), as in Clip Studio and Procreate.
-- [ ] 342. **Ruler kinds.** Straight ruler, curve ruler (drawn as a Bézier), ellipse and circle, parallel lines, concentric (radial) circles, radiating lines from a point, polyline, and a guide grid.
-- [ ] 343. **Guides together.** Several guides on the page at once, each shown, hidden, locked or deleted from a guides list; guides no longer switch each other off (today the ruler turns perspective off, `CanvasState.kt:3739`).
+- [~] 342. **Ruler kinds.** Straight ruler, curve ruler (drawn as a Bézier), ellipse and circle, parallel lines, concentric (radial) circles, radiating lines from a point, polyline, and a guide grid.
+  Done: straight ruler, parallel lines, radiating lines, concentric circles and ellipse (`Guides.kt`). Left: curve ruler, polyline and a guide grid.
 - [ ] 344. **Perspective rebuilt.** 1, 2 and 3-point grids drawn on the canvas with a horizon line, vanishing points dragged as handles (including far off the page), grid density, and the pen snapping to the nearest perspective direction. Today there are 1 and 2 points with no grid.
 - [ ] 345. **Curvilinear perspective.** 4, 5 and 6-point (fisheye) grids for wide-angle scenes.
 - [ ] 346. **Perspective tools.** Shapes, text and pasted images placed onto a perspective plane; isometric and dimetric grids joined into the same system.
