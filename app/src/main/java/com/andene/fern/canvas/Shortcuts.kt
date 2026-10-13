@@ -17,6 +17,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -120,7 +124,7 @@ object ShortcutSettings {
  * press is heard here, since Settings is its own window.
  */
 @Composable
-fun ShortcutEditor() {
+fun ShortcutEditor(filter: (String) -> Boolean = { true }) {
     val context = LocalContext.current
     val map by ShortcutSettings.state(context)
     var capturing by remember { mutableStateOf<ShortcutAction?>(null) }
@@ -142,8 +146,15 @@ fun ShortcutEditor() {
             },
     ) {
         for (action in ShortcutAction.entries) {
+            val name = stringResource(action.label)
+            if (!filter(name)) continue
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(action.label), modifier = Modifier.weight(1f))
+                Text(name, modifier = Modifier.weight(1f))
+                if (map.getValue(action) != action.default) {
+                    IconButton(onClick = { ShortcutSettings.set(context, action, action.default) }) {
+                        Icon(Icons.Filled.RestartAlt, contentDescription = stringResource(R.string.settings_reset, name))
+                    }
+                }
                 TextButton(onClick = {
                     capturing = if (capturing == action) null else action
                     runCatching { focus.requestFocus() }

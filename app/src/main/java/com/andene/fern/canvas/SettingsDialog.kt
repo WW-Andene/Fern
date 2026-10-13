@@ -8,6 +8,18 @@ import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import android.content.Context
 import androidx.compose.foundation.layout.Column
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -230,69 +242,74 @@ fun SettingsDialog(
     onArrangeLayout: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var query by remember { mutableStateOf("") }
+    // A row shows when the search is empty or its label holds every word typed (design roadmap D24).
+    fun shows(label: String) = query.isBlank() || matchCommands(listOf(PaletteCommand(label, label, "") {}), query).isNotEmpty()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.settings_title)) },
         text = {
             Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(stringResource(R.string.settings_left_handed), modifier = Modifier.weight(1f))
-                    Switch(checked = leftHanded, onCheckedChange = onLeftHandedChange)
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(stringResource(R.string.settings_toolbar_bottom), modifier = Modifier.weight(1f))
-                    Switch(checked = toolbarAtBottom, onCheckedChange = onToolbarAtBottomChange)
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(stringResource(R.string.settings_high_contrast), modifier = Modifier.weight(1f))
-                    Switch(checked = highContrast, onCheckedChange = onHighContrastChange)
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(stringResource(R.string.settings_color_blind_safe), modifier = Modifier.weight(1f))
-                    Switch(checked = colorBlindSafe, onCheckedChange = onColorBlindSafeChange)
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(stringResource(R.string.settings_haptics), modifier = Modifier.weight(1f))
-                    Switch(checked = haptics, onCheckedChange = onHapticsChange)
-                }
-                // Gestures (design roadmap D15).
-                Text(stringResource(R.string.settings_gestures), style = androidx.compose.material3.MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = FernScale.s8))
-                GestureMapEditor()
-                PalmRejectionEditor()
-                // Keyboard shortcuts (design roadmap D18).
-                Text(stringResource(R.string.settings_shortcuts), style = androidx.compose.material3.MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = FernScale.s8))
-                ShortcutEditor()
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(stringResource(R.string.settings_snap_objects), modifier = Modifier.weight(1f))
-                    Switch(checked = snapToObjects, onCheckedChange = onSnapToObjectsChange)
-                }
-                CmykProfileRow()
-                TextButton(onClick = onArrangeLayout) { Text(stringResource(R.string.layout_title)) }
-                TextButton(onClick = onShowGuide) { Text(stringResource(R.string.settings_show_guide)) }
+                OutlinedTextField(
+                    query, { query = it },
+                    placeholder = { Text(stringResource(R.string.settings_search)) },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                // Input: gestures, stylus, keys.
+                SettingsSection(R.string.settings_section_input)
+                GestureMapEditor(filter = ::shows)
+                if (shows(stringResource(R.string.palm_title))) PalmRejectionEditor()
+                ShortcutEditor(filter = ::shows)
+                // Appearance.
+                SettingsSection(R.string.settings_section_appearance)
+                SwitchSetting(stringResource(R.string.settings_left_handed), leftHanded, false, ::shows, onLeftHandedChange)
+                SwitchSetting(stringResource(R.string.settings_toolbar_bottom), toolbarAtBottom, false, ::shows, onToolbarAtBottomChange)
+                if (shows(stringResource(R.string.layout_title))) TextButton(onClick = onArrangeLayout) { Text(stringResource(R.string.layout_title)) }
+                // Accessibility.
+                SettingsSection(R.string.settings_section_accessibility)
+                SwitchSetting(stringResource(R.string.settings_high_contrast), highContrast, false, ::shows, onHighContrastChange)
+                SwitchSetting(stringResource(R.string.settings_color_blind_safe), colorBlindSafe, false, ::shows, onColorBlindSafeChange)
+                SwitchSetting(stringResource(R.string.settings_haptics), haptics, true, ::shows, onHapticsChange)
+                // Canvas.
+                SettingsSection(R.string.settings_section_canvas)
+                SwitchSetting(stringResource(R.string.settings_snap_objects), snapToObjects, true, ::shows, onSnapToObjectsChange)
+                // Files and colour management.
+                SettingsSection(R.string.settings_section_files)
+                if (shows(stringResource(R.string.settings_cmyk_profile, ""))) CmykProfileRow()
+                // Help.
+                if (shows(stringResource(R.string.settings_show_guide))) TextButton(onClick = onShowGuide) { Text(stringResource(R.string.settings_show_guide)) }
             }
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) }
         },
     )
+}
+
+/** A section heading in Settings. */
+@Composable
+private fun SettingsSection(@androidx.annotation.StringRes title: Int) {
+    Text(
+        stringResource(title),
+        style = androidx.compose.material3.MaterialTheme.typography.titleSmall,
+        color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = FernScale.s16, bottom = FernScale.s4).semantics { heading() },
+    )
+}
+
+/** An on/off setting with its own reset, shown while it differs from [default] (design roadmap D24). */
+@Composable
+private fun SwitchSetting(label: String, checked: Boolean, default: Boolean, shows: (String) -> Boolean, onChange: (Boolean) -> Unit) {
+    if (!shows(label)) return
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s4), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.weight(1f))
+        if (checked != default) {
+            IconButton(onClick = { onChange(default) }) { Icon(Icons.Filled.RestartAlt, contentDescription = stringResource(R.string.settings_reset, label)) }
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
 }
 
 /** The CMYK ICC profile used for print colours (roadmap item 102): which one, load another, or go back to device CMYK. */

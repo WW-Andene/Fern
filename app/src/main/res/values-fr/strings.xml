@@ -978,7 +978,6 @@
     <string name="gesture_action_fit">Ajuster à l’écran</string>
     <string name="gesture_action_toggle_chrome">Masquer ou afficher les barres</string>
     <string name="chrome_show">Afficher les barres</string>
-    <string name="settings_gestures">Gestes</string>
     <string name="gesture_stylus_button">Bouton du stylet</string>
     <string name="palm_title">Rejet de la paume</string>
     <string name="palm_off">Désactivé</string>
@@ -993,7 +992,6 @@
     <string name="shortcut_zoom_out">Zoom arrière</string>
     <string name="shortcut_press_key">Appuyez sur une touche…</string>
     <string name="shortcut_sheet_title">Raccourcis clavier</string>
-    <string name="settings_shortcuts">Raccourcis clavier</string>
     <string name="color_current">Couleur actuelle : ouvrir le sélecteur</string>
     <string name="color_saved">Couleur enregistrée</string>
     <string name="color_recent">Couleur récente</string>
@@ -1017,4 +1015,11 @@
     <string name="layout_export_failed">La disposition n’a pas pu être écrite</string>
     <string name="layout_import_failed">Ce fichier n’est pas une disposition Fern</string>
     <string name="layout_imported">Disposition « %1$s » appliquée</string>
+    <string name="settings_search">Rechercher un réglage</string>
+    <string name="settings_section_input">Saisie : gestes, stylet, clavier</string>
+    <string name="settings_section_appearance">Apparence</string>
+    <string name="settings_section_accessibility">Accessibilité</string>
+    <string name="settings_section_canvas">Canevas</string>
+    <string name="settings_section_files">Fichiers et gestion des couleurs</string>
+    <string name="settings_reset">Réinitialiser %1$s</string>
 </resources>

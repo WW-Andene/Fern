@@ -257,9 +257,10 @@ Goal: every surface rearrangeable, layouts portable.
   (rail, panels, gestures, shortcuts, workspaces). Ready-made presets: "Minimal", "Procreate-like",
   "Desktop-like", "One-hand".
   Written, not yet compiled or tested: `LayoutPresets.kt`; at the top of Arrange the layout: Minimal, Procreate-like, Desktop-like and One hand, the user's saved layouts (removable), Save this layout, Export to a .json file and Import (applied and kept). A layout holds pinned tools, toolbar groups, quick menu, gestures and shortcuts; workspaces stay separate (D11, D83).
-- [ ] D24. **Settings rebuilt.** Search inside Settings and plain sections: Input (gestures,
+- [~] D24. **Settings rebuilt.** Search inside Settings and plain sections: Input (gestures,
   stylus, keys, palm), Appearance (theme, density, UI size), Accessibility, Canvas, Files and
   colour management. Every setting can be reset on its own.
+  Written, not yet compiled or tested: a search field (accent- and case-insensitive, either language's wording via the palette matcher) filters every row; sections Input, Appearance, Accessibility, Canvas, Files and colour management; each switch, gesture and shortcut shows a reset button while it differs from its default. Theme, density and UI size join Appearance with D25 and D60.
 - [ ] D25. **UI density and size.** Compact, comfortable or large, scaled on the §7 steps,
   separate from the system font scale.
 - [ ] D83. **Per-workspace layouts.** Each workspace (D11) remembers its own rail, panels and quick

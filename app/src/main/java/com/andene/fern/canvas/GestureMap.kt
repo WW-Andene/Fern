@@ -5,7 +5,11 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -78,13 +82,20 @@ object GestureSettings {
 
 /** Each gesture with the action it runs, changeable in place (Settings, design roadmap D15). */
 @Composable
-fun GestureMapEditor() {
+fun GestureMapEditor(filter: (String) -> Boolean = { true }) {
     val context = LocalContext.current
     val map by GestureSettings.state(context)
     for (gesture in CanvasGesture.entries) {
+        val name = stringResource(gesture.label)
+        if (!filter(name)) continue
         var open by remember { mutableStateOf(false) }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(gesture.label), modifier = Modifier.weight(1f))
+            Text(name, modifier = Modifier.weight(1f))
+            if (map.getValue(gesture) != gesture.default) {
+                IconButton(onClick = { GestureSettings.set(context, gesture, gesture.default) }) {
+                    Icon(Icons.Filled.RestartAlt, contentDescription = stringResource(R.string.settings_reset, name))
+                }
+            }
             Box {
                 TextButton(onClick = { open = true }) { Text(stringResource(map.getValue(gesture).label)) }
                 DropdownMenu(expanded = open, onDismissRequest = { open = false }) {

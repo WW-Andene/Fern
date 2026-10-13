@@ -975,7 +975,6 @@
     <string name="gesture_action_fit">Fit to screen</string>
     <string name="gesture_action_toggle_chrome">Hide or show the bars</string>
     <string name="chrome_show">Show the bars</string>
-    <string name="settings_gestures">Gestures</string>
     <string name="gesture_stylus_button">Stylus button</string>
     <string name="palm_title">Palm rejection</string>
     <string name="palm_off">Off</string>
@@ -990,7 +989,6 @@
     <string name="shortcut_zoom_out">Zoom out</string>
     <string name="shortcut_press_key">Press a key…</string>
     <string name="shortcut_sheet_title">Keyboard shortcuts</string>
-    <string name="settings_shortcuts">Keyboard shortcuts</string>
     <string name="color_current">Current colour: open the picker</string>
     <string name="color_saved">Saved colour</string>
     <string name="color_recent">Recent colour</string>
@@ -1014,4 +1012,11 @@
     <string name="layout_export_failed">The layout couldn’t be written</string>
     <string name="layout_import_failed">That file isn’t a Fern layout</string>
     <string name="layout_imported">Layout “%1$s” applied</string>
+    <string name="settings_search">Search settings</string>
+    <string name="settings_section_input">Input: gestures, stylus, keys</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_section_accessibility">Accessibility</string>
+    <string name="settings_section_canvas">Canvas</string>
+    <string name="settings_section_files">Files and colour management</string>
+    <string name="settings_reset">Reset %1$s</string>
 </resources>
