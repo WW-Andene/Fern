@@ -93,9 +93,6 @@ The app's look and layout rebuilt on the CLAUDE.md §7 scale, so every later scr
   Written, not yet compiled or tested: Settings > Appearance > Interface size: Standard, Large (×1.25), Largest (×1.5, which keeps the §7 steps: 16→24, 32→48); it scales every dp while text still follows the system font size on top. No size below standard, so touch targets never shrink; a compact mode for experts is D90.
 - [ ] D90. **Expert density.** An optional compact mode for experienced users showing more tools
   at once on the phone, without shrinking hit areas below 48 dp.
-- [ ] D57. **Motion system.** A few durations and easings as tokens (D1). Panels slide from where
-  they're docked, menus grow from the button that opened them, and nothing animates longer than
-  needed. Reduced motion is respected (D5).
 - [ ] D58. **Visual identity.** A Fern brand colour, an icon set drawn on one grid with one
   stroke weight (instead of mixed Material icons), and a distinctive yet quiet chrome that lets
   artwork dominate.
