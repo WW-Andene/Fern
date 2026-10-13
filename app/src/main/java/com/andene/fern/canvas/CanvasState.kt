@@ -6147,6 +6147,16 @@ class CanvasState(
         }
     }
 
+    /** Takes slot [id]'s ink off the rig and back onto the canvas, as drawn. One undo step. */
+    fun detachRigSlot(id: String) {
+        recordHistory()
+        val returned = rigEditor.detachSlot(id)
+        if (returned.isNotEmpty()) {
+            strokes.addAll(returned.map { it.deepCopy() })
+            strokesChanged()
+        }
+    }
+
     fun deleteSelection() {
         val textId = selectedTextId
         if (textId != null) {

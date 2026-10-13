@@ -1,0 +1,105 @@
+package com.andene.fern.canvas
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import com.andene.fern.FernPanel
+import com.andene.fern.FernScale
+import com.andene.fern.FernTextField
+import com.andene.fern.R
+
+/**
+ * The rig panel (roadmap items 274, 280): the bones as a tree (tap to select, rename the
+ * selected one), and the slots in draw order, last on top, each movable up or down or taken off
+ * the rig back onto the canvas.
+ */
+@Composable
+fun RigPanel(state: CanvasState, onDismiss: () -> Unit) {
+    val editor = state.rigEditor
+    val rig = editor.rig
+    FernPanel(
+        scrollContent = true,
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.rig_panel_title)) },
+        peek = { rig.bones.firstOrNull { it.id == editor.selectedBoneId }?.let { Text(it.name) } },
+        text = {
+            Column {
+                Text(stringResource(R.string.rig_bones), style = MaterialTheme.typography.labelLarge)
+                if (rig.bones.isEmpty()) Text(stringResource(R.string.rig_no_bones))
+                // Parents before children, each indented by its depth.
+                fun depth(id: String?): Int {
+                    var d = 0
+                    var p = rig.bones.firstOrNull { it.id == id }?.parentId
+                    while (p != null) {
+                        d++
+                        p = rig.bones.firstOrNull { it.id == p }?.parentId
+                    }
+                    return d
+                }
+                for (bone in rig.bones) {
+                    val selected = bone.id == editor.selectedBoneId
+                    Text(
+                        bone.name,
+                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { editor.selectedBoneId = bone.id }
+                            .semantics { this.selected = selected }
+                            .padding(start = FernScale.s16 * depth(bone.id), top = FernScale.s8, bottom = FernScale.s8),
+                    )
+                }
+                rig.bones.firstOrNull { it.id == editor.selectedBoneId }?.let { bone ->
+                    var name by remember(bone.id) { mutableStateOf(bone.name) }
+                    FernTextField(
+                        name,
+                        {
+                            name = it
+                            editor.renameBone(bone.id, it)
+                        },
+                        label = { Text(stringResource(R.string.rig_bone_name)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Text(stringResource(R.string.rig_slots), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = FernScale.s8))
+                if (rig.slots.isEmpty()) Text(stringResource(R.string.rig_no_slots))
+                // Last drawn on top: listed top first, as a layers list is.
+                for ((index, slot) in rig.slots.withIndex().reversed()) {
+                    val boneName = rig.bones.firstOrNull { it.id == slot.boneId }?.name.orEmpty()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.rig_slot_on_bone, slot.name, boneName), modifier = Modifier.weight(1f))
+                        IconButton(onClick = { editor.moveSlot(slot.id, 1) }, enabled = index < rig.slots.lastIndex) {
+                            Icon(Icons.Filled.KeyboardArrowUp, contentDescription = stringResource(R.string.rig_slot_up))
+                        }
+                        IconButton(onClick = { editor.moveSlot(slot.id, -1) }, enabled = index > 0) {
+                            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = stringResource(R.string.rig_slot_down))
+                        }
+                        IconButton(onClick = { state.detachRigSlot(slot.id) }) {
+                            Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.rig_slot_detach))
+                        }
+                    }
+                }
+            }
+        },
+    )
+}

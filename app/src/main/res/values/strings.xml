@@ -1130,4 +1130,14 @@
     <string name="rig_ik">Reach (IK)</string>
     <string name="rig_bend_one_way">Bend: this way</string>
     <string name="rig_bend_other_way">Bend: other way</string>
+    <string name="rig_panel_title">Rig</string>
+    <string name="rig_bones">Bones</string>
+    <string name="rig_no_bones">No bones yet: choose Setup, then draw bones on the canvas.</string>
+    <string name="rig_bone_name">Bone name</string>
+    <string name="rig_slots">Attached drawings, top first</string>
+    <string name="rig_no_slots">Nothing attached yet: select ink, then Attach to the rig.</string>
+    <string name="rig_slot_on_bone">%1$s on %2$s</string>
+    <string name="rig_slot_up">Draw above</string>
+    <string name="rig_slot_down">Draw below</string>
+    <string name="rig_slot_detach">Take off the rig</string>
 </resources>

@@ -1134,4 +1134,14 @@
     <string name="rig_ik">Atteindre (IK)</string>
     <string name="rig_bend_one_way">Plier : dans ce sens</string>
     <string name="rig_bend_other_way">Plier : dans l’autre sens</string>
+    <string name="rig_panel_title">Squelette</string>
+    <string name="rig_bones">Os</string>
+    <string name="rig_no_bones">Aucun os : choisissez Montage, puis tracez des os sur le canevas.</string>
+    <string name="rig_bone_name">Nom de l’os</string>
+    <string name="rig_slots">Dessins attachés, du dessus</string>
+    <string name="rig_no_slots">Rien d’attaché : sélectionnez de l’encre, puis Attacher au squelette.</string>
+    <string name="rig_slot_on_bone">%1$s sur %2$s</string>
+    <string name="rig_slot_up">Dessiner au-dessus</string>
+    <string name="rig_slot_down">Dessiner en dessous</string>
+    <string name="rig_slot_detach">Retirer du squelette</string>
 </resources>

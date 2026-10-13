@@ -480,6 +480,7 @@ fun Toolbar(
     var showBrushEditor by remember { mutableStateOf(false) }
     var showPressureCurve by remember { mutableStateOf(false) }
     var showPalettes by remember { mutableStateOf(false) }
+    var showRigPanel by remember { mutableStateOf(false) }
     var showGradientDialog by remember { mutableStateOf(false) }
     var showPerspectiveMenu by remember { mutableStateOf(false) }
 
@@ -847,6 +848,9 @@ fun Toolbar(
                                 Text(stringResource(if (rig.bendPositive) R.string.rig_bend_one_way else R.string.rig_bend_other_way))
                             }
                         }
+                    }
+                    IconButton(onClick = { showRigPanel = true }) {
+                        Icon(Icons.Filled.AccountTree, contentDescription = stringResource(R.string.rig_panel_title))
                     }
                     IconButton(onClick = { state.deleteSelectedRigBone() }, enabled = rig.selectedBoneId != null) {
                         Icon(Icons.Filled.DeleteOutline, contentDescription = stringResource(R.string.rig_delete_bone))
@@ -1483,6 +1487,8 @@ fun Toolbar(
             }
         }
     }
+
+    if (showRigPanel) RigPanel(state, onDismiss = { showRigPanel = false })
 
     if (showPalettes) {
         PalettePanel(state, onImport = onImportPalette, onChangeEverywhere = { editingSavedColor = it }, onDismiss = { showPalettes = false })

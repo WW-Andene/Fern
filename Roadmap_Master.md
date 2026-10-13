@@ -448,13 +448,15 @@ Spine's display model, and rigging your own drawing. Builds on Phase 11.
   Done: "Attach to the rig" on the selection strip: the selected ink leaves the canvas and becomes an attachment in a new slot on the selected (or nearest) bone, each point following its nearest two bones by weight, so one outline bends at a joint; it is drawn posed and saved with the document, and deleting its bone returns it to the canvas. Left: raster paint and images.
 - [ ] 272. Slots: a slot hangs from a bone and shows one attachment at a time; ink and images go into slots instead of binding to bones directly. Existing bound ink converts to one slot per bone.
 - [ ] 273. Region attachments (an image or group of strokes) in slots.
-- [ ] 274. Attachment timeline: swap a slot's attachment over time (open hand, fist, pointing).
+- [~] 274. Attachment timeline: swap a slot's attachment over time (open hand, fist, pointing).
+  Done: the setup draw order, changed in the rig panel. Left: keying the draw order over time.
 - [ ] 275. Draw order timeline: change which slot is in front over time.
 - [ ] 276. Slot colour and alpha timelines, with a second dark tint colour.
 - [ ] 277. Point attachments (a named point on a bone) and bounding-box attachments (polygons usable by game logic for hits).
 - [ ] 278. Clipping attachments: a polygon clipping the slots after it.
 - [ ] 279. Skins on attachments: a skin replaces some attachments and leaves the rest; several skins combined (hat, shirt, shoes). Layer skins become this.
-- [ ] 280. Slot and attachment panel: the tree of bones, slots and attachments with visibility and draw order.
+- [~] 280. Slot and attachment panel: the tree of bones, slots and attachments with visibility and draw order.
+  Done: `RigPanel.kt`, from the Rig tool: bones as an indented tree (tap to select, rename), slots in draw order with up, down and take off the rig. Left: hiding a slot.
 - [ ] 281. Rig from layers: each layer of an imported PSD becomes a slot with an attachment on a new bone, in place.
 - [ ] 354. **Rigging workflow guide.** The rig tools in the order an artist uses them (cut into parts, place bones, attach, mesh and weight, set the setup pose, animate), shown as steps in the rig panel, so a rig can be built without knowing where each tool lives.
 

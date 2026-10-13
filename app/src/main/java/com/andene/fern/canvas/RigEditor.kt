@@ -361,6 +361,33 @@ class RigEditor(private val host: Host) {
         return if (total <= 0.0) emptyList() else point.map { it.first to it.second / total }
     }
 
+    fun renameBone(id: String, name: String) {
+        if (name.isBlank()) return
+        change(rig.copy(bones = rig.bones.map { if (it.id == id) it.copy(name = name) else it }))
+    }
+
+    /**
+     * Moves slot [id] [by] places in the draw order (roadmap items 274, 280): later slots draw on
+     * top, so an arm can go behind the body.
+     */
+    fun moveSlot(id: String, by: Int) {
+        val from = rig.slots.indexOfFirst { it.id == id }
+        val to = from + by
+        if (from == -1 || to !in rig.slots.indices) return
+        host.recordHistory()
+        val slots = rig.slots.toMutableList()
+        slots.add(to, slots.removeAt(from))
+        change(rig.copy(slots = slots))
+    }
+
+    /** Removes slot [id] and its attachment; returns the attachment's ink, as drawn, for the canvas. */
+    fun detachSlot(id: String): List<Stroke> {
+        val slot = rig.slots.firstOrNull { it.id == id } ?: return emptyList()
+        val attachment = rig.attachments.firstOrNull { it.id == slot.attachmentId }
+        change(rig.copy(slots = rig.slots - slot, attachments = rig.attachments.filter { it.id != slot.attachmentId }))
+        return attachment?.strokes.orEmpty()
+    }
+
     /** Called when the canvas re-anchors its origin: every setup position moves with the drawing. */
     fun shiftBy(offset: WorldPoint) {
         if (rig.bones.isEmpty() && rig.attachments.isEmpty()) return
