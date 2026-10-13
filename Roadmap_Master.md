@@ -155,9 +155,10 @@ Make the tool phases cheap and safe to build: every tool currently goes through 
 
 Switching, adjusting and arranging without looking. Builds on Phases 1 and 2.
 
-- [ ] D78. **Full-screen canvas on demand.** One gesture or tap hides every bar and panel; a
+- [~] D78. **Full-screen canvas on demand.** One gesture or tap hides every bar and panel; a
   second brings them back exactly as they were. Edge-to-edge drawing under the system bars, with
   the gesture navigation area protected from stray strokes.
+  Written, not yet compiled or tested: hiding the chrome (four-finger tap, Tab, or a gesture set in Settings) now hides the system bars too, back for a moment with a swipe from the edge; showing it again brings back the bars and every panel as they were (their state was never dropped). A finger landing in the system's gesture areas (home bar, back strips) starts no stroke or long press; a stylus still draws there.
 - [ ] D79. **Undo and redo always in thumb reach** on the phone, as buttons as well as gestures,
   with a long-press on undo to scrub back through the history.
 - [ ] D80. **Last-tool toggle.** One tap (or gesture) swaps between the current and the previous

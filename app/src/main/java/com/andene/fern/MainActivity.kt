@@ -33,6 +33,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.focusable
@@ -292,6 +295,17 @@ class MainActivity : ComponentActivity() {
                     var showQuickMenu by remember { mutableStateOf(false) }
                     // Every bar and panel hidden for a clear canvas (design roadmap D15 and D78).
                     var chromeHidden by remember { mutableStateOf(false) }
+                    // Full-screen canvas (design roadmap D78): the system bars go too, back with a swipe from
+                    // the edge for a moment; showing the chrome again brings them back.
+                    LaunchedEffect(chromeHidden) {
+                        val controller = WindowCompat.getInsetsController(window, window.decorView)
+                        if (chromeHidden) {
+                            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                            controller.hide(WindowInsetsCompat.Type.systemBars())
+                        } else {
+                            controller.show(WindowInsetsCompat.Type.systemBars())
+                        }
+                    }
                     var minimapShown by remember { mutableStateOf(AppSettings.minimap(context)) }
                     // A tool key being held: the key, the tool before it, when it went down (design roadmap D17).
                     var toolKeyHold by remember { mutableStateOf<Triple<Key, Tool, Long>?>(null) }

@@ -12,6 +12,11 @@ import android.graphics.BitmapFactory
 import android.view.MotionEvent
 import android.view.SurfaceView
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.foundation.layout.mandatorySystemGestures
+import androidx.compose.foundation.layout.systemGestures
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -158,6 +163,21 @@ fun DrawingCanvas(
     var selectionReadout by remember { mutableStateOf(false) }
     // The handle being dragged, for its readout, and the one held to type its value (roadmap item 172).
     var draggedHandle by remember { mutableStateOf<CanvasHandle?>(null) }
+    // The system's gesture areas (design roadmap D78): the home bar along the bottom and the back
+    // strips at the sides, in px from each edge of the (edge-to-edge, full-window) canvas. A home or
+    // back swipe that starts there reaches the canvas first, then is taken by the system - which
+    // would leave its first moments as a stroke.
+    val insetDensity = LocalDensity.current
+    val insetDirection = LocalLayoutDirection.current
+    val gestureInsets = WindowInsets.systemGestures
+    val homeInsets = WindowInsets.mandatorySystemGestures
+    val gestureEdges by rememberUpdatedState(
+        GestureEdges(
+            left = gestureInsets.getLeft(insetDensity, insetDirection).toFloat(),
+            right = gestureInsets.getRight(insetDensity, insetDirection).toFloat(),
+            bottom = maxOf(gestureInsets.getBottom(insetDensity), homeInsets.getBottom(insetDensity)).toFloat(),
+        ),
+    )
     var heldHandle by remember { mutableStateOf<CanvasHandle?>(null) }
     // Pinching or panning: the zoom and turn show at the top (design roadmap D38).
     var navigating by remember { mutableStateOf(false) }
@@ -389,11 +409,20 @@ fun DrawingCanvas(
                                 val downPos = state.unrotateScreen(pointers[0].position, screenCenter)
                                 val world = state.screenToWorld(downPos, screenCenter)
                                 val tool = state.activeTool
+                                // A finger landing in a system gesture area starts nothing (design roadmap D78): it's
+                                // most likely a home or back swipe. A stylus there draws, so ink can reach the edge.
+                                val raw = pointers[0].position
+                                val inGestureArea = pointers[0].type == PointerType.Touch &&
+                                    (raw.x < gestureEdges.left || raw.x > size.width - gestureEdges.right || raw.y > size.height - gestureEdges.bottom)
                                 // A handle under the finger takes the press before any tool (roadmap item 171).
-                                val handle = handleAt(state.canvasHandles(), downPos, { state.worldToScreen(it, screenCenter) }, HANDLE_HIT.toPx())
+                                val handle = if (inGestureArea) null else handleAt(state.canvasHandles(), downPos, { state.worldToScreen(it, screenCenter) }, HANDLE_HIT.toPx())
                                 // A dragged handle shows its own value (roadmap item 172); the select tool's readout is for the rest.
                                 selectionReadout = tool == Tool.SELECT && handle == null
-                                if (handle != null) {
+                                if (inGestureArea) {
+                                    // Nothing begins, not even a long press; the rest of this touch is ignored until it lifts.
+                                    selectionReadout = false
+                                    longPressArmed = false
+                                } else if (handle != null) {
                                     draggedHandle = handle
                                     toolGesture = HandleGesture(handle, world)
                                 } else if (state.editingGuides) {
@@ -2386,3 +2415,6 @@ private const val RIG_BONE_SHOULDER = 0.1f
 private const val RIG_BONE_FILL_ALPHA = 0.3f
 private const val RIG_JOINT_PX = 4f
 private const val RIG_WEIGHT_MIN_ALPHA = 0.12
+
+/** How far the system's gesture areas reach in from the canvas's left, right and bottom edges, in px (design roadmap D78). */
+private data class GestureEdges(val left: Float, val right: Float, val bottom: Float)
