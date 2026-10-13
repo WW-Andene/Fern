@@ -56,7 +56,7 @@ class RasterLayerTest {
         val state = rasterState()
         val surface = state.rasters.getValue(state.activeLayerId)
         state.beginStroke(WorldPoint(10.0, 10.0)); state.endStroke()
-        state.beginErase(WorldPoint(10.0, 10.0)); state.endErase()
+        state.eraserTool.begin(WorldPoint(10.0, 10.0)); state.eraserTool.end()
         assertEquals(0f, surface.pixel(10, 10)[3], 0.02f)
     }
 

@@ -48,8 +48,8 @@ internal fun startToolGesture(state: CanvasState, tool: Tool, point: GesturePoin
             PenGesture(state)
         }
         Tool.ERASER -> {
-            state.beginErase(at)
-            gesture(move = { state.continueErase(it.world) }, release = state::endErase)
+            state.eraserTool.begin(at)
+            gesture(move = { state.eraserTool.move(it.world) }, release = state.eraserTool::end)
         }
         Tool.SHAPE -> {
             state.shapeTool.begin(at)

@@ -26,7 +26,7 @@ class DocumentStatsTest {
         val reported = ArrayList<DocumentStats>()
         val state = CanvasState(onStatsChanged = { reported.add(it) })
         state.beginStroke(WorldPoint(0.0, 0.0)); state.extendStroke(WorldPoint(50.0, 0.0)); state.endStroke()
-        state.beginErase(WorldPoint(25.0, 0.0)); state.endErase()
+        state.eraserTool.begin(WorldPoint(25.0, 0.0)); state.eraserTool.end()
         assertEquals(1, state.stats.strokesDrawn)
         assertEquals(1, state.stats.erases)
         assertEquals(2, reported.size)

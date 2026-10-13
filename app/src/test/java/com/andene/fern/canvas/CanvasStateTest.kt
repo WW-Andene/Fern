@@ -63,9 +63,9 @@ class CanvasStateTest {
     private val square = listOf(WorldPoint(-10.0, -10.0), WorldPoint(10.0, -10.0), WorldPoint(10.0, 10.0), WorldPoint(-10.0, 10.0))
 
     private fun lassoErase(state: CanvasState, loop: List<WorldPoint>) {
-        state.beginErase(loop.first())
-        loop.drop(1).forEach { state.continueErase(it) }
-        state.endErase()
+        state.eraserTool.begin(loop.first())
+        loop.drop(1).forEach { state.eraserTool.move(it) }
+        state.eraserTool.end()
     }
 
     @Test
@@ -75,7 +75,7 @@ class CanvasStateTest {
         state.beginStroke(WorldPoint(-30.0, 0.0))
         for (x in -29..30) state.extendStroke(WorldPoint(x.toDouble(), 0.0))
         state.endStroke()
-        state.lassoErase = true
+        state.eraserTool.lassoErase = true
         lassoErase(state, square)
         assertEquals(2, state.strokes.size)
         // Points exactly on the loop's edge may go either way (ray casting); nothing strictly inside survives.
@@ -89,7 +89,7 @@ class CanvasStateTest {
         val state = CanvasState()
         drawLine(state, WorldPoint(0.0, 0.0), WorldPoint(100.0, 0.0)) // has a point inside the loop
         drawLine(state, WorldPoint(50.0, 50.0), WorldPoint(100.0, 50.0)) // entirely outside
-        state.lassoErase = true
+        state.eraserTool.lassoErase = true
         state.eraseWholeObjects = true
         lassoErase(state, square)
         assertEquals(1, state.strokes.size)
@@ -101,7 +101,7 @@ class CanvasStateTest {
         val state = CanvasState()
         drawLine(state, WorldPoint(50.0, 50.0), WorldPoint(100.0, 50.0))
         val depth = state.historyDepth
-        state.lassoErase = true
+        state.eraserTool.lassoErase = true
         lassoErase(state, listOf(WorldPoint(0.0, 0.0)))
         assertEquals(depth, state.historyDepth)
         assertEquals(1, state.strokes.size)
@@ -144,9 +144,9 @@ class CanvasStateTest {
         drawLine(state, WorldPoint(0.0, 0.0), WorldPoint(100.0, 0.0))
         drawLine(state, WorldPoint(0.0, 500.0), WorldPoint(100.0, 500.0))
         state.eraseWholeObjects = true
-        state.beginErase(WorldPoint(50.0, 2.0))
-        state.continueErase(WorldPoint(60.0, 2.0))
-        state.endErase()
+        state.eraserTool.begin(WorldPoint(50.0, 2.0))
+        state.eraserTool.move(WorldPoint(60.0, 2.0))
+        state.eraserTool.end()
         assertEquals(1, state.strokes.size)
         assertEquals(500.0, state.strokes.single().points.first().y, 0.0)
     }
@@ -157,8 +157,8 @@ class CanvasStateTest {
         state.beginStroke(WorldPoint(0.0, 0.0))
         for (x in 1..100) state.extendStroke(WorldPoint(x.toDouble(), 0.0))
         state.endStroke()
-        state.beginErase(WorldPoint(50.0, 0.0))
-        state.endErase()
+        state.eraserTool.begin(WorldPoint(50.0, 0.0))
+        state.eraserTool.end()
         assertEquals(2, state.strokes.size)
         assertTrue(state.strokes.none { stroke -> stroke.points.any { abs(it.x - 50.0) < 10.0 } })
     }

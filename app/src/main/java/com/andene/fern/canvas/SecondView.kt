@@ -99,11 +99,12 @@ fun SecondView(state: CanvasState, modifier: Modifier = Modifier) {
                             val screenCenter = Offset(size.width / 2f, size.height / 2f)
                             fun world(at: Offset) = center + WorldPoint((at.x - screenCenter.x).toDouble(), (at.y - screenCenter.y).toDouble()) / viewScale
                             val tool = state.activeTool
-                            var drawing = tool == Tool.PEN || tool == Tool.ERASER
-                            fun draw(action: CanvasState.() -> Unit) = state.withInputScale(viewScale) { state.action() }
-                            if (drawing) {
-                                val at = world(down.position)
-                                draw { if (tool == Tool.PEN) beginStroke(at) else beginErase(at) }
+                            // The pen and eraser use the main canvas's gestures (roadmap item 167), at this view's zoom.
+                            fun <T> draw(action: () -> T): T = state.withInputScale(viewScale, action)
+                            var gesture: ToolGesture? = if (tool == Tool.PEN || tool == Tool.ERASER) {
+                                draw { startToolGesture(state, tool, GesturePoint(world(down.position))) { SelectionGestureKind.OTHER } }
+                            } else {
+                                null
                             }
                             down.consume()
                             var previous: List<Offset> = listOf(down.position)
@@ -112,14 +113,14 @@ fun SecondView(state: CanvasState, modifier: Modifier = Modifier) {
                                 val pressed = event.changes.filter { it.pressed }
                                 if (pressed.isEmpty()) break
                                 val points = pressed.map { it.position }
-                                if (points.size > 1 && drawing) {
+                                val drawing = gesture
+                                if (points.size > 1 && drawing != null) {
                                     // A second finger turns drawing into navigating.
-                                    draw { if (tool == Tool.PEN) endStroke() else endErase() }
-                                    drawing = false
-                                }
-                                if (drawing) {
+                                    draw { drawing.cancel() }
+                                    gesture = null
+                                } else if (drawing != null) {
                                     val at = world(points[0])
-                                    draw { if (tool == Tool.PEN) extendStroke(at) else continueErase(at) }
+                                    draw { drawing.move(GesturePoint(at)) }
                                 } else if (points.size == previous.size) {
                                     val centroid = points.reduce { a, b -> a + b } / points.size.toFloat()
                                     val before = previous.reduce { a, b -> a + b } / previous.size.toFloat()
@@ -139,7 +140,7 @@ fun SecondView(state: CanvasState, modifier: Modifier = Modifier) {
                                 previous = points
                                 event.changes.forEach { it.consume() }
                             }
-                            if (drawing) draw { if (tool == Tool.PEN) endStroke() else endErase() }
+                            gesture?.let { draw { it.release() } }
                         }
                     },
             ) {

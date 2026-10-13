@@ -112,12 +112,12 @@ class ScaleBenchmark {
         val state = CanvasState()
         state.loadStrokes(strokes)
         state.eraseWholeObjects = true
-        measure("object-eraser touch") { state.beginErase(point); state.endErase(); state.undo() }
+        measure("object-eraser touch") { state.eraserTool.begin(point); state.eraserTool.end(); state.undo() }
         // A finger moving over the canvas: the per-event cost, without the per-gesture undo snapshot.
         val empty = WorldPoint(-CELL * 10, -CELL * 10)
-        state.beginErase(empty)
-        measure("eraser move, nothing under it") { state.continueErase(empty) }
-        state.endErase()
+        state.eraserTool.begin(empty)
+        measure("eraser move, nothing under it") { state.eraserTool.move(empty) }
+        state.eraserTool.end()
     }
 
     private fun measure(label: String, block: () -> Unit) {

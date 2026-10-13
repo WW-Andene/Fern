@@ -3557,10 +3557,8 @@ class CanvasState(
      */
     val tileCacheEligible: Boolean
         get() = strokes.size >= TILE_CACHE_MIN_STROKES && currentStroke == null && selection.isEmpty() &&
-            !isErasing && !isMovingImage && !isMovingText && !animationMode && replayCount == null && audioReplay == null &&
+            !eraserTool.isErasing && !isMovingImage && !isMovingText && !animationMode && replayCount == null && audioReplay == null &&
             play == null // objects move while a game plays
-
-    private var isErasing = false
 
     private val undoStack = ArrayDeque<HistoryEntry>()
     private val redoStack = ArrayDeque<HistoryEntry>()
@@ -4065,63 +4063,35 @@ class CanvasState(
     var originShift by mutableStateOf(WorldPoint.Zero)
         private set
 
-    fun beginErase(worldPoint: WorldPoint) {
-        isErasing = true
-        eraseStartMillis = System.currentTimeMillis()
-        eraseStartDepth = undoStack.size
-        recordHistory()
-        clearSelectionState() // avoid a stale selection referencing strokes this erase is about to split/remove
-        val surface = activeRaster
-        if (surface != null && activeLayerEditable) {
-            beginRasterStroke(surface, worldPoint, 1f, erasing = true)
-            return
+    /** The ERASER tool and its lasso setting; its gesture state lives there (roadmap item 167). */
+    val eraserTool = EraserTool(object : EraserTool.Host {
+        override fun startErase(): Int {
+            val depth = undoStack.size
+            recordHistory()
+            clearSelectionState() // avoid a stale selection referencing strokes this erase is about to split/remove
+            return depth
         }
-        if (lassoErase) lassoPath.add(worldPoint) else eraseAt(worldPoint)
-    }
-
-    fun continueErase(worldPoint: WorldPoint) {
-        if (rasterLast != null) {
-            activeRaster?.let { rasterDabs(it, worldPoint, 1f) }
-            return
+        override fun beginRasterErase(point: WorldPoint): Boolean {
+            val surface = activeRaster
+            if (surface == null || !activeLayerEditable) return false
+            beginRasterStroke(surface, point, 1f, erasing = true)
+            return true
         }
-        if (lassoErase) {
-            if (lassoPath.isNotEmpty()) lassoPath.add(worldPoint)
-        } else {
-            eraseAt(worldPoint)
+        override val rasterStrokeActive: Boolean get() = rasterLast != null
+        override fun continueRasterErase(point: WorldPoint) {
+            activeRaster?.let { rasterDabs(it, point, 1f) }
         }
-    }
-
-    fun endErase() {
-        isErasing = false
-        if (rasterLast != null) {
-            endRasterStroke()
-            countAction(StatsAction.ERASE, eraseStartMillis)
-            return
+        override fun endRasterErase() = endRasterStroke()
+        override fun eraseAt(point: WorldPoint) = this@CanvasState.eraseAt(point)
+        override val lassoPath: MutableList<WorldPoint> get() = this@CanvasState.lassoPath
+        override fun eraseInsideLasso(lasso: List<WorldPoint>) = this@CanvasState.eraseInsideLasso(lasso)
+        override fun discardActionsSince(depth: Int) = this@CanvasState.discardActionsSince(depth)
+        override fun countErase(startMillis: Long) = countAction(StatsAction.ERASE, startMillis)
+        override fun erased() {
+            strokesChanged()
+            onImageChanged(imageItems.toList())
         }
-        if (lassoErase) {
-            val lasso = lassoPath.toList()
-            lassoPath.clear()
-            // A tap or a line encloses nothing: drop the history entry instead of leaving an empty undo step.
-            if (lasso.size < 3 || !eraseInsideLasso(lasso)) {
-                discardActionsSince(eraseStartDepth)
-                return
-            }
-        }
-        countAction(StatsAction.ERASE, eraseStartMillis)
-        strokesChanged()
-        onImageChanged(imageItems.toList())
-    }
-
-    private var eraseStartMillis = 0L
-
-    /**
-     * Lasso eraser: instead of rubbing out where the eraser passes, the eraser gesture draws a
-     * loop and everything inside it is erased when the finger lifts - ink cut at the loop's edge
-     * in ink mode, whole strokes and images in object mode (see [eraseWholeObjects]).
-     */
-    var lassoErase by mutableStateOf(false)
-
-    private var eraseStartDepth = 0
+    })
 
     /** Erases inside the closed loop [lasso]; returns whether anything was erased. */
     private fun eraseInsideLasso(lasso: List<WorldPoint>): Boolean {

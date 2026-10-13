@@ -129,7 +129,7 @@ class UndoHistoryTest {
         val erased = state.strokes.last()
         val before = state.worldToScreen(erased.points.first(), center)
         state.eraseWholeObjects = true
-        state.beginErase(WorldPoint(5.0, 52.5)); state.endErase()
+        state.eraserTool.begin(WorldPoint(5.0, 52.5)); state.eraserTool.end()
         assertEquals(1, state.strokes.size)
         repeat(100) { state.panByScreenDelta(Offset(-1000f, 0f)) } // rebases while it's only in history
         repeat(100) { state.panByScreenDelta(Offset(1000f, 0f)) } // and back, so both are in view

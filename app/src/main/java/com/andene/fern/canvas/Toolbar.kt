@@ -502,11 +502,11 @@ fun Toolbar(
                         )
                     }
                     // Same lasso icon as lasso selection: one icon per meaning.
-                    IconButton(onClick = { state.lassoErase = !state.lassoErase }) {
+                    IconButton(onClick = { state.eraserTool.lassoErase = !state.eraserTool.lassoErase }) {
                         Icon(
                             FernIcons.Gesture,
-                            contentDescription = if (state.lassoErase) stringResource(R.string.tb_lasso_erase_on) else stringResource(R.string.tb_lasso_erase_off),
-                            tint = if (state.lassoErase) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                            contentDescription = if (state.eraserTool.lassoErase) stringResource(R.string.tb_lasso_erase_on) else stringResource(R.string.tb_lasso_erase_off),
+                            tint = if (state.eraserTool.lassoErase) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
                 }
