@@ -72,10 +72,10 @@ fun SelectionActionStrip(state: CanvasState) {
                 IconButton(onClick = { state.attachSelectionToRig(attachmentName) }) { Icon(FernIcons.Animation, contentDescription = stringResource(R.string.rig_attach_selection)) }
             }
             // Your own drawing as a brush tip (roadmap item 347).
-            IconButton(onClick = { if (state.brushTipFromSelection()) FernMessages.show(tipMade) }) { Icon(FernIcons.Brush, contentDescription = stringResource(R.string.selection_make_tip)) }
+            IconButton(onClick = { if (state.brushTipFromSelection()) FernMessages.show(tipMade, confirmation = true) }) { Icon(FernIcons.Brush, contentDescription = stringResource(R.string.selection_make_tip)) }
             IconButton(onClick = {
                 state.deleteSelection()
-                FernMessages.show(deleted, undo) { state.undo() }
+                FernMessages.show(deleted, undo, confirmation = true) { state.undo() }
             }) { Icon(FernIcons.Delete, contentDescription = stringResource(R.string.tb_delete)) }
         }
     }

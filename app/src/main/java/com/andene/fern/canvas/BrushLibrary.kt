@@ -59,7 +59,7 @@ fun BrushLibrary(state: CanvasState, onEditStamp: () -> Unit, onDismiss: () -> U
         val free = state.toolSlots.indexOfFirst { it == null }
         if (free == -1) FernMessages.show(slotsFull) else {
             state.saveToolSlot(free)
-            FernMessages.show(pinnedLabel)
+            FernMessages.show(pinnedLabel, confirmation = true)
         }
     }
     FernPanel(

@@ -1335,7 +1335,7 @@ fun Toolbar(
                                 if (ToolbarGroup.VIEW !in hiddenGroups) {
                                     LabelledIconButton(onClick = {
                                         state.clear()
-                                        FernMessages.show(clearedMessage, undoLabel) { state.undo() }
+                                        FernMessages.show(clearedMessage, undoLabel, confirmation = true) { state.undo() }
                                     }, icon = FernIcons.DeleteSweep, label = stringResource(R.string.tb_clear_all))
                                     LabelledIconButton(onClick = { state.resetView() }, icon = FernIcons.ZoomOutMap, label = stringResource(R.string.tb_reset_view))
                                     LabelledIconButton(onClick = { state.zoomToFit() }, icon = FernIcons.CenterFocusStrong, label = stringResource(R.string.tb_fit))

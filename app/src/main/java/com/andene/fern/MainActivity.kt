@@ -262,6 +262,7 @@ class MainActivity : ComponentActivity() {
             var highContrast by remember { mutableStateOf(AppSettings.highContrast(this)) }
             var colorBlindSafe by remember { mutableStateOf(AppSettings.colorBlindSafe(this)) }
             remember { FernHaptics.enabled = AppSettings.haptics(this) }
+            remember { FernSounds.enabled = AppSettings.soundCues(this) }
             remember { FernPaper.chromeFollowsPaper = AppSettings.chromeFollowsPaper(this) }
             remember { FernDensity.expert = AppSettings.expertDensity(this) }
             remember { PressureCurves.load(this) }
@@ -779,7 +780,7 @@ class MainActivity : ComponentActivity() {
                             withContext(Dispatchers.IO) { SystemClipboard.copy(context, strokes, png) }
                             // Android 13+ confirms clipboard writes itself; earlier versions get a toast.
                             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                                FernMessages.show(context.getString(R.string.toast_copied))
+                                FernMessages.show(context.getString(R.string.toast_copied), confirmation = true)
                             }
                         }
                     }
@@ -1134,7 +1135,7 @@ class MainActivity : ComponentActivity() {
                                     ShortcutAction.DUPLICATE -> canvasState.duplicateSelection()
                                     ShortcutAction.DELETE, ShortcutAction.DELETE_BACK -> {
                                         canvasState.deleteSelection()
-                                        FernMessages.show(context.getString(R.string.msg_deleted), context.getString(R.string.action_undo)) { canvasState.undo() }
+                                        FernMessages.show(context.getString(R.string.msg_deleted), context.getString(R.string.action_undo), confirmation = true) { canvasState.undo() }
                                     }
                                     ShortcutAction.SIZE_DOWN -> canvasState.activeWidthWorld = (canvasState.activeWidthWorld / SIZE_STEP).coerceAtLeast(MIN_WIDTH_SCREEN.toDouble())
                                     ShortcutAction.SIZE_UP -> canvasState.activeWidthWorld = (canvasState.activeWidthWorld * SIZE_STEP).coerceAtMost(MAX_WIDTH_SCREEN.toDouble())
@@ -1706,7 +1707,7 @@ class MainActivity : ComponentActivity() {
                             val ok = withContext(Dispatchers.IO) {
                                 runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(LayoutPresets.write(preset).toString(2).toByteArray()) } != null }.getOrDefault(false)
                             }
-                            FernMessages.show(context.getString(if (ok) R.string.layout_exported else R.string.layout_export_failed))
+                            FernMessages.show(context.getString(if (ok) R.string.layout_exported else R.string.layout_export_failed), confirmation = ok)
                         }
                     }
                     val layoutImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -1720,7 +1721,7 @@ class MainActivity : ComponentActivity() {
                             } else {
                                 LayoutPresets.apply(context, preset, { hiddenToolbarGroups = it }, { quickMenuActions = it })
                                 LayoutPresets.setSaved(context, LayoutPresets.saved(context) + preset)
-                                FernMessages.show(context.getString(R.string.layout_imported, preset.name))
+                                FernMessages.show(context.getString(R.string.layout_imported, preset.name), confirmation = true)
                             }
                         }
                     }
@@ -1759,7 +1760,7 @@ class MainActivity : ComponentActivity() {
                                     refreshDocuments()
                                     switchToDocument(created.id)
                                     canvasState.resetView()
-                                    FernMessages.show(context.getString(R.string.tips_practice_ready))
+                                    FernMessages.show(context.getString(R.string.tips_practice_ready), confirmation = true)
                                 }
                             },
                         )

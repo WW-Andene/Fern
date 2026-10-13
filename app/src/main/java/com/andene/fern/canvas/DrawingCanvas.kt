@@ -300,7 +300,10 @@ fun DrawingCanvas(
                             return
                         }
                         when (state.activeTool) {
-                            Tool.PEN -> state.endStroke()
+                            Tool.PEN -> {
+                                state.endStroke()
+                                com.andene.fern.FernSounds.strokeEnd()
+                            }
                             Tool.ERASER -> state.endErase()
                             Tool.SHAPE -> state.endShape()
                             Tool.FILL -> {} // one-shot on pointer-down, nothing to end
@@ -435,7 +438,14 @@ fun DrawingCanvas(
                                 if (change.positionChanged()) {
                                     val world = state.screenToWorld(state.unrotateScreen(change.position, screenCenter), screenCenter)
                                     if (editingGuide) state.continueGuideEdit(world) else when (state.activeTool) {
-                                        Tool.PEN -> state.extendStroke(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
+                                        Tool.PEN -> {
+                                            state.extendStroke(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
+                                            // The paper's sound follows the pen's speed on screen (design roadmap D59).
+                                            state.activePenType.paperSound()?.let { paper ->
+                                                val millis = (change.uptimeMillis - change.previousUptimeMillis).coerceAtLeast(1L)
+                                                com.andene.fern.FernSounds.stroke(paper, (change.position - change.previousPosition).getDistance() / millis)
+                                            }
+                                        }
                                         Tool.ERASER -> state.continueErase(world)
                                         Tool.SHAPE -> state.continueShape(world)
                                         Tool.FILL -> {} // one-shot; ignore drag
@@ -2412,3 +2422,10 @@ private const val RIG_BONE_SHOULDER = 0.1f
 private const val RIG_BONE_FILL_ALPHA = 0.3f
 private const val RIG_JOINT_PX = 4f
 private const val RIG_WEIGHT_MIN_ALPHA = 0.12
+
+/** The paper sound a pen makes (design roadmap D59): graphite-like pens sound like a pencil, inks like a felt tip; digital ones are silent. */
+internal fun PenType.paperSound(): com.andene.fern.PaperSound? = when (this) {
+    PenType.PENCIL, PenType.CRAYON -> com.andene.fern.PaperSound.PENCIL
+    PenType.MARKER, PenType.HIGHLIGHTER, PenType.CALLIGRAPHY -> com.andene.fern.PaperSound.MARKER
+    PenType.AIRBRUSH, PenType.PIXEL, PenType.STAMP -> null
+}

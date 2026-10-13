@@ -94,8 +94,9 @@ The app's look and layout rebuilt on the CLAUDE.md §7 scale, so every later scr
   stroke weight (instead of mixed Material icons), and a distinctive yet quiet chrome that lets
   artwork dominate.
   Written, not yet compiled or tested: `FernLight`/`FernDark` (fern green #3B6A35 / #A1D394 on warm near-grey surfaces, WCAG AA checked by `FernThemeTest`); `FernIcons`, the 181 icons in use redrawn from Lucide (24 grid, 2 stroke, ISC), with Material's icon library removed. The launcher icon is unchanged.
-- [ ] D59. **Optional sound cues** for the paper feel (pencil, marker) and confirmations, off by
+- [~] D59. **Optional sound cues** for the paper feel (pencil, marker) and confirmations, off by
   default.
+  Written, not yet compiled or tested: Settings > Accessibility > Sound cues. `SoundSynth` makes the sounds (no audio files): filtered noise for the paper, bright and grainy for pencil and crayon, darker for marker, highlighter and calligraphy, louder as the pen moves faster; a two-note chime for confirmations (messages marked `confirmation`: deleted with Undo, copied, exported, imported). `FernSounds` plays them on one stream that runs only while something sounds.
 - [ ] D52. **Phone layouts first, then responsive.** Phone portrait and landscape are designed first and kept the reference. Then responsive layouts for compact, medium and expanded widths (Material window size
   classes): a bottom rail and sheets on phones, side rail and docked panels on tablets, several
   panels at once on wide screens.

@@ -124,7 +124,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
             confirmingDelete = layer.id
         } else {
             state.deleteLayer(layer.id)
-            if (!layer.raster) FernMessages.show(deletedLabel, undoLabel) { state.undo() }
+            if (!layer.raster) FernMessages.show(deletedLabel, undoLabel, confirmation = true) { state.undo() }
         }
     }
     FernPanel(

@@ -359,7 +359,7 @@ private fun ModelFileActions(current: () -> Model3d, onTextureImported: (IntArra
                 val ok = withContext(Dispatchers.IO) {
                     runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(make(model)) } != null }.getOrDefault(false)
                 }
-                FernMessages.show(context.getString(if (ok) R.string.toast_exported else R.string.toast_export_failed))
+                FernMessages.show(context.getString(if (ok) R.string.toast_exported else R.string.toast_export_failed), confirmation = ok)
             }
         }
     }

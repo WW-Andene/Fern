@@ -17,13 +17,17 @@ import kotlinx.coroutines.launch
  * away from the drawing hand. Any code can [show] one; the host on screen displays them in turn.
  */
 object FernMessages {
-    class Message(val text: String, val actionLabel: String?, val onAction: (() -> Unit)?)
+    class Message(val text: String, val actionLabel: String?, val onAction: (() -> Unit)?, val confirmation: Boolean)
 
     private val queue = Channel<Message>(Channel.BUFFERED)
 
-    /** Shows [text]; with [actionLabel], a button that runs [onAction]. Safe from any thread. */
-    fun show(text: String, actionLabel: String? = null, onAction: (() -> Unit)? = null) {
-        queue.trySend(Message(text, actionLabel, onAction))
+    /**
+     * Shows [text]; with [actionLabel], a button that runs [onAction]. [confirmation] marks a
+     * message that confirms something the user did (not an error or a hint): it plays the
+     * confirmation sound cue when sound cues are on (design roadmap D59). Safe from any thread.
+     */
+    fun show(text: String, actionLabel: String? = null, confirmation: Boolean = false, onAction: (() -> Unit)? = null) {
+        queue.trySend(Message(text, actionLabel, onAction, confirmation))
     }
 
     internal suspend fun next(): Message = queue.receive()
@@ -37,6 +41,7 @@ fun FernMessageHost(modifier: Modifier = Modifier) {
         while (true) {
             val message = FernMessages.next()
             // Each message waits for the previous one, but a new one doesn't block the caller.
+            if (message.confirmation) FernSounds.confirm()
             launch {
                 val result = host.showSnackbar(
                     message.text,

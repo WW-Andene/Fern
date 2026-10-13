@@ -47,6 +47,7 @@ private const val KEY_HIGH_CONTRAST = "high_contrast"
 private const val KEY_CHROME_FOLLOWS_PAPER = "chrome_follows_paper"
 private const val KEY_COLOR_BLIND_SAFE = "color_blind_safe"
 private const val KEY_HAPTICS = "haptics"
+private const val KEY_SOUND_CUES = "sound_cues"
 private const val KEY_UI_SIZE = "ui_size"
 private const val KEY_MINIMAP = "minimap"
 private const val KEY_EXPERT_DENSITY = "expert_density"
@@ -115,6 +116,14 @@ object AppSettings {
 
     fun setHaptics(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_HAPTICS, value).apply()
+    }
+
+    /** Sound cues (design roadmap D59), off unless switched on. */
+    fun soundCues(context: Context): Boolean = prefs(context).getBoolean(KEY_SOUND_CUES, false)
+
+    fun setSoundCues(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean(KEY_SOUND_CUES, value).apply()
+        com.andene.fern.FernSounds.enabled = value
     }
 
     /** Colour-blind-safe marks on the canvas (design roadmap D2). */
@@ -320,6 +329,7 @@ fun SettingsDialog(
                 SwitchSetting(stringResource(R.string.settings_high_contrast), highContrast, false, ::shows, onHighContrastChange)
                 SwitchSetting(stringResource(R.string.settings_color_blind_safe), colorBlindSafe, false, ::shows, onColorBlindSafeChange)
                 SwitchSetting(stringResource(R.string.settings_haptics), haptics, true, ::shows, onHapticsChange)
+                SwitchSetting(stringResource(R.string.settings_sound_cues), com.andene.fern.FernSounds.enabled, false, ::shows) { AppSettings.setSoundCues(context, it) }
                 // Canvas.
                 SettingsSection(R.string.settings_section_canvas)
                 SwitchSetting(stringResource(R.string.settings_snap_objects), snapToObjects, true, ::shows, onSnapToObjectsChange)
