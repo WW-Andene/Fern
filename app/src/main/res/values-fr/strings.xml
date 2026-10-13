@@ -1073,4 +1073,8 @@
     <string name="panel_filter">Filtrer</string>
     <string name="layers_deleted">Calque supprimé</string>
     <string name="layers_opacity_drag">Glissez sur le côté pour changer l’opacité</string>
+    <string name="brush_library">Pinceaux</string>
+    <string name="brush_pinned">Ajouté aux favoris</string>
+    <string name="brush_slots_full">Les favoris sont pleins : remplacez-en un en le maintenant</string>
+    <string name="brush_pin">Ajouter %1$s aux favoris</string>
 </resources>

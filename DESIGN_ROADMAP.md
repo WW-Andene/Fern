@@ -366,9 +366,10 @@ Goal: every panel from Phase D2 designed to the same pattern and fast to work in
   the row, the blend mode inline, drag to reorder or into groups, swipe to delete with Undo,
   multi-select, and layer comps (ROADMAP item 123) in the same panel.
   Written, not yet compiled or tested: each row has a thumbnail of the layer's strokes, visibility, reference and lock, its opacity set by dragging sideways on the name (shown as a %), tap to make active, swipe left to delete with Undo (raster layers still ask first); "New layer" sits in the header with a filter by name; blend inline and layer comps were already in the panel. Not done: drag-to-reorder (up/down arrows remain), layer groups and multi-select.
-- [ ] D44. **Brush and preset library.** A visual grid with live stroke previews, tags and search
+- [~] D44. **Brush and preset library.** A visual grid with live stroke previews, tags and search
   (ROADMAP item 140), favourites pinned to the rail, and editing beside the preview, not in a
   separate dialog.
+  Written, not yet compiled or tested: `BrushLibrary.kt`, opened from the pen button in the properties bar (replacing the pen-kind menu): tiles for each pen kind (a sample stroke in the current colour suggesting its look) and each saved stamp brush (its real stamped preview), filtered by name or tag; tap picks, the pin adds it to a free favourite slot, Edit opens the brush editor, now a panel beside the canvas (D27).
 - [ ] D45. **Timeline panel.** Frames, onion skin, tags and the X-sheet in one dockable strip with
   scrubbing, play and loop at the edge of the hand. It replaces the animation toolbar group and
   the separate X-sheet and dopesheet dialogs.

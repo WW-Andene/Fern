@@ -275,7 +275,7 @@ fun Toolbar(
     var showExportMenu by remember { mutableStateOf(false) }
     var showWidthSlider by remember { mutableStateOf(false) }
     var showColorPicker by remember { mutableStateOf(false) }
-    var showPenTypeMenu by remember { mutableStateOf(false) }
+    var showBrushLibrary by remember { mutableStateOf(false) }
     var showShapeKindMenu by remember { mutableStateOf(false) }
     var showOpacitySlider by remember { mutableStateOf(false) }
     var showStabilizationSlider by remember { mutableStateOf(false) }
@@ -598,23 +598,9 @@ fun Toolbar(
                     ColorStrip(state, palette, ToolbarGroup.PALETTE !in hiddenGroups, onOpenPicker = { showColorPicker = true }, onChangeEverywhere = { editingSavedColor = it })
                 }
                 if (state.activeTool == Tool.PEN || state.activeTool == Tool.SHAPE || state.activeTool == Tool.BEZIER) {
-                Box {
-                    IconButton(onClick = { showPenTypeMenu = true }) {
-                        Icon(penTypeIcon(state.activePenType), contentDescription = stringResource(R.string.tb_pen_type, stringResource(penTypeLabel(state.activePenType))))
-                    }
-                    DropdownMenu(expanded = showPenTypeMenu, onDismissRequest = { showPenTypeMenu = false }) {
-                        for (type in PenType.entries) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(penTypeLabel(type))) },
-                                leadingIcon = { Icon(penTypeIcon(type), contentDescription = null) },
-                                onClick = {
-                                    state.activePenType = type
-                                    state.activeTool = Tool.PEN
-                                    showPenTypeMenu = false
-                                },
-                            )
-                        }
-                    }
+                // Pen kinds and saved brushes in one library (design roadmap D44).
+                IconButton(onClick = { showBrushLibrary = true }) {
+                    Icon(penTypeIcon(state.activePenType), contentDescription = stringResource(R.string.tb_pen_type, stringResource(penTypeLabel(state.activePenType))))
                 }
                 if (state.activePenType == PenType.PIXEL) {
                     IconButton(onClick = { state.indexedPalette = !state.indexedPalette }, enabled = state.savedColors.isNotEmpty()) {
@@ -1465,6 +1451,7 @@ fun Toolbar(
         )
     }
 
+    if (showBrushLibrary) BrushLibrary(state, onEditStamp = { showBrushEditor = true }, onDismiss = { showBrushLibrary = false })
     if (showBrushEditor) {
         BrushEditorDialog(
             initialBrush = state.activeBrush,
@@ -1562,7 +1549,7 @@ internal fun penTypeIcon(penType: PenType) = when (penType) {
 }
 
 @StringRes
-private fun penTypeLabel(penType: PenType) = when (penType) {
+internal fun penTypeLabel(penType: PenType) = when (penType) {
     PenType.MARKER -> R.string.pen_marker
     PenType.PENCIL -> R.string.pen_pencil
     PenType.HIGHLIGHTER -> R.string.pen_highlighter

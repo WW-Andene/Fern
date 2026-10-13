@@ -214,13 +214,13 @@ private fun BrushSlider(label: String, value: Float, range: ClosedFloatingPointR
 
 /** A sample S-curve drawn with [brush] in [color], redrawn on every change. */
 @Composable
-private fun BrushPreview(brush: StampBrush, color: Color) {
+internal fun BrushPreview(brush: StampBrush, color: Color, height: androidx.compose.ui.unit.Dp = FernScale.s96) {
     val outline = MaterialTheme.colorScheme.outline
     val previewLabel = stringResource(R.string.brush_preview)
     Canvas(
         modifier = Modifier
             .fillMaxWidth()
-            .height(FernScale.s96)
+            .height(height)
             .border(FernScale.s1, outline)
             .semantics { contentDescription = previewLabel },
     ) {

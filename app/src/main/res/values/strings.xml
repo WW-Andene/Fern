@@ -1069,4 +1069,8 @@
     <string name="panel_filter">Filter</string>
     <string name="layers_deleted">Layer deleted</string>
     <string name="layers_opacity_drag">Drag sideways to change the opacity</string>
+    <string name="brush_library">Brushes</string>
+    <string name="brush_pinned">Added to favourites</string>
+    <string name="brush_slots_full">Favourites are full: replace one by holding it</string>
+    <string name="brush_pin">Add %1$s to favourites</string>
 </resources>
