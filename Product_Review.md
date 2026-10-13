@@ -168,3 +168,189 @@ Judged against the eight priorities. "Material" means it changes how well people
 **Core workflows to prioritise (analysis, pending Q1).** (1) Sketch and ink on a phone; (2) colour and paint; (3) draw with guides (perspective, rulers); (4) rig and animate your own drawing; (5) export to share or to Spine. Workflows 1–3 are what a new user meets first; 4–5 are Fern's differentiator.
 
 **Cosmetic vs. material.** The type and shape scale (items 334–335) are mostly cosmetic but cheap and required by CLAUDE.md §7. The chrome budget, retiring the toolbar, guides that don't block drawing, and panels instead of dialogs (336–340) materially change usability and come first in effort terms.
+
+---
+
+## 5. Opportunity backlog
+
+Ranked by priority, then by dependency. "Roadmap" names the Roadmap_Master.md items each opportunity maps to; **new** means it is not in the roadmap yet. Effort: S (days), M (one to three weeks), L (a month or more), for one developer — an estimate from the code, not measured.
+
+### O1. Verify before building further — Critical
+- **Problem.** About 30 UI items (D15–D46) were written without compiling; the first build failed and two of ten failing tests were real bugs. CI runs only on `main`, so broken work lands before anyone sees it.
+- **Evidence.** §2.4 items 7–8; `.github/workflows/build-apk.yml` triggers on `push` to `main` only.
+- **Solution.** Run the build and tests on every pull request and branch push; then a device pass over D15–D46 on a phone (items D71), fixing or reverting what fails.
+- **Impact.** Stops broken work reaching `main`; turns 30 "written" items into known states.
+- **Effort.** S for CI; M for the device pass.
+- **Dependencies, risks.** Needs a phone and the owner's time (CLAUDE.md §2 says tests aren't run unless asked: Q4).
+- **Next action.** Add `pull_request` and branch triggers to the workflow.
+- **Roadmap.** **New** (item 355); D71.
+
+### O2. UI foundation on the project's own rules — Critical
+- **Problem.** Default Material type, shapes and component sizes break CLAUDE.md §7; chrome grows with every feature.
+- **Evidence.** `FernTheme.kt:64`; about 70 + 27 controls in shared rows (§4).
+- **Solution.** Fern typography and shapes on the scale; Fern component wrappers; a chrome budget; retire the toolbar strip; remaining dialogs to panels.
+- **Impact.** Every later screen is built compliant; the canvas gets its space back (priorities 1, 3, 7).
+- **Effort.** L overall; type and shapes S; component wrappers M; toolbar retirement M–L.
+- **Dependencies, risks.** Touches most UI files; do it before new UI, or every new screen is rework. Risk of regressions without device checks (O1 first).
+- **Next action.** Write the `Typography` and `Shapes` for `FernTheme` and a test that fails on off-scale values.
+- **Roadmap.** 334–339, D42, D95.
+
+### O3. Split the tool code before adding tools — High
+- **Problem.** Every tool lives in the same `when` blocks of three very large files; the compile errors in the D-batch came from exactly there.
+- **Evidence.** `CanvasState.kt` 6,269 lines, `DrawingCanvas.kt` 2,211, `Toolbar.kt` 1,633; CLAUDE.md §4.5.
+- **Solution.** One handler per tool (press, move, release, cancel) with its own state and properties UI; gesture tests first.
+- **Impact.** New tools stop touching shared code; reviewable changes; fewer regressions.
+- **Effort.** L, done tool by tool.
+- **Dependencies, risks.** Behaviour must stay identical: gesture tests (168) come first.
+- **Next action.** Write the gesture tests, then move one simple tool (eyedropper) to the new structure as the pattern.
+- **Roadmap.** 167–172.
+
+### O4. Guides that don't block drawing — High
+- **Problem.** The ruler is a tool, so drawing stops while it is on; one ruler kind; perspective 1–2 points without a grid; the ruler turns perspective off.
+- **Evidence.** `CanvasState.kt:4445–4488`, `3739`; `PerspectiveGuide.kt:17`.
+- **Solution.** Guides as placed, locked objects the pen snaps to, edited in an explicit mode; ruler kinds; 1–3-point perspective with a grid; several guides at once; per-stroke snap override.
+- **Impact.** Unblocks a core workflow (drawing with guides) that every reference tool supports (§3.1).
+- **Effort.** M for the model and straight ruler; M for perspective; S–M per extra kind.
+- **Dependencies, risks.** Handle framework (171). Keep a small default snap set (§3.5) to avoid mis-snaps.
+- **Next action.** Move the ruler out of `Tool` into a guide list on `CanvasState`, snapping while the pen is active.
+- **Roadmap.** 340–346.
+
+### O5. One brush engine, with brushes from your own drawing — High
+- **Problem.** Fixed pen behaviours; four raster brush settings; custom tips only from a file for the stamp pen.
+- **Evidence.** `Stroke.kt:24`, `RasterBrush.kt:34`, `StampBrush.kt:13–20`, `BrushEditorDialog.kt:80`.
+- **Solution.** Brushes as parameter sets (pressure curve, spacing, taper, shape and colour dynamics, grain); pen types become presets; tip and grain from a selection; brush studio; import and export.
+- **Impact.** Pen customisation the owner asked for; parity with the Android bar (Infinite Painter) and pro tools (§3.1).
+- **Effort.** L.
+- **Dependencies, risks.** Stroke file format changes (keep old strokes readable: §6). Performance of per-stamp dynamics on phones must be measured.
+- **Next action.** Design the brush parameter record and its storage version; map the 8 pen types onto it without visual change.
+- **Roadmap.** 349, 189–204, 347, 348, D82.
+
+### O6. Colour as a system — High
+- **Problem.** No palette panel; 16-colour cap; everything in one row; eyedropper blind to raster, images and fills.
+- **Evidence.** `ColorStrip.kt:44–67`, `CanvasState.kt:124`, `2976`.
+- **Solution.** Palette panel with named palettes; compact colour row; screen-sampling eyedropper with a loupe.
+- **Impact.** Core colouring workflow; removes a silent failure.
+- **Effort.** M.
+- **Dependencies, risks.** Screen sampling (170) needs a render of the composite at a point; reuse the tile renderer.
+- **Next action.** Implement screen sampling and switch the eyedropper to it.
+- **Roadmap.** 350–352, 170, 173–174, D20.
+
+### O7. Rig data model the Spine way — High
+- **Problem.** Fern's rig can't rig an artist's drawing and loses data in the Spine round trip.
+- **Evidence.** §2.4 items 5–6; Spine's model §3.3.
+- **Solution.** Local bone transforms with scale and shear; keyed timelines with curves; setup pose; then slots and attachments (rig from a selection or from layers), meshes and topology-based weights, two-bone IK with bend direction as the default, other constraints, and a lossless Spine export.
+- **Impact.** The differentiating workflow (draw → rig → animate → export or play) becomes real.
+- **Effort.** L (several months across Phases 11–17).
+- **Dependencies, risks.** Existing documents must convert (per-frame poses to keys; bound strokes to slots). The game logic plays rig animations (item 158), so it must move to the new model too. Biggest single risk in the roadmap; do it in the listed phase order with a converter and tests at each step.
+- **Next action.** Write the new bone and timeline data classes and a converter from today's per-frame poses, behind the existing UI.
+- **Roadmap.** 250–255, 272–309, 353–354; this review sharpens 288 (two-bone IK default, CCD optional) and 285 (topology-based automatic weights).
+
+### O8. Define the target users and core workflows — High
+- **Problem.** The roadmap serves many audiences (artists, note-takers, animators, game makers, CAD-like precision) without saying who comes first, so every feature looks equally important.
+- **Evidence.** §2.1: no user definition in README, CLAUDE.md or the roadmap.
+- **Solution.** The owner names a primary user and three to five core workflows; the roadmap orders by them; usability sessions (D72) test them.
+- **Impact.** Makes "what not to build" decidable.
+- **Effort.** S (a decision), then D72.
+- **Next action.** Answer Q1.
+- **Roadmap.** **New** (item 356).
+
+### O9. Measure performance where it decides adoption — Medium
+- **Problem.** No measured pen-to-pixel latency, stroke-count limits or panel opening times, although the engine is the main strength.
+- **Evidence.** Roadmap item 7 history ("latency not yet measured on a device"), D31, D70.
+- **Solution.** A small benchmark set on one low-end and one high-end phone: ink latency, frame time with 100 k and 1 M strokes, panel open time; tracked over releases.
+- **Impact.** Protects the strength that differentiates Fern from Endless Paper's absence on Android; gives evidence for brush-engine choices (O5).
+- **Effort.** M.
+- **Next action.** Add a macrobenchmark module (assumption: Jetpack Macrobenchmark fits; not checked against the build setup).
+- **Roadmap.** **New** (item 357); D70.
+
+### O10. Drawing-tool completeness fixes — Medium
+- **Problem.** Remaining gaps in shape, fill, eraser, select, text, Bézier (Roadmap Phase 7).
+- **Evidence.** Roadmap items 175–187, each grounded in code read during the audit.
+- **Solution, effort, next action.** As listed per item; most are S.
+- **Dependencies.** O3 (tool split) and the handle framework.
+- **Roadmap.** 175–187.
+
+### O11. 3D as a drawing reference, not a modeler — Medium
+- **Problem.** 3D models are painted and placed as still images; their value for a drawing app is as perspective reference.
+- **Evidence.** `Model3d.kt`; §3.4.
+- **Solution.** Prioritise items 316 (re-render at a new angle on the canvas) and 321 (camera matching the perspective guide) over new 3D features; keep sculpting and modeling out of scope.
+- **Dependencies.** O4 (perspective guide).
+- **Roadmap.** 313–325, reordered: 316 and 321 first after the fixes.
+
+### O12. Precision for design and CAD-like users — Low (pending Q1)
+- **Problem.** Snapping targets and typed values exist in part; a CAD-grade constraint system would be costly.
+- **Evidence.** `ObjectSnapping.kt`, item 143; §3.5.
+- **Solution.** A small chosen set of snap targets (endpoint, midpoint, intersection, centre, perpendicular, tangent) with a per-stroke override and values typed at the cursor; no parametric constraint solver.
+- **Roadmap.** Partly 172, 341; a snap-target set is **new** (item 358), only if Q1 includes design users.
+
+---
+
+## 6. Technical considerations
+
+- **File format versioning.** The brush engine (O5) and rig model (O7) change what strokes and bones store. Old documents must open: add explicit format versions and converters with golden-file tests before changing the model (`CanvasStorage.kt`, `StrokeCodec.kt`). Analysis.
+- **State concentration.** `CanvasState.kt` holds nearly every feature's state; Compose recomposition and undo snapshots both scale with it. Splitting per tool (O3) also limits what each undo snapshot captures. Analysis; undo cost not measured.
+- **Rendering cost of richer brushes.** Per-stamp dynamics, grain and dual tips multiply GPU work; the tile cache and GPU tile renderer are the place to absorb it. Measure first (O9).
+- **Spine compatibility as a contract.** Treat the Spine JSON schema (4.x) as the rig model's external contract: round-trip tests (export → import → compare) for every rig feature added.
+- **Component wrappers.** Wrapping Material components (O2) keeps accessibility semantics Material provides; replacing them outright would lose them. Recommendation: wrap, don't rewrite.
+- **CI.** Robolectric UI tests need the `ui-test-manifest` dependency and API 29 for the motion-prediction display issue (already handled in tests on this branch). Branch CI (O1) costs runner time per push; acceptable at this repository's scale (assumption).
+- **§8.1 constraint.** All recommendations here work offline; none needs a platform service.
+
+---
+
+## 7. Phased roadmap recommendations
+
+Roadmap_Master.md's phase order already matches this review's dependency analysis. Recommended changes:
+
+1. **Add a Phase 0, "Verify and protect"**, before Phase 1: branch and pull-request CI (new 355) and the device pass over the unverified D-items (D71 moved here). Finding O1.
+2. **Add item 356 (target users and core workflows)** to Phase 0 as a decision. Finding O8.
+3. **Add item 357 (performance benchmarks)** to Phase 2, before the brush engine. Finding O9.
+4. **Sharpen item 288**: two-bone IK with bend direction as the default solver, CCD kept as an option for longer chains. Evidence §3.3.
+5. **Sharpen item 285**: automatic weights from mesh topology, not distance alone. Evidence §3.3.
+6. **Reorder Phase 19 (3D)**: items 316 and 321 first after the camera and painting fixes. Finding O11.
+7. **Add item 358 (snap target set)** to Phase 4 as conditional on Q1. Finding O12.
+8. **Add format versioning** as a prerequisite note on Phases 5 and 11. §6.
+
+No established goal or priority conflicts with these changes. One tension is flagged: CLAUDE.md §2 removes building and tests from the definition of done, while O1 recommends CI on every branch; CI runs on GitHub, not in the developer's loop, so it doesn't contradict §2, but the owner should confirm (Q4).
+
+---
+
+## 8. Open questions
+
+- **Q1. Who is the primary user?** Illustrators, comic artists, animators, game makers, note-takers or designers? The answer orders Phases 4–20 and decides O12.
+- **Q2. Phone only, or tablet soon?** The ground rules say phone first. Brush studios, dopesheets and rig panels are dense; how much depth is expected on a phone screen?
+- **Q3. Spine as the rig target.** Confirm that matching Spine's model (and its export) is the goal, rather than a Fern-specific rig.
+- **Q4. CI on branches and pull requests.** Acceptable alongside CLAUDE.md §2?
+- **Q5. Monetisation and distribution.** Item 77 (Play Store) is deferred; does a release date change priorities?
+
+**Gaps in this review.** Not examined: Adobe Animate, Maya, Photoshop and BIM tools in depth (only principles via the tools cited); Toon Boom Harmony; Live2D; Krita's Android status; colour palette UIs of the reference tools (marked as assumption in §3.1); Clip Studio's 3D figures (assumption in §3.4). No device testing, user sessions or performance measurement.
+
+---
+
+## 9. Recommended next steps
+
+1. Owner answers Q1–Q4.
+2. Add branch and pull-request CI (355).
+3. Device pass over D15–D46 on a phone; fix or revert.
+4. Fern typography and shapes, with an off-scale check (334–335).
+5. Gesture tests, then move the eyedropper into its own handler with screen sampling (168, 167, 170, 173) — proves the tool split and fixes a silent failure in one change.
+6. Guide model with the straight ruler as the first kind (340–341).
+7. Brush parameter record and format version (349) — design only, measured against benchmarks (357).
+8. Rig data model and converter (250–252) — design only, with Spine round-trip tests.
+
+---
+
+## Sources
+
+- Procreate Handbook: [Brush Studio settings](https://help.procreate.com/procreate/handbook/brushes/brush-studio-settings), [Perspective guides](https://help.procreate.com/procreate/handbook/guides/guides-perspective), [Drawing guides](https://help.procreate.com/procreate/handbook/guides/guide-create)
+- Clip Studio Paint: [How to use rulers](https://tips.clip-studio.com/en-us/articles/8559), [Snapping to rulers](https://tips.clip-studio.com/en-us/articles/10701), [Creating your own materials](https://help.clip-studio.com/en-us/manual_en/630_material/Creating_your_own_materials.htm), [Using illustrations as brush materials](https://tips.clip-studio.com/en-us/articles/1700)
+- Krita manual: [Painting with Assistants](https://docs.krita.org/Painting_With_Assistants), [Brush Engines](https://docs.krita.org/Category:Brush_Engines)
+- Spine user guide: [Attachments](https://us.esotericsoftware.com/spine-attachments), [Weights](https://esotericsoftware.com/spine-weights), [IK constraints](https://esotericsoftware.com/spine-ik-constraints), [Keys](https://esotericsoftware.com/spine-keys), [Graph](https://en.esotericsoftware.com/spine-graph.md)
+- Blender manual: [Grease Pencil animation](https://docs.blender.org/manual/en/dev/grease_pencil/animation/introduction.html)
+- Autodesk: [Object Snap Tracking](https://help.autodesk.com/cloudhelp/2022/ENU/AutoCAD-DidYouKnow/files/GUID-6FB309A8-2696-4383-8277-950E9E2756A8.htm); Noble Desktop: [Object snap](https://www.nobledesktop.com/learn/autocad/object-snap-part-1)
+- Infinite Painter: [About the app](https://docs.infinitestudio.art/painter/about/app/)
+- ibis Paint X: [store listing via APKMirror](https://apkmirror.com/apk/ibis-inc/ibis-paint-x/ibis-paint-x-12-2-3-release/ibis-paint-x-12-2-3-android-apk-download)
+- FlipaClip: [App Store listing](https://apps.apple.com/us/app/flipaclip-create-2d-animation/id1101848914?l=en)
+- Nomad Sculpt: [listing via APKMirror](https://www.apkmirror.com/apk/hexanomad/nomad-sculpt)
+- Concepts: [Android page](https://concepts.tophatch.com/android)
+- Shapr3D: [iPad page](https://www.shapr3d.com/download/ipad), [Digital Engineering review](https://www.digitalengineering247.com/article/shapr3d-unites-modeling-rigor-with-sketching-simplicity/reviews)
+- Endless Paper: [App Store listing](https://apps.apple.com/app/id1294105620)
