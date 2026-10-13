@@ -79,8 +79,8 @@ internal fun startToolGesture(state: CanvasState, tool: Tool, point: GesturePoin
         }
         // A node is placed on press; dragging pulls its handles out.
         Tool.BEZIER -> {
-            state.beginBezierNode(at)
-            gesture(move = { state.dragBezierHandle(it.world) }, release = {})
+            state.bezierTool.press(at)
+            gesture(move = { state.bezierTool.dragHandle(it.world) }, release = {})
         }
         Tool.MEASURE -> {
             state.measureTool.begin(at)

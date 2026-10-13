@@ -563,17 +563,17 @@ fun Toolbar(
                     }
                 }
                 // Bézier pen (roadmap item 96): tap for corners, drag for curves, tap the first node to close.
-                if (state.activeTool == Tool.BEZIER && state.bezierNodes.isNotEmpty()) {
-                    IconButton(onClick = { state.finishBezierPath(closed = false) }, enabled = state.bezierNodes.size >= 2) {
+                if (state.activeTool == Tool.BEZIER && state.bezierTool.nodes.isNotEmpty()) {
+                    IconButton(onClick = { state.bezierTool.finish(closed = false) }, enabled = state.bezierTool.nodes.size >= 2) {
                         Icon(FernIcons.Check, contentDescription = stringResource(R.string.tb_bezier_finish))
                     }
-                    IconButton(onClick = { state.finishBezierPath(closed = true) }, enabled = state.bezierNodes.size >= 3) {
+                    IconButton(onClick = { state.bezierTool.finish(closed = true) }, enabled = state.bezierTool.nodes.size >= 3) {
                         Icon(FernIcons.Pentagon, contentDescription = stringResource(R.string.tb_bezier_close))
                     }
-                    IconButton(onClick = { state.removeLastBezierNode() }) {
+                    IconButton(onClick = { state.bezierTool.removeLastNode() }) {
                         Icon(FernIcons.Backspace, contentDescription = stringResource(R.string.tb_bezier_remove_node))
                     }
-                    IconButton(onClick = { state.cancelBezierPath() }) {
+                    IconButton(onClick = { state.bezierTool.cancel() }) {
                         Icon(FernIcons.Close, contentDescription = stringResource(R.string.tb_bezier_cancel))
                     }
                 }

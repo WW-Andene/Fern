@@ -816,8 +816,8 @@ fun DrawingCanvas(
             }
 
             // The Bézier path being built: the curve so far, its nodes, and the last node's handles.
-            if (state.bezierNodes.isNotEmpty()) {
-                val nodes = state.bezierNodes.toList()
+            if (state.bezierTool.nodes.isNotEmpty()) {
+                val nodes = state.bezierTool.nodes.toList()
                 val preview = flattenBezier(nodes, closed = false, spacing = 4.0 / state.scale.coerceAtLeast(1e-300)).map { state.worldToScreen(it, screenCenter) }
                 for (i in 1 until preview.size) drawLine(MARQUEE_BORDER_COLOR, preview[i - 1], preview[i], strokeWidth = 2f)
                 val last = nodes.last()

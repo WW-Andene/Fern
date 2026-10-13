@@ -159,9 +159,6 @@ class CanvasState(
         // Smart guides: snap distance (screen px) and how many nearby objects offer guide lines.
         private const val GUIDE_SNAP_SCREEN = 8.0
         private const val MAX_GUIDE_OBJECTS = 2000
-        // Bézier pen: reach of the first node to close a path, and curve sampling (screen px).
-        private const val BEZIER_CLOSE_SCREEN = 24.0
-        private const val BEZIER_SAMPLE_SCREEN = 4.0
         // IK: chain length, solver passes per move, and close enough (screen px).
         private const val IK_CHAIN_BONES = 4
         /** Longest hold the X-sheet offers, in playback ticks. */
@@ -288,7 +285,7 @@ class CanvasState(
         get() = activeToolState
         set(value) {
             // Leaving the Bézier pen keeps the path drawn so far, as an open path.
-            if (activeToolState == Tool.BEZIER && value != Tool.BEZIER && bezierNodes.isNotEmpty()) finishBezierPath(closed = false)
+            if (activeToolState == Tool.BEZIER && value != Tool.BEZIER && bezierTool.nodes.isNotEmpty()) bezierTool.finish(closed = false)
             // The shape builder and knife belong to the SELECT tool; the eraser is spared, since a
             // flipped stylus switches to it for one gesture and back.
             if (value != Tool.SELECT && value != Tool.ERASER) endShapeEdit()
@@ -1347,66 +1344,29 @@ class CanvasState(
 
     // ---- Bézier pen tool (roadmap item 96) ----
 
-    /** Nodes of the path being built with [Tool.BEZIER]; empty when none is in progress. */
-    val bezierNodes = mutableStateListOf<BezierNode>()
-
-    /**
-     * Bézier pen press: on the first node of a path of three or more nodes, closes and
-     * finishes it; otherwise adds a node here (a corner until dragged).
-     */
-    fun beginBezierNode(world: WorldPoint) {
-        val reach = BEZIER_CLOSE_SCREEN / scale.coerceAtLeast(1e-300)
-        val first = bezierNodes.firstOrNull()
-        if (first != null && bezierNodes.size >= 3 && hypot(first.point.x - world.x, first.point.y - world.y) <= reach) {
-            finishBezierPath(closed = true)
-            return
+    /** The Bézier pen and the path it's building; its state lives there (roadmap item 167). */
+    val bezierTool = BezierTool(object : BezierTool.Host {
+        override val scale: Double get() = this@CanvasState.scale
+        override fun commitPenStroke(points: List<WorldPoint>) {
+            if (!activeLayerEditable) return
+            recordHistory()
+            val stroke = Stroke(
+                activeColor.copy(alpha = activeColor.alpha * activeOpacity.toFloat()),
+                activeWidthWorld / scale.coerceAtLeast(1e-300),
+                activePenType,
+                blendMode = activeBlendMode,
+                layerId = activeLayerId,
+                animFrame = currentAnimFrame,
+                dashed = activeDashed,
+                lineStyle = activeLineStyle.takeIf { it != LineStyle() },
+                brush = if (activePenType == PenType.STAMP) activeBrush else null,
+            )
+            for (point in points) stroke.addPoint(point)
+            strokes.add(stroke)
+            rememberActiveColor()
+            strokesChanged()
         }
-        bezierNodes.add(BezierNode(world))
-    }
-
-    /** Dragging while placing a node pulls its handle out, making it smooth. */
-    fun dragBezierHandle(world: WorldPoint) {
-        val last = bezierNodes.lastOrNull() ?: return
-        // Within the tap slop it stays a corner, so a tap with a little wobble isn't curved.
-        val moved = hypot(world.x - last.point.x, world.y - last.point.y) * scale
-        bezierNodes[bezierNodes.lastIndex] = last.copy(handleOut = if (moved <= TAP_SLOP_SCREEN) last.point else world)
-    }
-
-    fun removeLastBezierNode() {
-        if (bezierNodes.isNotEmpty()) bezierNodes.removeAt(bezierNodes.lastIndex)
-    }
-
-    fun cancelBezierPath() {
-        bezierNodes.clear()
-    }
-
-    /**
-     * Commits the path as a stroke with the current pen settings (closed back to its first
-     * node when [closed], so the fill tool can fill it), sampled finely enough to look smooth
-     * at the current zoom. Undoable. A path of fewer than two nodes is discarded.
-     */
-    fun finishBezierPath(closed: Boolean) {
-        val nodes = bezierNodes.toList()
-        bezierNodes.clear()
-        if (nodes.size < 2 || !activeLayerEditable) return
-        recordHistory()
-        val s = scale.coerceAtLeast(1e-300)
-        val stroke = Stroke(
-            activeColor.copy(alpha = activeColor.alpha * activeOpacity.toFloat()),
-            activeWidthWorld / s,
-            activePenType,
-            blendMode = activeBlendMode,
-            layerId = activeLayerId,
-            animFrame = currentAnimFrame,
-            dashed = activeDashed,
-            lineStyle = activeLineStyle.takeIf { it != LineStyle() },
-            brush = if (activePenType == PenType.STAMP) activeBrush else null,
-        )
-        for (point in flattenBezier(nodes, closed && nodes.size >= 3, BEZIER_SAMPLE_SCREEN / s)) stroke.addPoint(point)
-        strokes.add(stroke)
-        rememberActiveColor()
-        strokesChanged()
-    }
+    })
 
     // ---- Skeleton (roadmap item 83) ----
 
@@ -6589,7 +6549,7 @@ class CanvasState(
             for (i in imageItems.indices) imageItems[i] = imageItems[i].copy(position = imageItems[i].position - offset)
             onImageChanged(imageItems.toList())
         }
-        if (bezierNodes.isNotEmpty()) for (i in bezierNodes.indices) bezierNodes[i] = bezierNodes[i].shiftedBy(offset)
+        bezierTool.shiftBy(offset)
         if (bones.isNotEmpty()) {
             for (i in bones.indices) bones[i] = bones[i].shiftedBy(offset)
             onBonesChanged(bones.toList())
