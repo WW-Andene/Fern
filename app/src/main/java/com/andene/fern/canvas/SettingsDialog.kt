@@ -285,6 +285,8 @@ fun SettingsDialog(
                 SettingsSection(R.string.settings_section_appearance)
                 SwitchSetting(stringResource(R.string.settings_left_handed), leftHanded, false, ::shows, onLeftHandedChange)
                 SwitchSetting(stringResource(R.string.settings_toolbar_bottom), toolbarAtBottom, false, ::shows, onToolbarAtBottomChange)
+                val context = androidx.compose.ui.platform.LocalContext.current
+                SwitchSetting(stringResource(R.string.settings_icon_labels), iconLabelsShown(), true, ::shows) { IconLabels.set(context, it) }
                 if (shows(stringResource(R.string.ui_size_title))) {
                     Text(stringResource(R.string.ui_size_title), modifier = Modifier.padding(top = FernScale.s8))
                     Row {

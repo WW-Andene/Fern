@@ -1197,44 +1197,24 @@ fun Toolbar(
                             }
                             MoreSection(stringResource(R.string.more_section_mode)) {
                                 if (ToolbarGroup.ANIMATION !in hiddenGroups) {
-                                    IconButton(onClick = {
+                                    LabelledIconButton(onClick = {
                                         state.animationMode = !state.animationMode
                                         state.playing = false
-                                    }) {
-                                        Icon(
-                                            Icons.Filled.Movie,
-                                            contentDescription = if (state.animationMode) stringResource(R.string.tb_anim_on) else stringResource(R.string.tb_anim_off),
-                                            tint = if (state.animationMode) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                                        )
-                                    }
+                                    }, icon = Icons.Filled.Movie, label = if (state.animationMode) stringResource(R.string.tb_anim_on) else stringResource(R.string.tb_anim_off), tint = if (state.animationMode) MaterialTheme.colorScheme.primary else LocalContentColor.current)
                                 }
                                 if (state.gameObjects.isNotEmpty()) {
                                     // The game's controls (roadmap item 160).
-                                    IconButton(onClick = { showControls = true }) {
-                                        Icon(Icons.Filled.Gamepad, contentDescription = stringResource(R.string.controls_title))
-                                    }
+                                    LabelledIconButton(onClick = { showControls = true }, icon = Icons.Filled.Gamepad, label = stringResource(R.string.controls_title))
                                 }
                                 if (ToolbarGroup.REPLAY !in hiddenGroups) {
-                                    IconButton(onClick = { state.replayCount = if (state.replayCount == null) 0 else null }) {
-                                        Icon(
-                                            Icons.Filled.Replay,
-                                            contentDescription = if (state.replayCount == null) stringResource(R.string.tb_replay) else stringResource(R.string.tb_stop_replay),
-                                            tint = if (state.replayCount != null) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                                        )
-                                    }
+                                    LabelledIconButton(onClick = { state.replayCount = if (state.replayCount == null) 0 else null }, icon = Icons.Filled.Replay, label = if (state.replayCount == null) stringResource(R.string.tb_replay) else stringResource(R.string.tb_stop_replay), tint = if (state.replayCount != null) MaterialTheme.colorScheme.primary else LocalContentColor.current)
                                 }
                             }
                             MoreSection(stringResource(R.string.more_section_guides)) {
                                 if (ToolbarGroup.GUIDES !in hiddenGroups) {
                                     Box {
-                                        IconButton(onClick = { showSymmetryMenu = true }) {
-                                            Icon(
-                                                Icons.Filled.Flare,
-                                                contentDescription = stringResource(R.string.tb_symmetry, stringResource(state.symmetryMode.label)),
-                                                tint = if (state.symmetryMode != SymmetryMode.OFF) MaterialTheme.colorScheme.primary
-                                                else LocalContentColor.current,
-                                            )
-                                        }
+                                        LabelledIconButton(onClick = { showSymmetryMenu = true }, icon = Icons.Filled.Flare, label = stringResource(R.string.tb_symmetry, stringResource(state.symmetryMode.label)), tint = if (state.symmetryMode != SymmetryMode.OFF) MaterialTheme.colorScheme.primary
+                                                else LocalContentColor.current)
                                         DropdownMenu(expanded = showSymmetryMenu, onDismissRequest = { showSymmetryMenu = false }) {
                                             for (mode in SymmetryMode.entries) {
                                                 DropdownMenuItem(
@@ -1248,14 +1228,8 @@ fun Toolbar(
                                         }
                                     }
                                     Box {
-                                        IconButton(onClick = { showPerspectiveMenu = true }) {
-                                            Icon(
-                                                Icons.Filled.ViewInAr,
-                                                contentDescription = stringResource(R.string.tb_perspective, stringResource(state.perspectiveMode.label)),
-                                                tint = if (state.perspectiveMode != PerspectiveMode.OFF) MaterialTheme.colorScheme.primary
-                                                else LocalContentColor.current,
-                                            )
-                                        }
+                                        LabelledIconButton(onClick = { showPerspectiveMenu = true }, icon = Icons.Filled.ViewInAr, label = stringResource(R.string.tb_perspective, stringResource(state.perspectiveMode.label)), tint = if (state.perspectiveMode != PerspectiveMode.OFF) MaterialTheme.colorScheme.primary
+                                                else LocalContentColor.current)
                                         DropdownMenu(expanded = showPerspectiveMenu, onDismissRequest = { showPerspectiveMenu = false }) {
                                             for (mode in PerspectiveMode.entries) {
                                                 DropdownMenuItem(
@@ -1270,31 +1244,19 @@ fun Toolbar(
                                     }
                                 }
                                 if (ToolbarGroup.GUIDES !in hiddenGroups) {
-                                    IconButton(onClick = {
+                                    LabelledIconButton(onClick = {
                                         state.toggleRuler()
                                         state.activeTool = if (state.rulerActive) Tool.RULER
                                         else if (state.activeTool == Tool.RULER) Tool.PEN else state.activeTool
-                                    }) {
-                                        Icon(
-                                            Icons.Filled.Straighten,
-                                            contentDescription = stringResource(R.string.tb_ruler),
-                                            tint = if (state.rulerActive) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                                        )
-                                    }
+                                    }, icon = Icons.Filled.Straighten, label = stringResource(R.string.tb_ruler), tint = if (state.rulerActive) MaterialTheme.colorScheme.primary else LocalContentColor.current)
                                 }
                             }
                             MoreSection(stringResource(R.string.more_section_canvas)) {
                                 if (ToolbarGroup.LAYERS !in hiddenGroups) {
                                     Box {
-                                        IconButton(onClick = { showBlendModeMenu = true }) {
-                                            Icon(
-                                                // Was the Layers icon before layers existed; that icon now opens the layer panel.
-                                                Icons.Filled.Tonality,
-                                                contentDescription = stringResource(R.string.tb_blend, stringResource(blendModeLabel(state.activeBlendMode))),
-                                                tint = if (state.activeBlendMode != StrokeBlendMode.NORMAL) MaterialTheme.colorScheme.primary
-                                                else LocalContentColor.current,
-                                            )
-                                        }
+                                        LabelledIconButton(onClick = { showBlendModeMenu = true }, icon = // Was the Layers icon before layers existed; that icon now opens the layer panel.
+                                                Icons.Filled.Tonality, label = stringResource(R.string.tb_blend, stringResource(blendModeLabel(state.activeBlendMode))), tint = if (state.activeBlendMode != StrokeBlendMode.NORMAL) MaterialTheme.colorScheme.primary
+                                                else LocalContentColor.current)
                                         DropdownMenu(expanded = showBlendModeMenu, onDismissRequest = { showBlendModeMenu = false }) {
                                             for (mode in StrokeBlendMode.entries) {
                                                 DropdownMenuItem(
@@ -1311,9 +1273,7 @@ fun Toolbar(
 
                                 if (ToolbarGroup.BACKGROUND !in hiddenGroups) {
                                     Box {
-                                        IconButton(onClick = { showBackgroundStyleMenu = true }) {
-                                            Icon(Icons.Filled.GridOn, contentDescription = stringResource(R.string.tb_background, stringResource(backgroundStyleLabel(state.backgroundStyle))))
-                                        }
+                                        LabelledIconButton(onClick = { showBackgroundStyleMenu = true }, icon = Icons.Filled.GridOn, label = stringResource(R.string.tb_background, stringResource(backgroundStyleLabel(state.backgroundStyle))))
                                         DropdownMenu(expanded = showBackgroundStyleMenu, onDismissRequest = { showBackgroundStyleMenu = false }) {
                                             for (style in BackgroundStyle.entries) {
                                                 DropdownMenuItem(
@@ -1344,18 +1304,12 @@ fun Toolbar(
                                     }
                                 }
                                 if (ToolbarGroup.VIEW !in hiddenGroups) {
-                                    IconButton(onClick = {
+                                    LabelledIconButton(onClick = {
                                         state.clear()
                                         FernMessages.show(clearedMessage, undoLabel) { state.undo() }
-                                    }) {
-                                        Icon(Icons.Filled.DeleteSweep, contentDescription = stringResource(R.string.tb_clear_all))
-                                    }
-                                    IconButton(onClick = { state.resetView() }) {
-                                        Icon(Icons.Filled.ZoomOutMap, contentDescription = stringResource(R.string.tb_reset_view))
-                                    }
-                                    IconButton(onClick = { state.zoomToFit() }) {
-                                        Icon(Icons.Filled.CenterFocusStrong, contentDescription = stringResource(R.string.tb_fit))
-                                    }
+                                    }, icon = Icons.Filled.DeleteSweep, label = stringResource(R.string.tb_clear_all))
+                                    LabelledIconButton(onClick = { state.resetView() }, icon = Icons.Filled.ZoomOutMap, label = stringResource(R.string.tb_reset_view))
+                                    LabelledIconButton(onClick = { state.zoomToFit() }, icon = Icons.Filled.CenterFocusStrong, label = stringResource(R.string.tb_fit))
                                 }
                             }
                             MoreSection(stringResource(R.string.more_section_tool_slots)) {
@@ -1364,9 +1318,7 @@ fun Toolbar(
                                 }
                             }
                             MoreSection(stringResource(R.string.more_section_menus)) {
-                                IconButton(onClick = onOpenDocuments) {
-                                    Icon(Icons.Filled.Description, contentDescription = stringResource(R.string.documents_title))
-                                }
+                                LabelledIconButton(onClick = onOpenDocuments, icon = Icons.Filled.Description, label = stringResource(R.string.documents_title))
                                 // Occasional actions, grouped by purpose behind labelled menus, each one level deep (design roadmap D12).
                                 MenuButton(R.string.menu_group_insert, Icons.Filled.AddBox, insertItems)
                                 MenuButton(R.string.menu_group_import, Icons.Filled.FileOpen, importItems)
