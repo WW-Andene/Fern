@@ -1056,4 +1056,8 @@
     <string name="macro_location">Macro</string>
     <string name="hint_pin_tool">You often pick %1$s from the menus. Pin it to the rail?</string>
     <string name="hint_pin">Pin</string>
+    <plurals name="selection_count">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
 </resources>

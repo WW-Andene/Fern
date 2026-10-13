@@ -97,6 +97,7 @@ import com.andene.fern.canvas.AudioSeekOverlay
 import com.andene.fern.canvas.AudioBar
 import com.andene.fern.canvas.CanvasHaptics
 import com.andene.fern.canvas.ToolRail
+import com.andene.fern.canvas.SelectionActionStrip
 import com.andene.fern.canvas.CommandPaletteState
 import com.andene.fern.canvas.GestureAction
 import com.andene.fern.canvas.KeyCombo
@@ -1353,6 +1354,8 @@ class MainActivity : ComponentActivity() {
                                     .padding(horizontal = railSide),
                             )
                             CanvasHaptics(canvasState)
+                            // The selection's actions beside it (design roadmap D39).
+                            SelectionActionStrip(canvasState)
                             FernJobHost(
                                 Modifier
                                     .align(Alignment.TopCenter)

@@ -433,6 +433,16 @@ fun Toolbar(
         )
     }
     var showTransformDialog by remember { mutableStateOf(false) }
+    // The selection strip asks for these (design roadmap D39); their dialogs live here.
+    if (SelectionRequests.transform) {
+        SelectionRequests.transform = false
+        showTransformDialog = true
+    }
+    val stripObjectName = stringResource(R.string.object_default_name, state.gameObjects.size + 1)
+    if (SelectionRequests.makeObject) {
+        SelectionRequests.makeObject = false
+        editingObject = state.objectForEditing(stripObjectName)
+    }
     if (showTransformDialog) {
         val bounds = remember { state.selectionBounds() }
         if (bounds == null) showTransformDialog = false
@@ -988,9 +998,6 @@ fun Toolbar(
                     }
                     // Game object (roadmap item 155): the selection as an object with properties and behaviours.
                     val newObjectName = stringResource(R.string.object_default_name, state.gameObjects.size + 1)
-                    IconButton(onClick = { editingObject = state.objectForEditing(newObjectName) }, enabled = state.selection.isNotEmpty()) {
-                        Icon(Icons.Filled.Toys, contentDescription = stringResource(R.string.object_title))
-                    }
                     // Drawn hitboxes and links (roadmap item 157).
                     if (state.canUseHitbox) {
                         IconButton(onClick = { state.useSelectionAsHitbox() }) {
@@ -1071,9 +1078,6 @@ fun Toolbar(
                     IconButton(onClick = { showContourDialog = true }, enabled = state.selection.isNotEmpty()) {
                         Icon(Icons.Filled.Adjust, contentDescription = stringResource(R.string.contour_title))
                     }
-                    IconButton(onClick = { showTransformDialog = true }, enabled = state.selection.isNotEmpty()) {
-                        Icon(Icons.Filled.Transform, contentDescription = stringResource(R.string.transform_title))
-                    }
                     IconButton(onClick = { state.reduceSelectionToPalette() }, enabled = state.selection.isNotEmpty() && state.savedColors.isNotEmpty()) {
                         Icon(Icons.Filled.InvertColors, contentDescription = stringResource(R.string.tb_reduce_palette))
                     }
@@ -1092,9 +1096,6 @@ fun Toolbar(
                     }
                     IconButton(onClick = { state.applyWidthToSelection() }) {
                         Icon(Icons.Filled.LineWeight, contentDescription = stringResource(R.string.tb_apply_width))
-                    }
-                    IconButton(onClick = { state.recolorSelection() }) {
-                        Icon(Icons.Filled.FormatPaint, contentDescription = stringResource(R.string.tb_apply_colour))
                     }
                     IconButton(onClick = { state.copySelectionStyle() }, enabled = state.selection.isNotEmpty()) {
                         Icon(Icons.Filled.Style, contentDescription = stringResource(R.string.tb_copy_style))
@@ -1118,9 +1119,6 @@ fun Toolbar(
                     }
                     IconButton(onClick = onPaste) {
                         Icon(Icons.Filled.ContentPaste, contentDescription = stringResource(R.string.action_paste))
-                    }
-                    IconButton(onClick = { state.duplicateSelection() }) {
-                        Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.tb_duplicate))
                     }
                     IconButton(onClick = { state.toggleNodeEditing() }, enabled = state.selection.size == 1) {
                         Icon(
@@ -1153,12 +1151,6 @@ fun Toolbar(
                             contentDescription = if (grouped) stringResource(R.string.tb_ungroup) else stringResource(R.string.tb_group),
                             tint = if (grouped) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
-                    }
-                    IconButton(onClick = {
-                        state.deleteSelection()
-                        FernMessages.show(deletedMessage, undoLabel) { state.undo() }
-                    }) {
-                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.tb_delete))
                     }
                 }
     }

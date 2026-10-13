@@ -3,6 +3,7 @@ package com.andene.fern.canvas
 import com.andene.fern.FernHaptics
 
 import com.andene.fern.FernColors
+import com.andene.fern.FernScale
 
 import com.andene.fern.FernType
 
@@ -378,11 +379,11 @@ fun DrawingCanvas(
                                         val handles = if (state.shapeEditMode == null) selectionHandles(state, screenCenter) else null
                                         selectionReadout = true
                                         selectionGestureKind = when {
-                                            handles != null && (downPos - handles.scaleHandle).getDistance() <= HANDLE_HIT_RADIUS_SCREEN -> {
+                                            handles != null && (downPos - handles.scaleHandle).getDistance() <= HANDLE_HIT.toPx() -> {
                                                 state.beginScaleSelection(world)
                                                 SelectionGestureKind.SCALE
                                             }
-                                            handles != null && (downPos - handles.rotateHandle).getDistance() <= HANDLE_HIT_RADIUS_SCREEN -> {
+                                            handles != null && (downPos - handles.rotateHandle).getDistance() <= HANDLE_HIT.toPx() -> {
                                                 state.beginRotateSelection(world)
                                                 SelectionGestureKind.ROTATE
                                             }
@@ -1628,7 +1629,8 @@ private fun selectionHandles(state: CanvasState, screenCenter: Offset): Selectio
 }
 
 // Both on the §7 scale (Primary tier).
-private const val HANDLE_HIT_RADIUS_SCREEN = 16f
+// Half a 48 dp touch target around each handle (design roadmap D39).
+private val HANDLE_HIT = FernScale.s24
 private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
 private val SELECTION_HIGHLIGHT_COLOR: Color get() = FernColors.current.selection

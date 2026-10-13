@@ -1059,4 +1059,9 @@
     <string name="macro_location">Macro</string>
     <string name="hint_pin_tool">Vous choisissez souvent %1$s dans les menus. L’épingler au rail ?</string>
     <string name="hint_pin">Épingler</string>
+    <plurals name="selection_count">
+        <item quantity="one">%1$d sélectionné</item>
+        <item quantity="many">%1$d sélectionnés</item>
+        <item quantity="other">%1$d sélectionnés</item>
+    </plurals>
 </resources>
