@@ -1,0 +1,274 @@
+package com.andene.fern
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.height
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+
+/*
+ * Docked panels (design roadmap D10): the panels that used to be modal dialogs - layers,
+ * frames, symbols, pins, versions, objects and their logic - open in a panel that leaves the
+ * canvas usable. On a phone held upright it's a bottom sheet taking at most half the screen,
+ * that collapses to its header; otherwise it docks beside the rail. Panels stack: one opened
+ * from another (an object's rules) shows on top, and closing it brings the other back.
+ */
+
+/** One open panel. */
+class PanelEntry internal constructor(
+    val key: Any,
+    title: @Composable () -> Unit,
+    onDismissRequest: () -> Unit,
+    content: @Composable () -> Unit,
+    actions: @Composable () -> Unit,
+    headerAction: (@Composable () -> Unit)? = null,
+    onFilter: ((String) -> Unit)? = null,
+) {
+    var headerAction by mutableStateOf(headerAction)
+    var onFilter by mutableStateOf(onFilter)
+    var title by mutableStateOf(title)
+    var onDismissRequest by mutableStateOf(onDismissRequest)
+    var content by mutableStateOf(content)
+    var actions by mutableStateOf(actions)
+}
+
+/** The open panels, last on top. */
+object FernPanels {
+    val open = mutableStateListOf<PanelEntry>()
+}
+
+/**
+ * A panel, called where a dialog would be: shown by the [FernPanelHost] for as long as this is
+ * in the composition. Same parameters as an `AlertDialog`; [confirmButton] and [dismissButton]
+ * sit at the panel's foot.
+ */
+@Composable
+fun FernPanel(
+    onDismissRequest: () -> Unit,
+    title: @Composable () -> Unit,
+    text: @Composable () -> Unit,
+    confirmButton: @Composable () -> Unit = {},
+    dismissButton: @Composable () -> Unit = {},
+    /** The panel's main action, in its header (design roadmap D42): e.g. "New layer". */
+    headerAction: (@Composable () -> Unit)? = null,
+    /** When set, a filter field under the header; called as the text changes. */
+    onFilter: ((String) -> Unit)? = null,
+) {
+    val key = remember { Any() }
+    val actions: @Composable () -> Unit = {
+        dismissButton()
+        confirmButton()
+    }
+    DisposableEffect(key) {
+        FernPanels.open.add(PanelEntry(key, title, onDismissRequest, text, actions, headerAction, onFilter))
+        onDispose { FernPanels.open.removeAll { it.key === key } }
+    }
+    SideEffect {
+        FernPanels.open.firstOrNull { it.key === key }?.let {
+            it.title = title
+            it.onDismissRequest = onDismissRequest
+            it.content = text
+            it.actions = actions
+            it.headerAction = headerAction
+            it.onFilter = onFilter
+        }
+    }
+}
+
+/** Shows the top panel; place once, in the screen's root box. */
+@Composable
+fun androidx.compose.foundation.layout.BoxScope.FernPanelHost(railOnLeft: Boolean, railInset: androidx.compose.ui.unit.Dp, railSide: androidx.compose.ui.unit.Dp) {
+    val entry = FernPanels.open.lastOrNull() ?: return
+    var collapsed by remember(entry.key) { mutableStateOf(false) }
+    var filter by remember(entry.key) { mutableStateOf("") }
+    // How much of the screen the sheet may take; dragged at its handle (design roadmap D42).
+    var share by remember { mutableFloatStateOf(DEFAULT_SHEET_SHARE) }
+    BackHandler { entry.onDismissRequest() }
+    val configuration = LocalConfiguration.current
+    val portrait = configuration.screenHeightDp >= configuration.screenWidthDp
+    val modifier = if (portrait) {
+        Modifier
+            .align(Alignment.BottomCenter)
+            .fillMaxWidth()
+            .padding(bottom = railInset)
+            .heightIn(max = (configuration.screenHeightDp * share).dp)
+    } else {
+        Modifier
+            .align(if (railOnLeft) androidx.compose.ui.AbsoluteAlignment.CenterLeft else androidx.compose.ui.AbsoluteAlignment.CenterRight)
+            .padding(horizontal = railSide)
+            .width(FernScale.s384)
+            .heightIn(max = configuration.screenHeightDp.dp - FernScale.s32)
+    }
+    Surface(modifier.padding(FernSpace.sm), shape = MaterialTheme.shapes.large, tonalElevation = FernSpace.xs, shadowElevation = FernSpace.sm) {
+        Column {
+            if (portrait) {
+                // The handle: drag up or down to give the sheet more or less of the screen.
+                val screenPx = with(LocalDensity.current) { configuration.screenHeightDp.dp.toPx() }
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(FernScale.s16)
+                        .pointerInput(Unit) {
+                            detectVerticalDragGestures { change, dy ->
+                                change.consume()
+                                share = (share - dy / screenPx).coerceIn(MIN_SHEET_SHARE, MAX_SHEET_SHARE)
+                            }
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(Modifier.width(FernScale.s32).height(FernScale.s4).background(MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small))
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(start = FernSpace.lg), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f).semantics { heading() }) {
+                    ProvideTextStyle(MaterialTheme.typography.titleMedium) { entry.title() }
+                }
+                entry.headerAction?.invoke()
+                IconButton(onClick = { collapsed = !collapsed }) {
+                    Icon(
+                        if (collapsed) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                        contentDescription = stringResource(if (collapsed) R.string.panel_expand else R.string.panel_collapse),
+                    )
+                }
+                IconButton(onClick = { entry.onDismissRequest() }) {
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_close))
+                }
+            }
+            if (!collapsed) {
+                entry.onFilter?.let { onFilter ->
+                    OutlinedTextField(
+                        filter,
+                        {
+                            filter = it
+                            onFilter(it)
+                        },
+                        placeholder = { Text(stringResource(R.string.panel_filter)) },
+                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = FernSpace.lg, vertical = FernSpace.xs),
+                    )
+                }
+                HorizontalDivider()
+                Box(Modifier.weight(1f, fill = false).padding(horizontal = FernSpace.lg, vertical = FernSpace.sm)) {
+                    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
+                        ProvideTextStyle(MaterialTheme.typography.bodyMedium) { entry.content() }
+                    }
+                }
+                // Actions scroll sideways rather than squeeze on a phone (the layers panel has several).
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = FernSpace.sm), horizontalArrangement = Arrangement.End) { entry.actions() }
+            }
+        }
+    }
+}
+
+// The sheet's share of the screen: half by default, between a quarter and three quarters.
+private const val DEFAULT_SHEET_SHARE = 0.5f
+private const val MIN_SHEET_SHARE = 0.25f
+private const val MAX_SHEET_SHARE = 0.75f
+
+/**
+ * One row in a panel, the same everywhere (design roadmap D42): a tap runs [onClick], a long
+ * press [onLongClick], and swiping it left deletes it through [onSwipeDelete], which should
+ * offer Undo. Screen readers get delete as an action instead of the swipe.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun PanelRow(
+    onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
+    onSwipeDelete: (() -> Unit)? = null,
+    deleteLabel: String = "",
+    content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
+) {
+    val row: @Composable () -> Unit = {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = FernSize.touchTarget)
+                .background(MaterialTheme.colorScheme.surface)
+                .then(
+                    if (onClick != null || onLongClick != null) {
+                        Modifier.combinedClickable(onClick = { onClick?.invoke() }, onLongClick = onLongClick)
+                    } else {
+                        Modifier
+                    },
+                )
+                .then(
+                    if (onSwipeDelete != null) {
+                        Modifier.semantics {
+                            customActions = listOf(androidx.compose.ui.semantics.CustomAccessibilityAction(deleteLabel) {
+                                onSwipeDelete()
+                                true
+                            })
+                        }
+                    } else {
+                        Modifier
+                    },
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content,
+        )
+    }
+    if (onSwipeDelete == null) return row()
+    val dismiss = androidx.compose.material3.rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) onSwipeDelete()
+            false // the row goes when its item does; the swipe springs back
+        },
+    )
+    androidx.compose.material3.SwipeToDismissBox(
+        state = dismiss,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.errorContainer).padding(horizontal = FernSpace.lg), contentAlignment = Alignment.CenterEnd) {
+                Icon(androidx.compose.material.icons.Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+            }
+        },
+    ) { row() }
+}

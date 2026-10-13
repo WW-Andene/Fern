@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -38,7 +40,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 import kotlin.math.roundToInt
 
@@ -60,14 +61,14 @@ fun FrameTagsDialog(state: CanvasState, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.tags_title)) },
         text = {
-            Column(Modifier.heightIn(max = 512.dp).verticalScroll(rememberScrollState())) {
+            Column(Modifier.heightIn(max = FernScale.s512).verticalScroll(rememberScrollState())) {
                 if (state.frameTags.isEmpty()) Text(stringResource(R.string.tags_empty))
                 for (tag in state.frameTags) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(12.dp).background(Color(tag.color), CircleShape))
+                        Box(Modifier.size(FernScale.s12).background(Color(tag.color), CircleShape))
                         Text(
                             stringResource(R.string.tags_row, tag.name, tag.from + 1, tag.to + 1, stringResource(directionLabel(tag.direction))),
-                            modifier = Modifier.weight(1f).padding(start = 8.dp).clickable { state.goToAnimFrame(tag.from) },
+                            modifier = Modifier.weight(1f).padding(start = FernScale.s8).clickable { state.goToAnimFrame(tag.from) },
                         )
                         IconButton(onClick = {
                             state.playTag(tag.name)
@@ -76,7 +77,7 @@ fun FrameTagsDialog(state: CanvasState, onDismiss: () -> Unit) {
                         IconButton(onClick = { state.removeFrameTag(tag.name) }) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.tags_delete)) }
                     }
                 }
-                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(Modifier.padding(vertical = FernScale.s8))
                 OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.tags_name)) }, singleLine = true)
                 if (last > 0) {
                     Text(stringResource(R.string.tags_from, from.roundToInt() + 1))
@@ -88,8 +89,8 @@ fun FrameTagsDialog(state: CanvasState, onDismiss: () -> Unit) {
                     for (option in TAG_COLORS) {
                         Box(
                             Modifier
-                                .padding(end = 8.dp)
-                                .size(if (option == color) 32.dp else 24.dp)
+                                .padding(end = FernScale.s8)
+                                .size(if (option == color) FernScale.s32 else FernScale.s24)
                                 .background(Color(option), CircleShape)
                                 .clickable { color = option },
                         )
@@ -97,7 +98,7 @@ fun FrameTagsDialog(state: CanvasState, onDismiss: () -> Unit) {
                 }
                 FlowRow {
                     for (option in TagDirection.entries) {
-                        FilterChip(selected = direction == option, onClick = { direction = option }, label = { Text(stringResource(directionLabel(option))) }, modifier = Modifier.padding(end = 8.dp))
+                        FilterChip(selected = direction == option, onClick = { direction = option }, label = { Text(stringResource(directionLabel(option))) }, modifier = Modifier.padding(end = FernScale.s8))
                     }
                 }
                 TextButton(onClick = {

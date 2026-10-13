@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -11,7 +13,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 
 /**
@@ -28,10 +29,10 @@ fun Insert3dDialog(onPrimitive: (MeshPrimitive) -> Unit, onHand: () -> Unit, onH
         text = {
             FlowRow {
                 // Posable references (roadmap item 146).
-                AssistChip(onClick = onHand, label = { Text(stringResource(R.string.model_hand)) }, modifier = Modifier.padding(end = 8.dp))
-                AssistChip(onClick = onHead, label = { Text(stringResource(R.string.model_head)) }, modifier = Modifier.padding(end = 8.dp))
+                AssistChip(onClick = onHand, label = { Text(stringResource(R.string.model_hand)) }, modifier = Modifier.padding(end = FernScale.s8))
+                AssistChip(onClick = onHead, label = { Text(stringResource(R.string.model_head)) }, modifier = Modifier.padding(end = FernScale.s8))
                 for (primitive in MeshPrimitive.entries) {
-                    AssistChip(onClick = { onPrimitive(primitive) }, label = { Text(stringResource(primitiveLabel(primitive))) }, modifier = Modifier.padding(end = 8.dp))
+                    AssistChip(onClick = { onPrimitive(primitive) }, label = { Text(stringResource(primitiveLabel(primitive))) }, modifier = Modifier.padding(end = FernScale.s8))
                 }
             }
         },

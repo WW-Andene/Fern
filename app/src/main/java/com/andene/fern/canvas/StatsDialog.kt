@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,7 +13,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 import java.text.DateFormat
 import java.util.Date
@@ -42,12 +43,12 @@ fun StatsDialog(state: CanvasState, onDismiss: () -> Unit) {
         text = {
             Column {
                 for ((label, value) in rows) {
-                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s4)) {
                         Text(stringResource(label), modifier = Modifier.weight(1f))
                         Text(value, fontWeight = FontWeight.Bold)
                     }
                 }
-                Text(stringResource(R.string.stats_note), modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(R.string.stats_note), modifier = Modifier.padding(top = FernScale.s8))
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },

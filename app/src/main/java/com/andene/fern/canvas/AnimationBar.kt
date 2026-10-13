@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.automirrored.filled.Label
@@ -14,6 +16,10 @@ import androidx.compose.material.icons.filled.ViewTimeline
 import androidx.compose.material.icons.filled.Animation
 import androidx.compose.material.icons.filled.Merge
 import com.andene.fern.R
+import com.andene.fern.MoreInline
+import kotlin.math.roundToInt
+import androidx.compose.material3.Slider
+import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -39,7 +45,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 
 // In-betweens generated per tap: 3 turns two keyframes into a smooth 5-frame move.
 private const val IN_BETWEEN_COUNT = 3
@@ -78,14 +83,29 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
-        tonalElevation = 4.dp,
-        shadowElevation = 4.dp,
+        tonalElevation = FernScale.s4,
+        shadowElevation = FernScale.s4,
     ) {
+        Column {
+        // Scrub through the frames (design roadmap D45): drag along the strip to see each one.
+        if (state.animFrameCount > 1) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = FernScale.s12)) {
+                Text(stringResource(R.string.anim_frame_of, state.currentAnimFrame + 1, state.animFrameCount), style = MaterialTheme.typography.labelMedium)
+                Slider(
+                    value = state.currentAnimFrame.toFloat(),
+                    onValueChange = { state.goToAnimFrame(it.roundToInt()) },
+                    valueRange = 0f..(state.animFrameCount - 1).toFloat(),
+                    steps = (state.animFrameCount - 2).coerceAtLeast(0),
+                    enabled = !state.playing,
+                    modifier = Modifier.weight(1f).padding(start = FernScale.s8),
+                )
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { state.goToAnimFrame(state.currentAnimFrame - 1) }, enabled = !state.playing && state.currentAnimFrame > 0) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.presentation_previous))
             }
-            Text(stringResource(R.string.presentation_position, state.currentAnimFrame + 1, state.animFrameCount), modifier = Modifier.padding(horizontal = 8.dp))
+            Text(stringResource(R.string.presentation_position, state.currentAnimFrame + 1, state.animFrameCount), modifier = Modifier.padding(horizontal = FernScale.s8))
             IconButton(onClick = { state.goToAnimFrame(state.currentAnimFrame + 1) }, enabled = !state.playing && state.currentAnimFrame < state.animFrameCount - 1) {
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.presentation_next))
             }
@@ -115,7 +135,7 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
             val currentTag = state.frameTags.lastOrNull { state.currentAnimFrame in it }
             TextButton(onClick = { showTags = true }) {
                 Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null, tint = currentTag?.let { Color(it.color) } ?: LocalContentColor.current)
-                Text(currentTag?.name ?: stringResource(R.string.tags_title), modifier = Modifier.padding(start = 4.dp))
+                Text(currentTag?.name ?: stringResource(R.string.tags_title), modifier = Modifier.padding(start = FernScale.s4))
             }
             IconButton(onClick = {
                 if (state.playing) state.playingTag = null
@@ -132,6 +152,8 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
                     contentDescription = if (state.pingPong) stringResource(R.string.anim_pingpong) else stringResource(R.string.anim_loop),
                 )
             }
+            // Rarer tools behind More, so the strip stays short (design roadmap D32, D45).
+            MoreInline("animation_more") {
             if (state.currentBones.isNotEmpty() && state.animFrameCount > 1) {
                 IconButton(onClick = { blendingPose = true }) {
                     Icon(Icons.Filled.Merge, contentDescription = stringResource(R.string.blend_pose_title))
@@ -164,6 +186,8 @@ fun AnimationBar(state: CanvasState, modifier: Modifier = Modifier) {
             }) {
                 Text(stringResource(R.string.anim_fps, state.animFps))
             }
+            }
+        }
         }
     }
 }

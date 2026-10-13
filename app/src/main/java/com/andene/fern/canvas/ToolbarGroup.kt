@@ -34,27 +34,3 @@ enum class ToolbarGroup(@StringRes val label: Int) {
     REPLAY(R.string.group_replay),
     BACKGROUND(R.string.group_background),
 }
-
-/** Checklist of [ToolbarGroup]s; unticking one hides it from the toolbar right away. */
-@Composable
-fun ToolbarCustomizeDialog(hidden: Set<ToolbarGroup>, onHiddenChange: (Set<ToolbarGroup>) -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_customize_toolbar)) },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                for (group in ToolbarGroup.entries) {
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = group !in hidden,
-                            onCheckedChange = { shown -> onHiddenChange(if (shown) hidden - group else hidden + group) },
-                        )
-                        Text(stringResource(group.label))
-                    }
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
-        dismissButton = { TextButton(onClick = { onHiddenChange(emptySet()) }) { Text(stringResource(R.string.toolbar_show_all)) } },
-    )
-}

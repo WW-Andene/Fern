@@ -1,9 +1,26 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernMessages
+
+import com.andene.fern.FernScale
+
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import android.content.Context
 import androidx.compose.foundation.layout.Column
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,7 +31,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import org.json.JSONArray
@@ -29,11 +45,18 @@ private const val KEY_TOOL_SLOTS = "tool_slots"
 private const val KEY_SNAP_TO_OBJECTS = "snap_to_objects"
 private const val KEY_BRUSH_PRESETS = "brush_presets"
 private const val KEY_HIGH_CONTRAST = "high_contrast"
+private const val KEY_COLOR_BLIND_SAFE = "color_blind_safe"
+private const val KEY_HAPTICS = "haptics"
+private const val KEY_UI_SIZE = "ui_size"
+private const val KEY_MINIMAP = "minimap"
 private const val KEY_HIDDEN_TOOLBAR_GROUPS = "hidden_toolbar_groups"
 private const val KEY_QUICK_MENU = "quick_menu_actions"
 
 /** App preferences, stored in SharedPreferences so they apply to every document and survive restarts. */
 object AppSettings {
+    /** The settings file, for settings kept beside the code that uses them (e.g. [RailSettings]). */
+    fun prefs(context: Context): android.content.SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
     fun leftHanded(context: Context): Boolean =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean(KEY_LEFT_HANDED, false)
 
@@ -53,6 +76,37 @@ object AppSettings {
 
     fun setHighContrast(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_HIGH_CONTRAST, value).apply()
+    }
+
+    /** Whether the minimap shows (design roadmap D41). */
+    fun minimap(context: Context): Boolean = prefs(context).getBoolean(KEY_MINIMAP, true)
+
+    fun setMinimap(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean(KEY_MINIMAP, value).apply()
+    }
+
+    /** The UI size (design roadmap D25). */
+    fun uiSize(context: Context): com.andene.fern.UiSize =
+        prefs(context).getString(KEY_UI_SIZE, null)?.let { n -> com.andene.fern.UiSize.entries.firstOrNull { it.name == n } } ?: com.andene.fern.UiSize.STANDARD
+
+    fun setUiSize(context: Context, value: com.andene.fern.UiSize) {
+        prefs(context).edit().putString(KEY_UI_SIZE, value.name).apply()
+    }
+
+    /** Haptic feedback (design roadmap D7), on unless switched off. */
+    fun haptics(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean(KEY_HAPTICS, true)
+
+    fun setHaptics(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_HAPTICS, value).apply()
+    }
+
+    /** Colour-blind-safe marks on the canvas (design roadmap D2). */
+    fun colorBlindSafe(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean(KEY_COLOR_BLIND_SAFE, false)
+
+    fun setColorBlindSafe(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_COLOR_BLIND_SAFE, value).apply()
     }
 
     /** Toolbar groups the user hid; names no longer in [ToolbarGroup] (from an older version) are ignored. */
@@ -194,56 +248,95 @@ fun SettingsDialog(
     onToolbarAtBottomChange: (Boolean) -> Unit,
     highContrast: Boolean,
     onHighContrastChange: (Boolean) -> Unit,
+    colorBlindSafe: Boolean,
+    onColorBlindSafeChange: (Boolean) -> Unit,
+    haptics: Boolean,
+    onHapticsChange: (Boolean) -> Unit,
+    uiSize: com.andene.fern.UiSize = com.andene.fern.UiSize.STANDARD,
+    onUiSizeChange: (com.andene.fern.UiSize) -> Unit = {},
     snapToObjects: Boolean,
     onSnapToObjectsChange: (Boolean) -> Unit,
     onShowGuide: () -> Unit,
-    onCustomizeToolbar: () -> Unit,
-    onCustomizeQuickMenu: () -> Unit,
+    /** Opens the layout editor: rail, quick menu and toolbar groups (design roadmap D22). */
+    onArrangeLayout: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var query by remember { mutableStateOf("") }
+    // A row shows when the search is empty or its label holds every word typed (design roadmap D24).
+    fun shows(label: String) = query.isBlank() || matchCommands(listOf(PaletteCommand(label, label, "") {}), query).isNotEmpty()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.settings_title)) },
         text = {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(stringResource(R.string.settings_left_handed), modifier = Modifier.weight(1f))
-                    Switch(checked = leftHanded, onCheckedChange = onLeftHandedChange)
+            Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                OutlinedTextField(
+                    query, { query = it },
+                    placeholder = { Text(stringResource(R.string.settings_search)) },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                // Input: gestures, stylus, keys.
+                SettingsSection(R.string.settings_section_input)
+                GestureMapEditor(filter = ::shows)
+                if (shows(stringResource(R.string.palm_title))) PalmRejectionEditor()
+                ShortcutEditor(filter = ::shows)
+                // Appearance.
+                SettingsSection(R.string.settings_section_appearance)
+                SwitchSetting(stringResource(R.string.settings_left_handed), leftHanded, false, ::shows, onLeftHandedChange)
+                SwitchSetting(stringResource(R.string.settings_toolbar_bottom), toolbarAtBottom, false, ::shows, onToolbarAtBottomChange)
+                if (shows(stringResource(R.string.ui_size_title))) {
+                    Text(stringResource(R.string.ui_size_title), modifier = Modifier.padding(top = FernScale.s8))
+                    Row {
+                        for (size in com.andene.fern.UiSize.entries) {
+                            androidx.compose.material3.FilterChip(selected = uiSize == size, onClick = { onUiSizeChange(size) }, label = { Text(stringResource(size.label)) }, modifier = Modifier.padding(end = FernScale.s8))
+                        }
+                    }
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(stringResource(R.string.settings_toolbar_bottom), modifier = Modifier.weight(1f))
-                    Switch(checked = toolbarAtBottom, onCheckedChange = onToolbarAtBottomChange)
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(stringResource(R.string.settings_high_contrast), modifier = Modifier.weight(1f))
-                    Switch(checked = highContrast, onCheckedChange = onHighContrastChange)
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(stringResource(R.string.settings_snap_objects), modifier = Modifier.weight(1f))
-                    Switch(checked = snapToObjects, onCheckedChange = onSnapToObjectsChange)
-                }
-                CmykProfileRow()
-                TextButton(onClick = onCustomizeToolbar) { Text(stringResource(R.string.settings_customize_toolbar)) }
-                TextButton(onClick = onCustomizeQuickMenu) { Text(stringResource(R.string.quick_menu_customize)) }
-                TextButton(onClick = onShowGuide) { Text(stringResource(R.string.settings_show_guide)) }
+                if (shows(stringResource(R.string.layout_title))) TextButton(onClick = onArrangeLayout) { Text(stringResource(R.string.layout_title)) }
+                // Accessibility.
+                SettingsSection(R.string.settings_section_accessibility)
+                SwitchSetting(stringResource(R.string.settings_high_contrast), highContrast, false, ::shows, onHighContrastChange)
+                SwitchSetting(stringResource(R.string.settings_color_blind_safe), colorBlindSafe, false, ::shows, onColorBlindSafeChange)
+                SwitchSetting(stringResource(R.string.settings_haptics), haptics, true, ::shows, onHapticsChange)
+                // Canvas.
+                SettingsSection(R.string.settings_section_canvas)
+                SwitchSetting(stringResource(R.string.settings_snap_objects), snapToObjects, true, ::shows, onSnapToObjectsChange)
+                // Files and colour management.
+                SettingsSection(R.string.settings_section_files)
+                if (shows(stringResource(R.string.settings_cmyk_profile, ""))) CmykProfileRow()
+                // Help.
+                if (shows(stringResource(R.string.settings_show_guide))) TextButton(onClick = onShowGuide) { Text(stringResource(R.string.settings_show_guide)) }
             }
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) }
         },
     )
+}
+
+/** A section heading in Settings. */
+@Composable
+private fun SettingsSection(@androidx.annotation.StringRes title: Int) {
+    Text(
+        stringResource(title),
+        style = androidx.compose.material3.MaterialTheme.typography.titleSmall,
+        color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = FernScale.s16, bottom = FernScale.s4).semantics { heading() },
+    )
+}
+
+/** An on/off setting with its own reset, shown while it differs from [default] (design roadmap D24). */
+@Composable
+private fun SwitchSetting(label: String, checked: Boolean, default: Boolean, shows: (String) -> Boolean, onChange: (Boolean) -> Unit) {
+    if (!shows(label)) return
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s4), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.weight(1f))
+        if (checked != default) {
+            IconButton(onClick = { onChange(default) }) { Icon(Icons.Filled.RestartAlt, contentDescription = stringResource(R.string.settings_reset, label)) }
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
 }
 
 /** The CMYK ICC profile used for print colours (roadmap item 102): which one, load another, or go back to device CMYK. */
@@ -256,10 +349,10 @@ private fun CmykProfileRow() {
             val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("unreadable")
             ColorManagement.installProfile(context, bytes)
         }.isSuccess
-        if (!ok) android.widget.Toast.makeText(context, context.getString(R.string.settings_cmyk_bad), android.widget.Toast.LENGTH_SHORT).show()
+        if (!ok) FernMessages.show(context.getString(R.string.settings_cmyk_bad))
     }
     val profile = ColorManagement.cmykProfile
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8), verticalAlignment = Alignment.CenterVertically) {
         Text(
             stringResource(R.string.settings_cmyk_profile, profile?.description?.ifEmpty { "ICC" } ?: stringResource(R.string.settings_cmyk_none)),
             modifier = Modifier.weight(1f),

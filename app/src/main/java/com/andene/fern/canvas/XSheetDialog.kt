@@ -1,5 +1,9 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -20,7 +23,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -58,7 +60,7 @@ fun XSheetDialog(state: CanvasState, onDismiss: () -> Unit) {
             if (name != null) state.setSoundtrackFile(name)
         }
     }
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.xsheet_title)) },
         text = {
@@ -86,7 +88,7 @@ fun XSheetDialog(state: CanvasState, onDismiss: () -> Unit) {
                     }) { Text(stringResource(R.string.xsheet_auto_lipsync)) }
                 }
             }
-            LazyColumn(modifier = Modifier.heightIn(max = 384.dp)) {
+            LazyColumn(modifier = Modifier.heightIn(max = FernScale.s384)) {
                 items(state.animFrameCount) { frame ->
                     val hold = state.holdOf(frame)
                     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -96,7 +98,7 @@ fun XSheetDialog(state: CanvasState, onDismiss: () -> Unit) {
                             modifier = Modifier
                                 .weight(1f)
                                 .clickable { state.goToAnimFrame(frame) }
-                                .padding(vertical = 12.dp),
+                                .padding(vertical = FernScale.s12),
                         )
                         IconButton(onClick = { state.setHold(frame, hold - 1) }, enabled = hold > 1) {
                             Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.xsheet_shorter, frame + 1))

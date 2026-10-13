@@ -1,5 +1,9 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+
+import com.andene.fern.FernScale
+
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
@@ -18,7 +22,6 @@ import androidx.compose.material.icons.filled.ViewColumn
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -32,7 +35,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 
 /**
  * The document's frames (artboards). Tap a name to fit it on screen; export one as a PNG, or
@@ -78,14 +80,14 @@ fun FramesDialog(
         }, onDismiss = { gridFrame = null })
     }
 
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.frames_title)) },
         text = {
             Column {
                 Column(
                     modifier = Modifier
-                        .heightIn(max = 384.dp)
+                        .heightIn(max = FernScale.s384)
                         .verticalScroll(rememberScrollState()),
                 ) {
                     if (frames.isEmpty()) {
@@ -101,7 +103,7 @@ fun FramesDialog(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clickable { onJump(frame) }
-                                    .padding(vertical = 12.dp),
+                                    .padding(vertical = FernScale.s12),
                             )
                             IconButton(onClick = { resizeFrame = frame }) {
                                 Icon(Icons.Filled.AspectRatio, contentDescription = stringResource(R.string.frame_resize))
@@ -130,7 +132,7 @@ fun FramesDialog(
                                 selected = scale in sliceScales,
                                 onClick = { sliceScales = if (scale in sliceScales) sliceScales - scale else sliceScales + scale },
                                 label = { Text(if (scale == 1) "1x" else "@${scale}x") },
-                                modifier = Modifier.padding(end = 4.dp),
+                                modifier = Modifier.padding(end = FernScale.s4),
                             )
                         }
                         TextButton(onClick = { onExportSlices(sliceScales.sorted()) }, enabled = sliceScales.isNotEmpty()) {
@@ -139,7 +141,7 @@ fun FramesDialog(
                     }
                 }
                 Row(
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(top = FernScale.s8),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     OutlinedTextField(
@@ -165,9 +167,6 @@ fun FramesDialog(
                 TextButton(onClick = onAddComicPage) { Text(stringResource(R.string.frames_comic)) }
                 TextButton(onClick = onPresent, enabled = frames.isNotEmpty()) { Text(stringResource(R.string.frames_present)) }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         },
     )
 }

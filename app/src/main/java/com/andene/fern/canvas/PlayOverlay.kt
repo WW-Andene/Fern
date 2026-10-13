@@ -1,5 +1,9 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernColors
+
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -100,7 +104,7 @@ fun PlayOverlay(state: CanvasState, modifier: Modifier = Modifier) {
                 }
             },
     ) {
-        Surface(shape = MaterialTheme.shapes.large, tonalElevation = 4.dp, modifier = Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.systemBars).padding(16.dp)) {
+        Surface(shape = MaterialTheme.shapes.large, tonalElevation = FernScale.s4, modifier = Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.systemBars).padding(FernScale.s16)) {
             Row {
                 IconButton(onClick = { state.playPaused = !state.playPaused }) {
                     Icon(
@@ -115,16 +119,22 @@ fun PlayOverlay(state: CanvasState, modifier: Modifier = Modifier) {
         // The heads-up display (roadmap item 161): the properties of objects that show them.
         state.playRevision // refresh with every step
         val shown = world?.instances?.filter { it.def.showInHud && !it.removed }.orEmpty()
-        if (shown.isNotEmpty()) {
-            Column(Modifier.align(Alignment.TopStart).windowInsetsPadding(WindowInsets.systemBars).padding(16.dp).background(HUD_COLOR, MaterialTheme.shapes.medium).padding(8.dp)) {
+        // Scripts that stopped on an error (roadmap item 164), so a game that misbehaves says why.
+        val failed = world?.instances?.filter { it.scriptError != null }.orEmpty()
+        if (shown.isNotEmpty() || failed.isNotEmpty()) {
+            Column(Modifier.align(Alignment.TopStart).windowInsetsPadding(WindowInsets.systemBars).padding(FernScale.s16).background(HUD_COLOR, MaterialTheme.shapes.medium).padding(FernScale.s8)) {
                 for (instance in shown) for ((name, value) in instance.properties.toSortedMap()) {
-                    Text("${instance.def.name} $name: ${plainNumber(value)}", color = Color.White, style = MaterialTheme.typography.bodyLarge)
+                    Text("${instance.def.name} $name: ${plainNumber(value)}", color = FernColors.current.onScrim, style = MaterialTheme.typography.bodyLarge)
+                }
+                for (instance in failed) {
+                    val error = instance.scriptError ?: continue
+                    Text(stringResource(R.string.game_script_stopped, instance.def.name, error.line, error.message.orEmpty()), color = FernColors.current.onScrim, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
         val buttons = world?.input?.touchButtons.orEmpty()
         // A d-pad bottom left, the A and B buttons bottom right.
-        Column(Modifier.align(Alignment.BottomStart).windowInsetsPadding(WindowInsets.systemBars).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.align(Alignment.BottomStart).windowInsetsPadding(WindowInsets.systemBars).padding(FernScale.s24), horizontalAlignment = Alignment.CenterHorizontally) {
             if (TouchButton.UP in buttons) PadButton(state, TouchButton.UP, "▲")
             Row {
                 if (TouchButton.LEFT in buttons) PadButton(state, TouchButton.LEFT, "◀")
@@ -133,7 +143,7 @@ fun PlayOverlay(state: CanvasState, modifier: Modifier = Modifier) {
             }
             if (TouchButton.DOWN in buttons) PadButton(state, TouchButton.DOWN, "▼")
         }
-        Row(Modifier.align(Alignment.BottomEnd).windowInsetsPadding(WindowInsets.systemBars).padding(24.dp)) {
+        Row(Modifier.align(Alignment.BottomEnd).windowInsetsPadding(WindowInsets.systemBars).padding(FernScale.s24)) {
             if (TouchButton.B in buttons) PadButton(state, TouchButton.B, "B")
             if (TouchButton.A in buttons) PadButton(state, TouchButton.A, "A")
         }
@@ -145,7 +155,7 @@ fun PlayOverlay(state: CanvasState, modifier: Modifier = Modifier) {
 private fun PadButton(state: CanvasState, button: TouchButton, label: String) {
     Box(
         Modifier
-            .padding(4.dp)
+            .padding(FernScale.s4)
             .size(PAD_DP.dp)
             .background(PAD_COLOR, CircleShape)
             .pointerInput(state.play) {
@@ -162,11 +172,11 @@ private fun PadButton(state: CanvasState, button: TouchButton, label: String) {
                 }
             },
         contentAlignment = Alignment.Center,
-    ) { Text(label, color = Color.White) }
+    ) { Text(label, color = FernColors.current.onScrim) }
 }
 
 // The longest step the world takes at once, in seconds.
 private const val MAX_STEP_SECONDS = 0.05
 private const val PAD_DP = 64
-private val PAD_COLOR = Color(0x66000000)
-private val HUD_COLOR = Color(0x99000000)
+private val PAD_COLOR: Color get() = FernColors.current.scrim.copy(alpha = 0.4f)
+private val HUD_COLOR: Color get() = FernColors.current.scrim

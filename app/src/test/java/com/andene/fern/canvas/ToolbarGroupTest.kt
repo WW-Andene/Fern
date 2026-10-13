@@ -24,8 +24,8 @@ class ToolbarGroupTest {
         compose.onAllNodesWithContentDescription("Layers").assertCountEquals(0)
         compose.onAllNodesWithContentDescription("Reset view").assertCountEquals(0)
         compose.onNodeWithContentDescription("Undo").assertExists()
-        compose.onNodeWithContentDescription("Eraser").assertExists()
-        compose.onNodeWithContentDescription("Fill").assertExists()
+        // The tools themselves live on the rail now (design roadmap D8), not in two places.
+        compose.onAllNodesWithContentDescription("Eraser").assertCountEquals(0)
     }
 
     @Test

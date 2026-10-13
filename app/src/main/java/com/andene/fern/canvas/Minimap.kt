@@ -1,5 +1,9 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernColors
+
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.padding
@@ -13,7 +17,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStyle
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.unit.dp
 
 /**
  * A small always-visible overview of the whole canvas: the combined extent of every stroke,
@@ -36,15 +39,15 @@ fun Minimap(state: CanvasState, modifier: Modifier = Modifier) {
     if (bounds == null || viewport.width <= 0f || viewport.height <= 0f) return
 
     Surface(
-        modifier = modifier.size(96.dp),
+        modifier = modifier.size(FernScale.s96),
         shape = MaterialTheme.shapes.medium,
-        tonalElevation = 4.dp,
-        shadowElevation = 4.dp,
+        tonalElevation = FernScale.s4,
+        shadowElevation = FernScale.s4,
         color = Color(0xFFF7F5F0),
     ) {
         Canvas(
             modifier = Modifier
-                .padding(4.dp)
+                .padding(FernScale.s4)
                 .pointerInput(state) {
                     detectTapGestures { offset ->
                         val region = minimapRegion(state) ?: return@detectTapGestures
@@ -122,5 +125,5 @@ private fun mapMinimapPointToWorld(
     )
 }
 
-private val CONTENT_EXTENT_COLOR = Color(0xFFBBBBBB)
-private val VIEWPORT_COLOR = Color(0xFF1E88E5)
+private val CONTENT_EXTENT_COLOR: Color get() = FernColors.current.neutral.copy(alpha = 0.5f)
+private val VIEWPORT_COLOR: Color get() = FernColors.current.selection

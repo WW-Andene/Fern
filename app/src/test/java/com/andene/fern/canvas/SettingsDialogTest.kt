@@ -33,11 +33,14 @@ class SettingsDialogTest {
                 onToolbarAtBottomChange = {},
                 highContrast = false,
                 onHighContrastChange = {},
+                colorBlindSafe = false,
+                onColorBlindSafeChange = {},
+                haptics = true,
+                onHapticsChange = {},
                 snapToObjects = true,
                 onSnapToObjectsChange = {},
                 onShowGuide = {},
-                onCustomizeToolbar = {},
-                onCustomizeQuickMenu = {},
+                onArrangeLayout = {},
                 onDismiss = { dismissed = true },
             )
         }

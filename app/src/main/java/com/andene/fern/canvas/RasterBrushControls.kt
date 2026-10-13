@@ -1,6 +1,7 @@
 package com.andene.fern.canvas
 
-import android.widget.Toast
+import com.andene.fern.FernMessages
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
@@ -45,7 +46,7 @@ fun RasterBrushControls(state: CanvasState) {
                 runCatching { context.contentResolver.openInputStream(uri)?.use { BrushImport.read(it.readBytes()) } }.getOrNull().orEmpty()
             }
             val tip = tips.firstOrNull()
-            if (tip == null) Toast.makeText(context, context.getString(R.string.raster_brush_bad_file), Toast.LENGTH_SHORT).show()
+            if (tip == null) FernMessages.show(context.getString(R.string.raster_brush_bad_file))
             else state.rasterBrush = state.rasterBrush.copy(tip = tip)
         }
     }

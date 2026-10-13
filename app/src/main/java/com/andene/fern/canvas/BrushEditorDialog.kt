@@ -1,5 +1,9 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+
+import com.andene.fern.FernScale
+
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.Canvas
@@ -9,6 +13,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.OutlinedTextField
@@ -19,7 +24,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -43,7 +47,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -78,20 +81,20 @@ fun BrushEditorDialog(
         val mask = uri?.let { decodeTipMask(context, it) }
         if (mask != null) brush = brush.copy(tip = StampTip.IMAGE, mask = mask)
     }
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.brush_title)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 BrushPreview(brush, color)
                 if (presets.isNotEmpty()) {
-                    Text(stringResource(R.string.brush_presets), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+                    Text(stringResource(R.string.brush_presets), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = FernScale.s8))
                     val tags = presets.flatMap { it.tags }.distinct().sorted()
                     if (tags.isNotEmpty()) {
                         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                            FilterChip(selected = tagFilter == null, onClick = { tagFilter = null }, label = { Text(stringResource(R.string.brush_tag_all)) }, modifier = Modifier.padding(end = 4.dp))
+                            FilterChip(selected = tagFilter == null, onClick = { tagFilter = null }, label = { Text(stringResource(R.string.brush_tag_all)) }, modifier = Modifier.padding(end = FernScale.s4))
                             for (tag in tags) {
-                                FilterChip(selected = tagFilter == tag, onClick = { tagFilter = if (tagFilter == tag) null else tag }, label = { Text(tag) }, modifier = Modifier.padding(end = 4.dp))
+                                FilterChip(selected = tagFilter == tag, onClick = { tagFilter = if (tagFilter == tag) null else tag }, label = { Text(tag) }, modifier = Modifier.padding(end = FernScale.s4))
                             }
                         }
                     }
@@ -110,13 +113,13 @@ fun BrushEditorDialog(
                                         Icon(
                                             Icons.Filled.Close,
                                             contentDescription = stringResource(R.string.brush_delete_preset, preset.name),
-                                            modifier = Modifier.size(16.dp).clickable { onDeletePreset(preset.name) },
+                                            modifier = Modifier.minimumInteractiveComponentSize().size(FernScale.s16).clickable { onDeletePreset(preset.name) },
                                         )
                                     }
                                 } else {
                                     null
                                 },
-                                modifier = Modifier.padding(end = 4.dp),
+                                modifier = Modifier.padding(end = FernScale.s4),
                             )
                         }
                     }
@@ -129,8 +132,8 @@ fun BrushEditorDialog(
                                 selected = false,
                                 onClick = { onSetPresetTags(loaded.name, loaded.tags - tag) },
                                 label = { Text(tag) },
-                                trailingIcon = { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.brush_remove_tag, tag), modifier = Modifier.size(16.dp)) },
-                                modifier = Modifier.padding(end = 4.dp),
+                                trailingIcon = { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.brush_remove_tag, tag), modifier = Modifier.size(FernScale.s16)) },
+                                modifier = Modifier.padding(end = FernScale.s4),
                             )
                         }
                     }
@@ -148,14 +151,14 @@ fun BrushEditorDialog(
                         }) { Text(stringResource(R.string.brush_tag_add_button)) }
                     }
                 }
-                Row(modifier = Modifier.padding(vertical = 8.dp).horizontalScroll(rememberScrollState())) {
+                Row(modifier = Modifier.padding(vertical = FernScale.s8).horizontalScroll(rememberScrollState())) {
                     for (tip in StampTip.entries) {
                         FilterChip(
                             selected = brush.tip == tip,
                             // An image tip needs a picture first; picking one selects the tip.
                             onClick = { if (tip == StampTip.IMAGE && brush.mask == null) pickTipImage.launch("image/*") else brush = brush.copy(tip = tip) },
                             label = { Text(stringResource(tip.label)) },
-                            modifier = Modifier.padding(end = 4.dp),
+                            modifier = Modifier.padding(end = FernScale.s4),
                         )
                     }
                 }
@@ -167,7 +170,7 @@ fun BrushEditorDialog(
                 BrushSlider(stringResource(R.string.brush_size_jitter), brush.sizeJitter, 0f..1f) { brush = brush.copy(sizeJitter = it) }
                 BrushSlider(stringResource(R.string.brush_angle_jitter), brush.angleJitter, 0f..1f) { brush = brush.copy(angleJitter = it) }
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = FernScale.s8),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(stringResource(R.string.brush_follow), modifier = Modifier.weight(1f))
@@ -211,18 +214,18 @@ private fun BrushSlider(label: String, value: Float, range: ClosedFloatingPointR
 
 /** A sample S-curve drawn with [brush] in [color], redrawn on every change. */
 @Composable
-private fun BrushPreview(brush: StampBrush, color: Color) {
+internal fun BrushPreview(brush: StampBrush, color: Color, height: androidx.compose.ui.unit.Dp = FernScale.s96) {
     val outline = MaterialTheme.colorScheme.outline
     val previewLabel = stringResource(R.string.brush_preview)
     Canvas(
         modifier = Modifier
             .fillMaxWidth()
-            .height(96.dp)
-            .border(1.dp, outline)
+            .height(height)
+            .border(FernScale.s1, outline)
             .semantics { contentDescription = previewLabel },
     ) {
-        val margin = 24.dp.toPx()
-        val width = 16.dp.toPx()
+        val margin = FernScale.s24.toPx()
+        val width = FernScale.s16.toPx()
         val path = (0..64).map { k ->
             val t = k / 64f
             Offset(margin + t * (size.width - 2 * margin), size.height / 2f + sin(t * 2f * PI.toFloat()) * (size.height / 2f - margin))

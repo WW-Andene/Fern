@@ -1,5 +1,9 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -58,11 +61,11 @@ fun DopesheetDialog(state: CanvasState, onDismiss: () -> Unit) {
     val accent = MaterialTheme.colorScheme.primary
     val lineColor = MaterialTheme.colorScheme.onSurface
 
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.dopesheet_title)) },
         text = {
-            Column(modifier = Modifier.heightIn(max = 512.dp).verticalScroll(rememberScrollState())) {
+            Column(modifier = Modifier.heightIn(max = FernScale.s512).verticalScroll(rememberScrollState())) {
                 if (tracks.isEmpty()) {
                     Text(stringResource(R.string.dopesheet_empty))
                     return@Column
@@ -75,7 +78,7 @@ fun DopesheetDialog(state: CanvasState, onDismiss: () -> Unit) {
                             Text(
                                 track.label,
                                 fontWeight = if (track.boneId == selectedId) FontWeight.Bold else FontWeight.Normal,
-                                modifier = Modifier.height(CELL.dp).padding(end = 8.dp).clickable { selectedId = track.boneId },
+                                modifier = Modifier.height(CELL.dp).padding(end = FernScale.s8).clickable { selectedId = track.boneId },
                             )
                         }
                     }
@@ -114,7 +117,7 @@ fun DopesheetDialog(state: CanvasState, onDismiss: () -> Unit) {
                     }
                 }
                 if (selected != null) {
-                    Text(stringResource(R.string.dopesheet_curve, selected.label), modifier = Modifier.padding(top = 16.dp), style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.dopesheet_curve, selected.label), modifier = Modifier.padding(top = FernScale.s16), style = MaterialTheme.typography.labelLarge)
                     val curveLabel = stringResource(R.string.dopesheet_curve, selected.label)
                     // The curve's points line up under the dopesheet's frame columns.
                     Box(modifier = Modifier.horizontalScroll(scroll)) {

@@ -1,7 +1,10 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernMessages
+
+import com.andene.fern.FernScale
+
 import android.graphics.Bitmap
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -55,7 +58,6 @@ import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.andene.fern.R
@@ -190,9 +192,9 @@ fun Model3dEditor(model: Model3d, initialColor: Color, onSave: (Model3d) -> Unit
                 }
                 Column(
                     Modifier
-                        .heightIn(max = 256.dp)
+                        .heightIn(max = FernScale.s256)
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = FernScale.s16),
                 ) {
                     FlowRow(verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center) {
                         for ((option, label) in listOf(
@@ -200,14 +202,14 @@ fun Model3dEditor(model: Model3d, initialColor: Color, onSave: (Model3d) -> Unit
                             SurfaceChannel.ROUGHNESS to R.string.model_paint_roughness,
                             SurfaceChannel.METALLIC to R.string.model_paint_metallic,
                         )) {
-                            FilterChip(selected = channel == option, onClick = { channel = option }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = 8.dp))
+                            FilterChip(selected = channel == option, onClick = { channel = option }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = FernScale.s8))
                         }
                         if (channel == SurfaceChannel.COLOR) {
                             Surface(
                                 onClick = { showColorPicker = true },
                                 shape = CircleShape,
                                 color = color,
-                                modifier = Modifier.size(32.dp).align(Alignment.CenterVertically),
+                                modifier = Modifier.size(FernScale.s32).align(Alignment.CenterVertically),
                             ) {}
                         }
                         IconButton(onClick = {
@@ -241,7 +243,7 @@ fun Model3dEditor(model: Model3d, initialColor: Color, onSave: (Model3d) -> Unit
                     // The light's colour and the exposure (roadmap item 147).
                     FlowRow {
                         for ((tint, label) in LIGHT_TINTS) {
-                            FilterChip(selected = light.color == tint, onClick = { light = light.copy(color = tint) }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = 8.dp))
+                            FilterChip(selected = light.color == tint, onClick = { light = light.copy(color = tint) }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = FernScale.s8))
                         }
                     }
                     Text(stringResource(R.string.model_exposure, (light.exposure * 100).roundToInt()))
@@ -286,7 +288,7 @@ private fun HandPoseControls(pose: HandPose, onChange: (HandPose) -> Unit) {
     Text(stringResource(R.string.model_pose), style = MaterialTheme.typography.titleSmall)
     FlowRow {
         for (preset in HandPreset.entries) {
-            FilterChip(selected = false, onClick = { onChange(preset.pose.copy(left = pose.left)) }, label = { Text(stringResource(handPresetLabel(preset))) }, modifier = Modifier.padding(end = 8.dp))
+            FilterChip(selected = false, onClick = { onChange(preset.pose.copy(left = pose.left)) }, label = { Text(stringResource(handPresetLabel(preset))) }, modifier = Modifier.padding(end = FernScale.s8))
         }
         FilterChip(selected = pose.left, onClick = { onChange(pose.copy(left = !pose.left)) }, label = { Text(stringResource(R.string.model_left_hand)) })
     }
@@ -300,7 +302,7 @@ private fun HandPoseControls(pose: HandPose, onChange: (HandPose) -> Unit) {
         scope.launch {
             val scanned = withContext(Dispatchers.Default) { scanHandPose(context, bitmap) }
             scanning = false
-            if (scanned == null) Toast.makeText(context, context.getString(R.string.toast_no_hand), Toast.LENGTH_SHORT).show()
+            if (scanned == null) FernMessages.show(context.getString(R.string.toast_no_hand))
             else onChange(scanned)
         }
     }
@@ -357,7 +359,7 @@ private fun ModelFileActions(current: () -> Model3d, onTextureImported: (IntArra
                 val ok = withContext(Dispatchers.IO) {
                     runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(make(model)) } != null }.getOrDefault(false)
                 }
-                Toast.makeText(context, context.getString(if (ok) R.string.toast_exported else R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
+                FernMessages.show(context.getString(if (ok) R.string.toast_exported else R.string.toast_export_failed))
             }
         }
     }

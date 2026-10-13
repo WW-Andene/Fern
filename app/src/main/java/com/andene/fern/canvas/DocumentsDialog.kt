@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.annotation.StringRes
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
@@ -48,7 +50,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 
 /** How the document list is ordered. Favourites are always pinned above the rest. */
 private enum class DocumentSort(@StringRes val label: Int) {
@@ -116,7 +117,7 @@ fun DocumentsDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(
-                    modifier = Modifier.padding(vertical = 4.dp),
+                    modifier = Modifier.padding(vertical = FernScale.s4),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     for (option in DocumentSort.entries) {
@@ -124,7 +125,7 @@ fun DocumentsDialog(
                             selected = sort == option,
                             onClick = { sort = option },
                             label = { Text(stringResource(option.label)) },
-                            modifier = Modifier.padding(end = 8.dp),
+                            modifier = Modifier.padding(end = FernScale.s8),
                         )
                     }
                     FilterChip(
@@ -137,13 +138,13 @@ fun DocumentsDialog(
                     Row(
                         modifier = Modifier
                             .horizontalScroll(rememberScrollState())
-                            .padding(bottom = 4.dp),
+                            .padding(bottom = FernScale.s4),
                     ) {
                         FilterChip(
                             selected = openFolder == null,
                             onClick = { openFolder = null },
                             label = { Text(stringResource(R.string.documents_all)) },
-                            modifier = Modifier.padding(end = 8.dp),
+                            modifier = Modifier.padding(end = FernScale.s8),
                         )
                         for (folder in folders) {
                             FilterChip(
@@ -151,27 +152,27 @@ fun DocumentsDialog(
                                 onClick = { openFolder = folder },
                                 leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null) },
                                 label = { Text(folder) },
-                                modifier = Modifier.padding(end = 8.dp),
+                                modifier = Modifier.padding(end = FernScale.s8),
                             )
                         }
                     }
                 }
                 Column(
                     modifier = Modifier
-                        .heightIn(max = 384.dp)
+                        .heightIn(max = FernScale.s384)
                         .verticalScroll(rememberScrollState()),
                 ) {
                     if (visible.isEmpty()) {
                         Text(
                             text = if (showingTrash) stringResource(R.string.documents_trash_empty) else stringResource(R.string.documents_none),
-                            modifier = Modifier.padding(vertical = 8.dp),
+                            modifier = Modifier.padding(vertical = FernScale.s8),
                         )
                     }
                     for (doc in visible) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp),
+                                .padding(vertical = FernScale.s4),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             if (showingTrash) {
@@ -221,7 +222,7 @@ fun DocumentsDialog(
                                 Text(
                                     text = doc.name,
                                     modifier = Modifier
-                                        .padding(start = 8.dp)
+                                        .padding(start = FernScale.s8)
                                         .weight(1f)
                                         .clickable { onSelect(doc) },
                                     fontWeight = if (doc.id == currentDocumentId) FontWeight.Bold else FontWeight.Normal,
@@ -281,8 +282,8 @@ private fun DocumentThumbnailImage(doc: DocumentMeta, loadThumbnail: (DocumentMe
     // Keyed on lastModified so the preview refreshes after the document is saved again.
     val thumbnail = remember(doc.id, doc.lastModified) { loadThumbnail(doc) }
     val tileModifier = Modifier
-        .size(48.dp)
-        .clip(RoundedCornerShape(12.dp)) // §7.3: 0.24 × 48 = 11.5, nearest scale value 12
+        .size(FernScale.s48)
+        .clip(RoundedCornerShape(FernScale.s12)) // §7.3: 0.24 × 48 = 11.5, nearest scale value 12
         .background(Color(0xFFF7F5F0))
     if (thumbnail != null) {
         Image(bitmap = thumbnail, contentDescription = null, modifier = tileModifier)

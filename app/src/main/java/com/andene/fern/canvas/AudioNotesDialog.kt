@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Column
@@ -23,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import java.io.File
 import java.text.DateFormat
 import java.util.Date
@@ -45,7 +46,7 @@ fun AudioNotesDialog(audio: AudioNotes, documentId: String, onPlay: (File) -> Un
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.audio_title)) },
         text = {
-            Column(modifier = Modifier.heightIn(max = 384.dp).verticalScroll(rememberScrollState())) {
+            Column(modifier = Modifier.heightIn(max = FernScale.s384).verticalScroll(rememberScrollState())) {
                 if (failed) Text(stringResource(R.string.audio_mic_failed))
                 if (notes.isEmpty() && !recording) Text(stringResource(R.string.audio_empty))
                 for (note in notes) {

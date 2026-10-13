@@ -1,5 +1,12 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernHaptics
+
+import com.andene.fern.FernColors
+import com.andene.fern.FernScale
+
+import com.andene.fern.FernType
+
 import com.andene.fern.R
 import android.graphics.BitmapFactory
 import android.view.MotionEvent
@@ -53,6 +60,9 @@ import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
@@ -65,9 +75,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.sp
 import androidx.input.motionprediction.MotionEventPredictor
 import kotlinx.coroutines.delay
+import android.os.SystemClock
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -97,6 +107,8 @@ fun DrawingCanvas(
     /** Pins and documents a text label can link to (see [LinkTarget]). */
     linkChoices: LinkChoices = LinkChoices(),
     onFollowLink: (LinkTarget) -> Unit = {},
+    /** Gesture actions for the screen around the canvas: quick menu, palette, hiding the bars (design roadmap D15). */
+    onGestureAction: (GestureAction) -> Unit = {},
 ) {
     // Side-channel for stylus pressure/tilt/orientation: Compose's own pointer-input APIs
     // (used below, unchanged) don't expose tilt at all, and pressure only patchily, so this
@@ -117,6 +129,24 @@ fun DrawingCanvas(
     val context = LocalContext.current
     // Decoded lazily and cached by file name: re-decoding from disk every frame would be
     // wasteful, and images never change once placed (a new image is a new ImageItem/file).
+    val gestures by GestureSettings.state(context)
+    val palm by PalmSettings.state(context)
+    // Where a hovering stylus is (design roadmap D16): the brush's footprint shows there before it touches.
+    var hoverPoint by remember { mutableStateOf<Offset?>(null) }
+    // Whether a selection is being moved, scaled or turned: its place and size show beside it (design roadmap D37).
+    var selectionReadout by remember { mutableStateOf(false) }
+    // Pinching or panning: the zoom and turn show at the top (design roadmap D38).
+    var navigating by remember { mutableStateOf(false) }
+    // The last two-finger tap's action and time, to spot a double tap.
+    var lastTwoFingerTap by remember { mutableStateOf(GestureAction.NONE to 0L) }
+    // What a tap gesture did, where and when, shown briefly (design roadmap D38).
+    var gestureBadge by remember { mutableStateOf<Triple<String, Offset, Long>?>(null) }
+    gestureBadge?.let { badge ->
+        LaunchedEffect(badge) {
+            delay(GESTURE_BADGE_MILLIS)
+            if (gestureBadge === badge) gestureBadge = null
+        }
+    }
     val imageBitmapCache = remember { mutableMapOf<String, ImageBitmap>() }
     // Low-latency ink (see FrontBufferedInk): a transparent front-buffered surface above the
     // canvas. Placed first in the Box so the canvas, not the surface, receives touches; the
@@ -128,7 +158,10 @@ fun DrawingCanvas(
         while (true) {
             delay(SHAPE_HOLD_POLL_MILLIS)
             // The front buffer still shows the freehand ink; wipe it so the clean shape shows.
-            if (state.holdTick()) frontInk?.clear()
+            if (state.holdTick()) {
+                frontInk?.clear()
+                FernHaptics.tick(view) // the held stroke just snapped to its shape (design roadmap D7)
+            }
         }
     }
 
@@ -145,6 +178,26 @@ fun DrawingCanvas(
             // Screen readers otherwise announce nothing for the drawing surface.
             .semantics {
                 contentDescription = context.resources.getQuantityString(R.plurals.canvas_description, state.strokes.size, state.strokes.size)
+                // The tool, zoom and selection, announced as they change (design roadmap D4).
+                stateDescription = context.resources.getQuantityString(
+                    R.plurals.canvas_state, state.selection.size,
+                    context.getString(toolName(state.activeTool)), (state.scale * 100).roundToInt(), state.selection.size,
+                )
+                liveRegion = LiveRegionMode.Polite
+            }
+            .pointerInput(state) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull() ?: continue
+                        if (change.type == PointerType.Stylus || change.type == PointerType.Eraser) {
+                            stylusSample.lastSeenMillis = SystemClock.uptimeMillis()
+                            hoverPoint = if (!change.pressed && event.type != PointerEventType.Exit) change.position else null
+                        } else if (event.type == PointerEventType.Exit) {
+                            hoverPoint = null
+                        }
+                    }
+                }
             }
             .pointerInteropFilter { event ->
                 if (event.pointerCount > 0) {
@@ -194,6 +247,20 @@ fun DrawingCanvas(
                     val historyDepthAtStart = state.historyDepth
                     var maxPointers = 0
                     var navigationTravel = 0f
+                    // Configurable gestures (design roadmap D15): a finger held still, and a three-finger swipe.
+                    val downClock = SystemClock.uptimeMillis()
+                    var longPressArmed = firstDown.type == PointerType.Touch && gestures.getValue(CanvasGesture.LONG_PRESS) != GestureAction.NONE
+                    var longPressed = false
+                    var swipeStart: Offset? = null
+                    var swipeLast = Offset.Zero
+                    var swipeStartSpan = 0f
+                    var swipeSpanChange = 0f
+                    val viewAtStart = Triple(state.panWorld, state.scale, state.rotation)
+                    fun runGesture(action: GestureAction, at: Offset) {
+                        // A badge where the fingers tapped says what happened (design roadmap D38).
+                        if (action == GestureAction.UNDO || action == GestureAction.REDO) gestureBadge = Triple(context.getString(action.label), at, SystemClock.uptimeMillis())
+                        state.runGestureAction(action, state.screenToWorld(state.unrotateScreen(at, screenCenter), screenCenter), onGestureAction)
+                    }
 
                     var mode = Mode.NONE
                     var prevCentroid = Offset.Zero
@@ -222,13 +289,29 @@ fun DrawingCanvas(
                                 SelectionGestureKind.ROTATE -> state.endRotateSelection()
                                 SelectionGestureKind.OTHER -> state.endSelectGesture()
                             }
+                            selectionReadout = false
                         }
                         toolBeforeStylusEraser?.let { state.activeTool = it }
                         toolBeforeStylusEraser = null
                     }
 
                     while (true) {
-                        val event = awaitPointerEvent(PointerEventPass.Main)
+                        val holding = longPressArmed && maxPointers <= 1
+                        val event = if (holding) {
+                            withTimeoutOrNull((LONG_PRESS_MILLIS - (SystemClock.uptimeMillis() - downClock)).coerceAtLeast(1L)) { awaitPointerEvent(PointerEventPass.Main) }
+                        } else {
+                            awaitPointerEvent(PointerEventPass.Main)
+                        }
+                        if (event == null) {
+                            // Held still: whatever the first touch began (a dot) wasn't meant.
+                            longPressArmed = false
+                            longPressed = true
+                            if (mode == Mode.DRAW) endActiveDrawAction()
+                            state.discardActionsSince(historyDepthAtStart)
+                            mode = Mode.NONE
+                            runGesture(gestures.getValue(CanvasGesture.LONG_PRESS), firstDown.position)
+                            continue
+                        }
                         val allPressed = event.changes.filter { it.pressed }
                         // Palm rejection: once a stylus is down, ignore finger pointers
                         // entirely (a resting palm reads as ordinary touch input) rather
@@ -236,7 +319,14 @@ fun DrawingCanvas(
                         // pointer. Consumed so nothing else treats them as unhandled.
                         // The eraser end of a stylus reports its own pointer type; it's still a pen, not a palm.
                         val stylusActive = allPressed.any { it.type == PointerType.Stylus || it.type == PointerType.Eraser }
-                        val pointers = if (stylusActive) {
+                        // Palm rejection (design roadmap D16): off, while the stylus is down, or also while it's near.
+                        val stylusNear = SystemClock.uptimeMillis() - stylusSample.lastSeenMillis < PALM_NEAR_MILLIS
+                        val rejectTouch = when (palm) {
+                            PalmRejection.OFF -> false
+                            PalmRejection.NORMAL -> stylusActive
+                            PalmRejection.STRICT -> stylusActive || stylusNear
+                        }
+                        val pointers = if (rejectTouch) {
                             val (kept, rejected) = allPressed.partition { it.type != PointerType.Touch }
                             rejected.forEach { it.consume() }
                             kept
@@ -256,6 +346,12 @@ fun DrawingCanvas(
                         val count = pointers.size
                         if (count == 0) break
                         maxPointers = maxOf(maxPointers, count)
+                        if (longPressed) {
+                            // The rest of a long press does nothing more.
+                            pointers.forEach { it.consume() }
+                            continue
+                        }
+                        if (count > 1 || (pointers[0].position - firstDown.position).getDistance() > LONG_PRESS_SLOP_PX) longPressArmed = false
 
                         if (count == 1) {
                             if (mode != Mode.DRAW) {
@@ -283,12 +379,13 @@ fun DrawingCanvas(
                                     Tool.SELECT -> {
                                         // The shape builder and knife (roadmap item 141) take every drag, handles included.
                                         val handles = if (state.shapeEditMode == null) selectionHandles(state, screenCenter) else null
+                                        selectionReadout = true
                                         selectionGestureKind = when {
-                                            handles != null && (downPos - handles.scaleHandle).getDistance() <= HANDLE_HIT_RADIUS_SCREEN -> {
+                                            handles != null && (downPos - handles.scaleHandle).getDistance() <= HANDLE_HIT.toPx() -> {
                                                 state.beginScaleSelection(world)
                                                 SelectionGestureKind.SCALE
                                             }
-                                            handles != null && (downPos - handles.rotateHandle).getDistance() <= HANDLE_HIT_RADIUS_SCREEN -> {
+                                            handles != null && (downPos - handles.rotateHandle).getDistance() <= HANDLE_HIT.toPx() -> {
                                                 state.beginRotateSelection(world)
                                                 SelectionGestureKind.ROTATE
                                             }
@@ -336,6 +433,14 @@ fun DrawingCanvas(
                                 (pointers[1].position.y - pointers[0].position.y).toDouble(),
                                 (pointers[1].position.x - pointers[0].position.x).toDouble(),
                             )
+                            if (count == 3) {
+                                if (swipeStart == null) {
+                                    swipeStart = centroid
+                                    swipeStartSpan = span
+                                }
+                                swipeLast = centroid
+                                swipeSpanChange = maxOf(swipeSpanChange, abs(span - swipeStartSpan))
+                            }
 
                             if (mode != Mode.NAVIGATE) {
                                 // Just transitioned into navigation: establish baseline, no jump this frame.
@@ -343,6 +448,7 @@ fun DrawingCanvas(
                                 prevSpan = span
                                 prevAngle = angle
                                 mode = Mode.NAVIGATE
+                                navigating = true
                             } else {
                                 // Pan and zoom work in unrotated view space, so a drag moves the
                                 // content along with the fingers whatever the canvas angle is.
@@ -364,12 +470,46 @@ fun DrawingCanvas(
                         }
                     }
                     if (mode == Mode.DRAW) endActiveDrawAction()
-                    if (mode == Mode.NAVIGATE) state.snapRotation()
+                    if (mode == Mode.NAVIGATE) {
+                        state.snapRotation()
+                        // The turn snapped back level: a tick to feel it (design roadmap D38).
+                        if (state.rotation == 0.0 && viewAtStart.third != 0.0) FernHaptics.tick(view)
+                    }
+                    navigating = false
                     val tapDuration = (currentEvent.changes.firstOrNull()?.uptimeMillis ?: gestureStartMillis) - gestureStartMillis
-                    if (maxPointers in 2..3 && tapDuration <= MULTI_FINGER_TAP_MAX_MILLIS && navigationTravel <= MULTI_FINGER_TAP_SLOP_PX) {
+                    val swipeFrom = swipeStart
+                    if (longPressed) {
+                        // Handled when it fired.
+                    } else if (maxPointers in 2..4 && tapDuration <= MULTI_FINGER_TAP_MAX_MILLIS && navigationTravel <= MULTI_FINGER_TAP_SLOP_PX) {
                         // The first finger may have begun a stroke before the others landed; that wasn't drawing.
                         state.discardActionsSince(historyDepthAtStart)
-                        if (maxPointers == 2) state.undo() else state.redo()
+                        val gesture = when (maxPointers) {
+                            2 -> CanvasGesture.TWO_FINGER_TAP
+                            3 -> CanvasGesture.THREE_FINGER_TAP
+                            else -> CanvasGesture.FOUR_FINGER_TAP
+                        }
+                        val now = SystemClock.uptimeMillis()
+                        if (maxPointers == 2 && now - lastTwoFingerTap.second <= DOUBLE_TAP_MILLIS) {
+                            // A two-finger double tap fits the drawing (design roadmap D41); the first tap's undo or redo is taken back.
+                            when (lastTwoFingerTap.first) {
+                                GestureAction.UNDO -> state.redo()
+                                GestureAction.REDO -> state.undo()
+                                else -> {}
+                            }
+                            lastTwoFingerTap = GestureAction.NONE to 0L
+                            state.fitWithReturn()
+                        } else {
+                            val action = gestures.getValue(gesture)
+                            if (maxPointers == 2) lastTwoFingerTap = action to now
+                            runGesture(action, firstDown.position)
+                        }
+                    } else if (maxPointers == 3 && swipeFrom != null && (swipeLast - swipeFrom).getDistance() >= SWIPE_MIN_PX &&
+                        swipeSpanChange <= SWIPE_SPAN_SLOP_PX && tapDuration <= SWIPE_MAX_MILLIS &&
+                        gestures.getValue(CanvasGesture.THREE_FINGER_SWIPE) != GestureAction.NONE
+                    ) {
+                        // A swipe, not a pan: the view goes back to where it was.
+                        state.restoreView(viewAtStart.first, viewAtStart.second, viewAtStart.third)
+                        runGesture(gestures.getValue(CanvasGesture.THREE_FINGER_SWIPE), swipeLast)
                     }
                 }
             }
@@ -550,7 +690,7 @@ fun DrawingCanvas(
                     textMeasurer = textMeasurer,
                     text = frame.name,
                     topLeft = Offset(a.x, a.y - 24f),
-                    style = TextStyle(color = FRAME_COLOR, fontSize = 12.sp),
+                    style = TextStyle(color = FRAME_COLOR, fontSize = FernType.caption),
                 )
             }
 
@@ -753,7 +893,7 @@ fun DrawingCanvas(
                 // Dimensions (roadmap item 99): the line's length, or the box's width x height,
                 // in world units, beside the finger.
                 val label = shapeDimensions(state.activeShapeKind, start, end, state.drawingScale)
-                val layout = textMeasurer.measure(label, TextStyle(color = Color.White, fontSize = 12.sp))
+                val layout = textMeasurer.measure(label, TextStyle(color = FernColors.current.onScrim, fontSize = FernType.caption))
                 val at = state.worldToScreen(end, screenCenter) + Offset(16f, 16f)
                 drawRect(MARQUEE_BORDER_COLOR, topLeft = at - Offset(4f, 2f), size = Size(layout.size.width + 8f, layout.size.height + 4f))
                 drawText(layout, topLeft = at)
@@ -784,7 +924,7 @@ fun DrawingCanvas(
                     else scaleOf.formatLength(measured.length)
                     at = screen.reduce { acc, p -> acc + p } / screen.size.toFloat()
                 }
-                val layout = textMeasurer.measure(label, TextStyle(color = Color.White, fontSize = 12.sp))
+                val layout = textMeasurer.measure(label, TextStyle(color = FernColors.current.onScrim, fontSize = FernType.caption))
                 drawRect(MEASURE_COLOR, topLeft = at - Offset(4f, 2f), size = Size(layout.size.width + 8f, layout.size.height + 4f))
                 drawText(layout, topLeft = at)
             }
@@ -822,6 +962,73 @@ fun DrawingCanvas(
                         drawCircle(color = Color.White, radius = 5f, center = endScreen)
                     }
                 }
+            }
+        }
+    }
+    if (navigating || gestureBadge != null) Canvas(Modifier.matchParentSize()) {
+        fun badge(label: String, at: Offset) {
+            val layout = textMeasurer.measure(label, TextStyle(color = FernColors.current.onScrim, fontSize = FernType.caption))
+            val topLeft = at - Offset(layout.size.width / 2f, layout.size.height / 2f)
+            drawRoundRect(FernColors.current.scrim, topLeft = topLeft - Offset(READOUT_GAP_PX * 2, READOUT_GAP_PX), size = Size(layout.size.width + READOUT_GAP_PX * 4, layout.size.height + READOUT_GAP_PX * 2), cornerRadius = androidx.compose.ui.geometry.CornerRadius(READOUT_GAP_PX * 2))
+            drawText(layout, topLeft = topLeft)
+        }
+        if (navigating) badge("${(state.scale * 100).roundToInt()} % · ${Math.toDegrees(state.rotation).roundToInt()}°", Offset(size.width / 2f, NAV_BADGE_TOP_PX))
+        gestureBadge?.let { (label, at, _) -> badge(label, at) }
+    }
+    // The selection's position and size while it's dragged (design roadmap D37), in the drawing's units.
+    if (selectionReadout) state.selectionBounds()?.let { (min, max) ->
+        Canvas(Modifier.matchParentSize()) {
+            val screenCenter = Offset(size.width / 2f, size.height / 2f)
+            val scaleOf = state.drawingScale
+            val label = "${scaleOf.formatLength(min.x)}, ${scaleOf.formatLength(min.y)} · ${formatMeasure((max.x - min.x) * scaleOf.factor)} × ${scaleOf.formatLength(max.y - min.y)}"
+            val layout = textMeasurer.measure(label, TextStyle(color = FernColors.current.onScrim, fontSize = FernType.caption))
+            val anchor = state.worldToScreen(min, screenCenter) - Offset(0f, layout.size.height + READOUT_GAP_PX * 2)
+            drawRoundRect(FernColors.current.scrim, topLeft = anchor - Offset(READOUT_GAP_PX, READOUT_GAP_PX), size = Size(layout.size.width + READOUT_GAP_PX * 2, layout.size.height + READOUT_GAP_PX * 2), cornerRadius = androidx.compose.ui.geometry.CornerRadius(READOUT_GAP_PX))
+            drawText(layout, topLeft = anchor)
+        }
+    }
+    // Where a typed transform would put the selection (design roadmap D27).
+    state.transformPreview?.let { t ->
+        Canvas(Modifier.matchParentSize()) {
+            val screenCenter = Offset(size.width / 2f, size.height / 2f)
+            val cx = t.left + t.width / 2
+            val cy = t.top + t.height / 2
+            val rad = Math.toRadians(t.rotationDegrees)
+            val corners = listOf(t.left to t.top, t.left + t.width to t.top, t.left + t.width to t.top + t.height, t.left to t.top + t.height).map { (x, y) ->
+                val dx = x - cx
+                val dy = y - cy
+                state.worldToScreen(WorldPoint(cx + dx * kotlin.math.cos(rad) - dy * kotlin.math.sin(rad), cy + dx * kotlin.math.sin(rad) + dy * kotlin.math.cos(rad)), screenCenter)
+            }
+            val outline = Path().apply {
+                moveTo(corners[0].x, corners[0].y)
+                for (c in corners.drop(1)) lineTo(c.x, c.y)
+                close()
+            }
+            drawPath(outline, FernColors.current.selection, style = DrawStyle(width = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))))
+        }
+    }
+    // The brush's size and opacity while a drag on the rail adjusts it (design roadmap D19).
+    if (RailAdjust.active) Canvas(Modifier.matchParentSize()) {
+        val radius = (state.activeWidthWorld * state.scale / 2).toFloat().coerceAtLeast(2f)
+        drawCircle(state.activeColor.copy(alpha = state.activeOpacity.toFloat()), radius = radius, center = center)
+        drawCircle(FernColors.current.selection, radius = radius + 2f, center = center, style = DrawStyle(width = 2f))
+    }
+    // The brush's footprint under a hovering stylus (design roadmap D16).
+    hoverPoint?.let { point ->
+        if (state.activeTool == Tool.PEN || state.activeTool == Tool.ERASER) Canvas(Modifier.matchParentSize()) {
+            val radius = (state.activeWidthWorld * state.scale / 2).toFloat()
+            if (radius < CROSSHAIR_BELOW_PX) {
+                // Too small to see as a ring (design roadmap D36): a crosshair with a gap at the tip.
+                val mark = FernColors.current.selection
+                for ((dx, dy) in listOf(1f to 0f, -1f to 0f, 0f to 1f, 0f to -1f)) {
+                    val from = point + Offset(dx, dy) * CROSSHAIR_GAP_PX
+                    val to = point + Offset(dx, dy) * (CROSSHAIR_GAP_PX + CROSSHAIR_ARM_PX)
+                    drawLine(Color.White, from, to, strokeWidth = 3f)
+                    drawLine(mark, from, to, strokeWidth = 1f)
+                }
+            } else {
+                drawCircle(Color.White, radius = radius + 1f, center = point, style = DrawStyle(width = 3f))
+                drawCircle(FernColors.current.selection, radius = radius, center = point, style = DrawStyle(width = 1f))
             }
         }
     }
@@ -1010,6 +1217,8 @@ private class StylusSample {
     var orientation = 0f
     var eraserEnd = false
     var buttonPressed = false
+    /** When a stylus was last seen, hovering or touching (palm rejection, design roadmap D16). */
+    var lastSeenMillis = 0L
 }
 
 /**
@@ -1436,38 +1645,39 @@ private fun selectionHandles(state: CanvasState, screenCenter: Offset): Selectio
 }
 
 // Both on the §7 scale (Primary tier).
-private const val HANDLE_HIT_RADIUS_SCREEN = 16f
+// Half a 48 dp touch target around each handle (design roadmap D39).
+private val HANDLE_HIT = FernScale.s24
 private const val ROTATE_HANDLE_OFFSET_SCREEN = 32f
 
-private val SELECTION_HIGHLIGHT_COLOR = Color(0xFF1E88E5)
-private val MARQUEE_BORDER_COLOR = Color(0xFF1E88E5)
+private val SELECTION_HIGHLIGHT_COLOR: Color get() = FernColors.current.selection
+private val MARQUEE_BORDER_COLOR: Color get() = FernColors.current.selection
 // Aseprite's onion skin colours (roadmap item 145): earlier frames red, later ones blue.
-private val ONION_BEFORE_TINT = Color(0xFFE53935)
-private val ONION_AFTER_TINT = Color(0xFF1E88E5)
+private val ONION_BEFORE_TINT: Color get() = FernColors.current.before
+private val ONION_AFTER_TINT: Color get() = FernColors.current.after
 // The play badge on an embedded video (roadmap item 107).
-private val VIDEO_BADGE_COLOR = Color(0x99000000)
+private val VIDEO_BADGE_COLOR: Color get() = FernColors.current.scrim
 private const val VIDEO_BADGE_RADIUS_PX = 24f
 // The measure tool's line and readout (roadmap item 143).
-private val MEASURE_COLOR = Color(0xFF00897B)
+private val MEASURE_COLOR: Color get() = FernColors.current.measure
 // Game objects' hitboxes and links, while editing (roadmap item 157).
-private val GAME_GUIDE_COLOR = Color(0xFF43A047)
+private val GAME_GUIDE_COLOR: Color get() = FernColors.current.game
 // A frame's layout grid bands (roadmap item 142): the frame colour, faint, so overlaps read darker.
-private val LAYOUT_GRID_COLOR = Color(0x1A7E57C2)
+private val LAYOUT_GRID_COLOR: Color get() = FernColors.current.frame.copy(alpha = 0.1f)
 // The shape builder's remove drag and the knife's cut line (roadmap item 141).
-private val SHAPE_CUT_COLOR = Color(0xFFE53935)
+private val SHAPE_CUT_COLOR: Color get() = FernColors.current.danger
 // Widest a text box is laid out on screen; beyond this (deep zoom) the box is cropped to it.
 private const val MAX_TEXT_BOX_PX = 65536.0
 
-private val CONNECTOR_COLOR = Color(0xFF455A64)
+private val CONNECTOR_COLOR: Color get() = FernColors.current.neutral
 
 /** A connector arrow from [a] to [b] in screen space: a 2 px line and an arrowhead at [b]. */
 // Bone overlay: a tapered wedge from joint to tail, with a ring on the joint (sizes in px on the §7 scale).
-private val BONE_COLOR = Color(0xCC5E35B1)
-private val SELECTED_BONE_COLOR = Color(0xFFFF6F00)
+private val BONE_COLOR: Color get() = FernColors.current.construction.copy(alpha = 0.8f)
+private val SELECTED_BONE_COLOR: Color get() = FernColors.current.active
 private const val BONE_HALF_WIDTH_PX = 6f
 private const val BONE_JOINT_RADIUS_PX = 6f
 
-private val GUIDE_COLOR = Color(0xFFE91E63)
+private val GUIDE_COLOR: Color get() = FernColors.current.guide
 
 /**
  * The shape-tool readout: a line or arrow's length, otherwise the box's width x height. Whole
@@ -1477,12 +1687,14 @@ private val GUIDE_COLOR = Color(0xFFE91E63)
 internal fun shapeDimensions(kind: ShapeKind, start: WorldPoint, end: WorldPoint, drawingScale: DrawingScale? = null): String {
     val dx = abs(end.x - start.x)
     val dy = abs(end.y - start.y)
+    // A line's angle too, counter-clockwise from the right as on a protractor (design roadmap D37).
+    val angle = "%.0f°".format(Math.toDegrees(kotlin.math.atan2(-(end.y - start.y), end.x - start.x)))
     if (drawingScale != null) return when (kind) {
-        ShapeKind.LINE, ShapeKind.ARROW -> drawingScale.formatLength(kotlin.math.hypot(dx, dy))
+        ShapeKind.LINE, ShapeKind.ARROW -> "${drawingScale.formatLength(kotlin.math.hypot(dx, dy))} · $angle"
         else -> "${formatMeasure(dx * drawingScale.unitsPerWorld)} × ${drawingScale.formatLength(dy)}"
     }
     return when (kind) {
-        ShapeKind.LINE, ShapeKind.ARROW -> "%.0f".format(kotlin.math.hypot(dx, dy))
+        ShapeKind.LINE, ShapeKind.ARROW -> "%.0f · %s".format(kotlin.math.hypot(dx, dy), angle)
         else -> "%.0f × %.0f".format(dx, dy)
     }
 }
@@ -1532,7 +1744,7 @@ private val STICKY_NOTE_COLOR = Color(0xFFFFF59D)
 private const val ONION_SKIN_ALPHA = 0.25f
 private const val AUDIO_AHEAD_ALPHA = 0.2f
 private const val SELECTION_MASK_ALPHA = 0.35f
-private val SELECTION_MASK_TINT = Color(0xFFE53935)
+private val SELECTION_MASK_TINT: Color get() = FernColors.current.danger
 private const val MAX_SCREEN_FILTER_PX = 256 // a filter layer's reach on screen, zoomed in far
 
 private fun premultiply(c: Int): Int {
@@ -1565,18 +1777,38 @@ private const val WHEEL_ZOOM_STEP = 1.1
 // Two/three-finger tap to undo/redo, the convention of Procreate and most iPad/Android drawing apps.
 private const val MULTI_FINGER_TAP_MAX_MILLIS = 250L
 private const val MULTI_FINGER_TAP_SLOP_PX = 24f // on the §7 scale
+// A finger held this long within this distance is a long press (design roadmap D15); Android's own long-press time.
+private const val LONG_PRESS_MILLIS = 500L
+// After a stylus was last seen, strict palm rejection ignores touches this long.
+private const val PALM_NEAR_MILLIS = 1024L
+// Padding around an on-canvas readout.
+private const val READOUT_GAP_PX = 4f
+// Two two-finger taps this close together are a double tap.
+private const val DOUBLE_TAP_MILLIS = 384L
+// How long a gesture's badge shows, and where the zoom readout sits below the top edge.
+private const val GESTURE_BADGE_MILLIS = 768L
+private const val NAV_BADGE_TOP_PX = 128f
+// Under this footprint radius the hover cursor is a crosshair; its gap and arm lengths.
+private const val CROSSHAIR_BELOW_PX = 4f
+private const val CROSSHAIR_GAP_PX = 4f
+private const val CROSSHAIR_ARM_PX = 8f
+private const val LONG_PRESS_SLOP_PX = 24f
+// A three-finger swipe: this far, quickly, without pinching.
+private const val SWIPE_MIN_PX = 192f
+private const val SWIPE_SPAN_SLOP_PX = 48f
+private const val SWIPE_MAX_MILLIS = 768L
 
 // Translucent teal so the axes guide without competing with the drawing.
-private val SYMMETRY_COLOR = Color(0x6600897B)
-private val PERSPECTIVE_RAY_COLOR = Color(0x335E35B1)
-private val PERSPECTIVE_HORIZON_COLOR = Color(0x995E35B1)
+private val SYMMETRY_COLOR: Color get() = FernColors.current.measure.copy(alpha = 0.4f)
+private val PERSPECTIVE_RAY_COLOR: Color get() = FernColors.current.construction.copy(alpha = 0.2f)
+private val PERSPECTIVE_HORIZON_COLOR: Color get() = FernColors.current.construction.copy(alpha = 0.6f)
 // One ray every 15 degrees.
 private const val PERSPECTIVE_RAYS = 24
 // Muted purple, distinct from the blue selection/marquee colours.
-private val FRAME_COLOR = Color(0xFF7E57C2)
-private val MARQUEE_FILL_COLOR = Color(0x1A1E88E5)
-private val HANDLE_COLOR = Color(0xFF1E88E5)
-private val RULER_COLOR = Color(0xFFFB8C00)
+private val FRAME_COLOR: Color get() = FernColors.current.frame
+private val MARQUEE_FILL_COLOR: Color get() = FernColors.current.selection.copy(alpha = 0.1f)
+private val HANDLE_COLOR: Color get() = FernColors.current.selection
+private val RULER_COLOR: Color get() = FernColors.current.active
 
 private enum class Mode { NONE, DRAW, NAVIGATE }
 private enum class SelectionGestureKind { SCALE, ROTATE, OTHER }
@@ -1950,7 +2182,22 @@ private fun DrawScope.drawTextOnPath(layout: TextLayoutResult, path: List<Offset
 }
 
 // Weight-painting overlay colours: automatic, following the parent (0), following the bone (1).
-private val WEIGHT_AUTO_COLOR = Color(0xFF9E9E9E)
-private val WEIGHT_PARENT_COLOR = Color(0xFF1E88E5)
-private val WEIGHT_BONE_COLOR = Color(0xFFE53935)
+private val WEIGHT_AUTO_COLOR: Color get() = FernColors.current.neutral
+private val WEIGHT_PARENT_COLOR: Color get() = FernColors.current.selection
+private val WEIGHT_BONE_COLOR: Color get() = FernColors.current.danger
 
+/** The spoken name of [tool] (design roadmap D4). */
+internal fun toolName(tool: Tool): Int = when (tool) {
+    Tool.PEN -> R.string.tool_name_pen
+    Tool.ERASER -> R.string.tool_name_eraser
+    Tool.SELECT -> R.string.tool_name_select
+    Tool.SHAPE -> R.string.tool_name_shape
+    Tool.FILL -> R.string.tool_name_fill
+    Tool.TEXT -> R.string.tool_name_text
+    Tool.RULER -> R.string.tool_name_ruler
+    Tool.EYEDROPPER -> R.string.tool_name_eyedropper
+    Tool.CONNECT -> R.string.tool_name_connect
+    Tool.BONE -> R.string.tool_name_bone
+    Tool.BEZIER -> R.string.tool_name_bezier
+    Tool.MEASURE -> R.string.tool_name_measure
+}

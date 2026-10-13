@@ -2,6 +2,8 @@
 
 package com.andene.fern
 
+import android.os.SystemClock
+
 import com.andene.fern.canvas.GameInputState
 import android.view.MotionEvent
 import android.view.KeyEvent
@@ -27,7 +29,6 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -44,6 +45,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -92,6 +95,25 @@ import com.andene.fern.canvas.AudioNotes
 import com.andene.fern.canvas.AudioNotesDialog
 import com.andene.fern.canvas.AudioSeekOverlay
 import com.andene.fern.canvas.AudioBar
+import com.andene.fern.canvas.CanvasHaptics
+import com.andene.fern.canvas.ToolRail
+import com.andene.fern.canvas.SelectionActionStrip
+import com.andene.fern.canvas.ModeChips
+import com.andene.fern.canvas.NavigationAids
+import com.andene.fern.canvas.CommandPaletteState
+import com.andene.fern.canvas.GestureAction
+import com.andene.fern.canvas.KeyCombo
+import com.andene.fern.canvas.Macros
+import com.andene.fern.canvas.ShortcutAction
+import com.andene.fern.canvas.ShortcutCapture
+import com.andene.fern.canvas.ShortcutCheatSheet
+import com.andene.fern.canvas.ShortcutSettings
+import com.andene.fern.canvas.MIN_WIDTH_SCREEN
+import com.andene.fern.canvas.MAX_WIDTH_SCREEN
+import com.andene.fern.canvas.CanvasGesture
+import com.andene.fern.canvas.GestureSettings
+import com.andene.fern.canvas.runGestureAction
+import com.andene.fern.canvas.PaletteCommand
 import com.andene.fern.canvas.BackgroundStyle
 import com.andene.fern.canvas.CanvasState
 import com.andene.fern.canvas.CanvasStorage
@@ -116,14 +138,15 @@ import com.andene.fern.canvas.ColorManagement
 import com.andene.fern.canvas.SymbolLibrary
 import com.andene.fern.canvas.Rulers
 import com.andene.fern.canvas.readFileLayerImage
-import com.andene.fern.canvas.QuickMenuCustomizeDialog
 import com.andene.fern.canvas.SecondView
 import com.andene.fern.canvas.PinsDialog
 import com.andene.fern.canvas.PresentationControls
 import com.andene.fern.canvas.SettingsDialog
 import com.andene.fern.canvas.Tool
 import com.andene.fern.canvas.Toolbar
-import com.andene.fern.canvas.ToolbarCustomizeDialog
+import com.andene.fern.canvas.LayoutEditor
+import com.andene.fern.canvas.LayoutPreset
+import com.andene.fern.canvas.LayoutPresets
 import com.andene.fern.canvas.VersionsDialog
 import com.andene.fern.canvas.WelcomeDialog
 import com.andene.fern.canvas.WorldPoint
@@ -167,13 +190,14 @@ import com.andene.fern.canvas.markWelcomeSeen
 import com.andene.fern.canvas.isAdobeSwatchExchange
 import com.andene.fern.canvas.parseAdobeSwatchExchange
 import com.andene.fern.canvas.parseGimpPalette
-import com.andene.fern.canvas.shouldShowWelcome
+import com.andene.fern.canvas.CoachMarkHost
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -231,7 +255,10 @@ class MainActivity : ComponentActivity() {
             // Follows the system light/dark setting for the app's own UI (toolbar, dialogs). The
             // canvas paper keeps each document's chosen background colour either way.
             var highContrast by remember { mutableStateOf(AppSettings.highContrast(this)) }
-            FernTheme(highContrast = highContrast) {
+            var colorBlindSafe by remember { mutableStateOf(AppSettings.colorBlindSafe(this)) }
+            remember { FernHaptics.enabled = AppSettings.haptics(this) }
+            var uiSize by remember { mutableStateOf(AppSettings.uiSize(this)) }
+            FernTheme(highContrast = highContrast, colorBlindSafe = colorBlindSafe, uiSize = uiSize) {
                 Surface(color = Color(0xFFF7F5F0)) {
                     val context = LocalContext.current
                     val lifecycleOwner = LocalLifecycleOwner.current
@@ -246,9 +273,15 @@ class MainActivity : ComponentActivity() {
                     var pins by remember { mutableStateOf(emptyList<PinMeta>()) }
                     var showPinsDialog by remember { mutableStateOf(false) }
                     var showFramesDialog by remember { mutableStateOf(false) }
-                    var showWelcome by remember { mutableStateOf(shouldShowWelcome(context)) }
+                    // First-run teaching is in context now (design roadmap D29); the full list opens from Settings.
+                    var showWelcome by remember { mutableStateOf(false) }
                     var showSettings by remember { mutableStateOf(false) }
                     var showQuickMenu by remember { mutableStateOf(false) }
+                    // Every bar and panel hidden for a clear canvas (design roadmap D15 and D78).
+                    var chromeHidden by remember { mutableStateOf(false) }
+                    var minimapShown by remember { mutableStateOf(AppSettings.minimap(context)) }
+                    // A tool key being held: the key, the tool before it, when it went down (design roadmap D17).
+                    var toolKeyHold by remember { mutableStateOf<Triple<Key, Tool, Long>?>(null) }
                     // True while a document is being read: the canvas is covered so nothing can be
                     // drawn onto (and then autosaved over) a document that isn't loaded yet.
                     var loadingDocument by remember { mutableStateOf(true) }
@@ -270,14 +303,13 @@ class MainActivity : ComponentActivity() {
                         contract = ActivityResultContracts.RequestPermission(),
                     ) { granted ->
                         if (granted) showAudioNotes = true
-                        else Toast.makeText(context, context.getString(R.string.toast_mic), Toast.LENGTH_SHORT).show()
+                        else FernMessages.show(context.getString(R.string.toast_mic))
                     }
                     var leftHanded by remember { mutableStateOf(AppSettings.leftHanded(context)) }
                     var toolbarAtBottom by remember { mutableStateOf(AppSettings.toolbarAtBottom(context)) }
                     var hiddenToolbarGroups by remember { mutableStateOf(AppSettings.hiddenToolbarGroups(context)) }
                     var quickMenuActions by remember { mutableStateOf(AppSettings.quickMenuActions(context)) }
-                    var showQuickMenuCustomize by remember { mutableStateOf(false) }
-                    var showToolbarCustomize by remember { mutableStateOf(false) }
+                    var showLayoutEditor by remember { mutableStateOf(false) }
                     var crashReport by remember { mutableStateOf(CrashReporter.pendingReport(context)) }
                     var presentingIndex by remember { mutableStateOf<Int?>(null) } // non-null = presenting that frame
                     var frameToExport by remember { mutableStateOf<Frame?>(null) }
@@ -364,8 +396,9 @@ class MainActivity : ComponentActivity() {
 
                     // Renders off the main thread, then writes to the picked location; null bytes = empty document.
                     fun writeExport(uri: Uri, render: () -> ByteArray?) {
-                        coroutineScope.launch {
-                            val bytes = withContext(Dispatchers.Default) { render() }
+                        // Shown with Cancel while it runs (design roadmap D31); a cancelled export leaves no empty file behind.
+                        val job = coroutineScope.launch {
+                            val bytes = runInterruptible(Dispatchers.Default) { render() }
                             val message = if (bytes == null) {
                                 context.getString(R.string.toast_nothing_export)
                             } else {
@@ -374,7 +407,11 @@ class MainActivity : ComponentActivity() {
                                 }
                                 context.getString(R.string.toast_exported)
                             }
-                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                            FernMessages.show(message)
+                        }
+                        FernJobs.track(context.getString(R.string.job_exporting), job) {
+                            runCatching { android.provider.DocumentsContract.deleteDocument(context.contentResolver, uri) }
+                            FernMessages.show(context.getString(R.string.job_cancelled))
                         }
                     }
 
@@ -550,7 +587,7 @@ class MainActivity : ComponentActivity() {
                                 }.getOrNull()
                             }
                             val added = if (pages == null) 0 else canvasState.importVectorPages(pages)
-                            if (added == 0) Toast.makeText(context, context.getString(R.string.toast_bad_vectors), Toast.LENGTH_SHORT).show()
+                            if (added == 0) FernMessages.show(context.getString(R.string.toast_bad_vectors))
                         }
                     }
                     // PSD, Krita or Procreate, told apart by their contents (roadmap item 95).
@@ -566,7 +603,7 @@ class MainActivity : ComponentActivity() {
                                 }.getOrNull()
                             }
                             if (document == null || document.layers.isEmpty()) {
-                                Toast.makeText(context, context.getString(R.string.toast_bad_layered), Toast.LENGTH_SHORT).show()
+                                FernMessages.show(context.getString(R.string.toast_bad_layered))
                             } else {
                                 canvasState.importLayers(document)
                             }
@@ -584,7 +621,7 @@ class MainActivity : ComponentActivity() {
                                 }.getOrNull()
                             }
                             if (poses.isNullOrEmpty()) {
-                                Toast.makeText(context, context.getString(R.string.toast_bad_spine), Toast.LENGTH_SHORT).show()
+                                FernMessages.show(context.getString(R.string.toast_bad_spine))
                             } else {
                                 canvasState.importSkeleton(poses)
                             }
@@ -597,7 +634,7 @@ class MainActivity : ComponentActivity() {
                         coroutineScope.launch {
                             val pages = withContext(Dispatchers.IO) { importPdfPages(context, uri) }
                             if (pages.isEmpty()) {
-                                Toast.makeText(context, context.getString(R.string.toast_bad_pdf), Toast.LENGTH_SHORT).show()
+                                FernMessages.show(context.getString(R.string.toast_bad_pdf))
                                 return@launch
                             }
                             // Pages stacked top to bottom like a scrolling document, each 512
@@ -637,11 +674,7 @@ class MainActivity : ComponentActivity() {
                                 }.getOrNull().orEmpty()
                             }
                             colors.forEach { canvasState.addSavedColor(it) }
-                            Toast.makeText(
-                                context,
-                                if (colors.isEmpty()) context.getString(R.string.toast_bad_palette) else context.resources.getQuantityString(R.plurals.toast_imported_colours, colors.size, colors.size),
-                                Toast.LENGTH_SHORT,
-                            ).show()
+                            FernMessages.show(if (colors.isEmpty()) context.getString(R.string.toast_bad_palette) else context.resources.getQuantityString(R.plurals.toast_imported_colours, colors.size, colors.size))
                         }
                     }
 
@@ -682,7 +715,7 @@ class MainActivity : ComponentActivity() {
                                     text?.let(::readObj)?.let { mesh -> storeModel(context, newModel(mesh)) }
                                 }.getOrNull()
                             }
-                            if (stored == null) Toast.makeText(context, context.getString(R.string.toast_bad_obj), Toast.LENGTH_SHORT).show()
+                            if (stored == null) FernMessages.show(context.getString(R.string.toast_bad_obj))
                             else canvasState.placeModel(stored)
                         }
                     }
@@ -695,7 +728,7 @@ class MainActivity : ComponentActivity() {
                         coroutineScope.launch {
                             val video = withContext(Dispatchers.IO) { embedVideo(context, uri, MAX_IMAGE_EDGE_PX) }
                             if (video == null) {
-                                Toast.makeText(context, context.getString(R.string.toast_bad_video), Toast.LENGTH_SHORT).show()
+                                FernMessages.show(context.getString(R.string.toast_bad_video))
                                 return@launch
                             }
                             // Placed like a picked image: 300 screen px wide, centred on the view.
@@ -725,7 +758,7 @@ class MainActivity : ComponentActivity() {
                             withContext(Dispatchers.IO) { SystemClipboard.copy(context, strokes, png) }
                             // Android 13+ confirms clipboard writes itself; earlier versions get a toast.
                             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                                Toast.makeText(context, context.getString(R.string.toast_copied), Toast.LENGTH_SHORT).show()
+                                FernMessages.show(context.getString(R.string.toast_copied))
                             }
                         }
                     }
@@ -747,7 +780,7 @@ class MainActivity : ComponentActivity() {
                                 val pixels = IntArray(bitmap.width * bitmap.height).also { bitmap.getPixels(it, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height) }
                                 Triple(traceImage(pixels, bitmap.width, bitmap.height), bitmap.width, bitmap.height)
                             } ?: return@launch
-                            if (traced.first.isEmpty()) Toast.makeText(context, context.getString(R.string.toast_trace_nothing), Toast.LENGTH_SHORT).show()
+                            if (traced.first.isEmpty()) FernMessages.show(context.getString(R.string.toast_trace_nothing))
                             else canvasState.addTracedImage(image, traced.first, traced.second, traced.third)
                         }
                     }
@@ -798,7 +831,7 @@ class MainActivity : ComponentActivity() {
                                 is ClipboardContent.FernStrokes -> canvasState.pasteStrokes(content.strokes)
                                 is ClipboardContent.Text -> canvasState.pasteText(content.text)
                                 is ClipboardContent.Image -> insertImage(content.uri)
-                                ClipboardContent.Nothing -> Toast.makeText(context, context.getString(R.string.toast_nothing_paste), Toast.LENGTH_SHORT).show()
+                                ClipboardContent.Nothing -> FernMessages.show(context.getString(R.string.toast_nothing_paste))
                             }
                         }
                     }
@@ -1024,22 +1057,67 @@ class MainActivity : ComponentActivity() {
                             .focusRequester(shortcutFocus)
                             .focusable()
                             .onPreviewKeyEvent { event ->
+                                val native = event.nativeKeyEvent
+                                val isCtrlKey = native.keyCode == android.view.KeyEvent.KEYCODE_CTRL_LEFT || native.keyCode == android.view.KeyEvent.KEYCODE_CTRL_RIGHT ||
+                                    native.keyCode == android.view.KeyEvent.KEYCODE_META_LEFT || native.keyCode == android.view.KeyEvent.KEYCODE_META_RIGHT
+                                // The shortcuts at a glance while Ctrl is held (design roadmap D18).
+                                if (isCtrlKey) {
+                                    ShortcutCapture.cheatSheet = event.type == KeyEventType.KeyDown
+                                    return@onPreviewKeyEvent false
+                                }
+                                ShortcutCapture.cheatSheet = false
+                                // A tool key held down borrows its tool until released (design roadmap D17).
+                                if (event.type == KeyEventType.KeyUp) {
+                                    val hold = toolKeyHold
+                                    if (hold != null && hold.first == event.key) {
+                                        if (SystemClock.uptimeMillis() - hold.third >= TOOL_KEY_HOLD_MILLIS) canvasState.activeTool = hold.second
+                                        toolKeyHold = null
+                                        return@onPreviewKeyEvent true
+                                    }
+                                    return@onPreviewKeyEvent false
+                                }
                                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                                val ctrl = event.isCtrlPressed || event.isMetaPressed
-                                when {
-                                    ctrl && event.key == Key.Z && event.isShiftPressed -> canvasState.redo()
-                                    ctrl && event.key == Key.Z -> canvasState.undo()
-                                    ctrl && event.key == Key.Y -> canvasState.redo()
-                                    ctrl && event.key == Key.C -> copySelectionToClipboard()
-                                    ctrl && event.key == Key.V -> pasteFromClipboard()
-                                    ctrl && event.key == Key.D -> canvasState.duplicateSelection()
-                                    event.key == Key.Delete || event.key == Key.Backspace -> canvasState.deleteSelection()
-                                    event.key == Key.P -> canvasState.activeTool = Tool.PEN
-                                    event.key == Key.E -> canvasState.activeTool = Tool.ERASER
-                                    event.key == Key.V -> canvasState.activeTool = Tool.SELECT
-                                    event.key == Key.Zero -> canvasState.zoomToFit()
-                                    // Stylus barrel and tail buttons arrive as key events (API 34+ USI pens).
-                                    event.nativeKeyEvent.keyCode in STYLUS_BUTTON_KEYCODES -> canvasState.toggleEraser()
+                                // Stylus barrel and tail buttons arrive as key events (API 34+ USI pens).
+                                if (native.keyCode in STYLUS_BUTTON_KEYCODES) {
+                                    canvasState.runGestureAction(GestureSettings.read(context).getValue(CanvasGesture.STYLUS_BUTTON), null) { action ->
+                                        when (action) {
+                                            GestureAction.QUICK_MENU -> showQuickMenu = true
+                                            GestureAction.COMMAND_PALETTE -> CommandPaletteState.open = true
+                                            GestureAction.TOGGLE_CHROME -> chromeHidden = !chromeHidden
+                                            else -> {}
+                                        }
+                                    }
+                                    return@onPreviewKeyEvent true
+                                }
+                                val combo = KeyCombo(native.keyCode, event.isCtrlPressed || event.isMetaPressed, event.isShiftPressed)
+                                val action = ShortcutSettings.actionFor(ShortcutSettings.state(context).value, combo) ?: return@onPreviewKeyEvent false
+                                action.tool?.let { tool ->
+                                    if (native.repeatCount == 0) {
+                                        toolKeyHold = Triple(event.key, canvasState.activeTool, SystemClock.uptimeMillis())
+                                        canvasState.activeTool = tool
+                                    }
+                                    return@onPreviewKeyEvent true
+                                }
+                                val center = Offset(canvasState.viewportSize.width / 2f, canvasState.viewportSize.height / 2f)
+                                when (action) {
+                                    ShortcutAction.UNDO -> canvasState.undo()
+                                    ShortcutAction.REDO, ShortcutAction.REDO_ALT -> canvasState.redo()
+                                    ShortcutAction.COPY -> copySelectionToClipboard()
+                                    ShortcutAction.PASTE -> pasteFromClipboard()
+                                    ShortcutAction.DUPLICATE -> canvasState.duplicateSelection()
+                                    ShortcutAction.DELETE, ShortcutAction.DELETE_BACK -> {
+                                        canvasState.deleteSelection()
+                                        FernMessages.show(context.getString(R.string.msg_deleted), context.getString(R.string.action_undo)) { canvasState.undo() }
+                                    }
+                                    ShortcutAction.SIZE_DOWN -> canvasState.activeWidthWorld = (canvasState.activeWidthWorld / SIZE_STEP).coerceAtLeast(MIN_WIDTH_SCREEN.toDouble())
+                                    ShortcutAction.SIZE_UP -> canvasState.activeWidthWorld = (canvasState.activeWidthWorld * SIZE_STEP).coerceAtMost(MAX_WIDTH_SCREEN.toDouble())
+                                    ShortcutAction.ZOOM_IN -> canvasState.zoomAround(center, center, ZOOM_STEP)
+                                    ShortcutAction.ZOOM_OUT -> canvasState.zoomAround(center, center, 1 / ZOOM_STEP)
+                                    ShortcutAction.FIT -> canvasState.zoomToFit()
+                                    ShortcutAction.PALETTE -> CommandPaletteState.open = true
+                                    ShortcutAction.QUICK_MENU -> showQuickMenu = true
+                                    ShortcutAction.REPEAT_LAST -> Macros.repeatLast(canvasState)
+                                    ShortcutAction.TOGGLE_CHROME -> chromeHidden = !chromeHidden
                                     else -> return@onPreviewKeyEvent false
                                 }
                                 true
@@ -1063,17 +1141,25 @@ class MainActivity : ComponentActivity() {
                                     },
                                 ),
                             linkChoices = LinkChoices(pins, documents.filter { it.trashedAt == null && it.id != currentDocumentId }),
+                            onGestureAction = { action ->
+                                when (action) {
+                                    GestureAction.QUICK_MENU -> showQuickMenu = true
+                                    GestureAction.COMMAND_PALETTE -> CommandPaletteState.open = true
+                                    GestureAction.TOGGLE_CHROME -> chromeHidden = !chromeHidden
+                                    else -> {}
+                                }
+                            },
                             onFollowLink = { target ->
                                 when (target) {
                                     is LinkTarget.Pin -> {
                                         val pin = pins.firstOrNull { it.id == target.pinId }
                                         if (pin != null) canvasState.jumpTo(WorldPoint(pin.x, pin.y), pin.scale)
-                                        else Toast.makeText(context, context.getString(R.string.toast_pin_gone), Toast.LENGTH_SHORT).show()
+                                        else FernMessages.show(context.getString(R.string.toast_pin_gone))
                                     }
                                     is LinkTarget.Document -> {
                                         val document = documents.firstOrNull { it.id == target.documentId && it.trashedAt == null }
                                         if (document != null) coroutineScope.launch { switchToDocument(document.id) }
-                                        else Toast.makeText(context, context.getString(R.string.toast_document_gone), Toast.LENGTH_SHORT).show()
+                                        else FernMessages.show(context.getString(R.string.toast_document_gone))
                                     }
                                 }
                             },
@@ -1082,7 +1168,7 @@ class MainActivity : ComponentActivity() {
                         // Below the status bar, and below the toolbar when it's at the top.
                         if (canvasState.showRulers) {
                             val insetTop = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
-                            Rulers(canvasState, topInset = insetTop + if (toolbarAtBottom) 0.dp else TOOLBAR_CLEARANCE_DP.dp)
+                            Rulers(canvasState, topInset = insetTop + if (toolbarAtBottom) FernScale.none else TOOLBAR_CLEARANCE_DP.dp)
                         }
                         // Above the canvas, beneath every control: while a voice note plays, a tap on its ink seeks.
                         if (playingNote != null && audioNotes.recordingSince == null) {
@@ -1102,7 +1188,7 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(16.dp),
+                                    .padding(FernScale.s16),
                             )
                         } else if (canvasState.play != null) {
                             val playing = canvasState.play
@@ -1112,15 +1198,41 @@ class MainActivity : ComponentActivity() {
                             }
                             // The game playing (roadmap item 155): editing chrome hidden.
                             PlayOverlay(canvasState)
+                        } else if (chromeHidden) {
+                            // The one way back that needs no gesture.
+                            IconButton(
+                                onClick = { chromeHidden = false },
+                                modifier = Modifier
+                                    .align(if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(FernScale.s8),
+                            ) { Icon(Icons.Filled.FullscreenExit, contentDescription = stringResource(R.string.chrome_show)) }
+                            if (showQuickMenu) QuickMenuOverlay(state = canvasState, onDismiss = { showQuickMenu = false }, actions = quickMenuActions)
                         } else {
+                            // The tool rail (design roadmap D8): along the bottom of an upright phone, in
+                            // thumb reach; along the free hand's side otherwise. Other bars keep clear of it.
+                            val portrait = LocalConfiguration.current.let { it.screenHeightDp >= it.screenWidthDp }
+                            val railInset = if (portrait) FernScale.s64 else FernScale.none
+                            val railSide = if (portrait) FernScale.none else FernScale.s64
                             Toolbar(
                                 state = canvasState,
                                 hiddenGroups = hiddenToolbarGroups,
+                                onHiddenGroupsChange = { hiddenToolbarGroups = it },
+                                // Recent documents in the command palette (design roadmap D14).
+                                extraCommands = documents.filter { it.trashedAt == null && it.id != currentDocumentId }.sortedByDescending { it.lastModified }.take(RECENT_IN_PALETTE).map { doc ->
+                                    PaletteCommand(doc.name, doc.name, context.getString(R.string.palette_location_documents)) { coroutineScope.launch { switchToDocument(doc.id) } }
+                                },
+                                propertiesModifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(bottom = railInset + FernScale.s8, start = railSide, end = railSide)
+                                    .padding(horizontal = FernScale.s8),
                                 wrap = LocalConfiguration.current.screenWidthDp >= WIDE_WINDOW_DP,
                                 modifier = Modifier
                                     .align(if (toolbarAtBottom) Alignment.BottomCenter else Alignment.TopCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(vertical = 12.dp),
+                                    .padding(bottom = if (toolbarAtBottom) railInset else FernScale.none)
+                                    .padding(vertical = FernScale.s12),
                                 onOpenDocuments = {
                                     // Autosave skips thumbnails, so bring this document's up to date for the library.
                                     val id = currentDocumentId
@@ -1176,7 +1288,7 @@ class MainActivity : ComponentActivity() {
                                             exportDocumentPng(canvasState, textMeasurer, density, imageForExport)
                                         }
                                         if (png == null) {
-                                            Toast.makeText(context, context.getString(R.string.toast_nothing_share), Toast.LENGTH_SHORT).show()
+                                            FernMessages.show(context.getString(R.string.toast_nothing_share))
                                             return@launch
                                         }
                                         // Overwrites the previous share each time, so the cache never accumulates exports.
@@ -1216,7 +1328,8 @@ class MainActivity : ComponentActivity() {
                                         // Opposite edge from the toolbar so the two never overlap.
                                         .align(if (toolbarAtBottom) Alignment.TopCenter else Alignment.BottomCenter)
                                         .padding(WindowInsets.systemBars.asPaddingValues())
-                                        .padding(bottom = 16.dp),
+                                        .padding(bottom = FernScale.s16)
+                                        .padding(bottom = if (toolbarAtBottom) FernScale.none else railInset),
                                 )
                             }
                             if (canvasState.secondViewOpen) {
@@ -1226,19 +1339,67 @@ class MainActivity : ComponentActivity() {
                                         // Opposite the drawing hand, above the minimap.
                                         .align(if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft)
                                         .padding(WindowInsets.systemBars.asPaddingValues())
-                                        .padding(top = 64.dp, start = 12.dp, end = 12.dp)
+                                        .padding(top = FernScale.s64, start = FernScale.s12, end = FernScale.s12)
+                                        .padding(horizontal = railSide)
                                         .fillMaxWidth(0.5f)
                                         .fillMaxHeight(0.4f),
                                 )
                             }
-                            Minimap(
+                            if (minimapShown) Minimap(
                                 state = canvasState,
                                 modifier = Modifier
                                     // Opposite the drawing hand, whose palm rests below and beside the pen.
                                     // Physical sides (not start/end): the hands are the same in a right-to-left language.
                                     .align(if (leftHanded) AbsoluteAlignment.BottomRight else AbsoluteAlignment.BottomLeft)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(12.dp),
+                                    .padding(FernScale.s12)
+                                    .padding(bottom = railInset)
+                                    .padding(horizontal = railSide),
+                            )
+                            NavigationAids(
+                                canvasState,
+                                minimapShown,
+                                onMinimapChange = { value ->
+                                    minimapShown = value
+                                    AppSettings.setMinimap(context, value)
+                                },
+                                Modifier
+                                    .align(if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(top = if (toolbarAtBottom) FernScale.s64 else FernScale.s96, start = FernScale.s12, end = FernScale.s12)
+                                    .padding(horizontal = railSide),
+                            )
+                            CanvasHaptics(canvasState)
+                            // Drawing modes that are on, at the edge opposite the drawing hand (design roadmap D40).
+                            ModeChips(
+                                canvasState,
+                                Modifier
+                                    .align(if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(top = if (toolbarAtBottom) FernScale.s128 else FernScale.s192, start = FernScale.s12, end = FernScale.s12)
+                                    .padding(horizontal = railSide),
+                            )
+                            // The selection's actions beside it (design roadmap D39).
+                            SelectionActionStrip(canvasState)
+                            FernJobHost(
+                                Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(top = FernScale.s64),
+                            )
+                            // Messages (design roadmap D6), opposite the toolbar and out from under the drawing hand.
+                            FernMessageHost(
+                                Modifier
+                                    .align(
+                                        when {
+                                            toolbarAtBottom -> if (leftHanded) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft
+                                            else -> if (leftHanded) AbsoluteAlignment.BottomRight else AbsoluteAlignment.BottomLeft
+                                        },
+                                    )
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(vertical = FernScale.s64)
+                                    .padding(bottom = railInset)
+                                    .padding(horizontal = railSide),
                             )
                             AudioBar(
                                 audio = audioNotes,
@@ -1249,16 +1410,45 @@ class MainActivity : ComponentActivity() {
                                     // Opposite edge from the toolbar, like the animation bar.
                                     .align(if (toolbarAtBottom) Alignment.TopCenter else Alignment.BottomCenter)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(vertical = 64.dp),
+                                    .padding(vertical = FernScale.s64)
+                                    .padding(bottom = railInset),
                             )
                             QuickMenuButton(
                                 onOpen = { showQuickMenu = true },
+                                state = canvasState,
+                                actions = quickMenuActions,
                                 modifier = Modifier
                                     // Same side as the minimap, mid-height: in reach of the free hand's thumb.
                                     .align(if (leftHanded) AbsoluteAlignment.CenterRight else AbsoluteAlignment.CenterLeft)
                                     .padding(WindowInsets.systemBars.asPaddingValues())
-                                    .padding(12.dp),
+                                    .padding(FernScale.s12)
+                                    .padding(horizontal = railSide),
                             )
+                            ToolRail(
+                                state = canvasState,
+                                vertical = !portrait,
+                                modifier = Modifier
+                                    .align(
+                                        when {
+                                            portrait -> Alignment.BottomCenter
+                                            leftHanded -> AbsoluteAlignment.CenterRight
+                                            else -> AbsoluteAlignment.CenterLeft
+                                        },
+                                    )
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(FernScale.s8),
+                            )
+                            if (ShortcutCapture.cheatSheet) ShortcutCheatSheet(Modifier.align(Alignment.Center))
+                            // Tips in context (design roadmap D29), away from the toolbar and the rail.
+                            CoachMarkHost(
+                                canvasState,
+                                Modifier
+                                    .align(if (toolbarAtBottom) Alignment.TopCenter else Alignment.Center)
+                                    .padding(WindowInsets.systemBars.asPaddingValues())
+                                    .padding(FernScale.s16),
+                            )
+                            // Panels (design roadmap D10): beside the rail, never covering the canvas.
+                            FernPanelHost(railOnLeft = !leftHanded, railInset = railInset, railSide = railSide)
                             if (showQuickMenu) QuickMenuOverlay(state = canvasState, onDismiss = { showQuickMenu = false }, actions = quickMenuActions)
                             if (loadingDocument) DocumentLoadingOverlay()
                         }
@@ -1277,7 +1467,7 @@ class MainActivity : ComponentActivity() {
                                 }.getOrNull()
                             }
                             if (imported == null) {
-                                Toast.makeText(context, context.getString(R.string.toast_bad_backup), Toast.LENGTH_SHORT).show()
+                                FernMessages.show(context.getString(R.string.toast_bad_backup))
                                 return@launch
                             }
                             refreshDocuments()
@@ -1430,6 +1620,21 @@ class MainActivity : ComponentActivity() {
                                 highContrast = value
                                 AppSettings.setHighContrast(context, value)
                             },
+                            colorBlindSafe = colorBlindSafe,
+                            onColorBlindSafeChange = { value ->
+                                colorBlindSafe = value
+                                AppSettings.setColorBlindSafe(context, value)
+                            },
+                            uiSize = uiSize,
+                            onUiSizeChange = { value ->
+                                uiSize = value
+                                AppSettings.setUiSize(context, value)
+                            },
+                            haptics = FernHaptics.enabled,
+                            onHapticsChange = { value ->
+                                FernHaptics.enabled = value
+                                AppSettings.setHaptics(context, value)
+                            },
                             snapToObjects = canvasState.snapToObjects,
                             onSnapToObjectsChange = { value ->
                                 canvasState.snapToObjects = value
@@ -1439,46 +1644,81 @@ class MainActivity : ComponentActivity() {
                                 showSettings = false
                                 showWelcome = true
                             },
-                            onCustomizeToolbar = {
+                            onArrangeLayout = {
                                 showSettings = false
-                                showToolbarCustomize = true
-                            },
-                            onCustomizeQuickMenu = {
-                                showSettings = false
-                                showQuickMenuCustomize = true
+                                showLayoutEditor = true
                             },
                             onDismiss = { showSettings = false },
                         )
                     }
 
-                    if (showQuickMenuCustomize) {
-                        QuickMenuCustomizeDialog(
-                            chosen = quickMenuActions,
-                            onChange = { value ->
+                    // Layout files (design roadmap D23).
+                    var layoutToExport by remember { mutableStateOf<LayoutPreset?>(null) }
+                    val layoutExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+                        val preset = layoutToExport ?: return@rememberLauncherForActivityResult
+                        layoutToExport = null
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val ok = withContext(Dispatchers.IO) {
+                                runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(LayoutPresets.write(preset).toString(2).toByteArray()) } != null }.getOrDefault(false)
+                            }
+                            FernMessages.show(context.getString(if (ok) R.string.layout_exported else R.string.layout_export_failed))
+                        }
+                    }
+                    val layoutImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        coroutineScope.launch {
+                            val preset = withContext(Dispatchers.IO) {
+                                runCatching { context.contentResolver.openInputStream(uri)?.use { LayoutPresets.read(org.json.JSONObject(it.readBytes().decodeToString())) } }.getOrNull()
+                            }
+                            if (preset == null) {
+                                FernMessages.show(context.getString(R.string.layout_import_failed))
+                            } else {
+                                LayoutPresets.apply(context, preset, { hiddenToolbarGroups = it }, { quickMenuActions = it })
+                                LayoutPresets.setSaved(context, LayoutPresets.saved(context) + preset)
+                                FernMessages.show(context.getString(R.string.layout_imported, preset.name))
+                            }
+                        }
+                    }
+                    if (showLayoutEditor) {
+                        LayoutEditor(
+                            state = canvasState,
+                            quickMenu = quickMenuActions,
+                            onQuickMenuChange = { value ->
                                 quickMenuActions = value
                                 AppSettings.setQuickMenuActions(context, value)
                             },
-                            state = canvasState,
-                            onDismiss = { showQuickMenuCustomize = false },
-                        )
-                    }
-
-                    if (showToolbarCustomize) {
-                        ToolbarCustomizeDialog(
-                            hidden = hiddenToolbarGroups,
-                            onHiddenChange = { value ->
+                            hiddenGroups = hiddenToolbarGroups,
+                            onHiddenGroupsChange = { value ->
                                 hiddenToolbarGroups = value
                                 AppSettings.setHiddenToolbarGroups(context, value)
                             },
-                            onDismiss = { showToolbarCustomize = false },
+                            onDismiss = { showLayoutEditor = false },
+                            onExport = { preset ->
+                                layoutToExport = preset
+                                layoutExportLauncher.launch("fern-layout.json")
+                            },
+                            onImport = { layoutImportLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
                         )
                     }
 
                     if (showWelcome) {
-                        WelcomeDialog(onDismiss = {
-                            markWelcomeSeen(context)
-                            showWelcome = false
-                        })
+                        WelcomeDialog(
+                            onDismiss = {
+                                markWelcomeSeen(context)
+                                showWelcome = false
+                            },
+                            onPractice = {
+                                showWelcome = false
+                                coroutineScope.launch {
+                                    val created = withContext(Dispatchers.IO) { CanvasStorage.createDocument(context, context.getString(R.string.tips_practice_name)) }
+                                    refreshDocuments()
+                                    switchToDocument(created.id)
+                                    canvasState.resetView()
+                                    FernMessages.show(context.getString(R.string.tips_practice_ready))
+                                }
+                            },
+                        )
                     }
 
                     if (showFramesDialog) {
@@ -1555,3 +1795,13 @@ private val STYLUS_BUTTON_KEYCODES = setOf(308, 309, 310, 311)
 
 // Room the rulers leave for the toolbar when it's along the top (its 48 dp buttons and padding).
 private const val TOOLBAR_CLEARANCE_DP = 64
+
+// Each [ or ] press scales the brush by this, and each zoom shortcut the view (design roadmap D18).
+private const val SIZE_STEP = 1.25
+private const val ZOOM_STEP = 1.25
+
+// A tool key held this long borrows the tool instead of switching to it (design roadmap D17).
+private const val TOOL_KEY_HOLD_MILLIS = 500L
+
+/** How many recent documents the command palette offers (design roadmap D14). */
+private const val RECENT_IN_PALETTE = 8

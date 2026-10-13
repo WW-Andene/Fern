@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -16,7 +18,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 
 /**
@@ -38,13 +39,13 @@ fun ConstraintsDialog(state: CanvasState, onDismiss: () -> Unit) {
                 Text(stringResource(R.string.constraints_horizontal))
                 FlowRow {
                     for (pin in ConstraintPin.entries) {
-                        FilterChip(selected = horizontal == pin, onClick = { horizontal = pin }, label = { Text(stringResource(pinLabel(pin, across = true))) }, modifier = Modifier.padding(end = 8.dp))
+                        FilterChip(selected = horizontal == pin, onClick = { horizontal = pin }, label = { Text(stringResource(pinLabel(pin, across = true))) }, modifier = Modifier.padding(end = FernScale.s8))
                     }
                 }
                 Text(stringResource(R.string.constraints_vertical))
                 FlowRow {
                     for (pin in ConstraintPin.entries) {
-                        FilterChip(selected = vertical == pin, onClick = { vertical = pin }, label = { Text(stringResource(pinLabel(pin, across = false))) }, modifier = Modifier.padding(end = 8.dp))
+                        FilterChip(selected = vertical == pin, onClick = { vertical = pin }, label = { Text(stringResource(pinLabel(pin, across = false))) }, modifier = Modifier.padding(end = FernScale.s8))
                     }
                 }
             }

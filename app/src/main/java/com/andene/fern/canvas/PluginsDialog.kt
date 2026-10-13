@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -33,7 +35,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -75,7 +76,7 @@ fun PluginsDialog(state: CanvasState, onDismiss: () -> Unit) {
                 OutlinedTextField(
                     source, { writing = it },
                     textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 256.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = FernScale.s256),
                 )
             },
             confirmButton = {
@@ -94,12 +95,12 @@ fun PluginsDialog(state: CanvasState, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text(chosen?.name ?: stringResource(R.string.plugins_title)) },
         text = {
-            Column(Modifier.heightIn(max = 512.dp).verticalScroll(rememberScrollState())) {
+            Column(Modifier.heightIn(max = FernScale.s512).verticalScroll(rememberScrollState())) {
                 val plugin = chosen
                 if (plugin == null) {
                     for (p in plugins) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f).clickable { chosen = p; error = null }.padding(vertical = 8.dp)) {
+                            Column(Modifier.weight(1f).clickable { chosen = p; error = null }.padding(vertical = FernScale.s8)) {
                                 Text(p.name, style = MaterialTheme.typography.bodyLarge)
                                 if (p.description.isNotEmpty()) Text(p.description, style = MaterialTheme.typography.bodySmall)
                             }

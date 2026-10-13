@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -18,7 +20,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 
 /**
@@ -53,7 +54,7 @@ fun QrCodeDialog(state: CanvasState, onDismiss: () -> Unit) {
                         QrErrorCorrection.LOW to "7 %", QrErrorCorrection.MEDIUM to "15 %",
                         QrErrorCorrection.QUARTILE to "25 %", QrErrorCorrection.HIGH to "30 %",
                     )) {
-                        FilterChip(selected = correction == option, onClick = { correction = option }, label = { Text(label) }, modifier = Modifier.padding(end = 4.dp))
+                        FilterChip(selected = correction == option, onClick = { correction = option }, label = { Text(label) }, modifier = Modifier.padding(end = FernScale.s4))
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {

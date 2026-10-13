@@ -1,6 +1,21 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.annotation.StringRes
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.material.icons.filled.AccessibilityNew
+import androidx.compose.material.icons.filled.AccountTree
+import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.Polyline
+import androidx.compose.material.icons.filled.RemoveCircleOutline
+import androidx.compose.material.icons.filled.SquareFoot
+import androidx.compose.material.icons.filled.SwapHoriz
+import com.andene.fern.FernHaptics
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
@@ -44,7 +59,7 @@ import kotlin.math.sin
 
 /**
  * An action the quick menu's ring can hold (roadmap item 133: the user picks which, see
- * [QuickMenuCustomizeDialog]); its icon is the toolbar's for the same thing (one icon per
+ * [LayoutEditor]); its icon is the toolbar's for the same thing (one icon per
  * meaning). Stored by name, so reordering this list never changes a saved choice; the ring
  * shows the chosen ones in this order.
  */
@@ -63,6 +78,14 @@ enum class QuickMenuAction(@StringRes val label: Int, val icon: (CanvasState) ->
     DUPLICATE(R.string.tb_duplicate, { Icons.Filled.ContentCopy }, { it.duplicateSelection() }),
     DELETE(R.string.tb_delete, { Icons.Filled.Delete }, { it.deleteSelection() }),
     APPLY_COLOUR(R.string.tb_apply_colour, { Icons.Filled.FormatPaint }, { it.recolorSelection() }),
+    // Any tool, and brush size, can sit on the ring too (design roadmap D21).
+    BEZIER(R.string.tool_name_bezier, { Icons.Filled.Polyline }, { it.activeTool = Tool.BEZIER }),
+    MEASURE(R.string.tool_name_measure, { Icons.Filled.SquareFoot }, { it.activeTool = Tool.MEASURE }),
+    CONNECT(R.string.tool_name_connect, { Icons.Filled.AccountTree }, { it.activeTool = Tool.CONNECT }),
+    BONE(R.string.tool_name_bone, { Icons.Filled.AccessibilityNew }, { it.activeTool = Tool.BONE }),
+    SWAP_ERASER(R.string.gesture_action_toggle_eraser, { Icons.Filled.SwapHoriz }, { it.toggleEraser() }),
+    BIGGER(R.string.shortcut_size_up, { Icons.Filled.AddCircleOutline }, { it.activeWidthWorld = snapToPresetSize(it.activeWidthWorld * 1.25) }),
+    SMALLER(R.string.shortcut_size_down, { Icons.Filled.RemoveCircleOutline }, { it.activeWidthWorld = snapToPresetSize(it.activeWidthWorld / 1.25) }),
 }
 
 /** The ring before the user changes it: tools first, then undo/redo at the bottom where the thumb rests. */
@@ -78,24 +101,63 @@ const val QUICK_MENU_MAX_ACTIONS = 12
 private const val RING_RADIUS_DP = 96
 private const val ITEM_SIZE_DP = 48
 
-/** The floating button that opens the quick menu; sits at the canvas edge away from the drawing hand. */
+/**
+ * The floating button that opens the quick menu; sits at the canvas edge away from the drawing
+ * hand. A tap opens the ring; a flick from it toward an action runs that action on release
+ * without the ring ever showing (design roadmap D21), with a tick as each action comes under
+ * the thumb - so it works without looking.
+ */
 @Composable
-fun QuickMenuButton(onOpen: () -> Unit, modifier: Modifier = Modifier) {
+fun QuickMenuButton(onOpen: () -> Unit, modifier: Modifier = Modifier, state: CanvasState? = null, actions: List<QuickMenuAction> = DEFAULT_QUICK_MENU) {
     val label = stringResource(R.string.quick_menu)
+    val view = LocalView.current
     Surface(
         modifier = modifier
             .size(ITEM_SIZE_DP.dp)
-            .semantics { contentDescription = label }
-            .clickable(onClick = onOpen),
+            .semantics {
+                contentDescription = label
+                onClick(label) {
+                    onOpen()
+                    true
+                }
+            }
+            .pointerInput(actions) {
+                awaitEachGesture {
+                    val down = awaitFirstDown()
+                    var aimed: Int? = null
+                    val flickPx = FLICK_DP.dp.toPx()
+                    while (true) {
+                        val change = awaitPointerEvent().changes.firstOrNull() ?: break
+                        val d = change.position - down.position
+                        if (!change.pressed) break
+                        val now = if (d.getDistance() >= flickPx && actions.isNotEmpty()) flickIndex(d.x, d.y, actions.size) else null
+                        if (now != aimed && now != null) FernHaptics.tick(view)
+                        aimed = now
+                        change.consume()
+                    }
+                    val chosen = aimed
+                    if (chosen == null) onOpen() else state?.let { Macros.perform(it, actions[chosen]) }
+                }
+            },
         shape = CircleShape,
         color = MaterialTheme.colorScheme.secondaryContainer,
-        shadowElevation = 4.dp,
+        shadowElevation = FernScale.s4,
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(Icons.Filled.DonutLarge, contentDescription = null)
         }
     }
 }
+
+/** Which of [count] ring positions (the ring's layout: the first at the top, then clockwise) the direction (dx, dy) points at. */
+fun flickIndex(dx: Float, dy: Float, count: Int): Int {
+    val angle = kotlin.math.atan2(dy.toDouble(), dx.toDouble()) + PI / 2 // 0 at the top
+    val turn = ((angle / (2 * PI)) % 1.0 + 1.0) % 1.0
+    return kotlin.math.round(turn * count).toInt() % count
+}
+
+// A flick this far from the button picks an action.
+private const val FLICK_DP = 48
 
 /**
  * Radial quick menu (Procreate's QuickMenu, Krita's pop-up palette): the most-used tools and
@@ -123,12 +185,12 @@ fun QuickMenuOverlay(state: CanvasState, onDismiss: () -> Unit, actions: List<Qu
                     .size(ITEM_SIZE_DP.dp)
                     .semantics { contentDescription = label }
                     .clickable {
-                        action.run(state)
+                        Macros.perform(state, action)
                         onDismiss()
                     },
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 4.dp,
+                shadowElevation = FernScale.s4,
             ) {
                 Box(contentAlignment = Alignment.Center) { Icon(action.icon(state), contentDescription = null) }
             }

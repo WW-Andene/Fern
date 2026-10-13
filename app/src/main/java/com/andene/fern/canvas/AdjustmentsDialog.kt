@@ -1,5 +1,9 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernPanel
+
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
@@ -9,7 +13,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -30,7 +33,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
@@ -106,14 +108,14 @@ fun AdjustmentsDialog(initial: Adjustment?, onPreview: (Adjustment) -> Unit, onA
         delay(PREVIEW_DELAY_MILLIS)
         onPreview(current)
     }
-    AlertDialog(
+    FernPanel(
         onDismissRequest = onCancel,
         title = { Text(stringResource(R.string.adjust_title)) },
         text = {
             Column {
                 Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     for (k in AdjustmentKind.entries) {
-                        FilterChip(selected = kind == k, onClick = { kind = k }, label = { Text(stringResource(k.label)) }, modifier = Modifier.padding(end = 4.dp))
+                        FilterChip(selected = kind == k, onClick = { kind = k }, label = { Text(stringResource(k.label)) }, modifier = Modifier.padding(end = FernScale.s4))
                     }
                 }
                 when (kind) {
@@ -171,7 +173,7 @@ private fun CurveEditor(curves: Curves, onChange: (Curves) -> Unit) {
     val description = stringResource(R.string.adjust_curves)
     Canvas(
         modifier = Modifier
-            .size(192.dp)
+            .size(FernScale.s192)
             .semantics { contentDescription = description }
             .pointerInput(curves) {
                 detectTapGestures { p ->

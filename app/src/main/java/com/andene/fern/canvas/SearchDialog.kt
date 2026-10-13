@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import com.andene.fern.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
@@ -20,7 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 
 /**
  * Finds typed text labels in the current document; tapping a result centres it on screen.
@@ -45,11 +46,11 @@ fun SearchDialog(textItems: List<TextItem>, onJump: (TextItem) -> Unit, onDismis
                 )
                 Column(
                     modifier = Modifier
-                        .heightIn(max = 384.dp)
+                        .heightIn(max = FernScale.s384)
                         .verticalScroll(rememberScrollState()),
                 ) {
                     if (query.isNotBlank() && matches.isEmpty()) {
-                        Text(stringResource(R.string.search_no_matches), modifier = Modifier.padding(vertical = 8.dp))
+                        Text(stringResource(R.string.search_no_matches), modifier = Modifier.padding(vertical = FernScale.s8))
                     }
                     for (item in matches) {
                         Text(
@@ -59,7 +60,7 @@ fun SearchDialog(textItems: List<TextItem>, onJump: (TextItem) -> Unit, onDismis
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onJump(item) }
-                                .padding(vertical = 12.dp),
+                                .padding(vertical = FernScale.s12),
                         )
                     }
                 }

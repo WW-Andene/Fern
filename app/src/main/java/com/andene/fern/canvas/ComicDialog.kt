@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -22,7 +24,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 import kotlin.math.roundToInt
 
@@ -49,12 +50,12 @@ fun ComicDialog(state: CanvasState, onDismiss: () -> Unit) {
                 Text(stringResource(R.string.comic_page), style = MaterialTheme.typography.titleSmall)
                 FlowRow {
                     for (option in ComicPageSize.entries) {
-                        FilterChip(selected = size == option, onClick = { size = option }, label = { Text(stringResource(pageSizeLabel(option))) }, modifier = Modifier.padding(end = 8.dp))
+                        FilterChip(selected = size == option, onClick = { size = option }, label = { Text(stringResource(pageSizeLabel(option))) }, modifier = Modifier.padding(end = FernScale.s8))
                     }
                 }
                 FlowRow {
                     for (option in ComicLayout.entries) {
-                        FilterChip(selected = layout == option, onClick = { layout = option }, label = { Text(stringResource(layoutLabel(option))) }, modifier = Modifier.padding(end = 8.dp))
+                        FilterChip(selected = layout == option, onClick = { layout = option }, label = { Text(stringResource(layoutLabel(option))) }, modifier = Modifier.padding(end = FernScale.s8))
                     }
                 }
                 TextButton(onClick = {
@@ -65,7 +66,7 @@ fun ComicDialog(state: CanvasState, onDismiss: () -> Unit) {
                 Text(stringResource(R.string.comic_lines), style = MaterialTheme.typography.titleSmall)
                 FlowRow {
                     for ((option, label) in listOf(ComicLineKind.FOCUS to R.string.comic_focus_lines, ComicLineKind.SPEED to R.string.comic_speed_lines)) {
-                        FilterChip(selected = lineKind == option, onClick = { lineKind = option }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = 8.dp))
+                        FilterChip(selected = lineKind == option, onClick = { lineKind = option }, label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = FernScale.s8))
                     }
                 }
                 Text(stringResource(R.string.comic_line_count, count.roundToInt()))

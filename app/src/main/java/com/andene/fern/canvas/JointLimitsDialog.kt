@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import com.andene.fern.FernScale
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,7 +21,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.andene.fern.R
 import kotlin.math.roundToInt
 
@@ -52,7 +53,7 @@ fun JointLimitsDialog(bone: Bone, current: Double, onApply: (min: Double?, max: 
                 Text(
                     stringResource(R.string.joint_limits_range, range.start.roundToInt(), range.endInclusive.roundToInt(), current.roundToInt()),
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(top = FernScale.s8),
                 )
             }
         },

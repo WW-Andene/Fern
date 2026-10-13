@@ -8,7 +8,7 @@ import kotlin.math.abs
 
 /*
  * Game logic (roadmap items 156 and 158): the conditions a game tests - shared by state
- * machines' transitions and by event rules - and state machines that play an object's
+ * machines' transitions, rules ([Rule]) and game scripts - and state machines that play an object's
  * animations: each state shows a frame tag's frames (drawn frames, or a rig posed frame by
  * frame, whose bound ink follows), and transitions move between states when their conditions
  * hold.
@@ -68,14 +68,8 @@ fun conditionHolds(condition: Condition, o: GameInstance, world: GameWorld): Boo
     ConditionKind.AIRBORNE -> !o.grounded
     ConditionKind.MOVING -> abs(o.vx) + abs(o.vy) >= STILL_SPEED
     ConditionKind.STILL -> abs(o.vx) + abs(o.vy) < STILL_SPEED
-    ConditionKind.TOUCHING -> world.contacts.any { c ->
-        val other = when (o) {
-            c.a -> c.b
-            c.b -> c.a
-            else -> return@any false
-        }
-        condition.text.isEmpty() || other?.def?.name == condition.text
-    } || (condition.text.isNotEmpty() && world.overlapping(o).any { it.def.name == condition.text })
+    // Empty text: anything, walls included.
+    ConditionKind.TOUCHING -> if (condition.text.isEmpty()) world.contacts.any { it.a === o || it.b === o } else world.touching(o, condition.text).isNotEmpty()
     ConditionKind.PROPERTY_ABOVE -> (o.properties[condition.text] ?: 0.0) > condition.value
     ConditionKind.PROPERTY_BELOW -> (o.properties[condition.text] ?: 0.0) < condition.value
     ConditionKind.PROPERTY_EQUALS -> abs((o.properties[condition.text] ?: 0.0) - condition.value) < 1e-9
