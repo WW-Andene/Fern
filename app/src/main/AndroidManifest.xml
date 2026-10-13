@@ -11,9 +11,15 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Fern"
         android:hardwareAccelerated="true">
+        <!-- Rotating, resizing (split screen, a foldable, a desktop window) and plugging in a keyboard
+             don't recreate the activity (design roadmap D56): Compose relayouts from the new
+             configuration while the document, the view centre, the selection and every open panel
+             and dialog stay as they were. Recreating rebuilt all of that from storage and lost what
+             only lived in memory. A language change still recreates, so every string reloads. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:screenOrientation="unspecified"
             android:theme="@style/Theme.Fern">
             <intent-filter>

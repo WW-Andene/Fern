@@ -104,8 +104,9 @@ The app's look and layout rebuilt on the CLAUDE.md §7 scale, so every later scr
 - [~] D55. **One-hand mode** (phone priority). Everything reachable in the bottom third of a phone; the rail and
   the quick menu mirrored for the left hand.
   Written, not yet compiled or tested: Settings > Appearance > One-hand mode (`OneHandMode`), for the bottom-rail layout: the toolbar goes to the bottom, progress, messages, the animation and audio bars, modes, navigation and the quick menu button stack just above it (the button on the thumb's side, mirrored for the left hand like the rail), the show-chrome button sits in the thumb's corner, and sheets open no higher than a third of the screen.
-- [ ] D56. **Orientation without loss.** Rotating keeps the view centre, the open panel and the
+- [~] D56. **Orientation without loss.** Rotating keeps the view centre, the open panel and the
   selection, with no relayout jump.
+  Written, not yet tested on a device: the activity no longer restarts on rotation, resizing or a keyboard (`configChanges` in the manifest), so the document, the view (kept by its centre), the selection and every open panel and dialog stay in memory while Compose relayouts. A language change still restarts it.
 - [~] D32. **Progressive disclosure.** Advanced settings stay one tap away inside the same panel
   (a "More" disclosure), never a separate dialog.
   Written, not yet compiled or tested: `FernDisclosure.kt` (`MoreOptions`, `MoreInline`), expanded state announced to screen readers and kept across rotation. Used for the drawing tools' line options and stabiliser in the properties bar, and for an object's physics, hitbox and links in its panel; other panels can adopt it as they're reworked (D42-D47).
