@@ -76,8 +76,10 @@ class PanelEntry internal constructor(
     headerAction: (@Composable () -> Unit)? = null,
     onFilter: ((String) -> Unit)? = null,
     scrollContent: Boolean = false,
+    peek: (@Composable () -> Unit)? = null,
 ) {
     var scrollContent by mutableStateOf(scrollContent)
+    var peek by mutableStateOf(peek)
     var headerAction by mutableStateOf(headerAction)
     var onFilter by mutableStateOf(onFilter)
     var title by mutableStateOf(title)
@@ -113,6 +115,8 @@ fun FernPanel(
      * holding its own vertical scroll or lazy list, which can't sit inside another scroll.
      */
     scrollContent: Boolean = false,
+    /** What the panel still shows in its header while collapsed (design roadmap D92): the active layer, the brush. */
+    peek: (@Composable () -> Unit)? = null,
 ) {
     val key = remember { Any() }
     val actions: @Composable () -> Unit = {
@@ -120,7 +124,7 @@ fun FernPanel(
         confirmButton()
     }
     DisposableEffect(key) {
-        FernPanels.open.add(PanelEntry(key, title, onDismissRequest, text, actions, headerAction, onFilter, scrollContent))
+        FernPanels.open.add(PanelEntry(key, title, onDismissRequest, text, actions, headerAction, onFilter, scrollContent, peek))
         onDispose { FernPanels.open.removeAll { it.key === key } }
     }
     SideEffect {
@@ -132,6 +136,7 @@ fun FernPanel(
             it.headerAction = headerAction
             it.onFilter = onFilter
             it.scrollContent = scrollContent
+            it.peek = peek
         }
     }
 }
@@ -195,7 +200,10 @@ fun androidx.compose.foundation.layout.BoxScope.FernPanelHost(railOnLeft: Boolea
                 }
                 Row(Modifier.fillMaxWidth().padding(start = FernSpace.lg), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f).semantics { heading() }) {
-                        ProvideTextStyle(MaterialTheme.typography.titleMedium) { entry.title() }
+                        Column {
+                            ProvideTextStyle(MaterialTheme.typography.titleMedium) { entry.title() }
+                            if (collapsed) entry.peek?.let { peek -> ProvideTextStyle(MaterialTheme.typography.bodySmall) { peek() } }
+                        }
                     }
                     entry.headerAction?.invoke()
                     IconButton(onClick = { collapsed = !collapsed }) {

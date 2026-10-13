@@ -134,8 +134,6 @@ The app's look and layout rebuilt on the CLAUDE.md §7 scale, so every later scr
   the measurement for whatever is selected, always in the same place.
 - [ ] D91. **Swipe between panels.** On the phone, swipe sideways inside the bottom sheet to move
   between the open panels (layers, brushes, timeline) without closing and reopening.
-- [ ] D92. **Panel peek values.** A collapsed panel still shows the one thing that matters (the
-  active layer, the current frame, the brush) so most changes need no expansion.
 
 ---
 

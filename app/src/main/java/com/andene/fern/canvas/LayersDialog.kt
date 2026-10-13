@@ -147,6 +147,7 @@ fun LayersDialog(state: CanvasState, onDismiss: () -> Unit) {
     FernPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.layers_title)) },
+        peek = { state.layers.firstOrNull { it.id == state.activeLayerId }?.let { Text(it.name) } },
         // The panel's main action in its header, and a filter by name (design roadmap D42, D43).
         headerAction = {
             IconButton(onClick = { state.addLayer() }) { Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.layers_new)) }
