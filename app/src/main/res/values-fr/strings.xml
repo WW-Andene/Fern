@@ -1029,6 +1029,17 @@
     <string name="color_palette">Couleur de la palette</string>
     <string name="layout_title">Disposer l’interface</string>
     <string name="layout_rail">Outils épinglés au rail</string>
+    <string name="layout_gestures">Gestes</string>
+    <string name="layout_reset_section">Revenir aux réglages d’origine</string>
+    <string name="layout_reset_everything">Tout</string>
+    <string name="layout_reset_title">Revenir à la disposition d’origine ?</string>
+    <string name="layout_reset_nothing">Déjà comme à l’origine : rien à changer.</string>
+    <string name="layout_reset_line">%1$s : %2$s</string>
+    <string name="layout_reset_all_groups">tous les groupes affichés</string>
+    <string name="layout_reset_default_gestures">les gestes d’origine</string>
+    <string name="layout_reset_default_keys">les touches d’origine</string>
+    <string name="layout_reset_apply">Réinitialiser</string>
+    <string name="layout_reset_done">Disposition réinitialisée</string>
     <string name="rail_presets">Préréglages d’outils sur le rail</string>
     <string name="rail_preset_name">Nom du préréglage</string>
     <string name="rail_preset_save">Enregistrer cet outil</string>

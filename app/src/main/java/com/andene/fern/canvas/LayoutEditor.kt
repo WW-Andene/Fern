@@ -150,6 +150,18 @@ fun LayoutEditor(
                             leadingIcon = { Icon(FernIcons.Add, contentDescription = null) }, modifier = Modifier.padding(end = FernScale.s8))
                     }
                 }
+                // Back to how Fern starts, a surface or everything, previewed first and undoable after (design roadmap D85).
+                Text(stringResource(R.string.layout_reset_section), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = FernScale.s16))
+                var resetting by remember { mutableStateOf<Set<LayoutSurface>?>(null) }
+                FlowRow {
+                    for (surface in LayoutSurface.entries) {
+                        AssistChip(onClick = { resetting = setOf(surface) }, label = { Text(stringResource(surface.label)) }, modifier = Modifier.padding(end = FernScale.s8))
+                    }
+                    AssistChip(onClick = { resetting = LayoutSurface.entries.toSet() }, label = { Text(stringResource(R.string.layout_reset_everything)) }, modifier = Modifier.padding(end = FernScale.s8))
+                }
+                resetting?.let { surfaces ->
+                    LayoutResetPanel(surfaces, current("Fern"), onHiddenGroupsChange, onQuickMenuChange, onDismiss = { resetting = null })
+                }
                 Text(stringResource(R.string.layout_toolbar), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = FernScale.s16))
                 FlowRow {
                     for (group in ToolbarGroup.entries) {

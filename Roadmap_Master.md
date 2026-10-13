@@ -207,8 +207,9 @@ Switching, adjusting and arranging without looking. Builds on Phases 1 and 2.
 - [~] D84. **Custom tool presets on the rail.** Save a tool with its settings as a named preset
   ("Ink 2 px blue", "Soft eraser") and pin it like a tool.
   Written, not yet compiled or tested: `RailPresets.kt`. Arrange the layout > Tool presets saves the tool in hand with its settings under a name ("Eraser 12 px" suggested), reorders and removes them; they sit on the rail after the pinned tools as the tool's icon with a dot of its colour (those that don't fit are in More tools), and a tap switches to the tool with exactly those settings. Presets keep line styles too.
-- [ ] D85. **Reset to defaults** per surface and for everything, with a preview before applying
+- [~] D85. **Reset to defaults** per surface and for everything, with a preview before applying
   and an undo after.
+  Written, not yet compiled or tested: `LayoutReset.kt`. Arrange the layout > Reset to defaults: the rail, the toolbar groups, the quick menu, the gestures, the keyboard shortcuts, or everything. A preview lists what would change and to what (or that nothing would); Reset applies it and offers Undo, which brings the layout back as it was. Single settings keep their own reset buttons (D24); tool presets and macros are the user's own content, not defaults, so they stay.
 - [~] D26. **Everything undoable, or warned about.** Bring frames, layers, objects and resizing
   into undo. Until then, ask once before a destructive action that can't be undone, with "Don't
   ask again".

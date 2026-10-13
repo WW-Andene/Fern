@@ -1026,6 +1026,17 @@
     <string name="color_palette">Palette colour</string>
     <string name="layout_title">Arrange the layout</string>
     <string name="layout_rail">Tools pinned to the rail</string>
+    <string name="layout_gestures">Gestures</string>
+    <string name="layout_reset_section">Reset to defaults</string>
+    <string name="layout_reset_everything">Everything</string>
+    <string name="layout_reset_title">Reset to how Fern starts?</string>
+    <string name="layout_reset_nothing">Already as Fern starts: nothing to change.</string>
+    <string name="layout_reset_line">%1$s: %2$s</string>
+    <string name="layout_reset_all_groups">every group shown</string>
+    <string name="layout_reset_default_gestures">the gestures Fern starts with</string>
+    <string name="layout_reset_default_keys">the keys Fern starts with</string>
+    <string name="layout_reset_apply">Reset</string>
+    <string name="layout_reset_done">Layout reset</string>
     <string name="rail_presets">Tool presets on the rail</string>
     <string name="rail_preset_name">Name of the preset</string>
     <string name="rail_preset_save">Save this tool</string>
