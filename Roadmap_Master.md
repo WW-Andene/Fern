@@ -80,8 +80,6 @@ Set aside for the owner (needs a device and a person):
 
 The app's look and layout rebuilt on the CLAUDE.md §7 scale, so every later screen is built from compliant parts. Comes first: every phase below adds UI.
 
-- [ ] 334. **Fern type scale.** A Fern `Typography` given to `MaterialTheme` (`FernTheme.kt` passes none today, so Material's defaults apply: 11, 22, 28 and 57 sp text, 20 and 28 sp line heights). Every style and line height on the §7 scale, nothing under 12 sp.
-- [ ] 335. **Fern shapes.** A Fern `Shapes` set whose radii follow §7.3 (0.24 × the component's height, rounded on the scale), replacing Material's default 4/8/12/16/28 radii.
 - [ ] 336. **Fern components.** Fern versions of every control in use, with sizes on the scale instead of Material's: text field (56 tall today), button (40), slider (20 px thumb), switch (52 wide), chip, menu (112 minimum width), dialog (280 minimum width) and list row. Raw Material controls are no longer used directly in UI code, checked by a test.
 - [ ] 337. **The last dialogs become panels.** The 34 remaining `AlertDialog`s move to the panel pattern (D42), so nothing modal covers the canvas except a destructive confirm.
 - [ ] 338. **Chrome budget.** A fixed limit per surface, enforced in code: the rail holds a set number of tools, the properties bar shows at most one row of the active tool's main settings with the rest one tap away (D32), no strip grows with use. Today the pen's bar holds about 70 controls and the toolbar about 27 buttons in one scrolling strip.
