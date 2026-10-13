@@ -130,8 +130,9 @@ The app's look and layout rebuilt on the CLAUDE.md §7 scale, so every later scr
   script in one panel with tabs, instead of the object dialog opening states, rules and script
   dialogs on top of each other.
   Written, not yet compiled or tested: the object panel has tabs Object, States, Rules and Script (the editors were split out of their dialogs as `StateMachineEditor`, `RulesEditor`, `GameScriptEditor`), and chips for every object to switch between them without closing; nothing stacks any more.
-- [ ] D47. **Inspector for the selection.** Transform, style, constraints (roadmap item 144) and
+- [~] D47. **Inspector for the selection.** Transform, style, constraints (roadmap item 144) and
   the measurement for whatever is selected, always in the same place.
+  Written, not yet compiled or tested: `SelectionInspector`, one panel opened from the selection strip and the toolbar: count, size and length of the lines in the drawing's unit; position, size and rotation with a live preview; style (current colour, current width, copy and paste style); constraints applied on tap. It replaces the separate transform and constraints dialogs.
 
 ---
 

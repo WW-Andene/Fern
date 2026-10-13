@@ -302,36 +302,19 @@ fun Toolbar(
             },
         )
     }
-    var showTransformDialog by remember { mutableStateOf(false) }
-    // The selection strip asks for these (design roadmap D39); their dialogs live here.
-    if (SelectionRequests.transform) {
-        SelectionRequests.transform = false
-        showTransformDialog = true
+    // The selection's inspector (design roadmap D47): transform, style, constraints and measurements in one panel.
+    var showInspector by remember { mutableStateOf(false) }
+    // The selection strip asks for these (design roadmap D39); their panels live here.
+    if (SelectionRequests.inspect) {
+        SelectionRequests.inspect = false
+        showInspector = true
     }
     val stripObjectName = stringResource(R.string.object_default_name, state.gameObjects.size + 1)
     if (SelectionRequests.makeObject) {
         SelectionRequests.makeObject = false
         editingObject = state.objectForEditing(stripObjectName)
     }
-    if (showTransformDialog) {
-        val bounds = remember { state.selectionBounds() }
-        if (bounds == null) showTransformDialog = false
-        else TransformDialog(
-            bounds,
-            unitsPerWorld = state.drawingScale.factor,
-            unitSymbol = state.drawingScale.symbol,
-            onApply = { left, top, width, height, rotation ->
-                state.transformPreview = null
-                state.transformSelection(left, top, width, height, rotation)
-                showTransformDialog = false
-            },
-            onDismiss = {
-                state.transformPreview = null
-                showTransformDialog = false
-            },
-            onPreview = { left, top, width, height, rotation -> state.transformPreview = TransformPreview(left, top, width, height, rotation) },
-        )
-    }
+    if (showInspector) SelectionInspector(state, onDismiss = { showInspector = false })
     var showLineStyleMenu by remember { mutableStateOf(false) }
     var showCombineMenu by remember { mutableStateOf(false) }
     var showContourDialog by remember { mutableStateOf(false) }
@@ -343,8 +326,6 @@ fun Toolbar(
     var showLinkMenu by remember { mutableStateOf(false) }
     var showControls by remember { mutableStateOf(false) }
     if (showControls) InputMappingDialog(state, onDismiss = { showControls = false })
-    var showConstraintsDialog by remember { mutableStateOf(false) }
-    if (showConstraintsDialog) ConstraintsDialog(state, onDismiss = { showConstraintsDialog = false })
     if (showContourDialog) ContourDialog(state, onDismiss = { showContourDialog = false })
     var showBlendModeMenu by remember { mutableStateOf(false) }
     var showBackgroundStyleMenu by remember { mutableStateOf(false) }
@@ -990,9 +971,9 @@ fun Toolbar(
                             }
                         }
                     }
-                    // Constraints (roadmap item 144): how the selection follows a resized frame.
-                    IconButton(onClick = { showConstraintsDialog = true }, enabled = state.selection.isNotEmpty()) {
-                        Icon(FernIcons.PushPin, contentDescription = stringResource(R.string.constraints_title))
+                    // The inspector (design roadmap D47): position, size, style, constraints (roadmap item 144) and measurements.
+                    IconButton(onClick = { showInspector = true }, enabled = state.selection.isNotEmpty()) {
+                        Icon(FernIcons.Transform, contentDescription = stringResource(R.string.inspector_title))
                     }
                     // Isometric panel (roadmap item 142): lay the selection onto a cube face.
                     Box {

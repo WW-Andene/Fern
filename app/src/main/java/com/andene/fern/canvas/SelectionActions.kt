@@ -31,13 +31,13 @@ import kotlin.math.roundToInt
 
 /** Actions the strip asks the toolbar to open, since their dialogs live there. */
 object SelectionRequests {
-    var transform by mutableStateOf(false)
+    var inspect by mutableStateOf(false)
     var makeObject by mutableStateOf(false)
 }
 
 /**
  * The selection's own actions, floating just above it (design roadmap D39): how many items are
- * selected, then duplicate, apply the current colour, transform, make an object and delete -
+ * selected, then duplicate, apply the current colour, the inspector (D47), make an object and delete -
  * where the eye already is, instead of in a bar at the screen edge. Kept on screen when the
  * selection runs off it.
  */
@@ -65,7 +65,7 @@ fun SelectionActionStrip(state: CanvasState) {
             Text(pluralStringResource(R.plurals.selection_count, state.selection.size, state.selection.size), modifier = Modifier.padding(horizontal = FernSpace.md))
             IconButton(onClick = { state.duplicateSelection() }) { Icon(FernIcons.ContentCopy, contentDescription = stringResource(R.string.tb_duplicate)) }
             IconButton(onClick = { state.recolorSelection() }) { Icon(FernIcons.FormatPaint, contentDescription = stringResource(R.string.tb_apply_colour)) }
-            IconButton(onClick = { SelectionRequests.transform = true }) { Icon(FernIcons.Transform, contentDescription = stringResource(R.string.transform_title)) }
+            IconButton(onClick = { SelectionRequests.inspect = true }) { Icon(FernIcons.Transform, contentDescription = stringResource(R.string.inspector_title)) }
             IconButton(onClick = { SelectionRequests.makeObject = true }) { Icon(FernIcons.Toys, contentDescription = stringResource(R.string.object_title)) }
             // Your own drawing on the rig (roadmap item 353): it follows the bones from now on.
             if (state.rigEditor.rig.bones.isNotEmpty()) {

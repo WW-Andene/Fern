@@ -865,6 +865,10 @@
     <string name="otf_fractions">Fractions</string>
     <string name="tb_text_on_path">Texte le long du trait sélectionné</string>
     <string name="transform_title">Position, taille et rotation</string>
+    <string name="inspector_title">Sélection</string>
+    <string name="inspector_style">Style</string>
+    <string name="inspector_size">Taille : %1$s × %2$s</string>
+    <string name="inspector_length">Longueur des traits : %1$s</string>
     <string name="transform_width">Largeur</string>
     <string name="transform_height">Hauteur</string>
     <string name="transform_keep_proportions">Conserver les proportions</string>
