@@ -1039,6 +1039,8 @@ class MainActivity : ComponentActivity() {
                     // the composition tearing down.
                     DisposableEffect(lifecycleOwner) {
                         val observer = LifecycleEventObserver { _, event ->
+                            // Paused under a finger (a call, an app switch): the stroke ends as drawn (design roadmap D88).
+                            if (event == Lifecycle.Event.ON_PAUSE) canvasState.inputInterrupted = true
                             if (event == Lifecycle.Event.ON_STOP && currentDocumentId.isNotEmpty()) {
                                 // No thumbnail: rendering every stroke on the main thread here took seconds on
                                 // huge documents; the library refreshes it when it's next opened.

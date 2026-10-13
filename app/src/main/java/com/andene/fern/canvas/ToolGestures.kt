@@ -31,6 +31,12 @@ internal interface ToolGesture {
 
     /** A second finger landed, turning the gesture into navigation. Ends it like a release unless the tool undoes it. */
     fun cancel() = release()
+
+    /**
+     * The system took the touch away mid-gesture - a call, an app switch (design roadmap D88). Ends
+     * it like a release, unless the tool would read the pause as intent (the pen: see [CanvasState.interruptStroke]).
+     */
+    fun interrupt() = release()
 }
 
 /**
@@ -104,6 +110,11 @@ private class PenGesture(private val state: CanvasState) : ToolGesture {
 
     override fun release() {
         state.endStroke()
+        FernSounds.strokeEnd()
+    }
+
+    override fun interrupt() {
+        state.interruptStroke()
         FernSounds.strokeEnd()
     }
 }

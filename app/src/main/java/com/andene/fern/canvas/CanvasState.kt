@@ -3966,6 +3966,33 @@ class CanvasState(
                 symmetryCopies = symmetryCopies.map { (copy, transform) -> (replaceWithShape(copy, clean.map(transform)) ?: copy) to transform }
             }
         }
+        closeStroke(stroke != null)
+    }
+
+    /**
+     * Set when the app is paused (a call, an app switch: design roadmap D88), so a gesture ending
+     * now ends as an interruption - Compose may report the lost touch as an ordinary lift. Cleared
+     * by the next touch.
+     */
+    var inputInterrupted = false
+
+    /**
+     * Ends the stroke being drawn exactly as it is, when its gesture was interrupted - a call, an
+     * app switch, the system taking the touch (design roadmap D88). Unlike [endStroke] it reads
+     * nothing into the pause: no shape recognition, no eyedropper press. The stroke is kept and saved.
+     */
+    fun interruptStroke() {
+        if (rasterLast != null) {
+            endRasterStroke()
+            countAction(StatsAction.DRAW, strokeStartMillis)
+            return
+        }
+        closeStroke(currentStroke != null)
+    }
+
+    // The end every stroke shares: ink drawn on a repeat moved into its tile, the stroke's state
+    // cleared, counted ([counted]: there was a stroke) and saved.
+    private fun closeStroke(counted: Boolean) {
         // Wrap-around: ink drawn on a repeat belongs to the tile itself.
         wrapTile?.let { tile ->
             for (s in listOfNotNull(currentStroke) + symmetryCopies.map { it.first }) {
@@ -3978,7 +4005,7 @@ class CanvasState(
         lastRawPoint = null
         holdAnchor = null
         currentStroke = null
-        if (stroke != null) countAction(StatsAction.DRAW, strokeStartMillis)
+        if (counted) countAction(StatsAction.DRAW, strokeStartMillis)
         rebaseIfNeeded()
         strokesChanged()
     }

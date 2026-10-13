@@ -299,6 +299,8 @@ fun DrawingCanvas(
             .pointerInput(state) {
                 awaitEachGesture {
                     val firstDown = awaitFirstDown(requireUnconsumed = false)
+                    // A new touch: whatever interrupted the last one is over (D88).
+                    state.inputInterrupted = false
                     val screenCenter = Offset(size.width / 2f, size.height / 2f)
                     // Multi-finger tap detection (2 = undo, 3 = redo): few fingers' worth of
                     // movement, short, and never more than 3 fingers.
@@ -349,7 +351,14 @@ fun DrawingCanvas(
                             editingGuide = false
                             return
                         }
-                        toolGesture?.let { if (cancelled) it.cancel() else it.release() }
+                        toolGesture?.let {
+                            when {
+                                // The app was paused under the finger (D88): end it as drawn, reading nothing into the pause.
+                                state.inputInterrupted -> it.interrupt()
+                                cancelled -> it.cancel()
+                                else -> it.release()
+                            }
+                        }
                         toolGesture = null
                         selectionReadout = false
                         draggedHandle = null
@@ -357,165 +366,177 @@ fun DrawingCanvas(
                         toolBeforeStylusEraser = null
                     }
 
-                    while (true) {
-                        val holding = longPressArmed && maxPointers <= 1
-                        val event = if (holding) {
-                            withTimeoutOrNull((touchTiming.holdMillis - (SystemClock.uptimeMillis() - downClock)).coerceAtLeast(1L)) { awaitPointerEvent(PointerEventPass.Main) }
-                        } else {
-                            awaitPointerEvent(PointerEventPass.Main)
-                        }
-                        if (event == null) {
-                            // Held still: whatever the first touch began (a dot) wasn't meant.
-                            longPressArmed = false
-                            longPressed = true
-                            // A handle held still opens its value to type (roadmap item 172) instead of the long-press action.
-                            val held = (toolGesture as? HandleGesture)?.handle
-                            if (mode == Mode.DRAW) endActiveDrawAction()
-                            state.discardActionsSince(historyDepthAtStart)
-                            mode = Mode.NONE
-                            if (held != null) heldHandle = held else runGesture(gestures.getValue(CanvasGesture.LONG_PRESS), firstDown.position)
-                            continue
-                        }
-                        val allPressed = event.changes.filter { it.pressed }
-                        // Palm rejection: once a stylus is down, ignore finger pointers
-                        // entirely (a resting palm reads as ordinary touch input) rather
-                        // than letting them register as a second drawing/navigation
-                        // pointer. Consumed so nothing else treats them as unhandled.
-                        // The eraser end of a stylus reports its own pointer type; it's still a pen, not a palm.
-                        val stylusActive = allPressed.any { it.type == PointerType.Stylus || it.type == PointerType.Eraser }
-                        // Palm rejection (design roadmap D16): off, while the stylus is down, or also while it's near.
-                        val stylusNear = SystemClock.uptimeMillis() - stylusSample.lastSeenMillis < PALM_NEAR_MILLIS
-                        val rejectTouch = when (palm) {
-                            PalmRejection.OFF -> false
-                            PalmRejection.NORMAL -> stylusActive
-                            PalmRejection.STRICT -> stylusActive || stylusNear
-                        }
-                        val pointers = if (rejectTouch) {
-                            val (kept, rejected) = allPressed.partition { it.type != PointerType.Touch }
-                            rejected.forEach { it.consume() }
-                            kept
-                        } else {
-                            allPressed
-                        }
-
-                        if (wasStylusActive && !stylusActive) {
-                            // Stylus just lifted; any remaining fingers (previously
-                            // rejected) must start a fresh gesture, not silently continue
-                            // whatever the stylus was doing.
-                            if (mode == Mode.DRAW) endActiveDrawAction()
-                            mode = Mode.NONE
-                        }
-                        wasStylusActive = stylusActive
-
-                        val count = pointers.size
-                        if (count == 0) break
-                        maxPointers = maxOf(maxPointers, count)
-                        if (longPressed) {
-                            // The rest of a long press does nothing more.
-                            pointers.forEach { it.consume() }
-                            continue
-                        }
-                        if (count > 1 || (pointers[0].position - firstDown.position).getDistance() > LONG_PRESS_SLOP_PX) longPressArmed = false
-
-                        if (count == 1) {
-                            if (mode != Mode.DRAW) {
-                                // Flipped stylus (eraser end) or held side button erases for this
-                                // gesture only, then the previous tool comes back - the convention
-                                // of Wacom pens, S Pen apps and most desktop paint programs.
-                                if ((stylusSample.eraserEnd || stylusSample.buttonPressed) && state.activeTool != Tool.ERASER) {
-                                    toolBeforeStylusEraser = state.borrowTool(Tool.ERASER)
-                                }
-                                val downPos = state.unrotateScreen(pointers[0].position, screenCenter)
-                                val world = state.screenToWorld(downPos, screenCenter)
-                                val tool = state.activeTool
-                                // A finger landing in a system gesture area starts nothing (design roadmap D78): it's
-                                // most likely a home or back swipe. A stylus there draws, so ink can reach the edge.
-                                val raw = pointers[0].position
-                                val inGestureArea = pointers[0].type == PointerType.Touch &&
-                                    (raw.x < gestureEdges.left || raw.x > size.width - gestureEdges.right || raw.y > size.height - gestureEdges.bottom)
-                                // A handle under the finger takes the press before any tool (roadmap item 171).
-                                val handle = if (inGestureArea) null else handleAt(state.canvasHandles(), downPos, { state.worldToScreen(it, screenCenter) }, HANDLE_HIT.toPx())
-                                // A dragged handle shows its own value (roadmap item 172); the select tool's readout is for the rest.
-                                selectionReadout = tool == Tool.SELECT && handle == null
-                                if (inGestureArea) {
-                                    // Nothing begins, not even a long press; the rest of this touch is ignored until it lifts.
-                                    selectionReadout = false
-                                    longPressArmed = false
-                                } else if (handle != null) {
-                                    draggedHandle = handle
-                                    toolGesture = HandleGesture(handle, world)
-                                } else if (state.editingGuides) {
-                                    // In guide edit mode a finger moves guides and nothing else; out of it guides never take a touch.
-                                    editingGuide = true
-                                    state.beginGuideEdit(world)
-                                } else {
-                                    val press = GesturePoint(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
-                                    toolGesture = startToolGesture(state, tool, press)
-                                }
-                                mode = Mode.DRAW
+                    // The system can take the touch away mid-gesture (a call, an app switch): the loop is then
+                    // cancelled where it stands, so the tool's gesture is ended here, as an interruption (D88).
+                    try {
+                        while (true) {
+                            val holding = longPressArmed && maxPointers <= 1
+                            val event = if (holding) {
+                                withTimeoutOrNull((touchTiming.holdMillis - (SystemClock.uptimeMillis() - downClock)).coerceAtLeast(1L)) { awaitPointerEvent(PointerEventPass.Main) }
                             } else {
-                                val change = pointers[0]
-                                if (change.positionChanged()) {
-                                    val world = state.screenToWorld(state.unrotateScreen(change.position, screenCenter), screenCenter)
-                                    if (editingGuide) {
-                                        state.continueGuideEdit(world)
+                                awaitPointerEvent(PointerEventPass.Main)
+                            }
+                            if (event == null) {
+                                // Held still: whatever the first touch began (a dot) wasn't meant.
+                                longPressArmed = false
+                                longPressed = true
+                                // A handle held still opens its value to type (roadmap item 172) instead of the long-press action.
+                                val held = (toolGesture as? HandleGesture)?.handle
+                                if (mode == Mode.DRAW) endActiveDrawAction()
+                                state.discardActionsSince(historyDepthAtStart)
+                                mode = Mode.NONE
+                                if (held != null) heldHandle = held else runGesture(gestures.getValue(CanvasGesture.LONG_PRESS), firstDown.position)
+                                continue
+                            }
+                            val allPressed = event.changes.filter { it.pressed }
+                            // Palm rejection: once a stylus is down, ignore finger pointers
+                            // entirely (a resting palm reads as ordinary touch input) rather
+                            // than letting them register as a second drawing/navigation
+                            // pointer. Consumed so nothing else treats them as unhandled.
+                            // The eraser end of a stylus reports its own pointer type; it's still a pen, not a palm.
+                            val stylusActive = allPressed.any { it.type == PointerType.Stylus || it.type == PointerType.Eraser }
+                            // Palm rejection (design roadmap D16): off, while the stylus is down, or also while it's near.
+                            val stylusNear = SystemClock.uptimeMillis() - stylusSample.lastSeenMillis < PALM_NEAR_MILLIS
+                            val rejectTouch = when (palm) {
+                                PalmRejection.OFF -> false
+                                PalmRejection.NORMAL -> stylusActive
+                                PalmRejection.STRICT -> stylusActive || stylusNear
+                            }
+                            val pointers = if (rejectTouch) {
+                                val (kept, rejected) = allPressed.partition { it.type != PointerType.Touch }
+                                rejected.forEach { it.consume() }
+                                kept
+                            } else {
+                                allPressed
+                            }
+
+                            if (wasStylusActive && !stylusActive) {
+                                // Stylus just lifted; any remaining fingers (previously
+                                // rejected) must start a fresh gesture, not silently continue
+                                // whatever the stylus was doing.
+                                if (mode == Mode.DRAW) endActiveDrawAction()
+                                mode = Mode.NONE
+                            }
+                            wasStylusActive = stylusActive
+
+                            val count = pointers.size
+                            if (count == 0) break
+                            maxPointers = maxOf(maxPointers, count)
+                            if (longPressed) {
+                                // The rest of a long press does nothing more.
+                                pointers.forEach { it.consume() }
+                                continue
+                            }
+                            if (count > 1 || (pointers[0].position - firstDown.position).getDistance() > LONG_PRESS_SLOP_PX) longPressArmed = false
+
+                            if (count == 1) {
+                                if (mode != Mode.DRAW) {
+                                    // Flipped stylus (eraser end) or held side button erases for this
+                                    // gesture only, then the previous tool comes back - the convention
+                                    // of Wacom pens, S Pen apps and most desktop paint programs.
+                                    if ((stylusSample.eraserEnd || stylusSample.buttonPressed) && state.activeTool != Tool.ERASER) {
+                                        toolBeforeStylusEraser = state.borrowTool(Tool.ERASER)
+                                    }
+                                    val downPos = state.unrotateScreen(pointers[0].position, screenCenter)
+                                    val world = state.screenToWorld(downPos, screenCenter)
+                                    val tool = state.activeTool
+                                    // A finger landing in a system gesture area starts nothing (design roadmap D78): it's
+                                    // most likely a home or back swipe. A stylus there draws, so ink can reach the edge.
+                                    val raw = pointers[0].position
+                                    val inGestureArea = pointers[0].type == PointerType.Touch &&
+                                        (raw.x < gestureEdges.left || raw.x > size.width - gestureEdges.right || raw.y > size.height - gestureEdges.bottom)
+                                    // A handle under the finger takes the press before any tool (roadmap item 171).
+                                    val handle = if (inGestureArea) null else handleAt(state.canvasHandles(), downPos, { state.worldToScreen(it, screenCenter) }, HANDLE_HIT.toPx())
+                                    // A dragged handle shows its own value (roadmap item 172); the select tool's readout is for the rest.
+                                    selectionReadout = tool == Tool.SELECT && handle == null
+                                    if (inGestureArea) {
+                                        // Nothing begins, not even a long press; the rest of this touch is ignored until it lifts.
+                                        selectionReadout = false
+                                        longPressArmed = false
+                                    } else if (handle != null) {
+                                        draggedHandle = handle
+                                        toolGesture = HandleGesture(handle, world)
+                                    } else if (state.editingGuides) {
+                                        // In guide edit mode a finger moves guides and nothing else; out of it guides never take a touch.
+                                        editingGuide = true
+                                        state.beginGuideEdit(world)
                                     } else {
-                                        val millis = (change.uptimeMillis - change.previousUptimeMillis).coerceAtLeast(1L)
-                                        val speed = (change.position - change.previousPosition).getDistance() / millis
-                                        toolGesture?.move(GesturePoint(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation, speed))
+                                        val press = GesturePoint(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation)
+                                        toolGesture = startToolGesture(state, tool, press)
+                                    }
+                                    mode = Mode.DRAW
+                                } else {
+                                    val change = pointers[0]
+                                    if (change.positionChanged()) {
+                                        val world = state.screenToWorld(state.unrotateScreen(change.position, screenCenter), screenCenter)
+                                        if (editingGuide) {
+                                            state.continueGuideEdit(world)
+                                        } else {
+                                            val millis = (change.uptimeMillis - change.previousUptimeMillis).coerceAtLeast(1L)
+                                            val speed = (change.position - change.previousPosition).getDistance() / millis
+                                            toolGesture?.move(GesturePoint(world, stylusSample.pressure, stylusSample.tilt, stylusSample.orientation, speed))
+                                        }
                                     }
                                 }
-                            }
-                            pointers[0].consume()
-                        } else {
-                            // A second finger turns the gesture into navigation (a text tap into a pinch, with no text box).
-                            if (mode == Mode.DRAW) endActiveDrawAction(cancelled = true)
-                            val centroid = pointers.fold(Offset.Zero) { acc, c -> acc + c.position } / count.toFloat()
-                            val span = pointers.fold(0f) { acc, c -> acc + hypot((c.position.x - centroid.x), (c.position.y - centroid.y)) } / count.toFloat()
-                            // Angle of the first two fingers; its change frame to frame rotates the canvas.
-                            val angle = atan2(
-                                (pointers[1].position.y - pointers[0].position.y).toDouble(),
-                                (pointers[1].position.x - pointers[0].position.x).toDouble(),
-                            )
-                            if (count == 3) {
-                                if (swipeStart == null) {
-                                    swipeStart = centroid
-                                    swipeStartSpan = span
-                                }
-                                swipeLast = centroid
-                                swipeSpanChange = maxOf(swipeSpanChange, abs(span - swipeStartSpan))
-                            }
-
-                            if (mode != Mode.NAVIGATE || count != prevNavigationCount) {
-                                // Just transitioned into navigation, or a finger landed or lifted: establish
-                                // a baseline, no jump this frame. The centroid, span and angle all shift
-                                // with the finger count without any finger moving, and counting that as
-                                // travel panned the view and turned staggered multi-finger taps into drags.
-                                prevNavigationCount = count
-                                prevCentroid = centroid
-                                prevSpan = span
-                                prevAngle = angle
-                                mode = Mode.NAVIGATE
-                                navigating = true
+                                pointers[0].consume()
                             } else {
-                                // Pan and zoom work in unrotated view space, so a drag moves the
-                                // content along with the fingers whatever the canvas angle is.
-                                navigationTravel += (centroid - prevCentroid).getDistance() + abs(span - prevSpan)
-                                val panDelta = state.unrotateScreen(centroid, screenCenter) - state.unrotateScreen(prevCentroid, screenCenter)
-                                if (panDelta != Offset.Zero) {
-                                    state.panByScreenDelta(panDelta)
+                                // A second finger turns the gesture into navigation (a text tap into a pinch, with no text box).
+                                if (mode == Mode.DRAW) endActiveDrawAction(cancelled = true)
+                                val centroid = pointers.fold(Offset.Zero) { acc, c -> acc + c.position } / count.toFloat()
+                                val span = pointers.fold(0f) { acc, c -> acc + hypot((c.position.x - centroid.x), (c.position.y - centroid.y)) } / count.toFloat()
+                                // Angle of the first two fingers; its change frame to frame rotates the canvas.
+                                val angle = atan2(
+                                    (pointers[1].position.y - pointers[0].position.y).toDouble(),
+                                    (pointers[1].position.x - pointers[0].position.x).toDouble(),
+                                )
+                                if (count == 3) {
+                                    if (swipeStart == null) {
+                                        swipeStart = centroid
+                                        swipeStartSpan = span
+                                    }
+                                    swipeLast = centroid
+                                    swipeSpanChange = maxOf(swipeSpanChange, abs(span - swipeStartSpan))
                                 }
-                                if (prevSpan > 0.001f && span > 0.001f) {
-                                    val factor = (span / prevSpan).toDouble()
-                                    state.zoomAround(state.unrotateScreen(centroid, screenCenter), screenCenter, factor)
+
+                                if (mode != Mode.NAVIGATE || count != prevNavigationCount) {
+                                    // Just transitioned into navigation, or a finger landed or lifted: establish
+                                    // a baseline, no jump this frame. The centroid, span and angle all shift
+                                    // with the finger count without any finger moving, and counting that as
+                                    // travel panned the view and turned staggered multi-finger taps into drags.
+                                    prevNavigationCount = count
+                                    prevCentroid = centroid
+                                    prevSpan = span
+                                    prevAngle = angle
+                                    mode = Mode.NAVIGATE
+                                    navigating = true
+                                } else {
+                                    // Pan and zoom work in unrotated view space, so a drag moves the
+                                    // content along with the fingers whatever the canvas angle is.
+                                    navigationTravel += (centroid - prevCentroid).getDistance() + abs(span - prevSpan)
+                                    val panDelta = state.unrotateScreen(centroid, screenCenter) - state.unrotateScreen(prevCentroid, screenCenter)
+                                    if (panDelta != Offset.Zero) {
+                                        state.panByScreenDelta(panDelta)
+                                    }
+                                    if (prevSpan > 0.001f && span > 0.001f) {
+                                        val factor = (span / prevSpan).toDouble()
+                                        state.zoomAround(state.unrotateScreen(centroid, screenCenter), screenCenter, factor)
+                                    }
+                                    state.rotateAround(centroid, screenCenter, angleDelta(prevAngle, angle))
+                                    prevCentroid = centroid
+                                    prevSpan = span
+                                    prevAngle = angle
                                 }
-                                state.rotateAround(centroid, screenCenter, angleDelta(prevAngle, angle))
-                                prevCentroid = centroid
-                                prevSpan = span
-                                prevAngle = angle
+                                pointers.forEach { it.consume() }
                             }
-                            pointers.forEach { it.consume() }
                         }
+                    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                        if (mode == Mode.DRAW && !editingGuide) toolGesture?.interrupt()
+                        if (editingGuide) state.endGuideEdit()
+                        toolGesture = null
+                        selectionReadout = false
+                        draggedHandle = null
+                        toolBeforeStylusEraser?.let { state.returnTool(it) }
+                        throw cancelled
                     }
                     if (mode == Mode.DRAW) endActiveDrawAction()
                     if (mode == Mode.NAVIGATE) {
