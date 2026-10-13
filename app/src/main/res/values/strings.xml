@@ -1166,4 +1166,10 @@
     <string name="tb_select_invert">Invert the selection</string>
     <string name="tb_flip_horizontal">Flip left to right</string>
     <string name="tb_flip_vertical">Flip top to bottom</string>
+    <string name="shape_rounded_rectangle">Rounded rectangle</string>
+    <string name="shape_polygon">Polygon</string>
+    <string name="shape_star">Star</string>
+    <string name="shape_spiral">Spiral</string>
+    <string name="shape_sides">%1$d sides</string>
+    <string name="shape_points">%1$d points</string>
 </resources>

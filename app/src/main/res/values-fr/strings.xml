@@ -1170,4 +1170,10 @@
     <string name="tb_select_invert">Inverser la sélection</string>
     <string name="tb_flip_horizontal">Retourner de gauche à droite</string>
     <string name="tb_flip_vertical">Retourner de haut en bas</string>
+    <string name="shape_rounded_rectangle">Rectangle arrondi</string>
+    <string name="shape_polygon">Polygone</string>
+    <string name="shape_star">Étoile</string>
+    <string name="shape_spiral">Spirale</string>
+    <string name="shape_sides">%1$d côtés</string>
+    <string name="shape_points">%1$d branches</string>
 </resources>

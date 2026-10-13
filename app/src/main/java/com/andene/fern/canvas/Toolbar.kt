@@ -144,6 +144,10 @@ import androidx.compose.material.icons.filled.LineWeight
 import androidx.compose.material.icons.filled.LinearScale
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Cyclone
+import androidx.compose.material.icons.filled.StarOutline
+import androidx.compose.material.icons.filled.Hexagon
+import androidx.compose.material.icons.filled.Rectangle
 import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.ShowChart
@@ -699,6 +703,14 @@ fun Toolbar(
                 }
                 // Measure (roadmap item 143): drag for a distance and angle, tap a shape for its
                 // perimeter and area, tap a line for its length; the scale button sets real units.
+                // Sides of a polygon, points of a star (roadmap item 221): a tap steps through 3 to 12.
+                if (state.activeTool == Tool.SHAPE && (state.activeShapeKind == ShapeKind.POLYGON || state.activeShapeKind == ShapeKind.STAR)) {
+                    FernTextButton(onClick = {
+                        ShapeOptions.sides = if (ShapeOptions.sides >= ShapeOptions.MAX_SIDES) ShapeOptions.MIN_SIDES else ShapeOptions.sides + 1
+                    }) {
+                        Text(stringResource(if (state.activeShapeKind == ShapeKind.STAR) R.string.shape_points else R.string.shape_sides, ShapeOptions.sides))
+                    }
+                }
                 if (state.activeTool == Tool.MEASURE) {
                     FernTextButton(onClick = { showDrawingScaleDialog = true }) {
                         Text(stringResource(R.string.scale_button, state.drawingScale.symbol))
@@ -1710,6 +1722,10 @@ internal fun shapeKindIcon(kind: ShapeKind) = when (kind) {
     ShapeKind.SPEECH_BUBBLE -> Icons.Filled.ChatBubbleOutline
     ShapeKind.THOUGHT_BUBBLE -> Icons.Filled.Cloud
     ShapeKind.SHOUT_BUBBLE -> Icons.Filled.Flare
+    ShapeKind.ROUNDED_RECTANGLE -> Icons.Filled.Rectangle
+    ShapeKind.POLYGON -> Icons.Filled.Hexagon
+    ShapeKind.STAR -> Icons.Filled.StarOutline
+    ShapeKind.SPIRAL -> Icons.Filled.Cyclone
 }
 
 @StringRes
@@ -1721,6 +1737,10 @@ private fun shapeKindLabel(kind: ShapeKind) = when (kind) {
     ShapeKind.SPEECH_BUBBLE -> R.string.shape_bubble
     ShapeKind.THOUGHT_BUBBLE -> R.string.shape_thought
     ShapeKind.SHOUT_BUBBLE -> R.string.shape_shout
+    ShapeKind.ROUNDED_RECTANGLE -> R.string.shape_rounded_rectangle
+    ShapeKind.POLYGON -> R.string.shape_polygon
+    ShapeKind.STAR -> R.string.shape_star
+    ShapeKind.SPIRAL -> R.string.shape_spiral
 }
 
 @StringRes

@@ -363,7 +363,8 @@ Groups, adjustment layers and soft selections, which later tools draw into.
 
 Vector editing at the level of Illustrator and Affinity. Builds on node editing (184).
 
-- [ ] 221. New shape kinds: polygon (3–12 sides), star (points and inner radius), rounded rectangle, arc, pie, ring and spiral.
+- [~] 221. New shape kinds: polygon (3–12 sides), star (points and inner radius), rounded rectangle, arc, pie, ring and spiral.
+  Done: rounded rectangle (corners 0.24 x the shorter side, the §7.3 proportion), polygon and star with 3 to 12 sides or points, spiral. Left: arc, pie and ring.
 - [ ] 222. Curvature mode for the Bezier tool: tap points and smooth curves form through them.
 - [ ] 223. Simplify a path with a live slider and node count; join two open paths at their nearest ends; reverse a path.
 - [ ] 224. Offset path (inset or outset), reusing the contour code in `ShapeBuilder.kt`; outline stroke (a stroke becomes an editable filled shape).

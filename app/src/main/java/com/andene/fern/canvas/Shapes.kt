@@ -1,5 +1,7 @@
 package com.andene.fern.canvas
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -11,7 +13,17 @@ import kotlin.math.sign
 import kotlin.math.sin
 
 /** The shape a [Tool.SHAPE] drag commits, as regular stroke points - see [generateShapePoints]. */
-enum class ShapeKind { LINE, RECTANGLE, ELLIPSE, ARROW, SPEECH_BUBBLE, THOUGHT_BUBBLE, SHOUT_BUBBLE }
+enum class ShapeKind { LINE, RECTANGLE, ELLIPSE, ARROW, SPEECH_BUBBLE, THOUGHT_BUBBLE, SHOUT_BUBBLE, ROUNDED_RECTANGLE, POLYGON, STAR, SPIRAL }
+
+/**
+ * Settings of the newer shape kinds (roadmap item 221), chosen in the shape tool's properties:
+ * a polygon's sides and a star's points ([sides], 3 to 12).
+ */
+object ShapeOptions {
+    var sides by androidx.compose.runtime.mutableIntStateOf(6)
+    const val MIN_SIDES = 3
+    const val MAX_SIDES = 12
+}
 
 private const val ELLIPSE_SEGMENTS = 48
 private const val ANGLE_SNAP_STEP_DEGREES = 15.0
@@ -49,7 +61,8 @@ private fun snapAspect(start: WorldPoint, end: WorldPoint): WorldPoint {
 /** The actual end point to use for [kind]'s live preview/final commit, after any relevant snapping. */
 fun snappedShapeEnd(kind: ShapeKind, start: WorldPoint, end: WorldPoint): WorldPoint = when (kind) {
     ShapeKind.LINE, ShapeKind.ARROW -> snapLineEnd(start, end)
-    ShapeKind.RECTANGLE, ShapeKind.ELLIPSE, ShapeKind.SPEECH_BUBBLE, ShapeKind.THOUGHT_BUBBLE, ShapeKind.SHOUT_BUBBLE -> snapAspect(start, end)
+    ShapeKind.RECTANGLE, ShapeKind.ELLIPSE, ShapeKind.SPEECH_BUBBLE, ShapeKind.THOUGHT_BUBBLE, ShapeKind.SHOUT_BUBBLE,
+    ShapeKind.ROUNDED_RECTANGLE, ShapeKind.POLYGON, ShapeKind.STAR, ShapeKind.SPIRAL -> snapAspect(start, end)
 }
 
 /**
@@ -108,6 +121,12 @@ fun generateShapePoints(kind: ShapeKind, start: WorldPoint, end: WorldPoint): Li
     // Comic balloons (roadmap item 105); a thought balloon's trailing circles are [shapeExtras].
     ShapeKind.THOUGHT_BUBBLE -> thoughtCloudPoints(start, end)
     ShapeKind.SHOUT_BUBBLE -> shoutBurstPoints(start, end)
+
+    // Newer kinds (roadmap item 221), each inscribed in the dragged box.
+    ShapeKind.ROUNDED_RECTANGLE -> roundedRectanglePoints(start, end)
+    ShapeKind.POLYGON -> starPoints(start, end, ShapeOptions.sides, inner = 1.0)
+    ShapeKind.STAR -> starPoints(start, end, ShapeOptions.sides, inner = STAR_INNER_RATIO)
+    ShapeKind.SPIRAL -> spiralPoints(start, end)
 
     ShapeKind.ARROW -> {
         val dx = end.x - start.x
@@ -305,4 +324,58 @@ fun adjustRecognizedShape(clean: List<WorldPoint>, snappedAt: WorldPoint, pen: W
     val c = cos(turn) * factor
     val s = sin(turn) * factor
     return clean.map { WorldPoint(cx + (it.x - cx) * c - (it.y - cy) * s, cy + (it.x - cx) * s + (it.y - cy) * c) }
+}
+
+// A star's inner points sit at this share of its outer radius; the classic five-pointed star's ratio.
+private const val STAR_INNER_RATIO = 0.382
+private const val SPIRAL_TURNS = 3
+private const val SPIRAL_SEGMENTS_PER_TURN = 48
+private const val CORNER_SEGMENTS = 8
+
+/**
+ * A regular polygon or star in the box from [start] to [end]: [count] outer points, pointing up,
+ * with an inner point between each pair at [inner] of the radius (1 for a plain polygon).
+ */
+private fun starPoints(start: WorldPoint, end: WorldPoint, count: Int, inner: Double): List<WorldPoint> {
+    val cx = (start.x + end.x) / 2
+    val cy = (start.y + end.y) / 2
+    val rx = abs(end.x - start.x) / 2
+    val ry = abs(end.y - start.y) / 2
+    val n = count.coerceIn(ShapeOptions.MIN_SIDES, ShapeOptions.MAX_SIDES)
+    val steps = if (inner < 1.0) n * 2 else n
+    val points = (0 until steps).map { k ->
+        val angle = -PI / 2 + 2 * PI * k / steps
+        val r = if (inner < 1.0 && k % 2 == 1) inner else 1.0
+        WorldPoint(cx + rx * r * cos(angle), cy + ry * r * sin(angle))
+    }
+    return withSharpCorners(points + points.first())
+}
+
+/** A rectangle with round corners: radius 0.24 x its shorter side, the CLAUDE.md §7.3 proportion. */
+private fun roundedRectanglePoints(start: WorldPoint, end: WorldPoint): List<WorldPoint> {
+    val left = minOf(start.x, end.x)
+    val right = maxOf(start.x, end.x)
+    val top = minOf(start.y, end.y)
+    val bottom = maxOf(start.y, end.y)
+    val r = 0.24 * minOf(right - left, bottom - top)
+    fun corner(cx: Double, cy: Double, from: Double) = (0..CORNER_SEGMENTS).map { k ->
+        val a = from + PI / 2 * k / CORNER_SEGMENTS
+        WorldPoint(cx + r * cos(a), cy + r * sin(a))
+    }
+    val outline = corner(right - r, top + r, -PI / 2) + corner(right - r, bottom - r, 0.0) + corner(left + r, bottom - r, PI / 2) + corner(left + r, top + r, PI)
+    return outline + outline.first()
+}
+
+/** An Archimedean spiral from the box's centre out to its edge in [SPIRAL_TURNS] turns. */
+private fun spiralPoints(start: WorldPoint, end: WorldPoint): List<WorldPoint> {
+    val cx = (start.x + end.x) / 2
+    val cy = (start.y + end.y) / 2
+    val rx = abs(end.x - start.x) / 2
+    val ry = abs(end.y - start.y) / 2
+    val total = SPIRAL_TURNS * SPIRAL_SEGMENTS_PER_TURN
+    return (0..total).map { k ->
+        val t = k.toDouble() / total
+        val angle = 2 * PI * SPIRAL_TURNS * t
+        WorldPoint(cx + rx * t * cos(angle), cy + ry * t * sin(angle))
+    }
 }
