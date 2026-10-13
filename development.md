@@ -1,10 +1,12 @@
 # Fern tool development plan
 
-Ideas from an audit of the drawing tools, in three groups: improving existing tools, developing them further, and creating new ones. Effort is an estimate from reading the code, not from prototyping: **S** small, **M** medium, **L** large. Items already in [ROADMAP.md](ROADMAP.md) as done are not repeated here.
+Ideas from an audit of the app's tools, in three groups: improving existing tools, developing them further, and creating new ones. Part A covers the drawing tools; part B the animation, rigging, 3D and game-logic side. Effort is an estimate from reading the code, not from prototyping: **S** small, **M** medium, **L** large. Items already in [ROADMAP.md](ROADMAP.md) as done are not repeated here.
 
 The tools today: `Tool` in `CanvasState.kt` (pen, eraser, select, shape, fill, text, ruler, eyedropper, connect, bone, bezier, measure) and `PenType` in `Stroke.kt` (marker, pencil, highlighter, calligraphy, airbrush, crayon, pixel, stamp).
 
 ---
+
+# Part A — Drawing tools
 
 ## 1. Tool improvement — making existing tools work better
 
@@ -133,11 +135,121 @@ Whole-object, cut-the-stroke, lasso and raster erasing already exist.
 
 ---
 
+# Part B — Animation, rigging, 3D and game logic
+
+What exists (ROADMAP.md phases 9, 12 and 14): flipbook frames with onion skin, holds and an X-sheet; in-betweens with easing and shape tweening; motion along a path; bones with weighted deformation, IK (CCD), joint limits, dynamic bones, skins and pose blending; dopesheet and curve editor; lip-sync; animation branches; Lottie, Spine, DragonBones, GIF, APNG, MP4 and WebM export. In 3D: built-in shapes and OBJ models painted in colour, roughness and metallic, a posable hand and head, GLB and USDZ export. Game logic: objects, rules, state machines, 2D physics, input mapping, play mode and scripting.
+
+## 4. Animation
+
+### Improvement
+- **S** Onion skin: separate colours and opacity for past and future frames, and an option to show only keyframes rather than in-betweens.
+- **S** Scrubbing: drag along the animation bar with audio scrubbing (hear the soundtrack while dragging), for lip-sync timing.
+- **S** Playback: a play range (in and out markers) instead of always the whole animation.
+- **M** In-between preview: show the generated in-betweens as ghost outlines before committing them.
+- **S** Shape tweening pairs each stroke with its nearest counterpart: show the pairing with numbered markers and let the user re-pair two strokes when it guesses wrong.
+- **S** Frame thumbnails in the frames panel scale with the zoom of the panel, so long animations stay readable.
+
+### Development
+- **M** Per-layer timing: a layer can hold a drawing for its own number of frames (a background held while a character moves), not only whole-frame holds.
+- **M** Animate layer properties: opacity, position, scale, rotation and colour as keys with easing, not only drawings and poses.
+- **M** A camera: a framed view that pans, zooms and rotates across the canvas over time, used by playback and export.
+- **S** Motion paths: show the path every selected object or bone tip takes across frames, editable by dragging its points.
+- **M** Squash and stretch as a one-step deformation with volume preserved.
+- **S** Time remapping of a range: slow down, speed up or reverse frames without redrawing.
+- **S** Loop helpers: make the last frame lead back into the first (an in-between generated from last to first).
+
+### Creation
+| Tool | What it does | Builds on | Effort |
+|---|---|---|---|
+| Motion blur and smear frames | Stretch fast-moving ink along its motion between frames, or a smear-frame brush | Motion between frames, raster blur | M |
+| Timing chart | Draw the classic spacing chart on a key and generate in-betweens to match it | Easing, in-betweens | M |
+| Light table | Pin any frames from anywhere as tracing references, beyond the onion skin's neighbours | Onion skin | S |
+| Cycle generator | Pick a walk or run cycle template for a rig and adjust stride and bounce | Bones, pose blending | L |
+| Audio waveform track | Show the soundtrack's waveform under the frames, with markers | Audio sync | S–M |
+
+## 5. Rigging
+
+### Improvement
+- **S** Bone display: show bone names and let the user rename them; colour bones by chain or side (left and right).
+- **S** Binding: show which bone each stroke is bound to and let it be changed by tapping the stroke, not only by painting weights.
+- **M** IK uses CCD on up to four bones, which can produce bent, unnatural joints on two-bone limbs. Add an exact two-bone solver with a pole direction (which way the knee or elbow points).
+- **S** Joint limits are set in a dialog: show them as arcs on the canvas and drag their ends.
+- **S** Dynamic bones: settings for stiffness and damping per bone, with a preview while scrubbing.
+
+### Development
+- **M** Bones can't change length or scale over time (a bone is only head and tail). Animate bone scale and length for stretchy limbs and squash.
+- **M** Mirror a rig and a pose from left to right, with name-based matching (a `_L` bone maps to its `_R` counterpart).
+- **M** Automatic weights from the shape of the ink (distance along the inside of the shape, not straight-line distance), so an arm doesn't pull on the torso next to it.
+- **M** Path constraint: a chain of bones follows a drawn curve (a tail or a rope).
+- **M** Pose library: save poses by name and apply them to any frame, with thumbnails.
+- **M** Retargeting: apply an animation from one rig to another with a matching bone map.
+
+### Creation
+| Tool | What it does | Builds on | Effort |
+|---|---|---|---|
+| Auto-rig | Place a ready biped or quadruped skeleton over a drawing by dragging a few markers (head, hands, feet) | Bones, mannequin | M–L |
+| Mesh pin tool | Pin points of a drawing and drag others, a puppet warp that animates per frame | Puppet warp, mesh warp | M |
+| Controls | On-canvas sliders or handles that drive several bones at once (a "fist" slider closing every finger) | Pose blending | M |
+| Rig checker | Lists unbound strokes, bones with no ink, and joints that pass their limits | Skeleton data | S |
+
+## 6. 3D
+
+### Improvement
+- **S** Orbit camera: double-tap to frame the model, a reset view, and snap to front, side and top views.
+- **S** Painting: show the brush as a circle on the model's surface, sized as it will paint.
+- **S** Painting across UV seams leaves visible lines: paint a few texels past each seam.
+- **S** Lighting: preview presets (studio, rim, flat) besides the direction, height, strength and ambient sliders.
+- **S** Placed models are a still image (a poster) on the canvas: show which view it is and allow re-rendering at a new angle without opening the editor.
+
+### Development
+- **M** Use a model as a drawing reference: a placed 3D model whose camera matches the canvas's perspective guide, turned and lit on the canvas.
+- **M** Pose the 3D mannequin and hand per animation frame, rendered into each frame as a reference layer.
+- **M** More channels: normal and height painting, and emission.
+- **M** Toon shading and outline rendering, so a model renders like ink and flat colour.
+- **S** Turntable export: a GIF or MP4 of the model spinning.
+- **M** Layers for 3D painting, with opacity and blend modes like the 2D layers.
+
+### Creation
+| Tool | What it does | Builds on | Effort |
+|---|---|---|---|
+| Extrude and lathe | Turn a drawn closed shape into a 3D object by extruding it, or a profile into one by spinning it | `MeshBuilder.kt` | M |
+| 3D scene blocks | Place several primitives together (boxes, cylinders) to block out a room or a prop as a perspective reference | Built-in shapes, renderer | M–L |
+| Full-body mannequin | A posable 3D figure, extending the hand and head | `Hand3d.kt`, `Head3d.kt` | L |
+| Projection painting | Paint on the screen and project it onto the model, for decals and labels | Picking, paint dabs | M |
+
+## 7. Game logic
+
+### Improvement
+- **S** Play mode: show colliders, hitboxes and object names as a debug overlay while playing.
+- **S** Rules: show which rule last fired on each object, to explain behaviour.
+- **S** Physics: a step-by-step mode (advance one frame at a time while paused).
+
+### Development
+- **M** Tilemaps: paint a level from tiles cut from a drawing, with collision per tile.
+- **M** Prefabs: reuse an object with its rules and properties, with changes to the original reaching every copy.
+- **M** Sound actions: play a sound or an audio note from a rule.
+- **M** Scenes: several levels with transitions between them.
+
+### Creation
+| Tool | What it does | Builds on | Effort |
+|---|---|---|---|
+| Collider tool | Draw boxes, circles and polygons as colliders directly on an object | Hitbox from a drawn line | S |
+| Path follower editor | Edit an object's path with speed per segment and pauses | Follow-path behaviour | M |
+| Particle emitter | An object that emits drawn particles with speed, spread and lifetime | Objects, physics | M |
+
+---
+
 ## Suggested order
 
 1. Eyedropper fix, fill preview, shape live dimensions — small fixes to tools used constantly.
 2. Pressure curve, lasso fill, colour replace brush, palette from image — small to medium and self-contained.
 3. Width tool, blend tool, magic wand, new shape kinds.
 4. Curvature and offset paths, clone/heal, hatching.
+
+Part B:
+1. Play range, audio scrubbing, IK two-bone solver, on-canvas joint limits, 3D framing and views — small, everyday fixes.
+2. Per-layer timing, property keys, camera, pose library, rig mirroring.
+3. 3D model as a drawing reference, extrude and lathe, auto-rig.
+4. Retargeting, full-body mannequin, tilemaps and scenes.
 
 Before category 3, split the per-tool handling out of `DrawingCanvas.kt` (about 2,200 lines) and `CanvasState.kt` (about 6,300 lines), per CLAUDE.md §4.5: every new tool currently touches the same few large `when` blocks.
