@@ -87,6 +87,15 @@ class RigEditor(private val host: Host) {
      */
     fun posedStrokes(): List<Stroke> {
         if (rig.slots.isEmpty()) return emptyList()
+        // The scene is drawn once per tile and per frame of a drag: pose once per state.
+        val key = listOf(rig, setupMode, animationId, host.currentFrame)
+        posedCache?.let { (k, strokes) -> if (k == key) return strokes }
+        return computePosedStrokes().also { posedCache = key to it }
+    }
+
+    private var posedCache: Pair<List<Any?>, List<Stroke>>? = null
+
+    private fun computePosedStrokes(): List<Stroke> {
         val pose = pose()
         val setup = rig.setupPose()
         val byId = rig.attachments.associateBy { it.id }
